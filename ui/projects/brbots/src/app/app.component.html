@@ -1,0 +1,29 @@
+<div class="container" [class.is-mobile]="mobileQuery.matches">
+  @if (mobileQuery.matches) {
+    <mat-toolbar class="toolbar">
+      @if (mobileQuery.matches) {}
+      <button mat-icon-button (click)="open = true"><mat-icon>menu</mat-icon></button>
+      <h1 class="app-name">בונים מחדש / בוטים</h1>
+    </mat-toolbar>  
+  }
+
+  <mat-sidenav-container class="sidenav-container">
+    <mat-sidenav #snav [mode]="mobileQuery.matches ? 'over' : 'side'"
+                [fixedInViewport]="mobileQuery.matches"
+                [opened]="open_" 
+                [position]="'end'"
+    >
+      <mat-nav-list>
+        @for (nav of botList; track nav) {
+          <a mat-list-item [routerLink]='"."' [fragment]='nav.slug' [activated]='nav.slug === selected.slug'>{{nav.title}}</a>
+        }
+      </mat-nav-list>
+    </mat-sidenav>
+
+    <mat-sidenav-content>
+      <iframe [src]='selectedUrl' width="100%" height="100%" frameborder="0">
+
+      </iframe>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</div>
