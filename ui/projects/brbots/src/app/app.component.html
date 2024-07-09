@@ -15,7 +15,7 @@
     >
       <mat-nav-list>
         @for (nav of botList; track nav) {
-          <a mat-list-item [routerLink]='"."' [fragment]='nav.slug' [activated]='nav.slug === selected.slug'>{{nav.title}}</a>
+          <a mat-list-item [routerLink]='"."' [fragment]='nav.slug' [activated]='nav.slug === selected?.slug'>{{nav.title}}</a>
         }
       </mat-nav-list>
     </mat-sidenav>

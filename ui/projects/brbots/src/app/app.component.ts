@@ -57,7 +57,7 @@ export class AppComponent {
         if (this.mobileQuery.matches) {
           this.open = false;
         }
-        this.selectedUrl = sanitizer.bypassSecurityTrustResourceUrl(this.selected.url);
+        this.selectedUrl = this.selected ? sanitizer.bypassSecurityTrustResourceUrl(this.selected.url) : null;
       }
     });
   }
