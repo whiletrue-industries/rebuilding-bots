@@ -26,7 +26,7 @@ jobs:
           node-version: '20'
       - name: requirements
         run: |
-          npm install
+          cd ui && npm install
       - name: git identity
         run: |
           git config user.email "adam.kariv@gmail.com"
