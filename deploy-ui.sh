@@ -10,7 +10,7 @@ cp CNAME dist/brbots/ || true && \
 git add dist/brbots && \
 git commit -m dist) && \
 (git branch -D gh-pages || true) && \
-git subtree split --prefix ui/dist/brbots -b gh-pages && \
+git subtree split --prefix ui/dist/brbots/browser -b gh-pages && \
 git push -f origin gh-pages:gh-pages && \
 git checkout main && \
 git branch -D gh-pages && \
