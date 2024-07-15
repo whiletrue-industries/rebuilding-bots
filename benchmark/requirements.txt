@@ -1,0 +1,6 @@
+dataflows
+dataflows-airtable
+python-dotenv
+openai
+pyyaml
+requests
