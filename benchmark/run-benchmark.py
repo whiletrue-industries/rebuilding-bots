@@ -74,11 +74,14 @@ def get_budget_prompt(config, row):
     elif row.get('sql'):
         sql = row['sql']
         sql = codecs.encode(codecs.encode(sql, 'utf-8'), 'base64').decode('ascii').replace('\n', '')
-        resp = requests.get('https://next.obudget.org/api/query', params={'query': sql}).json()
-        if 'rows' in resp:
-            rows = resp['rows']
-        else:
-            return 'ERROR: ' + str(resp)
+        try:
+            resp = requests.get('https://next.obudget.org/api/query', params={'query': sql}).json()
+            if 'rows' in resp:
+                rows = resp['rows']
+            else:
+                return 'ERROR: ' + str(resp)
+        except Exception as e:
+            return 'ERROR: ' + str(e)
         print('Got {} rows for {}'.format(len(rows), row['sql']))
         # assert len(rows) > 0, 'No rows returned from query {}'.format(row['sql'])
         context['data'] = rows
