@@ -31,6 +31,12 @@ def get_response_from_openai():
         for row in rows:
             question = row['question']
             prompt = row['prompt']
+            if prompt.startswith('ERROR: '):
+                row['success'] = False
+                row['score'] = 0
+                row['observation'] = prompt
+                yield row
+                continue
             completion = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
@@ -68,7 +74,11 @@ def get_budget_prompt(config, row):
     elif row.get('sql'):
         sql = row['sql']
         sql = codecs.encode(codecs.encode(sql, 'utf-8'), 'base64').decode('ascii').replace('\n', '')
-        rows = requests.get('https://next.obudget.org/api/query', params={'query': sql}).json()['rows']
+        resp = requests.get('https://next.obudget.org/api/query', params={'query': sql}).json()
+        if rows in resp:
+            rows = ['rows']
+        else:
+            return 'ERROR: ' + str(resp)
         print('Got {} rows for {}'.format(len(rows), row['sql']))
         # assert len(rows) > 0, 'No rows returned from query {}'.format(row['sql'])
         context['data'] = rows
@@ -115,7 +125,7 @@ def run_benchmark(table, config, row_filter, prompter):
         get_response_from_openai(),
         DF.select_fields([DFA.AIRTABLE_ID_FIELD, 'answer', 'score', 'success', 'observation']),
         DF.rename_fields({'answer': 'actual answer'}),
-        DF.set_type('success', type='string', transform=lambda v: 'Passed' if v else 'Failed'),
+        DF.set_type('success', type='string', transform=lambda v: 'Error' if v is None else ('Passed' if v else 'Failed')),
         DF.set_type('score', type='integer', transform=lambda v: int(v)),
         DF.printer(),
         DFA.dump_to_airtable({
