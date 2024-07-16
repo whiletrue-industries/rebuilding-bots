@@ -56,7 +56,7 @@ def get_response_from_openai():
                 response = {
                     'success': False,
                     'score': 0,
-                    'observation': 'ERROR: ' + str(e),
+                    'observation': f'ERROR: Bad response: {response}\n\n{e}'
                 }
             row.update(response)
             yield row
