@@ -75,8 +75,8 @@ def get_budget_prompt(config, row):
         sql = row['sql']
         sql = codecs.encode(codecs.encode(sql, 'utf-8'), 'base64').decode('ascii').replace('\n', '')
         resp = requests.get('https://next.obudget.org/api/query', params={'query': sql}).json()
-        if rows in resp:
-            rows = ['rows']
+        if 'rows' in resp:
+            rows = resp['rows']
         else:
             return 'ERROR: ' + str(resp)
         print('Got {} rows for {}'.format(len(rows), row['sql']))
