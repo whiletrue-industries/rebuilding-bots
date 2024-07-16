@@ -86,9 +86,9 @@ def get_budget_prompt(config, row):
             if 'rows' in resp:
                 rows = resp['rows']
             else:
-                return 'ERROR: ' + str(resp)
+                return f'ERROR: SQL query failed: {resp}'
         except Exception as e:
-            return 'ERROR: ' + str(e)
+            return f'ERROR: SQL query failed2 {e}'
         print('Got {} rows for {}'.format(len(rows), row['sql']))
         # assert len(rows) > 0, 'No rows returned from query {}'.format(row['sql'])
         context['data'] = rows
