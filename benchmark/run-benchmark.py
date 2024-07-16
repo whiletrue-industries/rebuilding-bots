@@ -41,7 +41,8 @@ def get_response_from_openai():
                 model="gpt-4o",
                 messages=[
                     {'role': 'assistant', 'content': prompt}
-                ]
+                ],
+                temperature=0
             )
             response = completion.choices[0].message.content
             if '{' in response[:15]:
