@@ -118,6 +118,7 @@ def run_benchmark(table, config, row_filter, prompter):
     DF.Flow(
         DFA.load_from_airtable('appiOFTgaF4f0ls0j', table, 'Grid view', apikey=AIRTABLE_API_KEY),
         DF.update_resource(-1, name='benchmark'),
+        DF.filter_rows(lambda row: row.get('success') != 'Passed'),
         DF.filter_rows(row_filter),
         DF.add_field('answer', 'string', lambda row: fetch_answer(config, row)),
         DF.checkpoint('answers'),
