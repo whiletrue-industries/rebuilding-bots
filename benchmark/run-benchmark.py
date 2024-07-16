@@ -50,7 +50,14 @@ def get_response_from_openai():
                 response = response.rsplit('}', 1)[0] + '}'
             with open(f'logs/{question}.response.json', 'w') as f:
                 f.write(response)
-            response = json.loads(response)
+            try:
+                response = json.loads(response)
+            except Exception as e:
+                response = {
+                    'success': False,
+                    'score': 0,
+                    'observation': 'ERROR: ' + str(e),
+                }
             row.update(response)
             yield row
 
