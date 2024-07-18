@@ -34,7 +34,7 @@ export class AppComponent {
     {
       slug: 'knesset-bylaws',
       title: 'תקנון הכנסת',
-      url: 'https://udify.app/chatbot/V7kD8BO12FERMLT9'
+      url: 'https://udify.app/chat/V7kD8BO12FERMLT9'
     }
   ]
   open_: boolean;
