@@ -99,6 +99,22 @@ def get_budget_prompt(config, row):
         f.write(prompt)
     return prompt
 
+
+def get_takanon_prompt(config, row):
+    prompt = config['evaluate takanon question prompt']
+    instructions = [
+        ('question', row['question']),
+        ('expected answer', row['reference answer']),
+        ('expected references', row['references']),
+        ('expected citations', row['citations']),
+        ('actual answer', row['answer']),
+    ]
+    for k, v in instructions:
+        prompt = prompt + yaml.dump({k: v}, allow_unicode=True) + '\n'
+    with open(f'logs/{row['question']}.prompt.txt', 'w') as f:
+        f.write(prompt)
+    return prompt
+
 def fetch_answer(config, row):
     question = row['question']
     api_key = config['dify_api_key']
@@ -131,15 +147,15 @@ def run_benchmark(table, config, row_filter, prompter):
         DF.update_resource(-1, name='benchmark'),
         DF.filter_rows(lambda row: row.get('success') != 'Passed'),
         DF.filter_rows(row_filter),
+        DF.printer(),
         DF.add_field('answer', 'string', lambda row: fetch_answer(config, row)),
-        DF.checkpoint('answers'),
+        DF.checkpoint(f'{table}-answers'),
         DF.add_field('prompt', 'string', lambda row: prompter(config, row)),
         get_response_from_openai(),
         DF.select_fields([DFA.AIRTABLE_ID_FIELD, 'answer', 'score', 'success', 'observation']),
         DF.rename_fields({'answer': 'actual answer'}),
         DF.set_type('success', type='string', transform=lambda v: 'Error' if v is None else ('Passed' if v else 'Failed')),
         DF.set_type('score', type='integer', transform=lambda v: int(v)),
-        DF.printer(),
         DFA.dump_to_airtable({
             ('appiOFTgaF4f0ls0j', table): {
                 'resource-name': 'benchmark',
@@ -149,9 +165,15 @@ def run_benchmark(table, config, row_filter, prompter):
 
 if __name__ == '__main__':
     config = get_config()
+    # run_benchmark(
+    #     'BUDGET QA',
+    #     dict(dify_api_key=os.environ['DIFY_API_KEY_BUDGET'], **config),
+    #     lambda row: row.get('question') and (row.get('possible answer') or row.get('sql')),
+    #     get_budget_prompt,
+    # )
     run_benchmark(
-        'BUDGET QA',
-        dict(dify_api_key=os.environ['DIFY_API_KEY_BUDGET'], **config),
-        lambda row: row.get('question') and (row.get('possible answer') or row.get('sql')),
-        get_budget_prompt,
+        'TAKANON QA',
+        dict(dify_api_key=os.environ['DIFY_API_KEY_TAKANON'], **config),
+        lambda row: row.get('reference answer') and row.get('references') and row.get('citations'),
+        get_takanon_prompt,
     )
