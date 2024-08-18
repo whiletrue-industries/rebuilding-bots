@@ -81,18 +81,21 @@ def get_budget_prompt(config, row):
         context['reference_answer'] = row['reference answer']
     elif row.get('sql'):
         sql = row['sql']
-        sql = codecs.encode(codecs.encode(sql, 'utf-8'), 'base64').decode('ascii').replace('\n', '')
-        try:
-            resp = requests.get('https://next.obudget.org/api/query', params={'query': sql}).json()
-            if 'rows' in resp:
-                rows = resp['rows']
-            else:
-                return f'ERROR: SQL query failed: {resp}'
-        except Exception as e:
-            return f'ERROR: SQL query failed2 {e}'
-        print('Got {} rows for {}'.format(len(rows), row['sql']))
-        # assert len(rows) > 0, 'No rows returned from query {}'.format(row['sql'])
-        context['data'] = rows
+        if sql.lower().strip() == 'empty':
+            context['data'] = 'relevant data not available, response should convey this fact'
+        else:
+            sql = codecs.encode(codecs.encode(sql, 'utf-8'), 'base64').decode('ascii').replace('\n', '')
+            try:
+                resp = requests.get('https://next.obudget.org/api/query', params={'query': sql}).json()
+                if 'rows' in resp:
+                    rows = resp['rows']
+                else:
+                    return f'ERROR: SQL query failed: {resp}'
+            except Exception as e:
+                return f'ERROR: SQL query failed2 {e}'
+            print('Got {} rows for {}'.format(len(rows), row['sql']))
+            # assert len(rows) > 0, 'No rows returned from query {}'.format(row['sql'])
+            context['data'] = rows
     for k, v in instructions:
         prompt = prompt + yaml.dump({k: v}, allow_unicode=True) + '\n'
     with open(f'logs/{row['question']}.prompt.txt', 'w') as f:
