@@ -168,12 +168,12 @@ def run_benchmark(table, config, row_filter, prompter):
 
 if __name__ == '__main__':
     config = get_config()
-    # run_benchmark(
-    #     'BUDGET QA',
-    #     dict(dify_api_key=os.environ['DIFY_API_KEY_BUDGET'], **config),
-    #     lambda row: row.get('question') and (row.get('possible answer') or row.get('sql')),
-    #     get_budget_prompt,
-    # )
+    run_benchmark(
+        'BUDGET QA',
+        dict(dify_api_key=os.environ['DIFY_API_KEY_BUDGET'], **config),
+        lambda row: row.get('question') and (row.get('possible answer') or row.get('sql')),
+        get_budget_prompt,
+    )
     run_benchmark(
         'TAKANON QA',
         dict(dify_api_key=os.environ['DIFY_API_KEY_TAKANON'], **config),
