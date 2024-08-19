@@ -1,0 +1,3 @@
+name: בוט נתונים תקציביים
+instructions: agent.txt
+tools: budgetkey.json

@@ -1,0 +1,4 @@
+name: בוט תקנון הכנסת
+instructions: agent.txt
+context: 
+  - extraction/*.md
