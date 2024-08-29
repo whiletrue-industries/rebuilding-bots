@@ -4,13 +4,16 @@ import dotenv
 import requests
 import yaml
 import json
+from pathlib import Path
 from openai import OpenAI
+import requests_openapi
 
 dotenv.load_dotenv('benchmark/.env')
 
 import dataflows as DF
 import dataflows_airtable as DFA
 
+TEMP = 0.00000001
 AIRTABLE_API_KEY = os.environ['AIRTABLE_API_KEY']
 
 def get_config():
@@ -42,7 +45,7 @@ def get_response_from_openai():
                 messages=[
                     {'role': 'assistant', 'content': prompt}
                 ],
-                temperature=0
+                temperature=TEMP
             )
             response = completion.choices[0].message.content
             if '{' in response[:15]:
@@ -77,12 +80,12 @@ def get_budget_prompt(config, row):
         ('answer', row['answer']),
         ('context', context),
     ]
-    if row.get('possible answer'):
+    if row.get('reference answer'):
         context['reference_answer'] = row['reference answer']
     elif row.get('sql'):
         sql = row['sql']
         if sql.lower().strip() == 'empty':
-            context['data'] = 'relevant data not available, response should convey this fact'
+            context['reference_answer'] = 'relevant data not available, the agent''s response should convey that an answer is not available'
         else:
             sql = codecs.encode(codecs.encode(sql, 'utf-8'), 'base64').decode('ascii').replace('\n', '')
             try:
@@ -118,44 +121,151 @@ def get_takanon_prompt(config, row):
         f.write(prompt)
     return prompt
 
-def fetch_answer(config, row):
-    question = row['question']
-    api_key = config['dify_api_key']
-    request = dict(
-        inputs=dict(),
-        query=question,
-        response_mode='streaming',
-        conversation_id='',
-        user='benchmark',        
-    )
-    response = requests.post('https://api.dify.ai/v1/chat-messages', json=request, headers={'Authorization': 'Bearer ' + api_key})
-    answer = ''
-    if response.status_code == 200:
-        with open(f'logs/{question}.ndjson', 'w') as f:
-            for line in response.iter_lines():
-                if line and line.startswith(b'data: '):
-                    line = line.decode('utf-8')[6:]
-                    event = json.loads(line)
-                    if event.get('event') == 'agent_message':
-                        answer += event['answer']
-                    else:
-                        json.dump(event, f, ensure_ascii=False)
-                        f.write('\n')
-    return answer
+def get_openapi_output(openapi_spec, tool_name, parameters):
+    client = requests_openapi.Client(req_opts={"timeout": 30})
+    client.load_spec_from_file(Path('specs/openapi') / openapi_spec)
+    resp = getattr(client, tool_name)(**parameters)
+    print('RESP URL', resp.url)
+    # print('OUTPUT', resp.text[:200])
+    if resp.status_code != 200:
+        print(f'ERROR: {resp.status_code} {resp.text}')
+        return {'error': resp.text}
+    try:
+        return resp.json()
+    except Exception as e:
+        print(f'ERROR: {e} {resp.text}')
+        return {'error': resp.text}
 
-def run_benchmark(table, config, row_filter, prompter):
+def get_dataset_info_cache(arguments, output):
+    dataset = arguments['dataset']
+    path = Path('specs') / 'budgetkey' / 'dataset-info-cache' / f'{dataset}.yaml'
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'w') as f:
+            yaml.dump(output, f, allow_unicode=True, default_style='|')
+    else:
+        with open(path) as f:
+            output = yaml.safe_load(f)
+            print('USED CACHED', dataset)
+    return output
+
+def fetch_single_answer(row):
+    question = row['question']
+    assistant_id, openapi_spec = row['assistant_id'], row['openapi_spec']
+    print('QUESTION:', question)
+    api_key = os.environ['OPENAI_API_KEY']
+    # Create openai client and get completion for prompt with the 'gpt4-o' model:
+    client = OpenAI(api_key=api_key)
+    
+    for retry in range(3):
+        try:
+            notes = []
+            thread = client.beta.threads.create()
+            message = client.beta.threads.messages.create(
+                thread_id=thread.id,
+                role='user',
+                content=question
+            )
+            run = client.beta.threads.runs.create_and_poll(
+                thread_id=thread.id,
+                assistant_id=assistant_id,
+                temperature=TEMP
+            )
+            assert run.status in ['completed', 'requires_action']
+            while run.status != 'completed': 
+                print('RUN', run.id, run.status)
+                tool_outputs = []
+                notes.append(f'RUN {run.status}')
+                for tool in run.required_action.submit_tool_outputs.tool_calls:
+                    print('TOOL', tool.id, tool.function.name, tool.function.arguments)
+                    notes.append(f'{tool.function.name}({tool.function.arguments})')
+                    arguments = json.loads(tool.function.arguments)
+                    if tool.function.name == 'DatasetDBQuery':
+                        arguments['page_size'] = 30
+                    output = get_openapi_output(openapi_spec, tool.function.name, arguments)
+                    if tool.function.name == 'DatasetInfo':
+                        output = get_dataset_info_cache(arguments, output)
+                    tool_outputs.append(dict(
+                        tool_call_id=tool.id,
+                        output=json.dumps(output, ensure_ascii=False, indent=2)
+                    ))
+                run = client.beta.threads.runs.submit_tool_outputs_and_poll(
+                    thread_id=thread.id,
+                    run_id=run.id,
+                    tool_outputs=tool_outputs
+                )
+                assert run.status in ['completed', 'requires_action'], f'RUN STATUS: {run.status}'
+            messages = client.beta.threads.messages.list(
+                thread_id=thread.id,
+                order='asc'
+            )
+            answer = []
+            for message in messages:
+                if message.role == 'assistant':
+                    for content in message.content:
+                        if content.type == 'text':
+                            answer.append(content.text.value)
+            row['answer'] = '\n'.join(answer)
+            row['notes'] = '\n'.join(notes)
+            return row
+        except Exception as e:
+            print('ERROR', f'retrying... {retry+1}/3', str(e))
+            continue
+
+def fetch_answer(agent_name, openapi_spec):
+
+    api_key = os.environ['OPENAI_API_KEY']
+    # Create openai client and get completion for prompt with the 'gpt4-o' model:
+    client = OpenAI(api_key=api_key)
+    all_assistants = client.beta.assistants.list()
+    assistant_id = [a.id for a in all_assistants if a.name == agent_name][0]
+
+    return DF.Flow(
+        DF.add_field('answer', 'string'),
+        DF.add_field('notes', 'string'),
+        DF.add_field('assistant_id', 'string', assistant_id),
+        DF.add_field('openapi_spec', 'string', openapi_spec),
+        DF.parallelize(fetch_single_answer),
+        DF.delete_fields(['assistant_id', 'openapi_spec'])
+    )
+# def fetch_answer(config, row):
+#     question = row['question']
+#     api_key = config['dify_api_key']
+#     request = dict(
+#         inputs=dict(),
+#         query=question,
+#         response_mode='streaming',
+#         conversation_id='',
+#         user='benchmark',        
+#     )
+#     response = requests.post('https://api.dify.ai/v1/chat-messages', json=request, headers={'Authorization': 'Bearer ' + api_key})
+#     answer = ''
+#     if response.status_code == 200:
+#         with open(f'logs/{question}.ndjson', 'w') as f:
+#             for line in response.iter_lines():
+#                 if line and line.startswith(b'data: '):
+#                     line = line.decode('utf-8')[6:]
+#                     event = json.loads(line)
+#                     if event.get('event') == 'agent_message':
+#                         answer += event['answer']
+#                     else:
+#                         json.dump(event, f, ensure_ascii=False)
+#                         f.write('\n')
+#     return answer
+
+def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter):
     print('Running benchmark...')
     DF.Flow(
         DFA.load_from_airtable('appiOFTgaF4f0ls0j', table, 'Grid view', apikey=AIRTABLE_API_KEY),
         DF.update_resource(-1, name='benchmark'),
-        DF.filter_rows(lambda row: row.get('success') != 'Passed'),
+        DF.filter_rows(lambda row: row.get('success') not in ('Passed', 'Suspended')),
         DF.filter_rows(row_filter),
         DF.printer(),
-        DF.add_field('answer', 'string', lambda row: fetch_answer(config, row)),
+        fetch_answer(agent_name, openapi_spec),        
         DF.checkpoint(f'{table}-answers'),
         DF.add_field('prompt', 'string', lambda row: prompter(config, row)),
         get_response_from_openai(),
-        DF.select_fields([DFA.AIRTABLE_ID_FIELD, 'answer', 'score', 'success', 'observation']),
+        DF.select_fields([DFA.AIRTABLE_ID_FIELD, 'answer', 'notes', 'score', 'success', 'observation']),
         DF.rename_fields({'answer': 'actual answer'}),
         DF.set_type('success', type='string', transform=lambda v: 'Error' if v is None else ('Passed' if v else 'Failed')),
         DF.set_type('score', type='integer', transform=lambda v: int(v)),
@@ -164,19 +274,21 @@ def run_benchmark(table, config, row_filter, prompter):
                 'resource-name': 'benchmark',
             }
         }, apikey=AIRTABLE_API_KEY),
+        DF.printer(),
     ).process()
 
 if __name__ == '__main__':
     config = get_config()
     run_benchmark(
-        'BUDGET QA',
+        'BUDGET QA', 'בוט נתונים תקציביים', 'budgetkey.yaml',
         dict(dify_api_key=os.environ['DIFY_API_KEY_BUDGET'], **config),
-        lambda row: row.get('question') and (row.get('possible answer') or row.get('sql')),
+        lambda row: row.get('question') and (row.get('reference answer') or row.get('sql')),
         get_budget_prompt,
     )
     run_benchmark(
-        'TAKANON QA',
+        'TAKANON QA', 'בוט תקנון הכנסת', 'takanon.yaml',
         dict(dify_api_key=os.environ['DIFY_API_KEY_TAKANON'], **config),
         lambda row: row.get('reference answer') and row.get('references') and row.get('citations'),
         get_takanon_prompt,
     )
+    # print(get_openapi_output('budgetkey.yaml', 'DatasetInfo', {'dataset': 'supports_data'}).json())

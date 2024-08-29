@@ -1,3 +1,6 @@
 name: בוט נתונים תקציביים
+description: עונה על שאלות בנושאי תקציב המדינה, הכנסות המדינה, התקשרויות ותמיכות תקציביות
 instructions: agent.txt
-tools: budgetkey.json
+tools:
+  - code-interpreter
+  - budgetkey

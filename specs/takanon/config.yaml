@@ -1,4 +1,8 @@
 name: בוט תקנון הכנסת
+description: עונה על שאלות מתוך תקנון הכנסת
 instructions: agent.txt
 context: 
-  - extraction/*.md
+  - name: Knesset Bylaws (תקנון הכנסת)
+    files: extraction/*.md
+# tools:
+#  - takanon

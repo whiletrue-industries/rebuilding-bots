@@ -1,0 +1,44 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Semantic search",
+        "description": "Searches various knowledge bases",
+        "version": "v1.0.0"
+    },
+    "servers": [
+        {
+            "url": "https://api.stack-ai.com"
+        }
+    ],
+    "paths": {
+        "/inference/v0/run/da34b45c-ab29-424d-9483-c1a893c4f356/668e525e52ade360a2df5c2f": {
+            "post": {
+                "description": "חיפוש סמנטי בתקנון הכנסת",
+                "operationId": "search_knesset_bylaws",
+                "requestBody": {
+                    "description": "The semantic search query",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "in-0"
+                                ],
+                                "properties": {
+                                    "in-0": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "deprecated": false
+            }
+        }
+    },
+    "components": {
+        "schemas": {}
+    }
+}
