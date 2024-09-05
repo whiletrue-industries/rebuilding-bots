@@ -67,7 +67,13 @@ def update_assistant(config, config_dir):
                     vector_store_id = vs.id
                     break
             if vector_store_id is None:
-                files = config_dir.glob(context_['files'])
+                files = list(config_dir.glob(context_['files']))
+                existing_files = client.files.list()
+                # delete existing files:
+                for f in files:
+                    for ef in existing_files:
+                        if ef.filename == f.name:
+                            client.files.delete(ef.id)
                 file_streams = [f.open('rb') for f in files]
                 vector_store = client.beta.vector_stores.create(name=name)
                 file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
