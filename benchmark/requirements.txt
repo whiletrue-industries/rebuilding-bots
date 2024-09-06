@@ -4,3 +4,4 @@ python-dotenv
 openai
 pyyaml
 requests
+requests-openapi
