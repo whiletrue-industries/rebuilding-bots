@@ -21,10 +21,11 @@ def sync(environment, bots):
 @click.argument('environment', type=click.Choice(['production', 'staging']))
 @click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
 @click.argument('local', type=click.BOOL)
-def benchmarks(environment, bots, local):
+@click.argument('reuse-answers', type=click.BOOL, default=False)
+def benchmarks(environment, bots, local, reuse_answers):
     """Run benchmarks on bots."""
-    click.echo(f"Running benchmarks on {bots} in {environment} (save results locally: {local})")
-    run_benchmarks(environment, bots, local)
+    click.echo(f"Running benchmarks on {bots} in {environment} (save results locally: {local}, reuse answers: {reuse_answers})")
+    run_benchmarks(environment, bots, local, reuse_answers)
 
 def main():
     cli()

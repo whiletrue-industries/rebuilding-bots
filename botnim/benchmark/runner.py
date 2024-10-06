@@ -229,7 +229,7 @@ def fetch_answer(agent_name, openapi_spec):
         DF.delete_fields(['assistant_id', 'openapi_spec'])
     )
 
-def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter, local):
+def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter, local, reuse_answers):
     print(f'Running benchmark for {agent_name} against {table}...')
     DF.Flow(
         DFA.load_from_airtable('appiOFTgaF4f0ls0j', table, 'Grid view', apikey=AIRTABLE_API_KEY),
@@ -238,7 +238,7 @@ def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter,
         DF.filter_rows(row_filter),
         DF.printer(),
         fetch_answer(agent_name, openapi_spec),        
-        DF.checkpoint(f'{table}-answers'),
+        DF.checkpoint(f'{table}-answers') if reuse_answers else None,
         DF.add_field('prompt', 'string', lambda row: prompter(config, row)),
         get_response_from_openai(),
         DF.select_fields([DFA.AIRTABLE_ID_FIELD, 'answer', 'notes', 'score', 'success', 'observation']),
@@ -255,7 +255,7 @@ def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter,
         DF.printer(),
     ).process()
 
-def run_benchmarks(environment, bots, local):
+def run_benchmarks(environment, bots, local, reuse_answers):
     config = get_config()
     suffix = '' if environment == 'production' else ' - פיתוח'
     if bots in ('all', 'budgetkey'):
@@ -263,13 +263,13 @@ def run_benchmarks(environment, bots, local):
             'BUDGET QA', 'בוט נתונים תקציביים' + suffix, 'budgetkey.yaml', config,
             lambda row: row.get('question') and (row.get('reference answer') or row.get('sql')),
             get_budget_prompt,
-            local,
+            local, reuse_answers,
         )
     if bots in ('all', 'takanon'):
         run_benchmark(
             'TAKANON QA', 'בוט תקנון הכנסת' + suffix, 'takanon.yaml', config,
             lambda row: row.get('reference answer') and row.get('references') and row.get('citations'),
             get_takanon_prompt,
-            local,
+            local, reuse_answers,
         )
     # print(get_openapi_output('budgetkey.yaml', 'DatasetInfo', {'dataset': 'supports_data'}).json())
