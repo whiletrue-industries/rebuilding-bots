@@ -228,33 +228,9 @@ def fetch_answer(agent_name, openapi_spec):
         DF.parallelize(fetch_single_answer),
         DF.delete_fields(['assistant_id', 'openapi_spec'])
     )
-# def fetch_answer(config, row):
-#     question = row['question']
-#     api_key = config['dify_api_key']
-#     request = dict(
-#         inputs=dict(),
-#         query=question,
-#         response_mode='streaming',
-#         conversation_id='',
-#         user='benchmark',        
-#     )
-#     response = requests.post('https://api.dify.ai/v1/chat-messages', json=request, headers={'Authorization': 'Bearer ' + api_key})
-#     answer = ''
-#     if response.status_code == 200:
-#         with open(f'logs/{question}.ndjson', 'w') as f:
-#             for line in response.iter_lines():
-#                 if line and line.startswith(b'data: '):
-#                     line = line.decode('utf-8')[6:]
-#                     event = json.loads(line)
-#                     if event.get('event') == 'agent_message':
-#                         answer += event['answer']
-#                     else:
-#                         json.dump(event, f, ensure_ascii=False)
-#                         f.write('\n')
-#     return answer
 
-def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter):
-    print('Running benchmark...')
+def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter, local):
+    print(f'Running benchmark for {agent_name} against {table}...')
     DF.Flow(
         DFA.load_from_airtable('appiOFTgaF4f0ls0j', table, 'Grid view', apikey=AIRTABLE_API_KEY),
         DF.update_resource(-1, name='benchmark'),
@@ -269,6 +245,8 @@ def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter)
         DF.rename_fields({'answer': 'actual answer'}),
         DF.set_type('success', type='string', transform=lambda v: 'Error' if v is None else ('Passed' if v else 'Failed')),
         DF.set_type('score', type='integer', transform=lambda v: int(v)),
+        DF.dump_to_path('out/benchmarks/' + table)
+        if local else
         DFA.dump_to_airtable({
             ('appiOFTgaF4f0ls0j', table): {
                 'resource-name': 'benchmark',
@@ -277,18 +255,21 @@ def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter)
         DF.printer(),
     ).process()
 
-if __name__ == '__main__':
+def run_benchmarks(environment, bots, local):
     config = get_config()
-    run_benchmark(
-        'BUDGET QA', 'בוט נתונים תקציביים', 'budgetkey.yaml',
-        dict(dify_api_key=os.environ['DIFY_API_KEY_BUDGET'], **config),
-        lambda row: row.get('question') and (row.get('reference answer') or row.get('sql')),
-        get_budget_prompt,
-    )
-    run_benchmark(
-        'TAKANON QA', 'בוט תקנון הכנסת', 'takanon.yaml',
-        dict(dify_api_key=os.environ['DIFY_API_KEY_TAKANON'], **config),
-        lambda row: row.get('reference answer') and row.get('references') and row.get('citations'),
-        get_takanon_prompt,
-    )
+    suffix = '' if environment == 'production' else ' - פיתוח'
+    if bots in ('all', 'budgetkey'):
+        run_benchmark(
+            'BUDGET QA', 'בוט נתונים תקציביים' + suffix, 'budgetkey.yaml', config,
+            lambda row: row.get('question') and (row.get('reference answer') or row.get('sql')),
+            get_budget_prompt,
+            local,
+        )
+    if bots in ('all', 'takanon'):
+        run_benchmark(
+            'TAKANON QA', 'בוט תקנון הכנסת' + suffix, 'takanon.yaml', config,
+            lambda row: row.get('reference answer') and row.get('references') and row.get('citations'),
+            get_takanon_prompt,
+            local,
+        )
     # print(get_openapi_output('budgetkey.yaml', 'DatasetInfo', {'dataset': 'supports_data'}).json())

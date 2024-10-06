@@ -6,11 +6,7 @@ import yaml
 
 from openai import OpenAI
 
-import dotenv
-
-SPECS = Path(__file__).parent
-
-dotenv.load_dotenv(SPECS / '.env')
+from .config import SPECS
 
 api_key = os.environ['OPENAI_API_KEY']
 # Create openai client and get completion for prompt with the 'gpt4-o' model:
@@ -53,13 +49,15 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(config, config_dir):
+def update_assistant(config, config_dir, production):
     tool_resources = None
     tools = None
     # Load context, if necessary
     if config.get('context'):
         for context_ in config['context']:
             name = context_['name']
+            if not production:
+                name += ' - פיתוח'
             vector_store = client.beta.vector_stores.list()
             vector_store_id = None
             for vs in vector_store:
@@ -90,13 +88,16 @@ def update_assistant(config, config_dir):
     # List all the assistants in the organization:
     assistants = client.beta.assistants.list()
     assistant_id = None
+    assistant_name = config['name']
+    if not production:
+        assistant_name += ' - פיתוח'
     for assistant in assistants:
-        if assistant.name == config['name']:
+        if assistant.name == assistant_name:
             assistant_id = assistant.id
             break
     print(f'Assistant ID: {assistant_id}')
     asst_params = dict(
-        name=config['name'],
+        name=assistant_name,
         description=config['description'],
         model='gpt-4o',
         instructions=config['instructions'],
@@ -132,10 +133,13 @@ def update_assistant(config, config_dir):
         # ...
 
 
-if __name__ == '__main__':
+def sync_agents(environment, bots):
+    production = environment == 'production'
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
-        with config_fn.open() as config_f:
-            config = yaml.safe_load(config_f)
-            config['instructions'] = (config_dir / config['instructions']).read_text()
-            update_assistant(config, config_dir)
+        bot_id = config_dir.name
+        if bots in ['all', bot_id]:
+            with config_fn.open() as config_f:
+                config = yaml.safe_load(config_f)
+                config['instructions'] = (config_dir / config['instructions']).read_text()
+                update_assistant(config, config_dir, production)

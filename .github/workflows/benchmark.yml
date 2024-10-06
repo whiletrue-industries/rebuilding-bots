@@ -26,12 +26,10 @@ jobs:
           python-version: '3.12'
       - name: requirements
         run: |
-          pip install -r requirements.txt
+          pip install -e .
       - name: test
         env:
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DIFY_API_KEY_BUDGET: ${{ secrets.DIFY_API_KEY_BUDGET }}
-          DIFY_API_KEY_TAKANON: ${{ secrets.DIFY_API_KEY_TAKANON }}
         run: |
-          python benchmark/run-benchmark.py
+          botnim benchmarks production all false
