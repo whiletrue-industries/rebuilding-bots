@@ -1,5 +1,5 @@
 name: בוט תקנון הכנסת
-description: עונה על שאלות מתוך תקנון הכנסת
+description: עונה על שאלות מתוך תקנון הכנסת וחוקים נלווים
 instructions: agent.txt
 context: 
   - name: Knesset Bylaws (תקנון הכנסת)
