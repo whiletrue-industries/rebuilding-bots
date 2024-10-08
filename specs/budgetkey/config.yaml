@@ -4,3 +4,7 @@ instructions: agent.txt
 tools:
   - code-interpreter
   - budgetkey
+context:
+  - name: ידע רלוונטי על התקציב
+    split: common-knowledge.md
+    max_num_results: 7

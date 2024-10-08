@@ -1,5 +1,6 @@
 import os
 import json
+import io
 from pathlib import Path
 
 import yaml
@@ -65,14 +66,21 @@ def update_assistant(config, config_dir, production):
                     vector_store_id = vs.id
                     break
             if vector_store_id is None:
-                files = list(config_dir.glob(context_['files']))
-                existing_files = client.files.list()
-                # delete existing files:
-                for f in files:
-                    for ef in existing_files:
-                        if ef.filename == f.name:
-                            client.files.delete(ef.id)
-                file_streams = [f.open('rb') for f in files]
+                if 'files' in context_:
+                    files = list(config_dir.glob(context_['files']))
+                    existing_files = client.files.list()
+                    # delete existing files:
+                    for f in files:
+                        for ef in existing_files:
+                            if ef.filename == f.name:
+                                client.files.delete(ef.id)
+                    file_streams = [f.open('rb') for f in files]
+                elif 'split' in context_:
+                    filename = config_dir / context_['split']
+                    content = filename.read_text()
+                    content = content.split('\n---\n')
+                    file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
+                    file_streams = [(f'{name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
                 vector_store = client.beta.vector_stores.create(name=name)
                 file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
                     vector_store_id=vector_store.id, files=file_streams
@@ -83,7 +91,12 @@ def update_assistant(config, config_dir, production):
                     vector_store_ids=[vector_store_id],
                 ),
             )
-        tools = [dict(type='file_search')]
+        tools = [dict(
+            type='file_search',
+            file_search=dict(
+                max_num_results=context_.get('max_num_results', 20),
+            ),
+        )]
 
     # List all the assistants in the organization:
     assistants = client.beta.assistants.list()

@@ -6,6 +6,7 @@ import yaml
 import json
 from pathlib import Path
 from openai import OpenAI
+from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 import requests_openapi
 
 dotenv.load_dotenv('benchmark/.env')
@@ -13,7 +14,7 @@ dotenv.load_dotenv('benchmark/.env')
 import dataflows as DF
 import dataflows_airtable as DFA
 
-TEMP = 0.00000001
+TEMP = 0 # 0.00000001
 AIRTABLE_API_KEY = os.environ['AIRTABLE_API_KEY']
 
 def get_config():
@@ -101,7 +102,7 @@ def get_budget_prompt(config, row):
             context['data'] = rows
     for k, v in instructions:
         prompt = prompt + yaml.dump({k: v}, allow_unicode=True) + '\n'
-    with open(f'logs/{row['question']}.prompt.txt', 'w') as f:
+    with open(f'logs/{row["question"]}.prompt.txt', 'w') as f:
         f.write(prompt)
     return prompt
 
@@ -117,7 +118,7 @@ def get_takanon_prompt(config, row):
     ]
     for k, v in instructions:
         prompt = prompt + yaml.dump({k: v}, allow_unicode=True) + '\n'
-    with open(f'logs/{row['question']}.prompt.txt', 'w') as f:
+    with open(f'logs/{row["question"]}.prompt.txt', 'w') as f:
         f.write(prompt)
     return prompt
 
@@ -160,6 +161,7 @@ def fetch_single_answer(row):
     for retry in range(3):
         try:
             notes = []
+            step_ids = set()
             thread = client.beta.threads.create()
             message = client.beta.threads.messages.create(
                 thread_id=thread.id,
@@ -169,16 +171,34 @@ def fetch_single_answer(row):
             run = client.beta.threads.runs.create_and_poll(
                 thread_id=thread.id,
                 assistant_id=assistant_id,
-                temperature=TEMP
+                temperature=TEMP,
+                top_p=1,
             )
             assert run.status in ['completed', 'requires_action']
-            while run.status != 'completed': 
-                print('RUN', run.id, run.status)
+            while True:
+                print('RUN', run.id, run.status, run.temperature, run.top_p)
                 tool_outputs = []
                 notes.append(f'RUN {run.status}')
+                for step in client.beta.threads.runs.steps.list(run.id, thread_id=thread.id, order='asc', extra_query=dict(include=['step_details.tool_calls[*].file_search.results[*].content'])):
+                    if step.id in step_ids:
+                        continue
+                    step_ids.add(step.id)
+                    if step.type == 'tool_calls':
+                        step_details: ToolCallsStepDetails = step.step_details
+                        for tool_call in step_details.tool_calls:
+                            if tool_call.type == 'function':
+                                print('TOOL', tool_call.id, tool_call.function.name, tool_call.function.arguments)
+                                notes.append(f'{tool_call.function.name}({tool_call.function.arguments})')
+                            elif tool_call.type == 'file_search':
+                                print('FILE-SEARCH', tool_call.id, tool_call.file_search)
+                                notes.append(f'file-search:')
+                                for result in tool_call.file_search['results']:
+                                    notes.append('>>\n' + result['content'][0]['text'].strip() + '\n<<')
+
+                if run.status == 'completed': 
+                    break
+
                 for tool in run.required_action.submit_tool_outputs.tool_calls:
-                    print('TOOL', tool.id, tool.function.name, tool.function.arguments)
-                    notes.append(f'{tool.function.name}({tool.function.arguments})')
                     arguments = json.loads(tool.function.arguments)
                     if tool.function.name == 'DatasetDBQuery':
                         arguments['page_size'] = 30
@@ -229,15 +249,16 @@ def fetch_answer(agent_name, openapi_spec):
         DF.delete_fields(['assistant_id', 'openapi_spec'])
     )
 
-def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter, local, reuse_answers):
-    print(f'Running benchmark for {agent_name} against {table}...')
+def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter, local, reuse_answers, only_failed, specific_test):
+    print(f'Running benchmark for {agent_name} against {table}... select={specific_test}')
     DF.Flow(
         DFA.load_from_airtable('appiOFTgaF4f0ls0j', table, 'Grid view', apikey=AIRTABLE_API_KEY),
         DF.update_resource(-1, name='benchmark'),
-        DF.filter_rows(lambda row: row.get('success') not in ('Passed', 'Suspended')),
+        DF.filter_rows(lambda row: row.get('success') not in ('Passed', 'Suspended')) if only_failed else None,
+        DF.filter_rows(lambda row: row[DFA.AIRTABLE_ID_FIELD] == specific_test) if specific_test else None,
         DF.filter_rows(row_filter),
         DF.printer(),
-        fetch_answer(agent_name, openapi_spec),        
+        fetch_answer(agent_name, openapi_spec),
         DF.checkpoint(f'{table}-answers') if reuse_answers else None,
         DF.add_field('prompt', 'string', lambda row: prompter(config, row)),
         get_response_from_openai(),
@@ -255,7 +276,9 @@ def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter,
         DF.printer(),
     ).process()
 
-def run_benchmarks(environment, bots, local, reuse_answers):
+def run_benchmarks(environment, bots, local, reuse_answers, select):
+    only_failed = select == 'failed'
+    specific_test = None if select in ('all', 'failed') else select
     config = get_config()
     suffix = '' if environment == 'production' else ' - פיתוח'
     if bots in ('all', 'budgetkey'):
@@ -263,13 +286,13 @@ def run_benchmarks(environment, bots, local, reuse_answers):
             'BUDGET QA', 'בוט נתונים תקציביים' + suffix, 'budgetkey.yaml', config,
             lambda row: row.get('question') and (row.get('reference answer') or row.get('sql')),
             get_budget_prompt,
-            local, reuse_answers,
+            local, reuse_answers, only_failed, specific_test
         )
     if bots in ('all', 'takanon'):
         run_benchmark(
             'TAKANON QA', 'בוט תקנון הכנסת' + suffix, 'takanon.yaml', config,
             lambda row: row.get('reference answer') and row.get('references') and row.get('citations'),
             get_takanon_prompt,
-            local, reuse_answers,
+            local, reuse_answers, only_failed, specific_test
         )
     # print(get_openapi_output('budgetkey.yaml', 'DatasetInfo', {'dataset': 'supports_data'}).json())
