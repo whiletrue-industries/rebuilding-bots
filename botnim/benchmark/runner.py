@@ -192,8 +192,10 @@ def fetch_single_answer(row):
                             elif tool_call.type == 'file_search':
                                 print('FILE-SEARCH', tool_call.id, tool_call.file_search)
                                 notes.append(f'file-search:')
-                                for result in tool_call.file_search['results']:
-                                    notes.append('>>\n' + result['content'][0]['text'].strip() + '\n<<')
+                                for result in(tool_call.file_search.results or []):
+                                    text = result.content[0].text if result.content else None
+                                    if text:
+                                        notes.append(f'>>\n{text}\n<<')
 
                 if run.status == 'completed': 
                     break

@@ -54,6 +54,6 @@ Or
 Running the benchmark in production is best done using the action in the GitHub Actions tab.
 
 For running locally:
-`botnim benchmark {staging/production} {budgetkey/takanon} {TRUE/FALSE whether to save results locally}`
+`botnim benchmarks {staging/production} {budgetkey/takanon} {TRUE/FALSE whether to save results locally}`
 
   
