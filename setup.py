@@ -18,7 +18,8 @@ setup(
         'requests',
         'requests-openapi',
         'click',
-        'html2text'
+        'html2text',
+        'bs4'
     ],
     author='While True Industries',
     author_email='adam@whiletrue.industries',
