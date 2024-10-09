@@ -23,10 +23,11 @@ def sync(environment, bots):
 @click.argument('local', type=click.BOOL)
 @click.option('--reuse-answers', type=click.BOOL, default=False)
 @click.option('--select', type=click.STRING, default='failed', help='failed/all/AirTable record ID')
-def benchmarks(environment, bots, local, reuse_answers, select):
+@click.option('--concurrency', type=click.INT, default=None)
+def benchmarks(environment, bots, local, reuse_answers, select, concurrency):
     """Run benchmarks on bots."""
     click.echo(f"Running benchmarks on {bots} in {environment} (save results locally: {local}, reuse answers: {reuse_answers}, select: {select})")
-    run_benchmarks(environment, bots, local, reuse_answers, select)
+    run_benchmarks(environment, bots, local, reuse_answers, select, concurrency)
 
 def main():
     cli()

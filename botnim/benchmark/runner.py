@@ -234,7 +234,7 @@ def fetch_single_answer(row):
             print('ERROR', f'retrying... {retry+1}/3', str(e))
             continue
 
-def fetch_answer(agent_name, openapi_spec):
+def fetch_answer(agent_name, openapi_spec, concurrency):
 
     api_key = os.environ['OPENAI_API_KEY']
     # Create openai client and get completion for prompt with the 'gpt4-o' model:
@@ -247,11 +247,11 @@ def fetch_answer(agent_name, openapi_spec):
         DF.add_field('notes', 'string'),
         DF.add_field('assistant_id', 'string', assistant_id),
         DF.add_field('openapi_spec', 'string', openapi_spec),
-        DF.parallelize(fetch_single_answer),
+        DF.parallelize(fetch_single_answer, num_processors=concurrency),
         DF.delete_fields(['assistant_id', 'openapi_spec'])
     )
 
-def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter, local, reuse_answers, only_failed, specific_test):
+def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter, local, reuse_answers, only_failed, specific_test, concurrency):
     print(f'Running benchmark for {agent_name} against {table}... select={specific_test}')
     DF.Flow(
         DFA.load_from_airtable('appiOFTgaF4f0ls0j', table, 'Grid view', apikey=AIRTABLE_API_KEY),
@@ -260,7 +260,7 @@ def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter,
         DF.filter_rows(lambda row: row[DFA.AIRTABLE_ID_FIELD] == specific_test) if specific_test else None,
         DF.filter_rows(row_filter),
         DF.printer(),
-        fetch_answer(agent_name, openapi_spec),
+        fetch_answer(agent_name, openapi_spec, concurrency),
         DF.checkpoint(f'{table}-answers') if reuse_answers else None,
         DF.add_field('prompt', 'string', lambda row: prompter(config, row)),
         get_response_from_openai(),
@@ -278,7 +278,7 @@ def run_benchmark(table, agent_name, openapi_spec, config, row_filter, prompter,
         DF.printer(),
     ).process()
 
-def run_benchmarks(environment, bots, local, reuse_answers, select):
+def run_benchmarks(environment, bots, local, reuse_answers, select, concurrency):
     only_failed = select == 'failed'
     specific_test = None if select in ('all', 'failed') else select
     config = get_config()
@@ -288,13 +288,13 @@ def run_benchmarks(environment, bots, local, reuse_answers, select):
             'BUDGET QA', 'בוט נתונים תקציביים' + suffix, 'budgetkey.yaml', config,
             lambda row: row.get('question') and (row.get('reference answer') or row.get('sql')),
             get_budget_prompt,
-            local, reuse_answers, only_failed, specific_test
+            local, reuse_answers, only_failed, specific_test, concurrency
         )
     if bots in ('all', 'takanon'):
         run_benchmark(
             'TAKANON QA', 'בוט תקנון הכנסת' + suffix, 'takanon.yaml', config,
             lambda row: row.get('reference answer') and row.get('references') and row.get('citations'),
             get_takanon_prompt,
-            local, reuse_answers, only_failed, specific_test
+            local, reuse_answers, only_failed, specific_test, concurrency
         )
     # print(get_openapi_output('budgetkey.yaml', 'DatasetInfo', {'dataset': 'supports_data'}).json())

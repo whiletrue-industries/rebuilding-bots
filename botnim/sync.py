@@ -82,9 +82,12 @@ def update_assistant(config, config_dir, production):
                     file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
                     file_streams = [(f'{name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
                 vector_store = client.beta.vector_stores.create(name=name)
-                file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-                    vector_store_id=vector_store.id, files=file_streams
-                )
+                while len(file_streams) > 0:
+                    file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+                        vector_store_id=vector_store.id, files=file_streams[:32]
+                    )
+                    print(f'VECTOR STORE {name} batch: uploaded {file_batch.file_counts.completed}, failed {file_batch.file_counts.failed}, remaining {len(file_streams)}')
+                    file_streams = file_streams[32:]
                 vector_store_id = vector_store.id
             tool_resources = dict(
                 file_search=dict(
