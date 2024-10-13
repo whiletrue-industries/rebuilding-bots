@@ -9,10 +9,6 @@ from openai import OpenAI
 
 from .config import SPECS
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 
 api_key = os.environ['OPENAI_API_KEY']
 # Create openai client and get completion for prompt with the 'gpt4-o' model:
