@@ -54,6 +54,7 @@ def openapi_to_tools(openapi_spec):
 def update_assistant(config, config_dir, production):
     tool_resources = None
     tools = None
+    print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
     if config.get('context'):
         for context_ in config['context']:
@@ -87,7 +88,10 @@ def update_assistant(config, config_dir, production):
                     file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
                         vector_store_id=vector_store.id, files=file_streams[:32]
                     )
-                    print(f'VECTOR STORE {name} batch: uploaded {file_batch.file_counts.completed}, failed {file_batch.file_counts.failed}, remaining {len(file_streams)}')
+                    print(f'VECTOR STORE {name} batch: uploaded {file_batch.file_counts.completed}, ' +\
+                          f'failed {file_batch.file_counts.failed}, ' + \
+                          f'pending {file_batch.file_counts.in_progress}, ' + \
+                          f'remaining {len(file_streams)}')
                     file_streams = file_streams[32:]
                 vector_store_id = vector_store.id
             tool_resources = dict(
