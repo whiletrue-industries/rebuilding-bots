@@ -2,7 +2,10 @@ name: בוט תקנון הכנסת
 description: עונה על שאלות מתוך תקנון הכנסת וחוקים נלווים
 instructions: agent.txt
 context: 
+  # - name: ידע רלוונטי על התקנון
+  #   split: common-knowledge.md
+  #   max_num_results: 7
+  #   source: ....
+  #   # TODO MAKE SURE THE FILE IS THERE
   - name: Knesset Bylaws (תקנון הכנסת) and related laws
     files: extraction/*.md
-# tools:
-#  - takanon

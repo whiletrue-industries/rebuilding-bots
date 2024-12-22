@@ -51,7 +51,7 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(config, config_dir, production):
+def update_assistant(config, config_dir, production, replace_context=False):
     tool_resources = None
     tools = None
     print(f'Updating assistant: {config["name"]}')
@@ -65,7 +65,10 @@ def update_assistant(config, config_dir, production):
             vector_store_id = None
             for vs in vector_store:
                 if vs.name == name:
-                    vector_store_id = vs.id
+                    if replace_context:
+                        client.beta.vector_stores.delete(vs.id)
+                    else:
+                        vector_store_id = vs.id
                     break
             if vector_store_id is None:
                 if 'files' in context_:
@@ -79,6 +82,9 @@ def update_assistant(config, config_dir, production):
                     file_streams = [f.open('rb') for f in files]
                 elif 'split' in context_:
                     filename = config_dir / context_['split']
+                    if 'source' in context_:
+                        # Download google spreadsheet file to md file in filename
+                        ...
                     content = filename.read_text()
                     content = content.split('\n---\n')
                     file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
@@ -154,7 +160,7 @@ def update_assistant(config, config_dir, production):
         # ...
 
 
-def sync_agents(environment, bots):
+def sync_agents(environment, bots, replace_context=False):
     production = environment == 'production'
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
@@ -163,4 +169,4 @@ def sync_agents(environment, bots):
             with config_fn.open() as config_f:
                 config = yaml.safe_load(config_f)
                 config['instructions'] = (config_dir / config['instructions']).read_text()
-                update_assistant(config, config_dir, production)
+                update_assistant(config, config_dir, production, replace_context=replace_context)
