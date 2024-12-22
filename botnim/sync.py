@@ -345,8 +345,8 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             # Create directory if needed
                             filename.parent.mkdir(parents=True, exist_ok=True)
                             
-                            # Write with explicit UTF-8 encoding and BOM
-                            with open(filename, 'w', encoding='utf-8-sig') as f:
+                            # Write with explicit windows-1255 encoding
+                            with open(filename, 'w', encoding='windows-1255') as f:
                                 f.write(markdown_content)
                             
                             # Verify the written content
