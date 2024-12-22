@@ -113,8 +113,12 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Process all columns that have content
                         data_rows = []
                         for row in rows:  # Include all rows
-                            if any(cell.strip() for cell in row):  # Check if any cell has content
-                                data_rows.extend(cell.strip() for cell in row if cell.strip())
+                            row_content = []
+                            for cell in row:
+                                if cell and cell.strip():
+                                    row_content.append(cell.strip())
+                            if row_content:
+                                data_rows.append(' '.join(row_content))
                         
                         print(f'Rows after filtering: {len(data_rows)}')
                         if data_rows:
