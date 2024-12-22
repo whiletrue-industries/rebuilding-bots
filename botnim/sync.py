@@ -150,6 +150,16 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             print('First few rows:')
                             for i, row in enumerate(rows[:3]):
                                 print(f'Row {i}: {row}')
+                                
+                            # Validate that we have actual content
+                            has_content = False
+                            for row in rows:
+                                if any(cell.strip() for cell in row):
+                                    has_content = True
+                                    break
+                            
+                            if not has_content:
+                                raise ValueError("CSV contains no non-empty cells")
                             
                             # Validate CSV structure
                             if any(not isinstance(row, list) for row in rows):
@@ -167,39 +177,28 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         data_rows = []
                         print("\nProcessing CSV rows...")
                         
-                        # Skip header row if present
-                        start_idx = 1 if len(rows) > 0 and any(cell.lower().startswith(('id', 'title', 'header')) for cell in rows[0]) else 0
-                        
-                        for i, row in enumerate(rows[start_idx:], start=start_idx):
+                        # Always process all rows - don't skip header
+                        for i, row in enumerate(rows):
                             try:
                                 row_content = []
                                 print(f"\nProcessing row {i}: {row}")
                                 
-                                # Skip completely empty rows
-                                if not any(cell.strip() if isinstance(cell, str) else False for cell in row):
-                                    print(f"Skipping empty row {i}")
-                                    continue
-                                
+                                # Process each cell in the row
                                 for j, cell in enumerate(row):
                                     if not isinstance(cell, str):
-                                        print(f"Warning: Converting non-string cell at row {i}, col {j}: {type(cell)}")
+                                        print(f"Converting non-string cell at row {i}, col {j}: {type(cell)}")
                                         cell = str(cell) if cell is not None else ""
-                                        
+                                    
                                     cleaned = cell.strip()
                                     if cleaned:
                                         print(f"Valid content in col {j}: {cleaned[:50]}...")
                                         row_content.append(cleaned)
                                 
+                                # Combine all non-empty cells
                                 if row_content:
                                     combined_content = ' '.join(row_content)
-                                    # Basic validation of combined content
-                                    if len(combined_content) > 10:  # Arbitrary minimum length
-                                        print(f"Adding combined row: {combined_content[:100]}...")
-                                        data_rows.append(combined_content)
-                                    else:
-                                        print(f"Row {i} content too short, skipping: {combined_content}")
-                                else:
-                                    print(f"No valid content in row {i}")
+                                    print(f"Adding row {i}: {combined_content[:100]}...")
+                                    data_rows.append(combined_content)
                                     
                             except Exception as e:
                                 print(f"Error processing row {i}: {e}")
@@ -217,16 +216,26 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         markdown_content = '\n---\n'.join(data_rows) if data_rows else ''
                         print(f"Final markdown content length: {len(markdown_content)}")
                         
-                        # Save content to file with UTF-8 encoding
-                        if markdown_content.strip():
-                            # Ensure directory exists
-                            filename.parent.mkdir(parents=True, exist_ok=True)
-                            # Write content with explicit UTF-8 encoding
-                            with open(filename, 'w', encoding='utf-8') as f:
-                                f.write(markdown_content)
-                            print(f'Successfully wrote content to {filename}')
-                        else:
-                            print(f'Warning: No content to write to {filename}')
+                        if not markdown_content.strip():
+                            raise ValueError("No valid content generated for markdown file")
+                            
+                        # Ensure directory exists
+                        filename.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        # Write content with explicit UTF-8 encoding
+                        with open(filename, 'w', encoding='utf-8') as f:
+                            f.write(markdown_content)
+                        print(f'Successfully wrote content to {filename}')
+                        
+                        # Verify file was written and has content
+                        if not os.path.exists(filename):
+                            raise ValueError(f"Failed to create file: {filename}")
+                            
+                        file_size = os.path.getsize(filename)
+                        print(f"Verified file exists with size: {file_size} bytes")
+                        
+                        if file_size == 0:
+                            raise ValueError(f"Created file is empty: {filename}")
                             
                         # Split content for vector store processing
                         content = markdown_content.split('\n---\n') if markdown_content.strip() else []
