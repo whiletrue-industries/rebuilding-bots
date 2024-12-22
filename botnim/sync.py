@@ -89,8 +89,8 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         from io import StringIO
                         
                         # Convert Google Sheets URL to CSV export URL
-                        print(f'Processing spreadsheet ID: {sheet_id}')
                         sheet_id = context_['source'].split('/')[5]
+                        print(f'Processing spreadsheet ID: {sheet_id}')
                         csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
                         print(f'Accessing CSV URL: {csv_url}')
                         
