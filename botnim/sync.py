@@ -91,9 +91,12 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Convert Google Sheets URL to CSV export URL
                         sheet_id = context_['source'].split('/')[5]
                         csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
+                        print(f'Accessing CSV URL: {csv_url}')
                         
                         response = requests.get(csv_url)
                         response.raise_for_status()
+                        print(f'Response status: {response.status_code}')
+                        print(f'Raw response text preview: {response.text[:200]}')
                         
                         # Set proper encoding for response
                         response.encoding = 'utf-8'
@@ -102,18 +105,25 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         csv_content = StringIO(response.text)
                         reader = csv.reader(csv_content)
                         rows = list(reader)
+                        print(f'Total rows found: {len(rows)}')
+                        print('First few rows:')
+                        for i, row in enumerate(rows[:3]):
+                            print(f'Row {i}: {row}')
                         
-                        # Skip header row if present and filter empty rows
-                        data_rows = [row[0] for row in rows[1:] if row and row[0].strip()]
+                        # Process all columns that have content
+                        data_rows = []
+                        for row in rows[1:]:  # Skip header
+                            if any(cell.strip() for cell in row):  # Check if any cell has content
+                                data_rows.extend(cell.strip() for cell in row if cell.strip())
+                        
+                        print(f'Rows after filtering: {len(data_rows)}')
+                        if data_rows:
+                            print('First few filtered rows:')
+                            for i, row in enumerate(data_rows[:3]):
+                                print(f'Row {i}: {row}')
                         
                         # Convert to markdown with --- separators
                         markdown_content = '\n---\n'.join(data_rows)
-                        
-                        # Print debug info
-                        print(f'Retrieved {len(rows)} total rows from spreadsheet')
-                        print(f'Found {len(data_rows)} non-empty data rows')
-                        print(f'Generated content length: {len(markdown_content)} characters')
-                        print(f'First few characters: {markdown_content[:100]}')
                         
                         # Save content to file with UTF-8 encoding
                         if markdown_content.strip():
