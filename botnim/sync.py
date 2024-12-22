@@ -338,30 +338,25 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         
                         # Write content with explicit encoding handling
                         try:
-                            # Ensure content is a string
+                            # Ensure content is a string and normalize
                             if isinstance(markdown_content, bytes):
                                 markdown_content = markdown_content.decode('utf-8', errors='replace')
-                            
-                            # Normalize to NFC form
-                            markdown_content = unicodedata.normalize('NFC', markdown_content)
-                            
-                            # Create directory if needed
-                            filename.parent.mkdir(parents=True, exist_ok=True)
-                            
-                            # Ensure content is properly decoded and normalized before writing
-                            if isinstance(markdown_content, bytes):
-                                try:
-                                    markdown_content = markdown_content.decode('utf-8', errors='replace')
-                                except UnicodeDecodeError:
-                                    # Try windows-1255 if utf-8 fails
-                                    markdown_content = markdown_content.decode('windows-1255', errors='replace')
-                            
+                                
                             # Normalize to NFC form for consistent Hebrew character representation
                             markdown_content = unicodedata.normalize('NFC', markdown_content)
-                            
-                            # Write content with UTF-8 encoding (no BOM)
-                            with open(filename, 'w', encoding='utf-8') as f:
+                                
+                            # Create directory if needed
+                            filename.parent.mkdir(parents=True, exist_ok=True)
+                                
+                            # Write content with UTF-8-SIG encoding (with BOM)
+                            with open(filename, 'w', encoding='utf-8-sig') as f:
                                 f.write(markdown_content)
+                                    
+                            # Verify the content was written correctly by reading it back
+                            with open(filename, 'r', encoding='utf-8-sig') as f:
+                                verification = f.read()
+                                if not verification.strip():
+                                    raise ValueError("Written file is empty")
                             
                             # Verify the written content
                             with open(filename, 'r', encoding='utf-8') as f:
