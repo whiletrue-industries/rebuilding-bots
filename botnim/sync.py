@@ -2,6 +2,7 @@ import os
 import json
 import io
 import codecs
+import unicodedata
 from pathlib import Path
 
 import yaml
