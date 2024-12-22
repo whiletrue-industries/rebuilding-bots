@@ -57,7 +57,10 @@ def update_assistant(config, config_dir, production, replace_context=False):
     print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
     if config.get('context'):
-        for context_ in config['context']:
+        print("\nDEBUG: Starting context processing")
+        print(f"Number of context items: {len(config['context'])}")
+        for i, context_ in enumerate(config['context']):
+            print(f"\nProcessing context #{i}: {context_['name']}")
             name = context_['name']
             if not production:
                 name += ' - פיתוח'
