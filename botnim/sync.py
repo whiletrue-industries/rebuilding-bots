@@ -112,7 +112,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         
                         # Process all columns that have content
                         data_rows = []
-                        for row in rows[1:]:  # Skip header
+                        for row in rows:  # Include all rows
                             if any(cell.strip() for cell in row):  # Check if any cell has content
                                 data_rows.extend(cell.strip() for cell in row if cell.strip())
                         
