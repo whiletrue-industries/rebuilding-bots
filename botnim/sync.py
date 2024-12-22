@@ -89,6 +89,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         from io import StringIO
                         
                         # Convert Google Sheets URL to CSV export URL
+                        print(f'Processing spreadsheet ID: {sheet_id}')
                         sheet_id = context_['source'].split('/')[5]
                         csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
                         print(f'Accessing CSV URL: {csv_url}')
@@ -96,11 +97,13 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         response = requests.get(csv_url)
                         response.raise_for_status()
                         print(f'Response status: {response.status_code}')
+                        print(f'Response length: {len(response.content)} bytes')
                         
                         # Get content with explicit encoding handling
                         content = response.content.decode('utf-8-sig')  # Handle BOM if present
                         print(f'Content encoding detected: {response.apparent_encoding}')
-                        print(f'Raw content preview: {content[:200]}')
+                        print(f'Decoded content length: {len(content)} bytes')
+                        print(f'First 500 characters of decoded content:\n{content[:500]}')
                         
                         try:
                             # Parse CSV content
@@ -159,11 +162,11 @@ def update_assistant(config, config_dir, production, replace_context=False):
                                 print(f"Error processing row {i}: {e}")
                                 continue
                         
-                        print(f'Rows after filtering: {len(data_rows)}')
+                        print(f'Number of data rows processed: {len(data_rows)}')
                         if data_rows:
-                            print('First few filtered rows:')
-                            for i, row in enumerate(data_rows[:3]):
-                                print(f'Row {i}: {row}')
+                            print('Sample of processed rows:')
+                            for row in data_rows[:3]:
+                                print(f'- {row[:100]}...')
                         else:
                             print("WARNING: No data rows were processed!")
                         
