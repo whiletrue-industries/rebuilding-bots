@@ -96,14 +96,15 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         response = requests.get(csv_url)
                         response.raise_for_status()
                         print(f'Response status: {response.status_code}')
-                        print(f'Raw response text preview: {response.text[:200]}')
                         
-                        # Set proper encoding for response
-                        response.encoding = 'utf-8'
+                        # Get content with explicit encoding handling
+                        content = response.content.decode('utf-8-sig')  # Handle BOM if present
+                        print(f'Content encoding detected: {response.apparent_encoding}')
+                        print(f'Raw content preview: {content[:200]}')
                         
                         try:
                             # Parse CSV content
-                            csv_content = StringIO(response.text)
+                            csv_content = StringIO(content)
                             reader = csv.reader(csv_content)
                             rows = list(reader)
                             if not rows:
