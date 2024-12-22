@@ -26,5 +26,5 @@ setup(
     author='While True Industries',
     author_email='adam@whiletrue.industries',
     description='Botnim Specs and Code',
-    python_requires='>=3.10',
+    python_requires='>=3.9.1',
 )
