@@ -90,6 +90,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
                     print(f"Target file: {filename}")
                     
                     if 'source' in context_:
+                        print("Found source URL, attempting to process Google Sheet")
                         # Download public google spreadsheet file to md file in filename
                         import requests
                         import csv
