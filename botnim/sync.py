@@ -7,7 +7,6 @@ from pathlib import Path
 
 import yaml
 import chardet
-import chardet
 
 from openai import OpenAI
 
