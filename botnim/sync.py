@@ -83,19 +83,22 @@ def update_assistant(config, config_dir, production, replace_context=False):
                 elif 'split' in context_:
                     filename = config_dir / context_['split']
                     if 'source' in context_:
-                        # Download google spreadsheet file to md file in filename
-                        import gspread
-                        from oauth2client.service_account import ServiceAccountCredentials
+                        # Download public google spreadsheet file to md file in filename
+                        import requests
+                        import csv
+                        from io import StringIO
                         
-                        scope = ['https://spreadsheets.google.com/feeds',
-                                'https://www.googleapis.com/auth/drive']
-                        creds = ServiceAccountCredentials.from_json_keyfile_name(
-                            'google-credentials.json', scope)
-                        gs_client = gspread.authorize(creds)
+                        # Convert Google Sheets URL to CSV export URL
+                        sheet_id = context_['source'].split('/')[5]
+                        csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
                         
-                        spreadsheet = gs_client.open_by_url(context_['source'])
-                        worksheet = spreadsheet.get_worksheet(0)
-                        rows = worksheet.get_all_values()
+                        response = requests.get(csv_url)
+                        response.raise_for_status()
+                        
+                        # Parse CSV content
+                        csv_content = StringIO(response.text)
+                        reader = csv.reader(csv_content)
+                        rows = list(reader)
                         
                         # Convert to markdown with --- separators
                         md_content = '\n---\n'.join(row[0] for row in rows if row[0].strip())

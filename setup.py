@@ -20,8 +20,6 @@ setup(
         'click',
         'html2text',
         'bs4',
-        'gspread',
-        'oauth2client'
     ],
     author='While True Industries',
     author_email='adam@whiletrue.industries',
