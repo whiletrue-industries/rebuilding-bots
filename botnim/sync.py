@@ -345,12 +345,12 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             # Create directory if needed
                             filename.parent.mkdir(parents=True, exist_ok=True)
                             
-                            # Write with explicit windows-1255 encoding
-                            with open(filename, 'w', encoding='windows-1255') as f:
+                            # Write with explicit UTF-8 encoding
+                            with open(filename, 'w', encoding='utf-8') as f:
                                 f.write(markdown_content)
                             
                             # Verify the written content
-                            with open(filename, 'r', encoding='utf-8-sig') as f:
+                            with open(filename, 'r', encoding='utf-8') as f:
                                 verification = f.read()
                                 if not verification.strip():
                                     raise ValueError("Written file is empty")
