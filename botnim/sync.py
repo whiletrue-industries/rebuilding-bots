@@ -62,6 +62,62 @@ def update_assistant(config, config_dir, production, replace_context=False):
         for i, context_ in enumerate(config['context']):
             print(f"\nProcessing context #{i}: {context_['name']}")
             print(f"Context contents: {context_}")
+            
+            # Process Google Sheets source if present
+            if 'source' in context_ and 'split' in context_:
+                filename = config_dir / context_['split']
+                print(f"Processing Google Sheet source to {filename}")
+                
+                # Extract sheet ID from URL
+                sheet_url = context_['source']
+                if '/spreadsheets/d/' not in sheet_url:
+                    raise ValueError(f"Invalid Google Sheets URL format: {sheet_url}")
+                    
+                sheet_id = sheet_url.split('/spreadsheets/d/')[1].split('/')[0]
+                print(f"Sheet ID: {sheet_id}")
+                
+                # Download the sheet as CSV
+                import requests
+                csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0'
+                print(f"Downloading from: {csv_url}")
+                
+                response = requests.get(csv_url, timeout=30)
+                response.raise_for_status()
+                
+                # Process CSV content
+                import csv
+                from io import StringIO
+                
+                csv_content = StringIO(response.text)
+                reader = csv.reader(csv_content)
+                rows = list(reader)
+                
+                if not rows:
+                    raise ValueError("No content found in Google Sheet")
+                
+                print(f"Found {len(rows)} rows in sheet")
+                
+                # Convert to markdown with separators
+                content = []
+                for row in rows:
+                    # Join all non-empty cells in the row
+                    row_content = ' '.join(cell.strip() for cell in row if cell.strip())
+                    if row_content:
+                        content.append(row_content)
+                
+                if not content:
+                    raise ValueError("No valid content found in Google Sheet")
+                
+                # Write to markdown file
+                markdown_content = '\n\n---\n\n'.join(content)
+                filename.parent.mkdir(parents=True, exist_ok=True)
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(markdown_content)
+                print(f"Wrote {len(content)} sections to {filename}")
+                
+                # Prepare content for vector store
+                content = markdown_content.split('\n---\n')
+            
             name = context_['name']
             if not production:
                 name += ' - פיתוח'
