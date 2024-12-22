@@ -101,28 +101,62 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Set proper encoding for response
                         response.encoding = 'utf-8'
                         
-                        # Parse CSV content
-                        csv_content = StringIO(response.text)
-                        reader = csv.reader(csv_content)
-                        rows = list(reader)
-                        print(f'Total rows found: {len(rows)}')
-                        print('First few rows:')
-                        for i, row in enumerate(rows[:3]):
-                            print(f'Row {i}: {row}')
+                        try:
+                            # Parse CSV content
+                            csv_content = StringIO(response.text)
+                            reader = csv.reader(csv_content)
+                            rows = list(reader)
+                            if not rows:
+                                raise ValueError("No rows found in CSV content")
+                            
+                            print(f'Total rows found: {len(rows)}')
+                            print('First few rows:')
+                            for i, row in enumerate(rows[:3]):
+                                print(f'Row {i}: {row}')
+                            
+                            # Validate CSV structure
+                            if any(not isinstance(row, list) for row in rows):
+                                raise ValueError("Invalid CSV structure detected")
+                        except csv.Error as e:
+                            print(f"CSV parsing error: {e}")
+                            raise
+                        except Exception as e:
+                            print(f"Error processing CSV content: {e}")
+                            print(f"Raw content preview: {response.text[:500]}")
+                            raise
                         
                         # Process all columns that have content
                         data_rows = []
-                        print("Processing CSV rows...")
-                        for i, row in enumerate(rows):
-                            row_content = []
-                            print(f"Processing row {i}: {row}")
-                            for cell in row:
-                                if isinstance(cell, str) and cell.strip():
-                                    row_content.append(cell.strip())
-                            if row_content:
-                                combined_content = ' '.join(row_content)
-                                print(f"Adding content: {combined_content[:100]}...")
-                                data_rows.append(combined_content)
+                        print("\nProcessing CSV rows...")
+                        
+                        # Skip header row if present
+                        start_idx = 1 if len(rows) > 0 and any(cell.lower().startswith(('id', 'title', 'header')) for cell in rows[0]) else 0
+                        
+                        for i, row in enumerate(rows[start_idx:], start=start_idx):
+                            try:
+                                row_content = []
+                                print(f"\nProcessing row {i}: {row}")
+                                
+                                for j, cell in enumerate(row):
+                                    if not isinstance(cell, str):
+                                        print(f"Warning: Non-string cell at row {i}, col {j}: {type(cell)}")
+                                        continue
+                                        
+                                    cleaned = cell.strip()
+                                    if cleaned:
+                                        print(f"Valid content in col {j}: {cleaned[:50]}...")
+                                        row_content.append(cleaned)
+                                    
+                                if row_content:
+                                    combined_content = ' '.join(row_content)
+                                    print(f"Adding combined row: {combined_content[:100]}...")
+                                    data_rows.append(combined_content)
+                                else:
+                                    print(f"Skipping empty row {i}")
+                                    
+                            except Exception as e:
+                                print(f"Error processing row {i}: {e}")
+                                continue
                         
                         print(f'Rows after filtering: {len(data_rows)}')
                         if data_rows:
