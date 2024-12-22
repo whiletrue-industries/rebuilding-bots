@@ -348,25 +348,33 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             # Create directory if needed
                             filename.parent.mkdir(parents=True, exist_ok=True)
                             
-                            # Write with explicit UTF-8 encoding and BOM
-                            with open(filename, 'w', encoding='utf-8-sig') as f:
+                            # Ensure content is properly decoded and normalized before writing
+                            if isinstance(markdown_content, bytes):
+                                try:
+                                    markdown_content = markdown_content.decode('utf-8', errors='replace')
+                                except UnicodeDecodeError:
+                                    # Try windows-1255 if utf-8 fails
+                                    markdown_content = markdown_content.decode('windows-1255', errors='replace')
+                            
+                            # Normalize to NFC form for consistent Hebrew character representation
+                            markdown_content = unicodedata.normalize('NFC', markdown_content)
+                            
+                            # Write content with UTF-8 encoding (no BOM)
+                            with open(filename, 'w', encoding='utf-8') as f:
                                 f.write(markdown_content)
                             
                             # Verify the written content
-                            with open(filename, 'r', encoding='utf-8-sig') as f:
+                            with open(filename, 'r', encoding='utf-8') as f:
                                 verification = f.read()
                                 if not verification.strip():
                                     raise ValueError("Written file is empty")
-                                if not any('\u0590' <= c <= '\u05FF' for c in verification):
+                                
+                                # Check for Hebrew characters in normalized form
+                                normalized = unicodedata.normalize('NFC', verification)
+                                if not any('\u0590' <= c <= '\u05FF' for c in normalized):
                                     print("Warning: Content appears to be missing Hebrew characters")
-                                    print("Written content sample:", verification[:200])
+                                    print("Written content sample:", normalized[:200])
                                     raise ValueError("No Hebrew characters found in written content")
-                            
-                            # Verify content was written correctly
-                            with open(filename, 'r', encoding='windows-1255') as f:
-                                verification = f.read()
-                                if not any('\u0590' <= c <= '\u05FF' for c in verification):
-                                    raise ValueError("Hebrew characters not properly encoded")
                             print(f"Successfully wrote and verified Hebrew content in {filename}")
                             print(f"Content sample: {verification[:200]}")
                             
