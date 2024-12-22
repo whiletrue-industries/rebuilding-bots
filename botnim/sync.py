@@ -112,22 +112,29 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         
                         # Process all columns that have content
                         data_rows = []
-                        for row in rows:  # Include all rows
+                        print("Processing CSV rows...")
+                        for i, row in enumerate(rows):
                             row_content = []
+                            print(f"Processing row {i}: {row}")
                             for cell in row:
-                                if cell and cell.strip():
+                                if isinstance(cell, str) and cell.strip():
                                     row_content.append(cell.strip())
                             if row_content:
-                                data_rows.append(' '.join(row_content))
+                                combined_content = ' '.join(row_content)
+                                print(f"Adding content: {combined_content[:100]}...")
+                                data_rows.append(combined_content)
                         
                         print(f'Rows after filtering: {len(data_rows)}')
                         if data_rows:
                             print('First few filtered rows:')
                             for i, row in enumerate(data_rows[:3]):
                                 print(f'Row {i}: {row}')
+                        else:
+                            print("WARNING: No data rows were processed!")
                         
                         # Convert to markdown with --- separators
-                        markdown_content = '\n---\n'.join(data_rows)
+                        markdown_content = '\n---\n'.join(data_rows) if data_rows else ''
+                        print(f"Final markdown content length: {len(markdown_content)}")
                         
                         # Save content to file with UTF-8 encoding
                         if markdown_content.strip():
