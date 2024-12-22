@@ -359,7 +359,12 @@ def update_assistant(config, config_dir, production, replace_context=False):
                                     print("Written content sample:", verification[:200])
                                     raise ValueError("No Hebrew characters found in written content")
                             
-                            print(f"Successfully wrote and verified content to {filename}")
+                            # Verify content was written correctly
+                            with open(filename, 'r', encoding='windows-1255') as f:
+                                verification = f.read()
+                                if not any('\u0590' <= c <= '\u05FF' for c in verification):
+                                    raise ValueError("Hebrew characters not properly encoded")
+                            print(f"Successfully wrote and verified Hebrew content in {filename}")
                             print(f"Content sample: {verification[:200]}")
                             
                         except Exception as e:
