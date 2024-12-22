@@ -101,19 +101,21 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         rows = list(reader)
                         
                         # Convert to markdown with --- separators
-                        content = '\n---\n'.join(row[0] for row in rows if row[0].strip())
+                        markdown_content = '\n---\n'.join(row[0] for row in rows if row[0].strip())
                         
                         # Print debug info
                         print(f'Retrieved {len(rows)} rows from spreadsheet')
-                        print(f'Generated content length: {len(content)} characters')
+                        print(f'Generated content length: {len(markdown_content)} characters')
                         
                         # Save content to file with UTF-8 encoding
-                        if content.strip():
-                            filename.write_text(content, encoding='utf-8')
+                        if markdown_content.strip():
+                            filename.write_text(markdown_content, encoding='utf-8')
                             print(f'Wrote content to {filename}')
                         else:
                             print(f'Warning: No content to write to {filename}')
-                    content = content.split('\n---\n')
+                            
+                        # Split content for vector store processing
+                        content = markdown_content.split('\n---\n')
                     file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
                     file_streams = [(f'{name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
                 vector_store = client.beta.vector_stores.create(name=name)
