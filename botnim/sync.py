@@ -95,27 +95,39 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         response = requests.get(csv_url)
                         response.raise_for_status()
                         
+                        # Set proper encoding for response
+                        response.encoding = 'utf-8'
+                        
                         # Parse CSV content
                         csv_content = StringIO(response.text)
                         reader = csv.reader(csv_content)
                         rows = list(reader)
                         
+                        # Skip header row if present and filter empty rows
+                        data_rows = [row[0] for row in rows[1:] if row and row[0].strip()]
+                        
                         # Convert to markdown with --- separators
-                        markdown_content = '\n---\n'.join(row[0] for row in rows if row[0].strip())
+                        markdown_content = '\n---\n'.join(data_rows)
                         
                         # Print debug info
-                        print(f'Retrieved {len(rows)} rows from spreadsheet')
+                        print(f'Retrieved {len(rows)} total rows from spreadsheet')
+                        print(f'Found {len(data_rows)} non-empty data rows')
                         print(f'Generated content length: {len(markdown_content)} characters')
+                        print(f'First few characters: {markdown_content[:100]}')
                         
                         # Save content to file with UTF-8 encoding
                         if markdown_content.strip():
-                            filename.write_text(markdown_content, encoding='utf-8')
-                            print(f'Wrote content to {filename}')
+                            # Ensure directory exists
+                            filename.parent.mkdir(parents=True, exist_ok=True)
+                            # Write content with explicit UTF-8 encoding
+                            with open(filename, 'w', encoding='utf-8') as f:
+                                f.write(markdown_content)
+                            print(f'Successfully wrote content to {filename}')
                         else:
                             print(f'Warning: No content to write to {filename}')
                             
                         # Split content for vector store processing
-                        content = markdown_content.split('\n---\n')
+                        content = markdown_content.split('\n---\n') if markdown_content.strip() else []
                     file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
                     file_streams = [(f'{name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
                 vector_store = client.beta.vector_stores.create(name=name)
