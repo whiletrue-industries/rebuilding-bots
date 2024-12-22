@@ -180,22 +180,10 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             print(f'Response headers: {response.headers}')
                             print(f'Content-Type: {response.headers.get("content-type", "not specified")}')
                             
-                            # Try to detect the encoding
-                            detected_encoding = response.apparent_encoding
-                            print(f'Detected encoding: {detected_encoding}')
-                            
-                            # Try multiple encodings if needed
-                            encodings_to_try = ['utf-8-sig', 'utf-8', detected_encoding]
-                            content = None
-                            
-                            for encoding in encodings_to_try:
-                                try:
-                                    content = response.content.decode(encoding)
-                                    print(f'Successfully decoded with {encoding}')
-                                    break
-                                except UnicodeDecodeError:
-                                    print(f'Failed to decode with {encoding}')
-                                    continue
+                            # Force UTF-8 encoding for response content
+                            response.encoding = 'utf-8'
+                            content = response.text
+                            print(f'Forced UTF-8 encoding for content')
                             
                             if content is None:
                                 raise ValueError("Could not decode content with any encoding")
@@ -300,8 +288,8 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Ensure directory exists
                         filename.parent.mkdir(parents=True, exist_ok=True)
                         
-                        # Write content with explicit UTF-8 encoding
-                        with open(filename, 'w', encoding='utf-8') as f:
+                        # Write content with explicit UTF-8 encoding and BOM
+                        with open(filename, 'w', encoding='utf-8-sig') as f:
                             f.write(markdown_content)
                         print(f'Successfully wrote content to {filename}')
                             
