@@ -191,10 +191,13 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             detected = chardet.detect(response.content)
                             print(f"Detected encoding: {detected}")
                             
-                            # Try different decodings in order
+                            # Try different decodings in order, with UTF-8 as primary
                             decoders = [
                                 ('utf-8-sig', None),
                                 ('utf-8', None),
+                                ('utf-16', None),
+                                ('utf-16le', None),
+                                ('utf-16be', None),
                                 ('windows-1255', None),
                                 (detected['encoding'], detected['confidence']) if detected['encoding'] else (None, None)
                             ]
@@ -345,12 +348,12 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             # Create directory if needed
                             filename.parent.mkdir(parents=True, exist_ok=True)
                             
-                            # Write with explicit UTF-8 encoding
-                            with open(filename, 'w', encoding='utf-8') as f:
+                            # Write with explicit UTF-8 encoding and BOM
+                            with open(filename, 'w', encoding='utf-8-sig') as f:
                                 f.write(markdown_content)
                             
                             # Verify the written content
-                            with open(filename, 'r', encoding='utf-8') as f:
+                            with open(filename, 'r', encoding='utf-8-sig') as f:
                                 verification = f.read()
                                 if not verification.strip():
                                     raise ValueError("Written file is empty")
