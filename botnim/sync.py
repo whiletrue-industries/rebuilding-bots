@@ -98,6 +98,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         response.raise_for_status()
                         print(f'Response status: {response.status_code}')
                         print(f'Response length: {len(response.content)} bytes')
+                        print(f'Response headers: {response.headers}')
                         
                         # Get content with explicit encoding handling
                         content = response.content.decode('utf-8-sig')  # Handle BOM if present
@@ -110,7 +111,13 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             csv_content = StringIO(content)
                             reader = csv.reader(csv_content)
                             rows = list(reader)
+                            
+                            print(f'Raw response content type: {type(response.content)}')
+                            print(f'Raw response preview: {response.content[:100]}')
+                            
                             if not rows:
+                                print("WARNING: No rows found in CSV content")
+                                print(f"Full raw content:\n{content}")
                                 raise ValueError("No rows found in CSV content")
                             
                             print(f'Total rows found: {len(rows)}')
@@ -123,6 +130,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
                                 raise ValueError("Invalid CSV structure detected")
                         except csv.Error as e:
                             print(f"CSV parsing error: {e}")
+                            print(f"Full content causing error:\n{content}")
                             raise
                         except Exception as e:
                             print(f"Error processing CSV content: {e}")
