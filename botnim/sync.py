@@ -91,9 +91,9 @@ def update_assistant(config, config_dir, production, replace_context=False):
                                 'https://www.googleapis.com/auth/drive']
                         creds = ServiceAccountCredentials.from_json_keyfile_name(
                             'google-credentials.json', scope)
-                        client = gspread.authorize(creds)
+                        gs_client = gspread.authorize(creds)
                         
-                        spreadsheet = client.open_by_url(context_['source'])
+                        spreadsheet = gs_client.open_by_url(context_['source'])
                         worksheet = spreadsheet.get_worksheet(0)
                         rows = worksheet.get_all_values()
                         
