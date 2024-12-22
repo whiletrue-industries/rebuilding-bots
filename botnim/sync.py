@@ -180,9 +180,12 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             print(f'Response headers: {response.headers}')
                             print(f'Content-Type: {response.headers.get("content-type", "not specified")}')
                             
-                            # Force UTF-8 encoding for response content
-                            content = response.content.decode('utf-8-sig', errors='strict')
-                            print(f'Decoded content with UTF-8-sig encoding')
+                            # Force UTF-8 encoding for response content with fallback
+                            try:
+                                content = response.content.decode('utf-8-sig', errors='strict')
+                            except UnicodeDecodeError:
+                                content = response.content.decode('windows-1255', errors='strict')
+                            print(f'Successfully decoded content')
                             
                             if content is None:
                                 raise ValueError("Could not decode content with any encoding")
@@ -287,10 +290,19 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Ensure directory exists
                         filename.parent.mkdir(parents=True, exist_ok=True)
                         
-                        # Write content with explicit UTF-8 encoding and BOM marker
-                        with open(filename, 'w', encoding='utf-8-sig', errors='strict') as f:
+                        # Write content with explicit UTF-8 encoding
+                        with open(filename, 'w', encoding='utf-8') as f:
+                            # Ensure content is properly encoded Hebrew text
+                            if isinstance(markdown_content, bytes):
+                                markdown_content = markdown_content.decode('utf-8', errors='strict')
                             f.write(markdown_content)
-                        print(f'Successfully wrote UTF-8 content with BOM to {filename}')
+                        
+                        # Verify the content was written correctly
+                        with open(filename, 'r', encoding='utf-8') as f:
+                            verification = f.read()
+                            if not verification.strip():
+                                raise ValueError("Written file is empty")
+                        print(f'Successfully wrote and verified content to {filename}')
                         print(f'Successfully wrote content to {filename}')
                             
                         # Verify file was written and has content
