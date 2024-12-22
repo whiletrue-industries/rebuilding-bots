@@ -100,10 +100,11 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         reader = csv.reader(csv_content)
                         rows = list(reader)
                         
-                        # Convert to markdown with --- separators and ensure UTF-8 encoding
-                        md_content = '\n---\n'.join(row[0] for row in rows if row[0].strip())
-                        filename.write_text(md_content, encoding='utf-8')
-                    content = filename.read_text()
+                        # Convert to markdown with --- separators
+                        content = '\n---\n'.join(row[0] for row in rows if row[0].strip())
+                        
+                        # Save content to file with UTF-8 encoding
+                        filename.write_text(content, encoding='utf-8')
                     content = content.split('\n---\n')
                     file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
                     file_streams = [(f'{name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
