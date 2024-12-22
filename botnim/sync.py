@@ -182,40 +182,52 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             print(f'Response headers: {response.headers}')
                             print(f'Content-Type: {response.headers.get("content-type", "not specified")}')
                             
-                            # Handle CSV content with explicit encoding checks
-                            try:
-                                # First try UTF-8 with BOM
-                                content = response.content.decode('utf-8-sig', errors='strict')
-                            except UnicodeDecodeError:
+                            # Direct handling of Google Sheets CSV content
+                            import codecs
+                            
+                            # First try to detect encoding
+                            import chardet
+                            detected = chardet.detect(response.content)
+                            print(f"Detected encoding: {detected}")
+                            
+                            # Try different decodings in order
+                            decoders = [
+                                ('utf-8-sig', None),
+                                ('utf-8', None),
+                                ('windows-1255', None),
+                                (detected['encoding'], detected['confidence']) if detected['encoding'] else (None, None)
+                            ]
+                            
+                            content = None
+                            for encoding, confidence in decoders:
+                                if not encoding:
+                                    continue
                                 try:
-                                    # Then try UTF-8 without BOM
-                                    content = response.content.decode('utf-8', errors='strict')
-                                except UnicodeDecodeError:
-                                    try:
-                                        # Then try windows-1255
-                                        content = response.content.decode('windows-1255', errors='strict')
-                                    except UnicodeDecodeError:
-                                        # Last resort - detect encoding
-                                        import chardet
-                                        detected = chardet.detect(response.content)
-                                        print(f"Detected encoding: {detected}")
-                                        if detected['confidence'] > 0.8:
-                                            content = response.content.decode(detected['encoding'])
-                                        else:
-                                            raise ValueError(f"Could not confidently detect encoding: {detected}")
-
-                            # Normalize Unicode form
-                            import unicodedata
-                            content = unicodedata.normalize('NFKC', content)
+                                    if encoding == 'utf-8-sig':
+                                        # Handle BOM explicitly
+                                        content = response.content.decode(encoding)
+                                    else:
+                                        # Try to decode with replacement of invalid chars
+                                        content = response.content.decode(encoding, errors='replace')
+                                    
+                                    # Normalize to NFC form
+                                    content = unicodedata.normalize('NFC', content)
+                                    
+                                    # Verify we have Hebrew characters
+                                    if any('\u0590' <= c <= '\u05FF' for c in content):
+                                        print(f"Successfully decoded with {encoding}")
+                                        break
+                                    else:
+                                        content = None
+                                except Exception as e:
+                                    print(f"Failed to decode with {encoding}: {str(e)}")
+                                    continue
                             
-                            # Verify content has Hebrew characters
-                            if not any('\u0590' <= c <= '\u05FF' for c in content):
-                                print("Warning: Raw content:", response.content[:100])
-                                print("Warning: Decoded content:", content[:100])
-                                raise ValueError("No Hebrew characters found in content")
+                            if content is None:
+                                print("Raw content sample:", response.content[:100])
+                                raise ValueError("Failed to decode content with any encoding")
                             
-                            print(f'Successfully decoded content with Hebrew characters')
-                            print(f'Sample content: {content[:200]}')
+                            print(f"Successfully decoded content. Sample: {content[:200]}")
                             
                             if content is None:
                                 raise ValueError("Could not decode content with any encoding")
@@ -320,38 +332,40 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Ensure directory exists
                         filename.parent.mkdir(parents=True, exist_ok=True)
                         
-                        # Process and write content with robust encoding handling
-                        import unicodedata
-                        
-                        # Ensure we have string content
-                        if isinstance(markdown_content, bytes):
-                            try:
-                                markdown_content = markdown_content.decode('utf-8-sig')
-                            except UnicodeDecodeError:
+                        # Write content with explicit encoding handling
+                        try:
+                            # Ensure content is a string
+                            if isinstance(markdown_content, bytes):
                                 markdown_content = markdown_content.decode('utf-8', errors='replace')
-                        
-                        # Normalize to NFKC form for maximum compatibility
-                        markdown_content = unicodedata.normalize('NFKC', markdown_content)
-                        
-                        # Write content in UTF-8 with BOM
-                        filename.parent.mkdir(parents=True, exist_ok=True)
-                        with open(filename, 'wb') as f:
-                            # Write UTF-8 BOM
-                            f.write(codecs.BOM_UTF8)
-                            # Write normalized content
-                            f.write(markdown_content.encode('utf-8', errors='replace'))
-                        
-                        # Verify written content
-                        with open(filename, 'r', encoding='utf-8-sig') as f:
-                            verification = f.read()
-                            if not verification.strip():
-                                raise ValueError("Written file is empty")
-                            if not any('\u0590' <= c <= '\u05FF' for c in verification):
-                                print("Warning: Written content:", verification[:200])
-                                raise ValueError("No Hebrew characters found in verified content")
-                        
-                        print(f'Successfully wrote and verified Hebrew content to {filename}')
-                        print(f'Sample of written content: {verification[:200]}')
+                            
+                            # Normalize to NFC form
+                            markdown_content = unicodedata.normalize('NFC', markdown_content)
+                            
+                            # Create directory if needed
+                            filename.parent.mkdir(parents=True, exist_ok=True)
+                            
+                            # Write with explicit UTF-8 encoding and BOM
+                            with open(filename, 'w', encoding='utf-8-sig') as f:
+                                f.write(markdown_content)
+                            
+                            # Verify the written content
+                            with open(filename, 'r', encoding='utf-8-sig') as f:
+                                verification = f.read()
+                                if not verification.strip():
+                                    raise ValueError("Written file is empty")
+                                if not any('\u0590' <= c <= '\u05FF' for c in verification):
+                                    print("Warning: Content appears to be missing Hebrew characters")
+                                    print("Written content sample:", verification[:200])
+                                    raise ValueError("No Hebrew characters found in written content")
+                            
+                            print(f"Successfully wrote and verified content to {filename}")
+                            print(f"Content sample: {verification[:200]}")
+                            
+                        except Exception as e:
+                            print(f"Error writing file: {str(e)}")
+                            print(f"Content type: {type(markdown_content)}")
+                            print(f"Content preview: {markdown_content[:200] if isinstance(markdown_content, (str, bytes)) else 'N/A'}")
+                            raise
                         print(f'Successfully wrote content to {filename}')
                             
                         # Verify file was written and has content
