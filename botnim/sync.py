@@ -7,6 +7,7 @@ from pathlib import Path
 
 import yaml
 import chardet
+import chardet
 
 from openai import OpenAI
 
@@ -91,7 +92,12 @@ def update_assistant(config, config_dir, production, replace_context=False):
                 import csv
                 from io import StringIO
                 
-                csv_content = StringIO(response.text)
+                # Detect encoding
+                detected = chardet.detect(response.content)
+                encoding = detected['encoding']
+                print(f"Detected encoding: {encoding}")
+                
+                csv_content = StringIO(response.content.decode(encoding))
                 reader = csv.reader(csv_content)
                 rows = list(reader)
                 
