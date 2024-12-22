@@ -82,21 +82,38 @@ def update_assistant(config, config_dir, production, replace_context=False):
                     file_streams = [f.open('rb') for f in files]
                 elif 'split' in context_:
                     filename = config_dir / context_['split']
+                    print(f"\nProcessing context: {context_['name']}")
+                    print(f"Target file: {filename}")
+                    
                     if 'source' in context_:
                         # Download public google spreadsheet file to md file in filename
                         import requests
                         import csv
                         from io import StringIO
                         
-                        # Convert Google Sheets URL to CSV export URL
-                        sheet_id = context_['source'].split('/')[5]
-                        print(f'Processing spreadsheet ID: {sheet_id}')
-                        csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0'
-                        print(f'Accessing CSV URL: {csv_url}')
-                        
                         try:
-                            response = requests.get(csv_url, timeout=30)
-                            response.raise_for_status()
+                            # Convert Google Sheets URL to CSV export URL
+                            sheet_url = context_['source']
+                            print(f'Processing Google Sheet URL: {sheet_url}')
+                            
+                            if '/spreadsheets/d/' not in sheet_url:
+                                raise ValueError(f"Invalid Google Sheets URL format: {sheet_url}")
+                                
+                            sheet_id = sheet_url.split('/spreadsheets/d/')[1].split('/')[0]
+                            print(f'Extracted spreadsheet ID: {sheet_id}')
+                            csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0'
+                            print(f'Accessing CSV URL: {csv_url}')
+                            
+                            try:
+                                response = requests.get(csv_url, timeout=30)
+                                response.raise_for_status()
+                            except requests.exceptions.RequestException as e:
+                                print(f"Failed to fetch Google Sheet: {str(e)}")
+                                if hasattr(e.response, 'status_code'):
+                                    print(f"Status code: {e.response.status_code}")
+                                if hasattr(e.response, 'text'):
+                                    print(f"Response text: {e.response.text[:500]}")
+                                raise
                             print(f'Response status: {response.status_code}')
                             print(f'Response length: {len(response.content)} bytes')
                             print(f'Response headers: {response.headers}')
