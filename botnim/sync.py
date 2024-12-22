@@ -181,9 +181,8 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             print(f'Content-Type: {response.headers.get("content-type", "not specified")}')
                             
                             # Force UTF-8 encoding for response content
-                            response.encoding = 'utf-8'
-                            content = response.text
-                            print(f'Forced UTF-8 encoding for content')
+                            content = response.content.decode('utf-8')
+                            print(f'Decoded content with UTF-8 encoding')
                             
                             if content is None:
                                 raise ValueError("Could not decode content with any encoding")
@@ -288,8 +287,8 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Ensure directory exists
                         filename.parent.mkdir(parents=True, exist_ok=True)
                         
-                        # Write content with explicit UTF-8 encoding and BOM
-                        with open(filename, 'w', encoding='utf-8-sig') as f:
+                        # Write content with explicit UTF-8 encoding
+                        with open(filename, 'w', encoding='utf-8') as f:
                             f.write(markdown_content)
                         print(f'Successfully wrote content to {filename}')
                             
