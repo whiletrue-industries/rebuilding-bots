@@ -91,20 +91,46 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Convert Google Sheets URL to CSV export URL
                         sheet_id = context_['source'].split('/')[5]
                         print(f'Processing spreadsheet ID: {sheet_id}')
-                        csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
+                        csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0'
                         print(f'Accessing CSV URL: {csv_url}')
                         
-                        response = requests.get(csv_url)
-                        response.raise_for_status()
-                        print(f'Response status: {response.status_code}')
-                        print(f'Response length: {len(response.content)} bytes')
-                        print(f'Response headers: {response.headers}')
-                        
-                        # Get content with explicit encoding handling
-                        content = response.content.decode('utf-8-sig')  # Handle BOM if present
-                        print(f'Content encoding detected: {response.apparent_encoding}')
-                        print(f'Decoded content length: {len(content)} bytes')
-                        print(f'First 500 characters of decoded content:\n{content[:500]}')
+                        try:
+                            response = requests.get(csv_url, timeout=30)
+                            response.raise_for_status()
+                            print(f'Response status: {response.status_code}')
+                            print(f'Response length: {len(response.content)} bytes')
+                            print(f'Response headers: {response.headers}')
+                            print(f'Content-Type: {response.headers.get("content-type", "not specified")}')
+                            
+                            # Try to detect the encoding
+                            detected_encoding = response.apparent_encoding
+                            print(f'Detected encoding: {detected_encoding}')
+                            
+                            # Try multiple encodings if needed
+                            encodings_to_try = ['utf-8-sig', 'utf-8', detected_encoding]
+                            content = None
+                            
+                            for encoding in encodings_to_try:
+                                try:
+                                    content = response.content.decode(encoding)
+                                    print(f'Successfully decoded with {encoding}')
+                                    break
+                                except UnicodeDecodeError:
+                                    print(f'Failed to decode with {encoding}')
+                                    continue
+                            
+                            if content is None:
+                                raise ValueError("Could not decode content with any encoding")
+                                
+                            print(f'Decoded content length: {len(content)} bytes')
+                            if len(content) < 10:  # Arbitrary small number
+                                raise ValueError(f"Content suspiciously short: {content}")
+                                
+                            print(f'Content preview:\n{content[:200]}')
+                            
+                        except requests.RequestException as e:
+                            print(f"Failed to fetch spreadsheet: {e}")
+                            raise
                         
                         try:
                             # Parse CSV content
@@ -149,22 +175,31 @@ def update_assistant(config, config_dir, production, replace_context=False):
                                 row_content = []
                                 print(f"\nProcessing row {i}: {row}")
                                 
+                                # Skip completely empty rows
+                                if not any(cell.strip() if isinstance(cell, str) else False for cell in row):
+                                    print(f"Skipping empty row {i}")
+                                    continue
+                                
                                 for j, cell in enumerate(row):
                                     if not isinstance(cell, str):
-                                        print(f"Warning: Non-string cell at row {i}, col {j}: {type(cell)}")
-                                        continue
+                                        print(f"Warning: Converting non-string cell at row {i}, col {j}: {type(cell)}")
+                                        cell = str(cell) if cell is not None else ""
                                         
                                     cleaned = cell.strip()
                                     if cleaned:
                                         print(f"Valid content in col {j}: {cleaned[:50]}...")
                                         row_content.append(cleaned)
-                                    
+                                
                                 if row_content:
                                     combined_content = ' '.join(row_content)
-                                    print(f"Adding combined row: {combined_content[:100]}...")
-                                    data_rows.append(combined_content)
+                                    # Basic validation of combined content
+                                    if len(combined_content) > 10:  # Arbitrary minimum length
+                                        print(f"Adding combined row: {combined_content[:100]}...")
+                                        data_rows.append(combined_content)
+                                    else:
+                                        print(f"Row {i} content too short, skipping: {combined_content}")
                                 else:
-                                    print(f"Skipping empty row {i}")
+                                    print(f"No valid content in row {i}")
                                     
                             except Exception as e:
                                 print(f"Error processing row {i}: {e}")
