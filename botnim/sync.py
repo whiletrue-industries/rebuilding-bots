@@ -84,7 +84,22 @@ def update_assistant(config, config_dir, production, replace_context=False):
                     filename = config_dir / context_['split']
                     if 'source' in context_:
                         # Download google spreadsheet file to md file in filename
-                        ...
+                        import gspread
+                        from oauth2client.service_account import ServiceAccountCredentials
+                        
+                        scope = ['https://spreadsheets.google.com/feeds',
+                                'https://www.googleapis.com/auth/drive']
+                        creds = ServiceAccountCredentials.from_json_keyfile_name(
+                            'google-credentials.json', scope)
+                        client = gspread.authorize(creds)
+                        
+                        spreadsheet = client.open_by_url(context_['source'])
+                        worksheet = spreadsheet.get_worksheet(0)
+                        rows = worksheet.get_all_values()
+                        
+                        # Convert to markdown with --- separators
+                        md_content = '\n---\n'.join(row[0] for row in rows if row[0].strip())
+                        filename.write_text(md_content)
                     content = filename.read_text()
                     content = content.split('\n---\n')
                     file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
