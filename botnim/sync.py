@@ -1,9 +1,11 @@
 import os
 import json
 import io
+import codecs
 from pathlib import Path
 
 import yaml
+import chardet
 
 from openai import OpenAI
 
@@ -180,12 +182,24 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             print(f'Response headers: {response.headers}')
                             print(f'Content-Type: {response.headers.get("content-type", "not specified")}')
                             
-                            # Force UTF-8 encoding for response content with fallback
+                            # Force UTF-8 encoding for response content with enhanced fallback
                             try:
                                 content = response.content.decode('utf-8-sig', errors='strict')
                             except UnicodeDecodeError:
-                                content = response.content.decode('windows-1255', errors='strict')
-                            print(f'Successfully decoded content')
+                                try:
+                                    content = response.content.decode('windows-1255', errors='strict')
+                                except UnicodeDecodeError:
+                                    # Try to detect encoding
+                                    import chardet
+                                    detected = chardet.detect(response.content)
+                                    print(f"Detected encoding: {detected}")
+                                    content = response.content.decode(detected['encoding'])
+                            
+                            # Verify content is valid Hebrew
+                            if not any('\u0590' <= c <= '\u05FF' for c in content):
+                                raise ValueError("No Hebrew characters found in content")
+                            
+                            print(f'Successfully decoded content with Hebrew characters')
                             
                             if content is None:
                                 raise ValueError("Could not decode content with any encoding")
@@ -290,19 +304,27 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Ensure directory exists
                         filename.parent.mkdir(parents=True, exist_ok=True)
                         
-                        # Write content with explicit UTF-8 encoding
-                        with open(filename, 'w', encoding='utf-8') as f:
-                            # Ensure content is properly encoded Hebrew text
-                            if isinstance(markdown_content, bytes):
-                                markdown_content = markdown_content.decode('utf-8', errors='strict')
-                            f.write(markdown_content)
+                        # Normalize and write content with explicit UTF-8 encoding
+                        import unicodedata
+                        
+                        # Normalize the content to NFC form
+                        if isinstance(markdown_content, bytes):
+                            markdown_content = markdown_content.decode('utf-8', errors='strict')
+                        markdown_content = unicodedata.normalize('NFC', markdown_content)
+                        
+                        # Write with BOM to ensure proper encoding detection
+                        with open(filename, 'wb') as f:
+                            f.write(codecs.BOM_UTF8)
+                            f.write(markdown_content.encode('utf-8'))
                         
                         # Verify the content was written correctly
-                        with open(filename, 'r', encoding='utf-8') as f:
+                        with open(filename, 'r', encoding='utf-8-sig') as f:
                             verification = f.read()
                             if not verification.strip():
                                 raise ValueError("Written file is empty")
-                        print(f'Successfully wrote and verified content to {filename}')
+                            if not any('\u0590' <= c <= '\u05FF' for c in verification):
+                                raise ValueError("No Hebrew characters found in verified content")
+                        print(f'Successfully wrote and verified Hebrew content to {filename}')
                         print(f'Successfully wrote content to {filename}')
                             
                         # Verify file was written and has content
