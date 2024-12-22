@@ -181,8 +181,8 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             print(f'Content-Type: {response.headers.get("content-type", "not specified")}')
                             
                             # Force UTF-8 encoding for response content
-                            content = response.content.decode('utf-8', errors='replace')
-                            print(f'Decoded content with UTF-8 encoding (using replace for invalid chars)')
+                            content = response.content.decode('utf-8-sig', errors='strict')
+                            print(f'Decoded content with UTF-8-sig encoding')
                             
                             if content is None:
                                 raise ValueError("Could not decode content with any encoding")
@@ -287,17 +287,10 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Ensure directory exists
                         filename.parent.mkdir(parents=True, exist_ok=True)
                         
-                        # Write content with explicit UTF-8 encoding and error handling
-                        try:
-                            with open(filename, 'w', encoding='utf-8', errors='replace') as f:
-                                f.write(markdown_content)
-                            # Verify the file was written with correct encoding
-                            with open(filename, 'r', encoding='utf-8') as f:
-                                _ = f.read()
-                            print(f'Successfully wrote and verified UTF-8 content to {filename}')
-                        except UnicodeEncodeError as e:
-                            print(f'UTF-8 encoding error while writing file: {e}')
-                            raise
+                        # Write content with explicit UTF-8 encoding and BOM marker
+                        with open(filename, 'w', encoding='utf-8-sig', errors='strict') as f:
+                            f.write(markdown_content)
+                        print(f'Successfully wrote UTF-8 content with BOM to {filename}')
                         print(f'Successfully wrote content to {filename}')
                             
                         # Verify file was written and has content
