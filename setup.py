@@ -19,7 +19,9 @@ setup(
         'requests-openapi',
         'click',
         'html2text',
-        'bs4'
+        'bs4',
+        'gspread',
+        'oauth2client'
     ],
     author='While True Industries',
     author_email='adam@whiletrue.industries',
