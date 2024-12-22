@@ -103,8 +103,16 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Convert to markdown with --- separators
                         content = '\n---\n'.join(row[0] for row in rows if row[0].strip())
                         
+                        # Print debug info
+                        print(f'Retrieved {len(rows)} rows from spreadsheet')
+                        print(f'Generated content length: {len(content)} characters')
+                        
                         # Save content to file with UTF-8 encoding
-                        filename.write_text(content, encoding='utf-8')
+                        if content.strip():
+                            filename.write_text(content, encoding='utf-8')
+                            print(f'Wrote content to {filename}')
+                        else:
+                            print(f'Warning: No content to write to {filename}')
                     content = content.split('\n---\n')
                     file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
                     file_streams = [(f'{name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
