@@ -55,6 +55,7 @@ def openapi_to_tools(openapi_spec):
     return ret
 
 def update_assistant(config, config_dir, production, replace_context=False):
+    import chardet
     tool_resources = None
     tools = None
     print(f'Updating assistant: {config["name"]}')
