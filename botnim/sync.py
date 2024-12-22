@@ -226,22 +226,38 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         with open(filename, 'w', encoding='utf-8') as f:
                             f.write(markdown_content)
                         print(f'Successfully wrote content to {filename}')
-                        
+                            
                         # Verify file was written and has content
                         if not os.path.exists(filename):
                             raise ValueError(f"Failed to create file: {filename}")
-                            
+                                
                         file_size = os.path.getsize(filename)
                         print(f"Verified file exists with size: {file_size} bytes")
-                        
+                            
                         if file_size == 0:
                             raise ValueError(f"Created file is empty: {filename}")
                             
+                        print("Reading file content for verification...")
+                        with open(filename, 'r', encoding='utf-8') as f:
+                            file_content = f.read()
+                        print(f"File content length: {len(file_content)} characters")
+                            
                         # Split content for vector store processing
-                        content = markdown_content.split('\n---\n') if markdown_content.strip() else []
-                    file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
-                    file_streams = [(f'{name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
+                        content = file_content.split('\n---\n') if file_content.strip() else []
+                        print(f"Split into {len(content)} sections")
+                    print(f"Processing {len(content)} content sections...")
+                    file_streams = []
+                    for i, c in enumerate(content):
+                        if not c.strip():
+                            print(f"Skipping empty section {i}")
+                            continue
+                        encoded = c.strip().encode('utf-8')
+                        print(f"Section {i}: {len(encoded)} bytes")
+                        file_streams.append((f'{name}_{i}.md', io.BytesIO(encoded), 'text/markdown'))
+                    print(f"Created {len(file_streams)} file streams")
+                print(f"Creating new vector store with name: {name}")
                 vector_store = client.beta.vector_stores.create(name=name)
+                print(f"Created vector store with ID: {vector_store.id}")
                 while len(file_streams) > 0:
                     file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
                         vector_store_id=vector_store.id, files=file_streams[:32]
