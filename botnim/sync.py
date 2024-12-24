@@ -3,7 +3,11 @@ import json
 import io
 from pathlib import Path
 
+import logging
 import yaml
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 from openai import OpenAI
 
@@ -86,15 +90,21 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         # Download data from the public Google Spreadsheet
                         import requests
                         sheet_id = context_['source'].split('/d/')[1].split('/')[0]
+                        logger.info(f'Sheet ID: {sheet_id}')
                         url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
                         response = requests.get(url)
+                        logger.info(f'Response status code: {response.status_code}')
+                        logger.info(f'Response text: {response.text[:100]}...')  # Log first 100 characters
                         data = response.text
 
                         # Convert CSV data to markdown format
                         markdown_content = []
                         rows = data.strip().split('\n')
+                        logger.info(f'Number of rows: {len(rows)}')
                         headers = rows[0].split(',')
+                        logger.info(f'Headers: {headers}')
                         data_rows = rows[1:]
+                        logger.info(f'Number of data rows: {len(data_rows)}')
 
                         for row in data_rows:
                             values = row.split(',')
@@ -103,7 +113,10 @@ def update_assistant(config, config_dir, production, replace_context=False):
                                 markdown_content.append(f'{header.strip()}: {value.strip()}')
 
                         markdown_content = '\n'.join(markdown_content)
+                        logger.info(f'Markdown content: {markdown_content[:100]}...')  # Log first 100 characters
+                        logger.info(f'Writing to file: {filename}')
                         filename.write_text(markdown_content, encoding='utf-8')
+                        logger.info(f'File written successfully')
                     content = filename.read_text()
                     content = content.split('\n---\n')
                     file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
