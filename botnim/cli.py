@@ -18,7 +18,8 @@ def cli():
 @click.option('--update-instructions', type=click.BOOL, default=False,
               help='Update only the assistant\'s instructions and configuration without modifying the vector store')
 def sync(environment, bots, replace_context=False, update_common_knowledge=False, update_instructions=False):
-    """Sync bot configurations and knowledge bases to OpenAI."""
+    """Sync bot configurations and knowledge bases to OpenAI.
+    Without flags: updates everything (instructions, context, and common knowledge)."""
     click.echo(f"Syncing {bots} to {environment}")
     sync_agents(environment, bots, replace_context=replace_context,
                 update_common_knowledge=update_common_knowledge)
