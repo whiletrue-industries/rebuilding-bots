@@ -223,7 +223,69 @@ def update_assistant(config, config_dir, production, replace_context=False):
         # ...
 
 
-def sync_agents(environment, bots, replace_context=False):
+def delete_common_knowledge_files(client, vector_store_id):
+    """Delete all common knowledge files from the vector store"""
+    logger.info(f'Deleting common knowledge files from vector store {vector_store_id}')
+    try:
+        files = client.beta.vector_stores.files.list(vector_store_id=vector_store_id)
+        for file in files:
+            if file.name.startswith('common_knowledge_'):
+                logger.info(f'Deleting file {file.name}')
+                client.beta.vector_stores.files.delete(
+                    vector_store_id=vector_store_id,
+                    file_id=file.id
+                )
+    except Exception as e:
+        logger.error(f'Error deleting common knowledge files: {str(e)}')
+        raise
+
+def update_common_knowledge(client, vector_store_id, common_knowledge, config_dir):
+    """Update only the common knowledge files in the vector store"""
+    logger.info(f'Updating common knowledge for vector store {vector_store_id}')
+    
+    # Delete existing common knowledge files
+    delete_common_knowledge_files(client, vector_store_id)
+    
+    # Process and upload new common knowledge
+    if common_knowledge:
+        filename = config_dir / common_knowledge['split']
+        if 'source' in common_knowledge:
+            # Download data from the public Google Spreadsheet
+            import requests
+            sheet_id = common_knowledge['source'].split('/d/')[1].split('/')[0]
+            logger.info(f'Downloading from sheet ID: {sheet_id}')
+            url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
+            response = requests.get(url)
+            logger.info(f'Response status code: {response.status_code}')
+            
+            data = response.text
+            markdown_content = []
+            rows = data.strip().split('\n')
+            logger.info(f'Processing {len(rows)} rows from spreadsheet')
+            
+            for row in rows:
+                markdown_content.append(f'{row.strip()}')
+                markdown_content.append('\n---\n')
+
+            markdown_content = '\n'.join(markdown_content)
+            logger.info(f'Writing to file: {filename}')
+            filename.write_text(markdown_content, encoding='utf-8')
+            
+        content = filename.read_text()
+        content = content.split('\n---\n')
+        file_streams = []
+        for i, c in enumerate(content):
+            if c.strip():
+                file_stream = io.BytesIO(c.strip().encode('utf-8'))
+                file_streams.append((f'common_knowledge_{i}.md', file_stream, 'text/markdown'))
+            else:
+                logger.warning(f'Skipping empty content for common_knowledge_{i}.md')
+        
+        if file_streams:
+            logger.info(f'Uploading {len(file_streams)} common knowledge files')
+            _upload_file_batches(client, vector_store_id, file_streams)
+
+def sync_agents(environment, bots, replace_context=False, update_common_knowledge=False):
     production = environment == 'production'
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
@@ -232,4 +294,33 @@ def sync_agents(environment, bots, replace_context=False):
             with config_fn.open() as config_f:
                 config = yaml.safe_load(config_f)
                 config['instructions'] = (config_dir / config['instructions']).read_text()
-                update_assistant(config, config_dir, production, replace_context=replace_context)
+                
+                if update_common_knowledge:
+                    # Find existing vector store
+                    common_knowledge = None
+                    main_context = None
+                    for context_ in config.get('context', []):
+                        if 'common-knowledge.md' in str(context_.get('split', '')):
+                            common_knowledge = context_
+                        else:
+                            main_context = context_
+                    
+                    if common_knowledge:
+                        name = (main_context or common_knowledge)['name']
+                        if not production:
+                            name += ' - פיתוח'
+                        
+                        vector_store = client.beta.vector_stores.list()
+                        vector_store_id = None
+                        for vs in vector_store:
+                            if vs.name == name:
+                                vector_store_id = vs.id
+                                break
+                        
+                        if vector_store_id:
+                            logger.info(f'Updating common knowledge for {name}')
+                            update_common_knowledge(client, vector_store_id, common_knowledge, config_dir)
+                        else:
+                            logger.warning(f'No existing vector store found for {name}')
+                else:
+                    update_assistant(config, config_dir, production, replace_context=replace_context)
