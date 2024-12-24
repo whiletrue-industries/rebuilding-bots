@@ -229,8 +229,9 @@ def delete_common_knowledge_files(client, vector_store_id):
     try:
         files = client.beta.vector_stores.files.list(vector_store_id=vector_store_id)
         for file in files:
-            if file.filename.startswith('common_knowledge_'):
-                logger.info(f'Deleting file {file.filename}')
+            file_details = client.files.retrieve(file.id)
+            if file_details.filename.startswith('common_knowledge_'):
+                logger.info(f'Deleting file {file_details.filename}')
                 client.beta.vector_stores.files.delete(
                     vector_store_id=vector_store_id,
                     file_id=file.id
