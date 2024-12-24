@@ -15,7 +15,9 @@ def cli():
               help='Replace existing vector stores instead of updating them')
 @click.option('--update-common-knowledge', type=click.BOOL, default=False, 
               help='Update only the common knowledge files in the vector store without modifying the assistant')
-def sync(environment, bots, replace_context=False, update_common_knowledge=False):
+@click.option('--update-instructions', type=click.BOOL, default=False,
+              help='Update only the assistant\'s instructions and configuration without modifying the vector store')
+def sync(environment, bots, replace_context=False, update_common_knowledge=False, update_instructions=False):
     """Sync bot configurations and knowledge bases to OpenAI."""
     click.echo(f"Syncing {bots} to {environment}")
     sync_agents(environment, bots, replace_context=replace_context,

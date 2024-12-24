@@ -48,6 +48,8 @@ Either:
 3. `botnim sync {staging/production} {budgetkey/takanon}` to sync the specifications with the OpenAI account.
    - Use `--replace-context` to replace existing vector stores instead of updating them
    - Use `--update-common-knowledge` to update only the common knowledge files without modifying the assistant
+   - Use `--update-instructions` to update only the assistant's instructions and configuration without modifying the vector store
+   Note: `--update-common-knowledge` and `--update-instructions` cannot be used together
 Or
 3. Commit the changes to the repository
 4. Run the 'Sync' action from the GitHub Actions tab.

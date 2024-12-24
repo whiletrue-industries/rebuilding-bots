@@ -286,7 +286,7 @@ def update_common_knowledge_files(client, vector_store_id, common_knowledge, con
             logger.info(f'Uploading {len(file_streams)} common knowledge files')
             _upload_file_batches(client, vector_store_id, file_streams)
 
-def sync_agents(environment, bots, replace_context=False, update_common_knowledge=False):
+def sync_agents(environment, bots, replace_context=False, update_common_knowledge=False, update_instructions=False):
     production = environment == 'production'
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
@@ -295,6 +295,10 @@ def sync_agents(environment, bots, replace_context=False, update_common_knowledg
             with config_fn.open() as config_f:
                 config = yaml.safe_load(config_f)
                 config['instructions'] = (config_dir / config['instructions']).read_text()
+                
+                if update_common_knowledge and update_instructions:
+                    logger.warning("Cannot use both --update-common-knowledge and --update-instructions together")
+                    return
                 
                 if update_common_knowledge:
                     # Find existing vector store
@@ -323,5 +327,8 @@ def sync_agents(environment, bots, replace_context=False, update_common_knowledg
                             update_common_knowledge_files(client, vector_store_id, common_knowledge, config_dir)
                         else:
                             logger.warning(f'No existing vector store found for {name}')
+                elif update_instructions:
+                    logger.info(f'Updating only assistant instructions for {bot_id}')
+                    update_assistant(config, config_dir, production, replace_context=False)
                 else:
                     update_assistant(config, config_dir, production, replace_context=replace_context)
