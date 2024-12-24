@@ -111,17 +111,17 @@ def update_assistant(config, config_dir, production, replace_context=False):
             if main_context:
                 file_streams = []
                 if 'files' in main_context:
-                        files = list(config_dir.glob(main_context['files']))
-                        existing_files = client.files.list()
-                        for f in files:
-                            for ef in existing_files:
-                                if ef.filename == f.name:
-                                    client.files.delete(ef.id)
-                        file_streams = [f.open('rb') for f in files]
-                    
-                    # Upload main context files
-                    if file_streams:
-                        _upload_file_batches(client, vector_store_id, file_streams)
+                    files = list(config_dir.glob(main_context['files']))
+                    existing_files = client.files.list()
+                    for f in files:
+                        for ef in existing_files:
+                            if ef.filename == f.name:
+                                client.files.delete(ef.id)
+                    file_streams = [f.open('rb') for f in files]
+                
+                # Upload main context files
+                if file_streams:
+                    _upload_file_batches(client, vector_store_id, file_streams)
 
                 # Now process common knowledge
                 if common_knowledge:
