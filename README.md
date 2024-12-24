@@ -45,10 +45,26 @@ $ botnim --help
 1. Edit the specifications in the `specs/` directory.
 2. In case of changes to the vector stores, remove them in the OpenAI account playground.
 Either:
-3. `botnim sync {staging/production} {budgetkey/takanon}` to sync the specifications with the OpenAI account.
-Or
+3. Use the sync command (see Syncing Options below) to sync the specifications with the OpenAI account.
+Or:
 3. Commit the changes to the repository
 4. Run the 'Sync' action from the GitHub Actions tab.
+
+### Syncing Options
+
+The sync command supports the following options:
+- Environment: `production` or `staging`
+- Bots: `budgetkey`, `takanon`, or `all`
+- Flags:
+  - `--replace-context`: Deletes and recreates all vector stores for the assistant
+  - `--replace-common-knowledge`: Deletes and recreates only the common knowledge vector stores (those marked with `split: common-knowledge.md`)
+
+Examples:
+```bash
+botnim sync production takanon                           # Regular sync
+botnim sync staging all --replace-context               # Sync all bots, replacing all contexts
+botnim sync production budgetkey --replace-common-knowledge  # Sync with common knowledge refresh
+```
 
 ### Running the Benchmark
 
