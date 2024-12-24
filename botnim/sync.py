@@ -129,7 +129,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
                     if 'source' in common_knowledge:
                         # Download data from the public Google Spreadsheet
                         import requests
-                        sheet_id = context_['source'].split('/d/')[1].split('/')[0]
+                        sheet_id = common_knowledge['source'].split('/d/')[1].split('/')[0]
                         logger.info(f'Sheet ID: {sheet_id}')
                         url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
                         response = requests.get(url)
