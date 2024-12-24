@@ -83,8 +83,27 @@ def update_assistant(config, config_dir, production, replace_context=False):
                 elif 'split' in context_:
                     filename = config_dir / context_['split']
                     if 'source' in context_:
-                        # Download google spreadsheet file to md file in filename
-                        ...
+                        # Download data from the public Google Spreadsheet
+                        import requests
+                        sheet_id = context_['source'].split('/d/')[1].split('/')[0]
+                        url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
+                        response = requests.get(url)
+                        data = response.text
+
+                        # Convert CSV data to markdown format
+                        markdown_content = []
+                        rows = data.strip().split('\n')
+                        headers = rows[0].split(',')
+                        data_rows = rows[1:]
+
+                        for row in data_rows:
+                            values = row.split(',')
+                            markdown_content.append('---')
+                            for header, value in zip(headers, values):
+                                markdown_content.append(f'{header.strip()}: {value.strip()}')
+
+                        markdown_content = '\n'.join(markdown_content)
+                        filename.write_text(markdown_content, encoding='utf-8')
                     content = filename.read_text()
                     content = content.split('\n---\n')
                     file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
