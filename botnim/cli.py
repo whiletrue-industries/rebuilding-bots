@@ -22,7 +22,8 @@ def sync(environment, bots, replace_context=False, update_common_knowledge=False
     Without flags: updates everything (instructions, context, and common knowledge)."""
     click.echo(f"Syncing {bots} to {environment}")
     sync_agents(environment, bots, replace_context=replace_context,
-                update_common_knowledge=update_common_knowledge)
+                update_common_knowledge=update_common_knowledge,
+                update_instructions=update_instructions)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command()
