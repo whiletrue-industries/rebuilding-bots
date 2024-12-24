@@ -103,9 +103,9 @@ def update_assistant(config, config_dir, production, replace_context=False):
                 else:
                     vector_store_id = vs.id
                 break
-            if vector_store_id is None:
-                vector_store = client.beta.vector_stores.create(name=name)
-                vector_store_id = vector_store.id
+        if vector_store_id is None:
+            vector_store = client.beta.vector_stores.create(name=name)
+            vector_store_id = vector_store.id
                 
                 # Process main context files first if they exist
                 if main_context:
