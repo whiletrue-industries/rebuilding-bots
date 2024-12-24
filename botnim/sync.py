@@ -5,13 +5,13 @@ from pathlib import Path
 
 import logging
 import yaml
+from openai import OpenAI
+
+from .config import SPECS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from openai import OpenAI
-
-from .config import SPECS
 
 
 api_key = os.environ['OPENAI_API_KEY']
@@ -101,16 +101,10 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         markdown_content = []
                         rows = data.strip().split('\n')
                         logger.info(f'Number of rows: {len(rows)}')
-                        headers = rows[0].split(',')
-                        logger.info(f'Headers: {headers}')
-                        data_rows = rows[1:]
-                        logger.info(f'Number of data rows: {len(data_rows)}')
 
-                        for row in data_rows:
-                            values = row.split(',')
-                            markdown_content.append('---')
-                            for header, value in zip(headers, values):
-                                markdown_content.append(f'{header.strip()}: {value.strip()}')
+                        for row in rows:
+                            markdown_content.append(f'{row.strip()}')
+                            markdown_content.append('\n---\n')
 
                         markdown_content = '\n'.join(markdown_content)
                         logger.info(f'Markdown content: {markdown_content[:100]}...')  # Log first 100 characters
