@@ -58,7 +58,7 @@ def openapi_to_tools(openapi_spec):
 def update_assistant(config, config_dir, production, replace_context=False):
     tool_resources = None
     tools = None
-    vector_store_ids = []
+    vector_store_id = None
     print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
     if config.get('context'):
@@ -139,10 +139,9 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             logger.error(f'Error uploading file batch for vector store {name}: {str(e)}')
                             raise
                 vector_store_id = vector_store.id
-            vector_store_ids.append(vector_store_id)
         tool_resources = dict(
             file_search=dict(
-                vector_store_ids=vector_store_ids,
+                vector_store_ids=[vector_store_id],
             ),
         )
         tools = [dict(
