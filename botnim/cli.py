@@ -11,11 +11,22 @@ def cli():
 @cli.command()
 @click.argument('environment', type=click.Choice(['production', 'staging']))
 @click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
-@click.option('--replace-context', type=click.BOOL, default=False)
-def sync(environment, bots, replace_context=False):
-    """Sync bots to Airtable."""
+@click.option('--replace-context', type=click.BOOL, default=False,
+              help='Replace existing vector stores instead of updating them')
+@click.option('--update-common-knowledge', type=click.BOOL, default=False, 
+              help='Update only the common knowledge files in the vector store without modifying the assistant')
+@click.option('--update-instructions', type=click.BOOL, default=False,
+              help='Update only the assistant\'s instructions and configuration without modifying the vector store')
+def sync(environment, bots, replace_context=False, update_common_knowledge=False, update_instructions=False):
+    """Sync bot configurations to OpenAI.
+    Without flags: updates only the assistant's configuration and instructions.
+    Use --replace-context to recreate vector stores from scratch
+    Use --update-common-knowledge to update only common knowledge files
+    Use --update-instructions to update only the assistant's instructions"""
     click.echo(f"Syncing {bots} to {environment}")
-    sync_agents(environment, bots, replace_context=replace_context)
+    sync_agents(environment, bots, replace_context=replace_context,
+                update_common_knowledge=update_common_knowledge,
+                update_instructions=update_instructions)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command()
