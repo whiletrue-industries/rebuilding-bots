@@ -12,10 +12,11 @@ def cli():
 @click.argument('environment', type=click.Choice(['production', 'staging']))
 @click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
 @click.option('--replace-context', type=click.BOOL, default=False)
-def sync(environment, bots, replace_context=False):
+@click.option('--replace-common-knowledge', type=click.BOOL, default=False)
+def sync(environment, bots, replace_context=False, replace_common_knowledge=False):
     """Sync bots to Airtable."""
     click.echo(f"Syncing {bots} to {environment}")
-    sync_agents(environment, bots, replace_context=replace_context)
+    sync_agents(environment, bots, replace_context=replace_context, replace_common_knowledge=replace_common_knowledge)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command()

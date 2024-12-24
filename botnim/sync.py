@@ -55,7 +55,7 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(config, config_dir, production, replace_context=False):
+def update_assistant(config, config_dir, production, replace_context=False, replace_common_knowledge=False):
     tool_resources = None
     tools = None
     print(f'Updating assistant: {config["name"]}')
@@ -69,7 +69,11 @@ def update_assistant(config, config_dir, production, replace_context=False):
             vector_store_id = None
             for vs in vector_store:
                 if vs.name == name:
-                    if replace_context:
+                    if replace_context or (
+                        replace_common_knowledge and 
+                        'split' in context_ and 
+                        context_['split'] == 'common-knowledge.md'
+                    ):
                         client.beta.vector_stores.delete(vs.id)
                     else:
                         vector_store_id = vs.id
@@ -198,7 +202,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
         # ...
 
 
-def sync_agents(environment, bots, replace_context=False):
+def sync_agents(environment, bots, replace_context=False, replace_common_knowledge=False):
     production = environment == 'production'
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
@@ -207,4 +211,4 @@ def sync_agents(environment, bots, replace_context=False):
             with config_fn.open() as config_f:
                 config = yaml.safe_load(config_f)
                 config['instructions'] = (config_dir / config['instructions']).read_text()
-                update_assistant(config, config_dir, production, replace_context=replace_context)
+                update_assistant(config, config_dir, production, replace_context=replace_context, replace_common_knowledge=replace_common_knowledge)
