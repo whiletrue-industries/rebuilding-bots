@@ -11,8 +11,8 @@ def cli():
 @cli.command()
 @click.argument('environment', type=click.Choice(['production', 'staging']))
 @click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
-@click.option('--replace-context/--no-replace-context', default=False)
-@click.option('--replace-common-knowledge/--no-replace-common-knowledge', default=False)
+@click.option('--replace-context', is_flag=True, default=False, help="Replace all contexts")
+@click.option('--replace-common-knowledge', is_flag=True, default=False, help="Replace only common knowledge contexts")
 def sync(environment, bots, replace_context, replace_common_knowledge):
     """Sync bots to Airtable."""
     if replace_context and replace_common_knowledge:
