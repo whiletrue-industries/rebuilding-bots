@@ -239,7 +239,7 @@ def delete_common_knowledge_files(client, vector_store_id):
         logger.error(f'Error deleting common knowledge files: {str(e)}')
         raise
 
-def update_common_knowledge(client, vector_store_id, common_knowledge, config_dir):
+def update_common_knowledge_files(client, vector_store_id, common_knowledge, config_dir):
     """Update only the common knowledge files in the vector store"""
     logger.info(f'Updating common knowledge for vector store {vector_store_id}')
     
@@ -319,7 +319,7 @@ def sync_agents(environment, bots, replace_context=False, update_common_knowledg
                         
                         if vector_store_id:
                             logger.info(f'Updating common knowledge for {name}')
-                            update_common_knowledge(client, vector_store_id, common_knowledge, config_dir)
+                            update_common_knowledge_files(client, vector_store_id, common_knowledge, config_dir)
                         else:
                             logger.warning(f'No existing vector store found for {name}')
                 else:
