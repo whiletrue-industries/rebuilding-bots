@@ -46,6 +46,8 @@ $ botnim --help
 2. In case of changes to the vector stores, remove them in the OpenAI account playground.
 Either:
 3. `botnim sync {staging/production} {budgetkey/takanon}` to sync the specifications with the OpenAI account.
+   - Use `--replace-context` to replace existing vector stores instead of updating them
+   - Use `--update-common-knowledge` to update only the common knowledge files without modifying the assistant
 Or
 3. Commit the changes to the repository
 4. Run the 'Sync' action from the GitHub Actions tab.

@@ -11,11 +11,12 @@ def cli():
 @cli.command()
 @click.argument('environment', type=click.Choice(['production', 'staging']))
 @click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
-@click.option('--replace-context', type=click.BOOL, default=False)
+@click.option('--replace-context', type=click.BOOL, default=False,
+              help='Replace existing vector stores instead of updating them')
 @click.option('--update-common-knowledge', type=click.BOOL, default=False, 
-              help='Update only the common knowledge files in the vector store')
+              help='Update only the common knowledge files in the vector store without modifying the assistant')
 def sync(environment, bots, replace_context=False, update_common_knowledge=False):
-    """Sync bots to Airtable."""
+    """Sync bot configurations and knowledge bases to OpenAI."""
     click.echo(f"Syncing {bots} to {environment}")
     sync_agents(environment, bots, replace_context=replace_context,
                 update_common_knowledge=update_common_knowledge)
