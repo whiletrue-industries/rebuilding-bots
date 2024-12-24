@@ -106,11 +106,11 @@ def update_assistant(config, config_dir, production, replace_context=False):
         if vector_store_id is None:
             vector_store = client.beta.vector_stores.create(name=name)
             vector_store_id = vector_store.id
-                
-                # Process main context files first if they exist
-                if main_context:
-                    file_streams = []
-                    if 'files' in main_context:
+            
+            # Process main context files first if they exist
+            if main_context:
+                file_streams = []
+                if 'files' in main_context:
                         files = list(config_dir.glob(main_context['files']))
                         existing_files = client.files.list()
                         for f in files:
