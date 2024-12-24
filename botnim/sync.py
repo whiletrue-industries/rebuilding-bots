@@ -113,18 +113,30 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         logger.info(f'File written successfully')
                     content = filename.read_text()
                     content = content.split('\n---\n')
-                    file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
-                    file_streams = [(f'{name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
+                    file_streams = []
+                    for i, c in enumerate(content):
+                        if c.strip():
+                            file_stream = io.BytesIO(c.strip().encode('utf-8'))
+                            file_streams.append((f'{name}_{i}.md', file_stream, 'text/markdown'))
+                        else:
+                            logger.warning(f'Skipping empty file: {name}_{i}.md')
                 vector_store = client.beta.vector_stores.create(name=name)
-                while len(file_streams) > 0:
-                    file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-                        vector_store_id=vector_store.id, files=file_streams[:32]
-                    )
-                    print(f'VECTOR STORE {name} batch: uploaded {file_batch.file_counts.completed}, ' +\
-                          f'failed {file_batch.file_counts.failed}, ' + \
-                          f'pending {file_batch.file_counts.in_progress}, ' + \
-                          f'remaining {len(file_streams)}')
-                    file_streams = file_streams[32:]
+                if not file_streams:
+                    logger.error(f'No valid files to upload for vector store: {name}')
+                else:
+                    while len(file_streams) > 0:
+                        try:
+                            file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+                                vector_store_id=vector_store.id, files=file_streams[:32]
+                            )
+                            logger.info(f'VECTOR STORE {name} batch: uploaded {file_batch.file_counts.completed}, ' +\
+                                        f'failed {file_batch.file_counts.failed}, ' + \
+                                        f'pending {file_batch.file_counts.in_progress}, ' + \
+                                        f'remaining {len(file_streams)}')
+                            file_streams = file_streams[32:]
+                        except Exception as e:
+                            logger.error(f'Error uploading file batch for vector store {name}: {str(e)}')
+                            raise
                 vector_store_id = vector_store.id
             tool_resources = dict(
                 file_search=dict(
