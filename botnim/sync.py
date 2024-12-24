@@ -59,7 +59,6 @@ def update_assistant(config, config_dir, production, replace_context=False):
     tool_resources = None
     tools = None
     vector_store_ids = []
-    vector_store_ids = []
     print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
     if config.get('context'):
