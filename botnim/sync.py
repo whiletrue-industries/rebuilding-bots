@@ -55,6 +55,23 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
+def _upload_file_batches(client, vector_store_id, file_streams):
+    """Helper function to upload file batches to vector store"""
+    while len(file_streams) > 0:
+        try:
+            file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+                vector_store_id=vector_store_id, 
+                files=file_streams[:32]
+            )
+            logger.info(f'Batch uploaded: completed {file_batch.file_counts.completed}, ' +\
+                       f'failed {file_batch.file_counts.failed}, ' +\
+                       f'pending {file_batch.file_counts.in_progress}, ' +\
+                       f'remaining {len(file_streams)}')
+            file_streams = file_streams[32:]
+        except Exception as e:
+            logger.error(f'Error uploading file batch: {str(e)}')
+            raise
+
 def update_assistant(config, config_dir, production, replace_context=False):
     tool_resources = None
     tools = None
@@ -62,32 +79,54 @@ def update_assistant(config, config_dir, production, replace_context=False):
     print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
     if config.get('context'):
+        # Find the main context and common knowledge context
+        main_context = None
+        common_knowledge = None
         for context_ in config['context']:
-            name = context_['name']
-            if not production:
-                name += ' - פיתוח'
-            vector_store = client.beta.vector_stores.list()
-            vector_store_id = None
-            for vs in vector_store:
-                if vs.name == name:
-                    if replace_context:
-                        client.beta.vector_stores.delete(vs.id)
-                    else:
-                        vector_store_id = vs.id
-                    break
+            if 'common-knowledge.md' in str(context_.get('split', '')):
+                common_knowledge = context_
+            else:
+                main_context = context_
+
+        # Determine vector store name based on main context
+        name = (main_context or common_knowledge)['name']
+        if not production:
+            name += ' - פיתוח'
+
+        # Handle vector store creation/update
+        vector_store = client.beta.vector_stores.list()
+        vector_store_id = None
+        for vs in vector_store:
+            if vs.name == name:
+                if replace_context:
+                    client.beta.vector_stores.delete(vs.id)
+                else:
+                    vector_store_id = vs.id
+                break
             if vector_store_id is None:
-                if 'files' in context_:
-                    files = list(config_dir.glob(context_['files']))
-                    existing_files = client.files.list()
-                    # delete existing files:
-                    for f in files:
-                        for ef in existing_files:
-                            if ef.filename == f.name:
-                                client.files.delete(ef.id)
-                    file_streams = [f.open('rb') for f in files]
-                elif 'split' in context_:
-                    filename = config_dir / context_['split']
-                    if 'source' in context_:
+                vector_store = client.beta.vector_stores.create(name=name)
+                vector_store_id = vector_store.id
+                
+                # Process main context files first if they exist
+                if main_context:
+                    file_streams = []
+                    if 'files' in main_context:
+                        files = list(config_dir.glob(main_context['files']))
+                        existing_files = client.files.list()
+                        for f in files:
+                            for ef in existing_files:
+                                if ef.filename == f.name:
+                                    client.files.delete(ef.id)
+                        file_streams = [f.open('rb') for f in files]
+                    
+                    # Upload main context files
+                    if file_streams:
+                        _upload_file_batches(client, vector_store_id, file_streams)
+
+                # Now process common knowledge
+                if common_knowledge:
+                    filename = config_dir / common_knowledge['split']
+                    if 'source' in common_knowledge:
                         # Download data from the public Google Spreadsheet
                         import requests
                         sheet_id = context_['source'].split('/d/')[1].split('/')[0]
@@ -118,27 +157,12 @@ def update_assistant(config, config_dir, production, replace_context=False):
                     for i, c in enumerate(content):
                         if c.strip():
                             file_stream = io.BytesIO(c.strip().encode('utf-8'))
-                            file_streams.append((f'{name}_{i}.md', file_stream, 'text/markdown'))
+                            file_streams.append((f'common_knowledge_{i}.md', file_stream, 'text/markdown'))
                         else:
-                            logger.warning(f'Skipping empty file: {name}_{i}.md')
-                vector_store = client.beta.vector_stores.create(name=name)
-                if not file_streams:
-                    logger.error(f'No valid files to upload for vector store: {name}')
-                else:
-                    while len(file_streams) > 0:
-                        try:
-                            file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-                                vector_store_id=vector_store.id, files=file_streams[:32]
-                            )
-                            logger.info(f'VECTOR STORE {name} batch: uploaded {file_batch.file_counts.completed}, ' +\
-                                        f'failed {file_batch.file_counts.failed}, ' + \
-                                        f'pending {file_batch.file_counts.in_progress}, ' + \
-                                        f'remaining {len(file_streams)}')
-                            file_streams = file_streams[32:]
-                        except Exception as e:
-                            logger.error(f'Error uploading file batch for vector store {name}: {str(e)}')
-                            raise
-                vector_store_id = vector_store.id
+                            logger.warning(f'Skipping empty file: common_knowledge_{i}.md')
+                    
+                    if file_streams:
+                        _upload_file_batches(client, vector_store_id, file_streams)
         tool_resources = dict(
             file_search=dict(
                 vector_store_ids=[vector_store_id],
