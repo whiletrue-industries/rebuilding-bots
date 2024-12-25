@@ -113,10 +113,16 @@ def update_assistant(config, config_dir, production, replace_context=False):
                 file_streams = []
                 if 'files' in main_context:
                     files = list(config_dir.glob(main_context['files']))
+                    # Get all existing files and filter by environment
                     existing_files = client.files.list()
+                    env_suffix = ' - פיתוח' if not production else ''
                     for f in files:
                         for ef in existing_files:
-                            if ef.filename == f.name:
+                            # Only delete files if they match our target environment
+                            if ef.filename == f.name and ef.purpose == 'assistants' and (
+                                (production and ' - פיתוח' not in ef.filename) or
+                                (not production and ' - פיתוח' in ef.filename)
+                            ):
                                 client.files.delete(ef.id)
                     file_streams = [f.open('rb') for f in files]
                 
