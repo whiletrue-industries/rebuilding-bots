@@ -98,18 +98,20 @@ def update_assistant(config, config_dir, production, replace_context=False):
         vector_stores = client.beta.vector_stores.list()
         vector_store_id = None
         for vs in vector_stores:
-            is_staging = ' - פיתוח' in vs.name
-            # Only interact with vector stores matching our target environment
-            if production == (not is_staging):
-                if vs.name == target_name:
+            # Check if this vector store matches our target name (ignoring environment suffix)
+            base_name = vs.name.replace(' - פיתוח', '')
+            if base_name == prod_name:  # If it's the vector store we want to work with
+                is_staging = ' - פיתוח' in vs.name
+                # Only delete/use if it matches our target environment
+                if (production and not is_staging) or (not production and is_staging):
                     if replace_context:
                         print(f"Deleting vector store: {vs.name} (environment: {'production' if production else 'staging'})")
                         client.beta.vector_stores.delete(vs.id)
                     else:
                         vector_store_id = vs.id
                     break
-            else:
-                print(f"Skipping vector store from other environment: {vs.name}")
+                else:
+                    print(f"Skipping vector store from other environment: {vs.name}")
         if vector_store_id is None:
             vector_store = client.beta.vector_stores.create(name=target_name)
             vector_store_id = vector_store.id
@@ -132,10 +134,9 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         for ef in existing_files:
                             if ef.purpose == 'assistants':
                                 is_staging = ' - פיתוח' in ef.filename
-                                # Only delete if it matches one of our target files
                                 base_name = ef.filename.replace(' - פיתוח', '')
                                 if base_name in target_filenames:
-                                    # Only delete files in our target environment
+                                    # Only delete if environment matches
                                     if (production and not is_staging) or (not production and is_staging):
                                         print(f"Deleting file: {ef.filename} (environment: {'production' if production else 'staging'})")
                                         client.files.delete(ef.id)
