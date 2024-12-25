@@ -88,16 +88,17 @@ def update_assistant(config, config_dir, production, replace_context=False):
             else:
                 main_context = context_
 
-        # Determine vector store name based on main context
-        name = (main_context or common_knowledge)['name']
-        if not production:
-            name += ' - פיתוח'
+        # Determine vector store name based on main context and environment
+        base_name = (main_context or common_knowledge)['name']
+        staging_name = base_name + ' - פיתוח'
+        prod_name = base_name
+        target_name = prod_name if production else staging_name
 
         # Handle vector store creation/update
         vector_store = client.beta.vector_stores.list()
         vector_store_id = None
         for vs in vector_store:
-            if vs.name == name:
+            if vs.name == target_name:
                 if replace_context:
                     client.beta.vector_stores.delete(vs.id)
                 else:
