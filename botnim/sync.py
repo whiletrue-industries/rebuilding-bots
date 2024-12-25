@@ -132,13 +132,15 @@ def update_assistant(config, config_dir, production, replace_context=False):
                         for ef in existing_files:
                             if ef.purpose == 'assistants':
                                 is_staging = ' - פיתוח' in ef.filename
-                                # Only delete files in our target environment
-                                if production == (not is_staging):
-                                    # Only delete if it matches one of our target files
-                                    base_name = ef.filename.replace(' - פיתוח', '')
-                                    if base_name in target_filenames:
+                                # Only delete if it matches one of our target files
+                                base_name = ef.filename.replace(' - פיתוח', '')
+                                if base_name in target_filenames:
+                                    # Only delete files in our target environment
+                                    if (production and not is_staging) or (not production and is_staging):
                                         print(f"Deleting file: {ef.filename} (environment: {'production' if production else 'staging'})")
                                         client.files.delete(ef.id)
+                                    else:
+                                        print(f"Skipping file from other environment: {ef.filename}")
                     file_streams = [f.open('rb') for f in files]
                 
                 # Upload main context files
