@@ -98,15 +98,17 @@ def update_assistant(config, config_dir, production, replace_context=False):
         vector_stores = client.beta.vector_stores.list()
         vector_store_id = None
         for vs in vector_stores:
-            # Only interact with vector stores matching our environment
-            if vs.name == target_name:
-                if replace_context:
-                    print(f"Deleting vector store: {vs.name}")
-                    client.beta.vector_stores.delete(vs.id)
-                else:
-                    vector_store_id = vs.id
-                break
-            elif vs.name in [prod_name, staging_name]:
+            is_staging = ' - פיתוח' in vs.name
+            # Only interact with vector stores matching our target environment
+            if production == (not is_staging):
+                if vs.name == target_name:
+                    if replace_context:
+                        print(f"Deleting vector store: {vs.name} (environment: {'production' if production else 'staging'})")
+                        client.beta.vector_stores.delete(vs.id)
+                    else:
+                        vector_store_id = vs.id
+                    break
+            else:
                 print(f"Skipping vector store from other environment: {vs.name}")
         if vector_store_id is None:
             vector_store = client.beta.vector_stores.create(name=target_name)
