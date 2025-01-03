@@ -3,11 +3,15 @@ import json
 import io
 from pathlib import Path
 
+import logging
 import yaml
-
 from openai import OpenAI
 
 from .config import SPECS
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 
 api_key = os.environ['OPENAI_API_KEY']
@@ -51,60 +55,119 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
+def _upload_file_batches(client, vector_store_id, file_streams):
+    """Helper function to upload file batches to vector store"""
+    while len(file_streams) > 0:
+        try:
+            file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+                vector_store_id=vector_store_id, 
+                files=file_streams[:32]
+            )
+            logger.info(f'Batch uploaded: completed {file_batch.file_counts.completed}, ' +\
+                       f'failed {file_batch.file_counts.failed}, ' +\
+                       f'pending {file_batch.file_counts.in_progress}, ' +\
+                       f'remaining {len(file_streams)}')
+            file_streams = file_streams[32:]
+        except Exception as e:
+            logger.error(f'Error uploading file batch: {str(e)}')
+            raise
+
 def update_assistant(config, config_dir, production, replace_context=False):
     tool_resources = None
     tools = None
+    vector_store_id = None
     print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
     if config.get('context'):
+        # Find the main context and common knowledge context
+        main_context = None
+        common_knowledge = None
         for context_ in config['context']:
-            name = context_['name']
-            if not production:
-                name += ' - פיתוח'
-            vector_store = client.beta.vector_stores.list()
-            vector_store_id = None
-            for vs in vector_store:
-                if vs.name == name:
-                    if replace_context:
-                        client.beta.vector_stores.delete(vs.id)
-                    else:
-                        vector_store_id = vs.id
-                    break
-            if vector_store_id is None:
-                if 'files' in context_:
-                    files = list(config_dir.glob(context_['files']))
+            if 'common-knowledge.md' in str(context_.get('split', '')):
+                common_knowledge = context_
+            else:
+                main_context = context_
+
+        # Determine vector store name based on main context
+        name = (main_context or common_knowledge)['name']
+        if not production:
+            name += ' - פיתוח'
+
+        # Handle vector store creation/update
+        vector_store = client.beta.vector_stores.list()
+        vector_store_id = None
+        for vs in vector_store:
+            if vs.name == name:
+                if replace_context:
+                    client.beta.vector_stores.delete(vs.id)
+                else:
+                    vector_store_id = vs.id
+                break
+        if vector_store_id is None:
+            vector_store = client.beta.vector_stores.create(name=name)
+            vector_store_id = vector_store.id
+            
+            # Process main context files first if they exist
+            if main_context:
+                file_streams = []
+                if 'files' in main_context:
+                    files = list(config_dir.glob(main_context['files']))
                     existing_files = client.files.list()
-                    # delete existing files:
                     for f in files:
                         for ef in existing_files:
                             if ef.filename == f.name:
                                 client.files.delete(ef.id)
                     file_streams = [f.open('rb') for f in files]
-                elif 'split' in context_:
-                    filename = config_dir / context_['split']
-                    if 'source' in context_:
-                        # Download google spreadsheet file to md file in filename
-                        ...
+                
+                # Upload main context files
+                if file_streams:
+                    _upload_file_batches(client, vector_store_id, file_streams)
+
+                # Now process common knowledge
+                if common_knowledge:
+                    filename = config_dir / common_knowledge['split']
+                    if 'source' in common_knowledge:
+                        # Download data from the public Google Spreadsheet
+                        import requests
+                        sheet_id = common_knowledge['source'].split('/d/')[1].split('/')[0]
+                        logger.info(f'Sheet ID: {sheet_id}')
+                        url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
+                        response = requests.get(url)
+                        logger.info(f'Response status code: {response.status_code}')
+                        logger.info(f'Response text: {response.text[:100]}...')  # Log first 100 characters
+                        data = response.text
+
+                        # Convert CSV data to markdown format
+                        markdown_content = []
+                        rows = data.strip().split('\n')
+                        logger.info(f'Number of rows: {len(rows)}')
+
+                        for row in rows:
+                            markdown_content.append(f'{row.strip()}')
+                            markdown_content.append('\n---\n')
+
+                        markdown_content = '\n'.join(markdown_content)
+                        logger.info(f'Markdown content: {markdown_content[:100]}...')  # Log first 100 characters
+                        logger.info(f'Writing to file: {filename}')
+                        filename.write_text(markdown_content, encoding='utf-8')
+                        logger.info(f'File written successfully')
                     content = filename.read_text()
                     content = content.split('\n---\n')
-                    file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
-                    file_streams = [(f'{name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
-                vector_store = client.beta.vector_stores.create(name=name)
-                while len(file_streams) > 0:
-                    file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-                        vector_store_id=vector_store.id, files=file_streams[:32]
-                    )
-                    print(f'VECTOR STORE {name} batch: uploaded {file_batch.file_counts.completed}, ' +\
-                          f'failed {file_batch.file_counts.failed}, ' + \
-                          f'pending {file_batch.file_counts.in_progress}, ' + \
-                          f'remaining {len(file_streams)}')
-                    file_streams = file_streams[32:]
-                vector_store_id = vector_store.id
-            tool_resources = dict(
-                file_search=dict(
-                    vector_store_ids=[vector_store_id],
-                ),
-            )
+                    file_streams = []
+                    for i, c in enumerate(content):
+                        if c.strip():
+                            file_stream = io.BytesIO(c.strip().encode('utf-8'))
+                            file_streams.append((f'common_knowledge_{i}.md', file_stream, 'text/markdown'))
+                        else:
+                            logger.warning(f'Skipping empty file: common_knowledge_{i}.md')
+                    
+                    if file_streams:
+                        _upload_file_batches(client, vector_store_id, file_streams)
+        tool_resources = dict(
+            file_search=dict(
+                vector_store_ids=[vector_store_id],
+            ),
+        )
         tools = [dict(
             type='file_search',
             file_search=dict(
