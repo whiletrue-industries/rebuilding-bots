@@ -45,15 +45,33 @@ $ botnim --help
 
 ## Common Tasks
 
+### Available Commands
+
+The following CLI commands are available:
+
+```bash
+# Download external sources (e.g., Google Spreadsheets)
+botnim download
+
+# Sync bots with OpenAI
+botnim sync {staging/production} {budgetkey/takanon/all} [--replace-context]
+
+# Run benchmarks
+botnim benchmarks {staging/production} {budgetkey/takanon/all} [--local] [--reuse-answers] [--select failed/all/ID] [--concurrency N]
+```
+
 ### Updating the Specifications
 
 1. Edit the specifications in the `specs/` directory.
-2. In case of changes to the vector stores, remove them in the OpenAI account playground.
+2. If using external sources (e.g., Google Spreadsheets):
+   - Configure the source URL in the bot's `config.yaml`
+   - Run `botnim download` to fetch and convert the latest data
+3. In case of changes to the vector stores, remove them in the OpenAI account playground.
 Either:
-3. `botnim sync {staging/production} {budgetkey/takanon}` to sync the specifications with the OpenAI account.
+4. `botnim sync {staging/production} {budgetkey/takanon}` to sync the specifications with the OpenAI account.
 Or
-3. Commit the changes to the repository
-4. Run the 'Sync' action from the GitHub Actions tab.
+5. Commit the changes to the repository
+6. Run the 'Sync' action from the GitHub Actions tab.
 
 ### Knowledge Base Management
 
@@ -62,12 +80,14 @@ The project now uses a modular knowledge base system that supports different bac
 - `KnowledgeBase`: Abstract base class defining the interface for knowledge base implementations
 - `OpenAIVectorStore`: Implementation for OpenAI's vector store
 - `ContextManager`: Handles loading and processing of context files
+- External sources can be configured in `config.yaml` and downloaded using the CLI
 
 This design allows for:
 - Easy addition of new knowledge base backends (e.g., Elasticsearch)
 - Better separation of concerns
 - Improved error handling and logging
 - Consistent interface across different implementations
+- Automated handling of external knowledge sources
 
 ### Running the Benchmark
 
