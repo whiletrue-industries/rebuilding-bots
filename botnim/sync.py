@@ -9,7 +9,6 @@ from openai import OpenAI
 
 from .config import SPECS
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
