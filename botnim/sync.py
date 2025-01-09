@@ -1,20 +1,18 @@
 import os
-import json
-import io
-from pathlib import Path
-
 import logging
 import yaml
+from pathlib import Path
 from openai import OpenAI
-
+from .kb.openai import OpenAIVectorStore
+from .kb.manager import ContextManager
 from .config import SPECS
 
 logger = logging.getLogger(__name__)
 
-
-
-api_key = os.environ['OPENAI_API_KEY']
-# Create openai client and get completion for prompt with the 'gpt4-o' model:
+# Initialize OpenAI client with explicit API key
+api_key = os.environ.get('OPENAI_API_KEY')
+if not api_key:
+    raise ValueError("OPENAI_API_KEY environment variable is not set")
 client = OpenAI(api_key=api_key)
 
 def openapi_to_tools(openapi_spec):
@@ -54,200 +52,69 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def _upload_file_batches(client, vector_store_id, file_streams):
-    """Helper function to upload file batches to vector store"""
-    while len(file_streams) > 0:
-        try:
-            file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-                vector_store_id=vector_store_id, 
-                files=file_streams[:32]
-            )
-            logger.info(f'Batch uploaded: completed {file_batch.file_counts.completed}, ' +\
-                       f'failed {file_batch.file_counts.failed}, ' +\
-                       f'pending {file_batch.file_counts.in_progress}, ' +\
-                       f'remaining {len(file_streams)}')
-            file_streams = file_streams[32:]
-        except Exception as e:
-            logger.error(f'Error uploading file batch: {str(e)}')
-            raise
-
 def update_assistant(config, config_dir, production, replace_context=False):
-    tool_resources = None
-    tools = None
-    vector_store_id = None
-    print(f'Updating assistant: {config["name"]}')
-    # Load context, if necessary
-    if config.get('context'):
-        # Find the main context and common knowledge context
-        main_context = None
-        common_knowledge = None
-        for context_ in config['context']:
-            if 'common-knowledge.md' in str(context_.get('split', '')):
-                common_knowledge = context_
-            else:
-                main_context = context_
-
-        # Determine vector store name based on main context and environment
-        base_name = (main_context or common_knowledge)['name']
-        staging_name = base_name + ' - פיתוח'
-        prod_name = base_name
-        target_name = prod_name if production else staging_name
-
-        # Handle vector store creation/update
-        vector_stores = client.beta.vector_stores.list()
-        vector_store_id = None
-        for vs in vector_stores:
-            # Check if this vector store matches our target name (ignoring environment suffix)
-            base_name = vs.name.replace(' - פיתוח', '')
-            if base_name == prod_name:  # If it's the vector store we want to work with
-                is_staging = ' - פיתוח' in vs.name
-                # Only delete/use if it matches our target environment
-                if (production and not is_staging) or (not production and is_staging):
-                    if replace_context:
-                        print(f"Deleting vector store: {vs.name} (environment: {'production' if production else 'staging'})")
-                        client.beta.vector_stores.delete(vs.id)
-                    else:
-                        vector_store_id = vs.id
-                    break
-                else:
-                    print(f"Skipping vector store from other environment: {vs.name}")
-        if vector_store_id is None:
-            vector_store = client.beta.vector_stores.create(name=target_name)
-            vector_store_id = vector_store.id
-            
-            # Process main context files first if they exist
-            if main_context:
-                file_streams = []
-                if 'files' in main_context:
-                    files = list(config_dir.glob(main_context['files']))
-                    # Only delete files if we're replacing context
-                    if replace_context:
-                        # Get all existing files
-                        existing_files = client.files.list()
-                        env_suffix = ' - פיתוח' if not production else ''
-                        
-                        # Create a set of target filenames for our environment
-                        target_filenames = {f.name for f in files}
-                        
-                        # Filter and delete files that match our environment
-                        for ef in existing_files:
-                            if ef.purpose == 'assistants':
-                                is_staging = ' - פיתוח' in ef.filename
-                                base_name = ef.filename.replace(' - פיתוח', '')
-                                if base_name in target_filenames:
-                                    # Only delete if environment matches
-                                    if (production and not is_staging) or (not production and is_staging):
-                                        print(f"Deleting file: {ef.filename} (environment: {'production' if production else 'staging'})")
-                                        client.files.delete(ef.id)
-                                    else:
-                                        print(f"Skipping file from other environment: {ef.filename}")
-                    file_streams = [f.open('rb') for f in files]
-                
-                # Upload main context files
-                if file_streams:
-                    _upload_file_batches(client, vector_store_id, file_streams)
-
-                # Now process common knowledge
-                if common_knowledge:
-                    filename = config_dir / common_knowledge['split']
-                    if 'source' in common_knowledge:
-                        # Download data from the public Google Spreadsheet
-                        import requests
-                        sheet_id = common_knowledge['source'].split('/d/')[1].split('/')[0]
-                        logger.info(f'Sheet ID: {sheet_id}')
-                        url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
-                        response = requests.get(url)
-                        logger.info(f'Response status code: {response.status_code}')
-                        logger.info(f'Response text: {response.text[:100]}...')  # Log first 100 characters
-                        data = response.text
-
-                        # Convert CSV data to markdown format
-                        markdown_content = []
-                        rows = data.strip().split('\n')
-                        logger.info(f'Number of rows: {len(rows)}')
-
-                        for row in rows:
-                            markdown_content.append(f'{row.strip()}')
-                            markdown_content.append('\n---\n')
-
-                        markdown_content = '\n'.join(markdown_content)
-                        logger.info(f'Markdown content: {markdown_content[:100]}...')  # Log first 100 characters
-                        logger.info(f'Writing to file: {filename}')
-                        filename.write_text(markdown_content, encoding='utf-8')
-                        logger.info(f'File written successfully')
-                    content = filename.read_text()
-                    content = content.split('\n---\n')
-                    file_streams = []
-                    for i, c in enumerate(content):
-                        if c.strip():
-                            file_stream = io.BytesIO(c.strip().encode('utf-8'))
-                            file_streams.append((f'common_knowledge_{i}.md', file_stream, 'text/markdown'))
-                        else:
-                            logger.warning(f'Skipping empty file: common_knowledge_{i}.md')
-                    
-                    if file_streams:
-                        _upload_file_batches(client, vector_store_id, file_streams)
-        tool_resources = dict(
-            file_search=dict(
-                vector_store_ids=[vector_store_id],
-            ),
-        )
-        tools = [dict(
-            type='file_search',
-            file_search=dict(
-                max_num_results=context_.get('max_num_results', 20),
-            ),
-        )]
-
-    # List all the assistants in the organization:
-    assistants = client.beta.assistants.list()
+    """Update or create an assistant with the given configuration"""
+    # Initialize knowledge base backend and context manager
+    kb_backend = OpenAIVectorStore(production)
+    context_manager = ContextManager(config_dir, kb_backend)
+    
+    # Prepare assistant parameters first
+    assistant_name = config['name'] + (' - פיתוח' if not production else '')
+    asst_params = {
+        'name': assistant_name,
+        'description': config['description'],
+        'model': 'gpt-4o',
+        'instructions': config['instructions'],
+        'temperature': 0.00001,
+    }
+    kb_backend.set_assistant_params(asst_params)
+    
+    # Find or create the main assistant first
     assistant_id = None
-    assistant_name = config['name']
-    if not production:
-        assistant_name += ' - פיתוח'
-    for assistant in assistants:
+    for assistant in client.beta.assistants.list():
         if assistant.name == assistant_name:
             assistant_id = assistant.id
             break
-    print(f'Assistant ID: {assistant_id}')
-    asst_params = dict(
-        name=assistant_name,
-        description=config['description'],
-        model='gpt-4o',
-        instructions=config['instructions'],
-        temperature=0.00001,
-    )
-    if config.get('tools'):
-        tools = tools or []
-        for tool in config['tools']:
-            if tool == 'code-interpreter':
-                tools.append(dict(type='code_interpreter'))
-            else:
-                openapi_spec = (SPECS / 'openapi' / tool).with_suffix('.yaml').open()
-                openapi_spec = yaml.safe_load(openapi_spec)
-                openapi_tools = openapi_to_tools(openapi_spec)
-                # print(f'OpenAPI Tool: {tool}')
-                tools.extend(openapi_tools)
-    if tools:
-        asst_params['tools'] = tools
-    if tool_resources:
-        asst_params['tool_resources'] = tool_resources
-    import pprint
-    pprint.pprint(asst_params)
+
     if assistant_id is None:
-        # Create a new assistant:
+        # Create new assistant without tools yet
         assistant = client.beta.assistants.create(**asst_params)
         assistant_id = assistant.id
-        print(f'Assistant created: {assistant_id}')
-        # ...
-    else:
-        # Update the existing assistant:
-        assistant = client.beta.assistants.update(assistant_id, **asst_params)
-        print(f'Assistant updated: {assistant_id}')
-        # ...
+        logger.info(f'Assistant created: {assistant_id}')
+    
+    vector_store_id = None
+    # Process context to get/create vector store
+    if config.get('context'):
+        context = config['context'][0]  # We'll only use the first context
+        # Create vector store with context name
+        vector_store_id = kb_backend.create_vector_store(context['name'])
+        
+        # Now update the assistant with file search and vector store
+        assistant = client.beta.assistants.update(
+            assistant_id=assistant_id,
+            **asst_params,
+            tools=[{"type": "file_search"}],
+            tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}}
+        )
+        logger.info(f'Assistant updated with vector store: {assistant_id}')
 
+    # Collect and upload documents if we have a vector store
+    if vector_store_id and config.get('context'):
+        all_documents = []
+        for context in config['context']:
+            documents = context_manager.collect_documents(context)
+            if documents:
+                all_documents.extend(documents)
+            else:
+                logger.warning(f"No documents found for context: {context.get('name', 'unnamed')}")
+        
+        if all_documents:
+            kb_backend.upload_documents(vector_store_id, all_documents)
+
+    return assistant_id, vector_store_id
 
 def sync_agents(environment, bots, replace_context=False):
+    """Sync all or specific bots with their configurations"""
     production = environment == 'production'
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent

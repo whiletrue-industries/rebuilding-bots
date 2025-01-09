@@ -21,8 +21,8 @@ def sync(environment, bots, replace_context=False):
 @cli.command()
 @click.argument('environment', type=click.Choice(['production', 'staging']))
 @click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
-@click.argument('local', type=click.BOOL)
-@click.option('--reuse-answers', type=click.BOOL, default=False)
+@click.option('--local', is_flag=True, default=False, help='Run benchmarks locally')
+@click.option('--reuse-answers', is_flag=True, default=False)
 @click.option('--select', type=click.STRING, default='failed', help='failed/all/AirTable record ID')
 @click.option('--concurrency', type=click.INT, default=None)
 def benchmarks(environment, bots, local, reuse_answers, select, concurrency):

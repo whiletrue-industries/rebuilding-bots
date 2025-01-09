@@ -22,6 +22,11 @@ $ botnim --help
   - `__init__.py`: Package initialization file.
   - `cli.py`: Command line interface for the bots.
   - `sync.py`: Script for syncing the specifications with the OpenAI account.
+  - `kb/`: Knowledge base management package.
+    - `__init__.py`: Package initialization.
+    - `base.py`: Abstract base class for knowledge base implementations.
+    - `openai.py`: OpenAI Vector Store implementation.
+    - `manager.py`: Context manager for handling knowledge base operations.
   - `benchmark/`: Benchmarking scripts for the bots.
       Copy this file to `.env` and fill in the necessary values.
     - `run-benchmark.py`: Main benchmarking script.
@@ -49,6 +54,20 @@ Either:
 Or
 3. Commit the changes to the repository
 4. Run the 'Sync' action from the GitHub Actions tab.
+
+### Knowledge Base Management
+
+The project now uses a modular knowledge base system that supports different backend implementations:
+
+- `KnowledgeBase`: Abstract base class defining the interface for knowledge base implementations
+- `OpenAIVectorStore`: Implementation for OpenAI's vector store
+- `ContextManager`: Handles loading and processing of context files
+
+This design allows for:
+- Easy addition of new knowledge base backends (e.g., Elasticsearch)
+- Better separation of concerns
+- Improved error handling and logging
+- Consistent interface across different implementations
 
 ### Running the Benchmark
 
