@@ -1,6 +1,8 @@
 import click
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
+from .kb.download_sources import download_sources
+from .config import SPECS
 
 @click.group()
 def cli():
@@ -29,6 +31,12 @@ def benchmarks(environment, bots, local, reuse_answers, select, concurrency):
     """Run benchmarks on bots."""
     click.echo(f"Running benchmarks on {bots} in {environment} (save results locally: {local}, reuse answers: {reuse_answers}, select: {select})")
     run_benchmarks(environment, bots, local, reuse_answers, select, concurrency)
+
+@cli.command()
+def download():
+    """Download external sources for all bots"""
+    click.echo("Downloading external sources...")
+    download_sources(SPECS)
 
 def main():
     cli()

@@ -43,11 +43,8 @@ class ContextManager:
         return [f.open('rb') for f in valid_files]
 
     def _process_split_file(self, context_config: dict) -> List[Tuple[str, BinaryIO, str]]:
-        """Process a split file, optionally downloading from source"""
+        """Process a split file"""
         filename = self.config_dir / context_config['split']
-        
-        if 'source' in context_config:
-            self._download_and_convert_source(context_config['source'], filename)
             
         if not filename.exists():
             logger.warning(f"Split file not found: {filename}")
@@ -68,29 +65,6 @@ class ContextManager:
                 logger.debug(f'Skipping empty section {i} in split file')
                 
         return documents
-
-    def _download_and_convert_source(self, source_url: str, target_file: Path) -> None:
-        """Download and convert source data to markdown format"""
-        try:
-            sheet_id = source_url.split('/d/')[1].split('/')[0]
-            url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
-            
-            response = requests.get(url)
-            response.raise_for_status()
-            
-            data = response.text
-            markdown_content = []
-            
-            for row in data.strip().split('\n'):
-                markdown_content.append(f'{row.strip()}')
-                markdown_content.append('\n---\n')
-
-            target_file.write_text('\n'.join(markdown_content), encoding='utf-8')
-            logger.info(f"Successfully downloaded and converted source to: {target_file}")
-            
-        except Exception as e:
-            logger.error(f"Failed to download/convert source {source_url}: {str(e)}")
-            raise
 
     def collect_documents(self, context_config: dict) -> List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]:
         """Collect documents from a context configuration without creating a knowledge base"""
