@@ -1,6 +1,7 @@
 import logging
 import requests
 from pathlib import Path
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -8,10 +9,14 @@ def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_
     """Download and convert Google Spreadsheet data to individual markdown files"""
     try:
         sheet_id = source_url.split('/d/')[1].split('/')[0]
-        url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv'
+        url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
         
         response = requests.get(url)
+        response.encoding = 'utf-8'  # Explicitly set response encoding
         response.raise_for_status()
+        
+        print("Raw response text:")
+        print(response.text[:500])  # Print first 500 chars to see the structure
         
         # Use csv module to properly handle quoted fields with commas
         import csv
@@ -20,27 +25,30 @@ def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_
         csv_file = StringIO(response.text)
         csv_reader = csv.reader(csv_file)
         
-        # Skip the header row entirely
-        next(csv_reader)
+        # Get headers and remove empty ones
+        headers = next(csv_reader)
+        headers = [h.strip() for h in headers if h.strip()]
         
         # Process all content rows
         for i, columns in enumerate(csv_reader):
-            # Clean up whitespace
-            columns = [col.strip() for col in columns]
+            # Clean up whitespace and match length with headers
+            columns = [col.strip() for col in columns[:len(headers)]]
             
             if not columns[0]:  # Skip empty entries
                 continue
                 
             # Create markdown entry
             entry = []
-            entry.append(f"{columns[0]}\n")
-            if len(columns) > 1 and columns[1]:
-                entry.append(f"קשור לסעיף {columns[1]}\n")
+            # Add each non-empty column with its header
+            for header, value in zip(headers, columns):
+                if value:  # Only add non-empty values
+                    entry.append(f"{header}:\n{value}\n\n")  # Each field on new line for clarity
             
             # Use context name for file naming
             sanitized_name = context_name.replace(' ', '_')
-            file_name = target_dir / f'{sanitized_name}_{i:03d}.md'
-            file_name.write_text('\n'.join(entry), encoding='utf-8')
+            output_path = os.path.join(target_dir, f"{sanitized_name}_{i+1:03d}.md")
+            with open(output_path, 'w', encoding='utf-8', newline='') as f:
+                f.writelines(entry)
             
         logger.info(f"Successfully downloaded and split source to: {target_dir}")
         
