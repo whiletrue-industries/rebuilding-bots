@@ -41,7 +41,7 @@ class ContextManager:
 
     def _process_files(self, file_pattern: str) -> List[BinaryIO]:
         """Process regular files matching the pattern"""
-        files = list(self.config_dir.glob(file_pattern))
+        files = sorted(self.config_dir.glob(file_pattern))
         # Verify files have supported extensions
         supported_extensions = {'.txt', '.md', '.pdf', '.doc', '.docx'}
         valid_files = [f for f in files if f.suffix.lower() in supported_extensions]
