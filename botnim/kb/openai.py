@@ -19,8 +19,7 @@ client = OpenAI(api_key=api_key)
 
 class OpenAIVectorStore(KnowledgeBase):
     def __init__(self, production: bool = False):
-        self.env_suffix = '' if production else ' - פיתוח'
-        self.production = production
+        super().__init__(production)
         self.client = client
         self.asst_params = {}  # Store assistant parameters
 
@@ -39,7 +38,7 @@ class OpenAIVectorStore(KnowledgeBase):
             # Create new vector store
             logger.info(f"Creating new vector store for {name}")
             vector_store = self.client.beta.vector_stores.create(
-                name=f"{name}{self.env_suffix}"
+                name=self.get_environment_name(name)
             )
             logger.info(f"Created vector store: {vector_store.id}")
 
@@ -53,7 +52,7 @@ class OpenAIVectorStore(KnowledgeBase):
                 # Create new assistant if it doesn't exist
                 logger.info(f"Creating new assistant for {name}")
                 assistant = self.client.beta.assistants.create(
-                    name=f"{name}{self.env_suffix}",
+                    name=self.get_environment_name(name),
                     model="gpt-4o",
                     description=f"Assistant using knowledge base for {name}",
                     **base_params
@@ -88,10 +87,11 @@ class OpenAIVectorStore(KnowledgeBase):
     def exists(self, name: str) -> Tuple[bool, str, str]:
         """Check if an assistant exists and return (exists, vector_store_id, assistant_id)"""
         try:
-            logger.info(f"Looking for assistant with name: {name}{self.env_suffix}")
+            env_name = self.get_environment_name(name)
+            logger.info(f"Looking for assistant with name: {env_name}")
             assistants = self.client.beta.assistants.list()
             for assistant in assistants:
-                if assistant.name == f"{name}{self.env_suffix}":
+                if assistant.name == env_name:
                     logger.info(f"Found assistant: {assistant.id}")
                     # Get vector store ID if it exists
                     vector_store_id = ""
@@ -203,9 +203,10 @@ class OpenAIVectorStore(KnowledgeBase):
     def create_vector_store(self, name: str) -> str:
         """Create a new vector store and return its ID"""
         try:
-            logger.info(f"Creating new vector store for {name}")
+            env_name = self.get_environment_name(name)
+            logger.info(f"Creating new vector store with name: {env_name}")
             vector_store = self.client.beta.vector_stores.create(
-                name=f"{name}{self.env_suffix}"
+                name=env_name
             )
             logger.info(f"Created vector store: {vector_store.id}")
             return vector_store.id

@@ -12,6 +12,13 @@ class ContextManager:
         self.config_dir = config_dir
         self.kb_backend = kb_backend
 
+    def _add_environment_suffix(self, name: str) -> str:
+        """Add environment suffix if not in production"""
+        if not self.kb_backend.production:
+            name_parts = name.rsplit('.', 1)
+            return f"{name_parts[0]} - פיתוח.{name_parts[1]}" if len(name_parts) > 1 else f"{name} - פיתוח"
+        return name
+
     def process_context(self, context_config: dict, replace: bool = False) -> Tuple[str, str]:
         """Process a context configuration and return (vector_store_id, assistant_id)"""
         kb_name = context_config['name']
@@ -40,11 +47,12 @@ class ContextManager:
         valid_files = [f for f in files if f.suffix.lower() in supported_extensions]
         if len(valid_files) < len(files):
             logger.warning(f"Skipping files without supported extensions. Supported: {supported_extensions}")
-        return [f.open('rb') for f in valid_files]
+        
+        # Return files with environment-specific names
+        return [(self._add_environment_suffix(f.name), f.open('rb'), 'text/plain') for f in valid_files]
 
     def _process_split_file(self, context_config: dict) -> List[Tuple[str, BinaryIO, str]]:
         """Process a directory of split files"""
-        # Convert the .txt filename to directory name
         dir_path = self.config_dir / context_config['split'].replace('.txt', '')
         
         if not dir_path.exists():
@@ -52,11 +60,11 @@ class ContextManager:
             return []
 
         documents = []
-        # Process each markdown file in the directory
         for file_path in sorted(dir_path.glob('*.md')):
             if file_path.read_text().strip():  # Skip empty files
+                env_filename = self._add_environment_suffix(file_path.name)
                 documents.append((
-                    file_path.name,
+                    env_filename,
                     file_path.open('rb'),
                     'text/markdown'
                 ))
