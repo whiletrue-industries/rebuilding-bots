@@ -3,6 +3,7 @@ from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
 from .kb.download_sources import download_sources
 from .config import SPECS
+import shutil
 
 @click.group()
 def cli():
@@ -33,10 +34,25 @@ def benchmarks(environment, bots, local, reuse_answers, select, concurrency):
     run_benchmarks(environment, bots, local, reuse_answers, select, concurrency)
 
 @cli.command()
-def download():
-    """Download external sources for all bots"""
-    click.echo("Downloading external sources...")
-    download_sources(SPECS)
+@click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']), default='all')
+def download(bots):
+    """Download external sources for specific or all bots"""
+    click.echo(f"Downloading external sources for {bots}...")
+    
+    # First remove existing .md files or directories
+    if bots == 'all':
+        patterns = ['*/common-knowledge.md']
+    else:
+        patterns = [f'{bots}/common-knowledge.md']
+        
+    for pattern in patterns:
+        for path in SPECS.glob(pattern):
+            if path.is_file():
+                path.unlink()
+            elif path.is_dir():
+                shutil.rmtree(path)
+            
+    download_sources(SPECS, bots)
 
 def main():
     cli()

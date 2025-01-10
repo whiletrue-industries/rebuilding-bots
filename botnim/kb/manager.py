@@ -43,27 +43,26 @@ class ContextManager:
         return [f.open('rb') for f in valid_files]
 
     def _process_split_file(self, context_config: dict) -> List[Tuple[str, BinaryIO, str]]:
-        """Process a split file"""
-        filename = self.config_dir / context_config['split']
-            
-        if not filename.exists():
-            logger.warning(f"Split file not found: {filename}")
+        """Process a directory of split files"""
+        # Convert the .txt filename to directory name
+        dir_path = self.config_dir / context_config['split'].replace('.txt', '')
+        
+        if not dir_path.exists():
+            logger.warning(f"Split directory not found: {dir_path}")
             return []
 
-        content = filename.read_text().split('\n---\n')
         documents = []
-        
-        for i, c in enumerate(content):
-            if c.strip():
-                file_stream = io.BytesIO(c.strip().encode('utf-8'))
+        # Process each markdown file in the directory
+        for file_path in sorted(dir_path.glob('*.md')):
+            if file_path.read_text().strip():  # Skip empty files
                 documents.append((
-                    f'ידע_נוסף_{i:03d}.md',  # Using .md extension for markdown content
-                    file_stream,
-                    'text/markdown'  # Changed content type to markdown
+                    file_path.name,
+                    file_path.open('rb'),
+                    'text/markdown'
                 ))
             else:
-                logger.debug(f'Skipping empty section {i} in split file')
-                
+                logger.debug(f'Skipping empty file: {file_path}')
+        
         return documents
 
     def collect_documents(self, context_config: dict) -> List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]:
