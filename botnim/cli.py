@@ -4,6 +4,7 @@ from .benchmark.runner import run_benchmarks
 from .kb.download_sources import download_sources
 from .config import SPECS
 import shutil
+import yaml
 
 @click.group()
 def cli():
@@ -39,19 +40,21 @@ def download(bots):
     """Download external sources for specific or all bots"""
     click.echo(f"Downloading external sources for {bots}...")
     
-    # First remove existing .md files or directories
-    if bots == 'all':
-        patterns = ['*/common-knowledge.md']
-    else:
-        patterns = [f'{bots}/common-knowledge.md']
-        
-    for pattern in patterns:
-        for path in SPECS.glob(pattern):
-            if path.is_file():
-                path.unlink()
-            elif path.is_dir():
-                shutil.rmtree(path)
+    # Clean up existing downloaded content based on config
+    for config_file in SPECS.glob('*/config.yaml'):
+        if bots != 'all' and config_file.parent.name != bots:
+            continue
             
+        with config_file.open() as f:
+            config = yaml.safe_load(f)
+            
+        if config.get('context'):
+            for context in config['context']:
+                if 'source' in context:
+                    target_dir = config_file.parent / f"{context['name']}_split"
+                    if target_dir.exists():
+                        shutil.rmtree(target_dir)
+    
     download_sources(SPECS, bots)
 
 def main():

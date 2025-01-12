@@ -74,17 +74,36 @@ class ContextManager:
         return documents
 
     def collect_documents(self, context_config: dict) -> List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]:
-        """Collect documents from a context configuration without creating a knowledge base"""
+        """Collect documents from all configured sources"""
         documents = []
         
         # Process regular files
         if 'files' in context_config:
             documents.extend(self._process_files(context_config['files']))
 
-        # Process split files (e.g., common knowledge)
-        if 'split' in context_config:
-            split_docs = self._process_split_file(context_config)
-            if split_docs:
-                documents.extend(split_docs)
+        # Process Google Spreadsheet source
+        if 'source' in context_config:
+            from .download_sources import download_and_convert_spreadsheet
+            target_dir = self.config_dir / f"{context_config['name']}_split"
+            target_dir.mkdir(exist_ok=True)
+            download_and_convert_spreadsheet(
+                context_config['source'], 
+                target_dir,
+                context_config['name']
+            )
+            documents.extend(self._process_directory(target_dir))
             
+        return documents
+
+    def _process_directory(self, dir_path: Path) -> List[Tuple[str, BinaryIO, str]]:
+        """Process all markdown files in a directory"""
+        documents = []
+        for file_path in sorted(dir_path.glob('*.md')):
+            if file_path.read_text().strip():
+                env_filename = self._add_environment_suffix(file_path.name)
+                documents.append((
+                    env_filename,
+                    file_path.open('rb'),
+                    'text/markdown'
+                ))
         return documents
