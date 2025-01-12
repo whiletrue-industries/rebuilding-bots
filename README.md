@@ -73,21 +73,28 @@ Or
 5. Commit the changes to the repository
 6. Run the 'Sync' action from the GitHub Actions tab.
 
+## Software Design
+
 ### Knowledge Base Management
 
 The project now uses a modular knowledge base system that supports different backend implementations:
 
-- `KnowledgeBase`: Abstract base class defining the interface for knowledge base implementations
-- `OpenAIVectorStore`: Implementation for OpenAI's vector store
+- `KnowledgeBase`: Abstract base class defining the interface for vector store implementations
+- `OpenAIVectorStore`: Implementation for OpenAI's vector store operations
 - `ContextManager`: Handles loading and processing of context files
 - External sources can be configured in `config.yaml` and downloaded using the CLI
 
 This design allows for:
 - Easy addition of new knowledge base backends (e.g., Elasticsearch)
-- Better separation of concerns
+- Clear separation between vector store operations and assistant management
 - Improved error handling and logging
 - Consistent interface across different implementations
 - Automated handling of external knowledge sources
+
+The system separates responsibilities:
+- Vector stores handle document storage and retrieval
+- Assistant management is handled directly in the sync process
+- Context management handles document processing and source downloads
 
 ### Running the Benchmark
 
