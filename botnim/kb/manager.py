@@ -19,25 +19,19 @@ class ContextManager:
             return f"{name_parts[0]} - פיתוח.{name_parts[1]}" if len(name_parts) > 1 else f"{name} - פיתוח"
         return name
 
-    def process_context(self, context_config: dict, replace: bool = False) -> Tuple[str, str]:
-        """Process a context configuration and return (vector_store_id, assistant_id)"""
-        kb_name = context_config['name']
-        exists, vector_store_id, assistant_id = self.kb_backend.exists(kb_name)
-
-        if exists:
-            if replace:
-                logger.info(f"Deleting existing knowledge base: {kb_name}")
-                self.kb_backend.delete(assistant_id)
-                # Create new vector store and get new IDs
-                vector_store_id, assistant_id = self.kb_backend.create(kb_name)
-            else:
-                logger.info(f"Using existing assistant, creating new vector store for: {kb_name}")
-                # Create new vector store but keep existing assistant
-                vector_store_id, assistant_id = self.kb_backend.create(kb_name)
-        else:
-            vector_store_id, assistant_id = self.kb_backend.create(kb_name)
+    def process_context(self, context_config: dict) -> str:
+        """Process a context configuration and return vector store ID
         
-        return vector_store_id, assistant_id
+        Args:
+            context_config: Configuration dictionary for the context
+            
+        Returns:
+            str: ID of the created vector store
+        """
+        kb_name = context_config['name']
+        vector_store_id = self.kb_backend.create(kb_name)
+        logger.info(f"Created vector store: {vector_store_id}")
+        return vector_store_id
 
     def _process_files(self, file_pattern: str) -> List[BinaryIO]:
         """Process regular files matching the pattern"""

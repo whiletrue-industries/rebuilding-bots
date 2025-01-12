@@ -57,17 +57,8 @@ def update_assistant(config, config_dir, production, replace_context=False):
     kb_backend = OpenAIVectorStore(production)
     context_manager = ContextManager(config_dir, kb_backend)
     
-    # Prepare assistant parameters
-    assistant_name = config['name'] + (' - פיתוח' if not production else '')
-    asst_params = {
-        'name': assistant_name,
-        'description': config['description'],
-        'model': 'gpt-4o',
-        'instructions': config['instructions'],
-        'temperature': 0.00001,
-    }
-    
     # Find or create the main assistant first
+    assistant_name = config['name'] + (' - פיתוח' if not production else '')
     assistant_id = None
     for assistant in client.beta.assistants.list():
         if assistant.name == assistant_name:
@@ -75,22 +66,26 @@ def update_assistant(config, config_dir, production, replace_context=False):
             break
 
     if assistant_id is None:
-        # Create new assistant without tools yet
-        assistant = client.beta.assistants.create(**asst_params)
+        # Create new assistant
+        assistant = client.beta.assistants.create(
+            name=assistant_name,
+            description=config['description'],
+            model='gpt-4o',
+            instructions=config['instructions'],
+            temperature=0.00001,
+        )
         assistant_id = assistant.id
         logger.info(f'Assistant created: {assistant_id}')
     
-    vector_store_id = None
     # Process context to get/create vector store
+    vector_store_id = None
     if config.get('context'):
         context = config['context'][0]  # We'll only use the first context
-        # Create vector store with context name
-        vector_store_id = kb_backend.create(context['name'])
+        vector_store_id = context_manager.process_context(context)
         
         # Now update the assistant with file search and vector store
         assistant = client.beta.assistants.update(
             assistant_id=assistant_id,
-            **asst_params,
             tools=[{"type": "file_search"}],
             tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}}
         )
