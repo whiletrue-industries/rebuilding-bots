@@ -58,7 +58,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
     kb_backend = OpenAIVectorStore(production)
     context_manager = ContextManager(config_dir, kb_backend)
     
-    # Prepare assistant parameters first
+    # Prepare assistant parameters
     assistant_name = config['name'] + (' - פיתוח' if not production else '')
     asst_params = {
         'name': assistant_name,
@@ -67,7 +67,6 @@ def update_assistant(config, config_dir, production, replace_context=False):
         'instructions': config['instructions'],
         'temperature': 0.00001,
     }
-    kb_backend.set_assistant_params(asst_params)
     
     # Find or create the main assistant first
     assistant_id = None
@@ -87,7 +86,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
     if config.get('context'):
         context = config['context'][0]  # We'll only use the first context
         # Create vector store with context name
-        vector_store_id = kb_backend.create_vector_store(context['name'])
+        vector_store_id = kb_backend.create(context['name'])
         
         # Now update the assistant with file search and vector store
         assistant = client.beta.assistants.update(

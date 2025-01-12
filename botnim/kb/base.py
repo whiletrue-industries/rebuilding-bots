@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class KnowledgeBase(ABC):
-    """Abstract base class for knowledge base implementations"""
+    """Abstract base class for vector store implementations"""
     
     def __init__(self, production: bool = False):
         self.production = production
@@ -22,20 +22,15 @@ class KnowledgeBase(ABC):
     
     @abstractmethod
     def create(self, name: str) -> str:
-        """Create a new knowledge base and return its ID"""
-        pass
-
-    @abstractmethod
-    def exists(self, name: str) -> Tuple[bool, str]:
-        """Check if a knowledge base exists and return (exists, id)"""
-        pass
-
-    @abstractmethod
-    def delete(self, kb_id: str) -> None:
-        """Delete a knowledge base by ID"""
+        """Create a new vector store and return its ID"""
         pass
 
     @abstractmethod
     def upload_documents(self, kb_id: str, documents: List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]) -> None:
-        """Upload documents to the knowledge base"""
+        """Upload documents to the vector store"""
+        pass
+
+    @abstractmethod
+    def delete_files(self, vector_store_id: str) -> None:
+        """Delete all files associated with a vector store"""
         pass
