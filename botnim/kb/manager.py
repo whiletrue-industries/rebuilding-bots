@@ -33,27 +33,43 @@ class ContextManager:
         logger.info(f"Created vector store: {vector_store_id}")
         return vector_store_id
 
+    def _get_content_type(self, file_path: Path) -> str:
+        """Get the appropriate content type based on file extension"""
+        content_types = {
+            '.txt': 'text/plain',
+            '.md': 'text/markdown',
+            '.pdf': 'application/pdf',
+            '.doc': 'application/msword',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        }
+        return content_types[file_path.suffix.lower()]
+
     def _process_files(self, file_pattern: str) -> List[Tuple[str, str, str]]:
         """Process regular files matching the pattern
         
-        Returns:
-            List of tuples containing (filename, file_path, content_type)
-            Files are opened only when needed during upload
+        Supports multiple file types that OpenAI can process:
+        - .txt (plain text)
+        - .md (markdown)
+        - .pdf (PDF documents)
+        - .doc/.docx (Word documents)
+        
+        Files are uploaded directly to OpenAI which handles the processing.
         """
         files = sorted(self.config_dir.glob(file_pattern))
-        # Verify files have supported extensions
         supported_extensions = {'.txt', '.md', '.pdf', '.doc', '.docx'}
         valid_files = [f for f in files if f.suffix.lower() in supported_extensions]
         if len(valid_files) < len(files):
             logger.warning(f"Skipping files without supported extensions. Supported: {supported_extensions}")
         
-        # Return file info without opening files
-        return [(self._add_environment_suffix(f.name), str(f), 'text/plain') 
-                for f in valid_files]
+        return [(
+            self._add_environment_suffix(f.name), 
+            str(f), 
+            self._get_content_type(f)
+        ) for f in valid_files]
 
     def _process_split_file(self, context_config: dict) -> List[Tuple[str, BinaryIO, str]]:
         """Process a directory of split files"""
-        dir_path = self.config_dir / context_config['split'].replace('.txt', '')
+        dir_path = self.config_dir / context_config['split']
         
         if not dir_path.exists():
             logger.warning(f"Split directory not found: {dir_path}")
