@@ -1,11 +1,11 @@
 import os
-import logging
 from typing import List, Union, BinaryIO, Tuple
 from openai import OpenAI
 from dotenv import load_dotenv
 from .base import KnowledgeBase
+from ..config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()

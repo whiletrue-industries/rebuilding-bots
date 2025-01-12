@@ -1,13 +1,12 @@
 import os
-import logging
 import yaml
 from pathlib import Path
 from openai import OpenAI
 from .kb.openai import OpenAIVectorStore
 from .kb.manager import ContextManager
-from .config import SPECS
+from .config import SPECS, get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Initialize OpenAI client with explicit API key
 api_key = os.environ.get('OPENAI_API_KEY')

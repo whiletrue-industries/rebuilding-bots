@@ -1,9 +1,11 @@
-import logging
-import requests
 from pathlib import Path
 import os
+import requests
+import csv
+from io import StringIO
+from ..config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_name: str) -> None:
     """Download and convert Google Spreadsheet data to individual markdown files"""

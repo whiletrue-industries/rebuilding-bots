@@ -1,11 +1,11 @@
-import logging
 from pathlib import Path
 import requests
 import io
 from typing import List, Union, BinaryIO, Tuple
 from .base import KnowledgeBase
+from ..config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class ContextManager:
     def __init__(self, config_dir: Path, kb_backend: KnowledgeBase):

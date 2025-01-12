@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Union, BinaryIO, Tuple
-import logging
+from ..config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class KnowledgeBase(ABC):
     """Abstract base class for vector store implementations"""
