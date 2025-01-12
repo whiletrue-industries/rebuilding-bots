@@ -3,6 +3,7 @@ import os
 import requests
 import csv
 from io import StringIO
+import yaml
 from ..config import get_logger
 
 logger = get_logger(__name__)
@@ -19,10 +20,6 @@ def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_
         
         print("Raw response text:")
         print(response.text[:500])  # Print first 500 chars to see the structure
-        
-        # Use csv module to properly handle quoted fields with commas
-        import csv
-        from io import StringIO
         
         csv_file = StringIO(response.text)
         csv_reader = csv.reader(csv_file)
@@ -65,7 +62,6 @@ def download_sources(specs_dir: Path, bot_filter: str = 'all'):
         if bot_filter != 'all' and bot_name != bot_filter:
             continue
             
-        import yaml
         with config_file.open() as f:
             config = yaml.safe_load(f)
             

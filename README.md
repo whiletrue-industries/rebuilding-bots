@@ -96,6 +96,14 @@ The system separates responsibilities:
 - Assistant management is handled directly in the sync process
 - Context management handles document processing and source downloads
 
+### Logging
+
+The project uses a centralized logging configuration:
+- All logging configuration is managed in `config.py`
+- Each module gets its logger through `get_logger(__name__)`
+- This ensures consistent logging behavior across the application
+- Default log level is INFO, configurable through logging.basicConfig
+
 ### Running the Benchmark
 
 Running the benchmark in production is best done using the action in the GitHub Actions tab.
