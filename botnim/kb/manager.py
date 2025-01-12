@@ -76,23 +76,38 @@ class ContextManager:
     def collect_documents(self, context_config: dict) -> List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]:
         """Collect documents from all configured sources"""
         documents = []
+        source_type = context_config.get('type', 'files')  # Default to files for backward compatibility
         
-        # Process regular files
-        if 'files' in context_config:
-            documents.extend(self._process_files(context_config['files']))
-
-        # Process Google Spreadsheet source
-        if 'source' in context_config:
-            from .download_sources import download_and_convert_spreadsheet
-            target_dir = self.config_dir / f"{context_config['name']}_split"
-            target_dir.mkdir(exist_ok=True)
-            download_and_convert_spreadsheet(
-                context_config['source'], 
-                target_dir,
-                context_config['name']
-            )
-            documents.extend(self._process_directory(target_dir))
-            
+        if source_type == 'files':
+            # Process multiple separate files
+            if 'files' in context_config:
+                documents.extend(self._process_files(context_config['files']))
+        
+        elif source_type == 'spreadsheet':
+            # Process Google Spreadsheet source
+            if 'source' in context_config:
+                from .download_sources import download_and_convert_spreadsheet
+                target_dir = self.config_dir / f"{context_config['name']}_split"
+                target_dir.mkdir(exist_ok=True)
+                download_and_convert_spreadsheet(
+                    context_config['source'], 
+                    target_dir,
+                    context_config['name']
+                )
+                documents.extend(self._process_directory(target_dir))
+        
+        elif source_type == 'split_file':
+            # Process single file that needs splitting
+            if 'source' in context_config:
+                source_path = self.config_dir / context_config['source']
+                target_dir = source_path.parent / f"{source_path.stem}_split"
+                target_dir.mkdir(exist_ok=True)
+                self._split_file(source_path, target_dir)
+                documents.extend(self._process_directory(target_dir))
+        
+        else:
+            logger.warning(f"Unknown source type: {source_type}")
+        
         return documents
 
     def _process_directory(self, dir_path: Path) -> List[Tuple[str, BinaryIO, str]]:

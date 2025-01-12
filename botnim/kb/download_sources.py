@@ -67,9 +67,8 @@ def download_sources(specs_dir: Path, bot_filter: str = 'all'):
             
         if config.get('context'):
             for context in config['context']:
-                if 'split' in context and 'source' in context:
-                    # Create directory instead of file
-                    target_dir = config_file.parent / context['split'].replace('.txt', '')
+                if context.get('type') == 'spreadsheet' and 'source' in context:
+                    target_dir = config_file.parent / f"{context['name']}_split"
                     target_dir.mkdir(exist_ok=True)
                     logger.info(f"Downloading source for {context['name']} to {target_dir}")
-                    download_and_convert_spreadsheet(context['source'], target_dir, context['name']) 
+                    download_and_convert_spreadsheet(context['source'], target_dir, context['name'])

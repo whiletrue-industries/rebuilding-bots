@@ -82,14 +82,26 @@ The project now uses a modular knowledge base system that supports different bac
 - `KnowledgeBase`: Abstract base class defining the interface for vector store implementations
 - `OpenAIVectorStore`: Implementation for OpenAI's vector store operations
 - `ContextManager`: Handles loading and processing of context files
-- External sources can be configured in `config.yaml` and downloaded using the CLI
+- Sources can be configured in `config.yaml` with different types:
+  ```yaml
+  context:
+    - name: "Knowledge Base Name"
+      type: "files"      # Multiple separate files
+      pattern: "*.md"    # File pattern to match
+    - name: "Spreadsheet Knowledge"
+      type: "spreadsheet"  # Google spreadsheet source
+      source: "https://..."  # Spreadsheet URL
+    - name: "Split Content"
+      type: "split_file"    # Single file that needs splitting
+      source: "path/to/file.md"
+  ```
 
 This design allows for:
 - Easy addition of new knowledge base backends (e.g., Elasticsearch)
 - Clear separation between vector store operations and assistant management
 - Improved error handling and logging
 - Consistent interface across different implementations
-- Automated handling of external knowledge sources
+- Unified handling of different source types
 
 The system separates responsibilities:
 - Vector stores handle document storage and retrieval
