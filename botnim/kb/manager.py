@@ -33,8 +33,13 @@ class ContextManager:
         logger.info(f"Created vector store: {vector_store_id}")
         return vector_store_id
 
-    def _process_files(self, file_pattern: str) -> List[BinaryIO]:
-        """Process regular files matching the pattern"""
+    def _process_files(self, file_pattern: str) -> List[Tuple[str, str, str]]:
+        """Process regular files matching the pattern
+        
+        Returns:
+            List of tuples containing (filename, file_path, content_type)
+            Files are opened only when needed during upload
+        """
         files = sorted(self.config_dir.glob(file_pattern))
         # Verify files have supported extensions
         supported_extensions = {'.txt', '.md', '.pdf', '.doc', '.docx'}
@@ -42,8 +47,9 @@ class ContextManager:
         if len(valid_files) < len(files):
             logger.warning(f"Skipping files without supported extensions. Supported: {supported_extensions}")
         
-        # Return files with environment-specific names
-        return [(self._add_environment_suffix(f.name), f.open('rb'), 'text/plain') for f in valid_files]
+        # Return file info without opening files
+        return [(self._add_environment_suffix(f.name), str(f), 'text/plain') 
+                for f in valid_files]
 
     def _process_split_file(self, context_config: dict) -> List[Tuple[str, BinaryIO, str]]:
         """Process a directory of split files"""

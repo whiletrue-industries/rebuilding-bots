@@ -34,7 +34,7 @@ class OpenAIVectorStore(KnowledgeBase):
             logger.error(f"Failed to create vector store {name}: {str(e)}")
             raise
 
-    def upload_documents(self, kb_id: str, documents: List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]) -> None:
+    def upload_documents(self, kb_id: str, documents: List[Union[BinaryIO, Tuple[str, str, str]]]) -> None:
         """Upload documents to the vector store"""
         try:
             # Get list of existing files in the vector store
@@ -46,33 +46,27 @@ class OpenAIVectorStore(KnowledgeBase):
 
             for doc in documents:
                 if isinstance(doc, tuple):
-                    filename, file_stream, content_type = doc
+                    filename, file_path, content_type = doc
+                    if filename in existing_files:
+                        logger.info(f"Skipping existing file: {filename}")
+                        continue
+                    # Open file only when needed
+                    with open(file_path, 'rb') as file_stream:
+                        file = self.client.files.create(
+                            file=file_stream,
+                            purpose='assistants'
+                        )
                 else:
+                    # Handle direct file objects (for backward compatibility)
                     filename = getattr(doc, 'name', 'unnamed_file')
-                    file_stream = doc
-                    content_type = 'text/plain'
-
-                # Skip if file already exists
-                if filename in existing_files:
-                    logger.info(f"Skipping existing file: {filename}")
-                    continue
-
-                # Create file with proper name by creating a named file-like object
-                from io import BytesIO
-                if isinstance(file_stream, BytesIO):
-                    content = file_stream.getvalue()
-                else:
-                    content = file_stream.read()
-                    file_stream.close()
-
-                named_file = BytesIO(content)
-                named_file.name = filename
+                    if filename in existing_files:
+                        logger.info(f"Skipping existing file: {filename}")
+                        continue
+                    file = self.client.files.create(
+                        file=doc,
+                        purpose='assistants'
+                    )
                 
-                # Create file
-                file = self.client.files.create(
-                    file=named_file,
-                    purpose='assistants'
-                )
                 logger.info(f"Created file: {filename} (ID: {file.id})")
                 
                 # Add to vector store
