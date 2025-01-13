@@ -30,7 +30,7 @@ class ContextManager:
         """
         kb_name = context_config['name']
         vector_store_id = self.kb_backend.create(self._add_environment_suffix(kb_name))
-        logger.info(f"Created vector store: {vector_store_id}")
+        logger.info(f"Created vector store '{kb_name}' with ID: {vector_store_id}")
         return vector_store_id
 
     def _get_content_type(self, file_path: Path) -> str:

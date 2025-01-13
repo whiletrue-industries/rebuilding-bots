@@ -29,7 +29,6 @@ class OpenAIVectorStore(VectorStore):
             vector_store = self.client.beta.vector_stores.create(
                 name=name  # name should already include environment suffix
             )
-            logger.info(f"Created vector store: {vector_store.id}")
             return vector_store.id
         except Exception as e:
             logger.error(f"Failed to create vector store {name}: {str(e)}")
