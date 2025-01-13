@@ -1,5 +1,5 @@
-from .base import KnowledgeBase
+from .base import VectorStore
 from .openai import OpenAIVectorStore
 from .manager import ContextManager
 
-__all__ = ['KnowledgeBase', 'OpenAIVectorStore', 'ContextManager']
+__all__ = ['VectorStore', 'OpenAIVectorStore', 'ContextManager']

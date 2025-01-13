@@ -4,7 +4,7 @@ from ..config import get_logger
 
 logger = get_logger(__name__)
 
-class KnowledgeBase(ABC):
+class VectorStore(ABC):
     """Abstract base class for vector store implementations"""
     
     def __init__(self, production: bool = False):

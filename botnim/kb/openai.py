@@ -2,7 +2,7 @@ import os
 from typing import List, Union, BinaryIO, Tuple
 from openai import OpenAI
 from dotenv import load_dotenv
-from .base import KnowledgeBase
+from .base import VectorStore
 from ..config import get_logger
 
 logger = get_logger(__name__)
@@ -17,7 +17,7 @@ if not api_key:
 
 client = OpenAI(api_key=api_key)
 
-class OpenAIVectorStore(KnowledgeBase):
+class OpenAIVectorStore(VectorStore):
     def __init__(self, production: bool = False):
         super().__init__(production)
         self.client = client
