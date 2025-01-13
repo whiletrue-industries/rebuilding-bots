@@ -5,51 +5,75 @@ import csv
 from io import StringIO
 import yaml
 from ..config import get_logger
+from typing import List, Tuple, BinaryIO
+import io
 
 logger = get_logger(__name__)
 
-def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_name: str) -> None:
-    """Download and convert Google Spreadsheet data to individual markdown files"""
+def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_name: str) -> List[Tuple[str, BinaryIO, str]]:
+    """Download and convert Google Spreadsheet data to memory buffers and cache files
+    
+    Args:
+        source_url: URL of the Google Spreadsheet
+        target_dir: Directory to store cache files
+        context_name: Name of the context for file naming
+        
+    Returns:
+        List of tuples (filename, file_buffer, content_type) for new or modified entries
+    """
     try:
         sheet_id = source_url.split('/d/')[1].split('/')[0]
         url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
         
         response = requests.get(url)
-        response.encoding = 'utf-8'  # Explicitly set response encoding
+        response.encoding = 'utf-8'
         response.raise_for_status()
         
-        print("Raw response text:")
-        print(response.text[:500])  # Print first 500 chars to see the structure
+        # Load existing files for comparison
+        existing_files = {}
+        if target_dir.exists():
+            for file_path in target_dir.glob('*.md'):
+                existing_files[file_path.name] = file_path.read_text()
         
         csv_file = StringIO(response.text)
         csv_reader = csv.reader(csv_file)
         
-        # Get headers and remove empty ones
         headers = next(csv_reader)
         headers = [h.strip() for h in headers if h.strip()]
         
-        # Process all content rows
+        documents = []
+        target_dir.mkdir(exist_ok=True)
+        
         for i, columns in enumerate(csv_reader):
-            # Clean up whitespace and match length with headers
             columns = [col.strip() for col in columns[:len(headers)]]
             
             if not columns[0]:  # Skip empty entries
                 continue
                 
-            # Create markdown entry
             entry = []
-            # Add each non-empty column with its header
             for header, value in zip(headers, columns):
-                if value:  # Only add non-empty values
-                    entry.append(f"{header}:\n{value}\n\n")  # Each field on new line for clarity
-            
-            # Use context name for file naming
-            sanitized_name = context_name.replace(' ', '_')
-            output_path = os.path.join(target_dir, f"{sanitized_name}_{i+1:03d}.md")
-            with open(output_path, 'w', encoding='utf-8', newline='') as f:
-                f.writelines(entry)
-            
-        logger.info(f"Successfully downloaded and split source to: {target_dir}")
+                if value:
+                    entry.append(f"{header}:\n{value}\n\n")
+                    
+            content = ''.join(entry)
+            if content.strip():
+                filename = f"{context_name}_{i+1:03d}.md"
+                file_path = target_dir / filename
+                
+                # Always write to cache file
+                file_path.write_text(content)
+                
+                # Only include in documents if content changed or new
+                if filename not in existing_files or existing_files[filename] != content:
+                    documents.append((
+                        filename,
+                        io.BytesIO(content.encode('utf-8')),
+                        'text/markdown'
+                    ))
+                    logger.info(f"New/modified entry: {filename}")
+        
+        logger.info(f"Found {len(documents)} new/modified entries from spreadsheet")
+        return documents
         
     except Exception as e:
         logger.error(f"Failed to download/convert source {source_url}: {str(e)}")

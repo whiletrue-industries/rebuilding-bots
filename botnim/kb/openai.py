@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import List, Union, BinaryIO, Tuple
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -34,7 +35,7 @@ class OpenAIVectorStore(VectorStore):
             logger.error(f"Failed to create vector store {name}: {str(e)}")
             raise
 
-    def upload_documents(self, kb_id: str, documents: List[Union[BinaryIO, Tuple[str, str, str]]]) -> None:
+    def upload_documents(self, kb_id: str, documents: List[Union[BinaryIO, Tuple[str, Union[str, BinaryIO], str]]]) -> None:
         """Upload documents to the vector store"""
         try:
             # Get list of existing files in the vector store
@@ -46,14 +47,23 @@ class OpenAIVectorStore(VectorStore):
 
             for doc in documents:
                 if isinstance(doc, tuple):
-                    filename, file_path, content_type = doc
+                    filename, file_data, content_type = doc
                     if filename in existing_files:
                         logger.info(f"Skipping existing file: {filename}")
                         continue
-                    # Open file only when needed
-                    with open(file_path, 'rb') as file_stream:
+                    
+                    # Handle both file paths and BytesIO objects
+                    if isinstance(file_data, (str, Path)):
+                        # It's a file path
+                        with open(file_data, 'rb') as file_stream:
+                            file = self.client.files.create(
+                                file=file_stream,
+                                purpose='assistants'
+                            )
+                    else:
+                        # It's already a file-like object (BytesIO)
                         file = self.client.files.create(
-                            file=file_stream,
+                            file=file_data,
                             purpose='assistants'
                         )
                 else:

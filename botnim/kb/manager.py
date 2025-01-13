@@ -97,13 +97,11 @@ class ContextManager:
         if 'source' in context_config:
             from .download_sources import download_and_convert_spreadsheet
             target_dir = self.config_dir / context_config.get('split', f"{context_config['name']}_split")
-            target_dir.mkdir(exist_ok=True)
-            download_and_convert_spreadsheet(
-                context_config['source'], 
-                target_dir,
-                context_config['name']
-            )
-            documents.extend(self._process_directory(target_dir))
+            documents.extend([
+                (self._add_environment_suffix(filename), file_obj, content_type)
+                for filename, file_obj, content_type 
+                in download_and_convert_spreadsheet(context_config['source'], target_dir, context_config['name'])
+            ])
         
         # Process files if specified
         elif 'files' in context_config:
