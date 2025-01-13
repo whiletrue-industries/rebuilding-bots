@@ -44,6 +44,8 @@ class OpenAIVectorStore(VectorStore):
                 existing_files.add(file.filename)
             logger.info(f"Found {len(existing_files)} existing files in vector store")
 
+            # Prepare all files first
+            files_to_upload = []
             for doc in documents:
                 if isinstance(doc, tuple):
                     filename, file_data, content_type = doc
@@ -77,13 +79,20 @@ class OpenAIVectorStore(VectorStore):
                     )
                 
                 logger.info(f"Created file: {filename} (ID: {file.id})")
+                files_to_upload.append(file.id)
+
+            # Upload files in batches
+            BATCH_SIZE = 20
+            for i in range(0, len(files_to_upload), BATCH_SIZE):
+                batch = files_to_upload[i:i + BATCH_SIZE]
+                logger.info(f"Uploading batch of {len(batch)} files (batch {i//BATCH_SIZE + 1})")
                 
-                # Add to vector store
-                self.client.beta.vector_stores.files.create(
+                # Use upload_and_poll for reliable batch upload
+                self.client.beta.vector_stores.file_batches.upload_and_poll(
                     vector_store_id=kb_id,
-                    file_id=file.id
+                    file_ids=batch
                 )
-                logger.info(f"Added {filename} to vector store {kb_id}")
+                logger.info(f"Successfully uploaded batch to vector store {kb_id}")
                 
         except Exception as e:
             logger.error(f"Failed to upload documents to vector store {kb_id}: {str(e)}")
