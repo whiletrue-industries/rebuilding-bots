@@ -44,8 +44,10 @@ class OpenAIVectorStore(VectorStore):
                 existing_files.add(file.filename)
             logger.info(f"Found {len(existing_files)} existing files in vector store")
 
-            # Prepare all files first
-            files_to_upload = []
+            # Process files in batches
+            BATCH_SIZE = 20
+            current_batch = []
+            
             for doc in documents:
                 if isinstance(doc, tuple):
                     filename, file_data, content_type = doc
@@ -53,49 +55,56 @@ class OpenAIVectorStore(VectorStore):
                         logger.info(f"Skipping existing file: {filename}")
                         continue
                     
-                    # Handle both file paths and BytesIO objects
-                    if isinstance(file_data, (str, Path)):
-                        # It's a file path
-                        with open(file_data, 'rb') as file_stream:
-                            file = self.client.files.create(
-                                file=file_stream,
-                                purpose='assistants'
-                            )
-                    else:
-                        # It's already a file-like object (BytesIO)
-                        file = self.client.files.create(
-                            file=file_data,
-                            purpose='assistants'
-                        )
-                else:
-                    # Handle direct file objects (for backward compatibility)
-                    filename = getattr(doc, 'name', 'unnamed_file')
-                    if filename in existing_files:
-                        logger.info(f"Skipping existing file: {filename}")
-                        continue
-                    file = self.client.files.create(
-                        file=doc,
-                        purpose='assistants'
-                    )
+                    # Add to current batch
+                    current_batch.append((filename, file_data))
+                    
+                    # Process batch if it's full
+                    if len(current_batch) >= BATCH_SIZE:
+                        self._process_batch(kb_id, current_batch)
+                        current_batch = []
                 
-                logger.info(f"Created file: {filename} (ID: {file.id})")
-                files_to_upload.append(file.id)
-
-            # Upload files in batches
-            BATCH_SIZE = 20
-            for i in range(0, len(files_to_upload), BATCH_SIZE):
-                batch = files_to_upload[i:i + BATCH_SIZE]
-                logger.info(f"Uploading batch of {len(batch)} files (batch {i//BATCH_SIZE + 1})")
-                
-                # Use upload_and_poll for reliable batch upload
-                self.client.beta.vector_stores.file_batches.upload_and_poll(
-                    vector_store_id=kb_id,
-                    file_ids=batch
-                )
-                logger.info(f"Successfully uploaded batch to vector store {kb_id}")
+            # Process remaining files
+            if current_batch:
+                self._process_batch(kb_id, current_batch)
                 
         except Exception as e:
             logger.error(f"Failed to upload documents to vector store {kb_id}: {str(e)}")
+            raise
+
+    def _process_batch(self, kb_id: str, batch: List[Tuple[str, Union[str, BinaryIO]]]):
+        """Process a batch of files"""
+        try:
+            logger.info(f"Processing batch of {len(batch)} files")
+            file_ids = []
+            
+            # First create all files
+            for filename, file_data in batch:
+                if isinstance(file_data, (str, Path)):
+                    # It's a file path
+                    with open(file_data, 'rb') as file_stream:
+                        file = self.client.files.create(
+                            file=file_stream,
+                            purpose='assistants'
+                        )
+                else:
+                    # It's already a file-like object (BytesIO)
+                    file = self.client.files.create(
+                        file=file_data,
+                        purpose='assistants'
+                    )
+                logger.info(f"Created file: {filename} (ID: {file.id})")
+                file_ids.append(file.id)
+            
+            # Then add them to the vector store
+            for file_id in file_ids:
+                self.client.beta.vector_stores.files.create(
+                    vector_store_id=kb_id,
+                    file_id=file_id
+                )
+            logger.info(f"Successfully added batch to vector store {kb_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to process batch: {str(e)}")
             raise
 
     def delete(self, vector_store_id: str) -> None:
