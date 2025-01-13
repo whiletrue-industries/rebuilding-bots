@@ -19,8 +19,8 @@ class ContextManager:
             return f"{name_parts[0]} - פיתוח.{name_parts[1]}" if len(name_parts) > 1 else f"{name} - פיתוח"
         return name
 
-    def process_context(self, context_config: dict) -> str:
-        """Process a context configuration and return vector store ID
+    def create_vector_store(self, context_config: dict) -> str:
+        """Create a vector store for the given context configuration
         
         Args:
             context_config: Configuration dictionary for the context
@@ -29,7 +29,7 @@ class ContextManager:
             str: ID of the created vector store
         """
         kb_name = context_config['name']
-        vector_store_id = self.kb_backend.create(kb_name)
+        vector_store_id = self.kb_backend.create(self._add_environment_suffix(kb_name))
         logger.info(f"Created vector store: {vector_store_id}")
         return vector_store_id
 

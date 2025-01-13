@@ -81,7 +81,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
     vector_store_id = None
     if config.get('context'):
         context = config['context'][0]  # We'll only use the first context
-        vector_store_id = context_manager.process_context(context)
+        vector_store_id = context_manager.create_vector_store(context)
         
         # Now update the assistant with file search and vector store
         assistant = client.beta.assistants.update(
