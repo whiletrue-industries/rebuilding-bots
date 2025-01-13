@@ -31,6 +31,11 @@ class VectorStore(ABC):
         pass
 
     @abstractmethod
+    def delete(self, vector_store_id: str) -> None:
+        """Delete the vector store and all its associated files"""
+        pass
+
+    @abstractmethod
     def delete_files(self, vector_store_id: str) -> None:
-        """Delete all files associated with a vector store"""
+        """Delete all files associated with a vector store without deleting the store itself"""
         pass

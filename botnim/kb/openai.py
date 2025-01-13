@@ -80,6 +80,18 @@ class OpenAIVectorStore(VectorStore):
             logger.error(f"Failed to upload documents to vector store {kb_id}: {str(e)}")
             raise
 
+    def delete(self, vector_store_id: str) -> None:
+        """Delete the vector store and all its associated files"""
+        try:
+            # First delete all files
+            self.delete_files(vector_store_id)
+            # Then delete the vector store
+            self.client.beta.vector_stores.delete(vector_store_id)
+            logger.info(f"Deleted vector store: {vector_store_id}")
+        except Exception as e:
+            logger.error(f"Failed to delete vector store {vector_store_id}: {str(e)}")
+            raise
+
     def delete_files(self, vector_store_id: str) -> None:
         """Delete all files associated with a vector store"""
         try:
