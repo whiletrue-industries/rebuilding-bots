@@ -58,7 +58,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
     context_manager = ContextManager(config_dir, kb_backend)
     
     # Find or create the main assistant first
-    assistant_name = config['name'] + (' - פיתוח' if not production else '')
+    assistant_name = context_manager._add_environment_suffix(config['name'])
     assistant_id = None
     for assistant in client.beta.assistants.list():
         if assistant.name == assistant_name:

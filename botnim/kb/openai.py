@@ -26,7 +26,7 @@ class OpenAIVectorStore(VectorStore):
         """Create a new vector store and return its ID"""
         try:
             vector_store = self.client.beta.vector_stores.create(
-                name=self.get_environment_name(name)
+                name=name  # name should already include environment suffix
             )
             logger.info(f"Created vector store: {vector_store.id}")
             return vector_store.id
