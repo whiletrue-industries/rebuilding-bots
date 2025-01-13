@@ -77,32 +77,18 @@ def update_assistant(config, config_dir, production, replace_context=False):
         assistant_id = assistant.id
         logger.info(f'Assistant created: {assistant_id}')
     
-    # Process context to get/create vector store
+    # Set up context if configured
     vector_store_id = None
     if config.get('context'):
-        context = config['context'][0]  # We'll only use the first context
-        vector_store_id = context_manager.create_vector_store(context)
+        vector_store_id = context_manager.setup_contexts(config['context'])
         
-        # Now update the assistant with file search and vector store
+        # Update assistant with file search capability
         assistant = client.beta.assistants.update(
             assistant_id=assistant_id,
             tools=[{"type": "file_search"}],
             tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}}
         )
         logger.info(f'Assistant updated with vector store: {assistant_id}')
-
-    # Collect and upload documents if we have a vector store
-    if vector_store_id and config.get('context'):
-        all_documents = []
-        for context in config['context']:
-            documents = context_manager.collect_documents(context)
-            if documents:
-                all_documents.extend(documents)
-            else:
-                logger.warning(f"No documents found for context: {context.get('name', 'unnamed')}")
-        
-        if all_documents:
-            kb_backend.upload_documents(vector_store_id, all_documents)
 
     return assistant_id, vector_store_id
 

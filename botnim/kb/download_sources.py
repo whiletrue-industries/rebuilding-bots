@@ -10,18 +10,20 @@ import io
 
 logger = get_logger(__name__)
 
-def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_name: str) -> List[Tuple[str, BinaryIO, str]]:
+def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_name: str, force_all: bool = True) -> List[Tuple[str, BinaryIO, str]]:
     """Download and convert Google Spreadsheet data to memory buffers and cache files
     
     Args:
         source_url: URL of the Google Spreadsheet
         target_dir: Directory to store cache files
         context_name: Name of the context for file naming
+        force_all: If True, return all entries regardless of changes
         
     Returns:
-        List of tuples (filename, file_buffer, content_type) for new or modified entries
+        List of tuples (filename, file_buffer, content_type) for entries
     """
     try:
+        logger.info(f"Downloading spreadsheet from {source_url} to {target_dir}")
         sheet_id = source_url.split('/d/')[1].split('/')[0]
         url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
         
@@ -32,8 +34,13 @@ def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_
         # Load existing files for comparison
         existing_files = {}
         if target_dir.exists():
+            logger.info(f"Found existing cache directory: {target_dir}")
             for file_path in target_dir.glob('*.md'):
                 existing_files[file_path.name] = file_path.read_text()
+            logger.info(f"Found {len(existing_files)} existing files")
+        
+        # Create target directory if it doesn't exist
+        target_dir.mkdir(exist_ok=True, parents=True)
         
         csv_file = StringIO(response.text)
         csv_reader = csv.reader(csv_file)
@@ -63,16 +70,19 @@ def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_
                 # Always write to cache file
                 file_path.write_text(content)
                 
-                # Only include in documents if content changed or new
-                if filename not in existing_files or existing_files[filename] != content:
+                # Include if forced or if content changed
+                if force_all or filename not in existing_files or existing_files[filename] != content:
+                    file_obj = io.BytesIO(content.encode('utf-8'))
+                    file_obj.name = filename
                     documents.append((
                         filename,
-                        io.BytesIO(content.encode('utf-8')),
+                        file_obj,
                         'text/markdown'
                     ))
-                    logger.info(f"New/modified entry: {filename}")
+                    if not force_all:
+                        logger.info(f"New/modified entry: {filename}")
         
-        logger.info(f"Found {len(documents)} new/modified entries from spreadsheet")
+        logger.info(f"Returning {len(documents)} entries from spreadsheet")
         return documents
         
     except Exception as e:

@@ -96,11 +96,20 @@ class ContextManager:
         # If source is present, treat as spreadsheet
         if 'source' in context_config:
             from .download_sources import download_and_convert_spreadsheet
-            target_dir = self.config_dir / context_config.get('split', f"{context_config['name']}_split")
+            split_path = (
+                self.config_dir / context_config['split'] 
+                if 'split' in context_config 
+                else self.config_dir / f"{context_config['name']}_split"
+            )
             documents.extend([
                 (self._add_environment_suffix(filename), file_obj, content_type)
                 for filename, file_obj, content_type 
-                in download_and_convert_spreadsheet(context_config['source'], target_dir, context_config['name'])
+                in download_and_convert_spreadsheet(
+                    context_config['source'], 
+                    split_path, 
+                    context_config['name'],
+                    force_all=True  # Always get all entries when syncing
+                )
             ])
         
         # Process files if specified
@@ -121,3 +130,34 @@ class ContextManager:
                     'text/markdown'
                 ))
         return documents
+
+    def setup_contexts(self, contexts: list) -> str:
+        """Set up all contexts and return the vector store ID
+        
+        Args:
+            contexts: List of context configurations
+            
+        Returns:
+            str: ID of the created vector store
+        """
+        if not contexts:
+            return None
+        
+        # Create vector store using the first context's name
+        vector_store_id = self.create_vector_store(contexts[0])
+        
+        # Collect and upload documents from all contexts
+        all_documents = []
+        for context in contexts:
+            documents = self.collect_documents(context)
+            if documents:
+                all_documents.extend(documents)
+            else:
+                logger.warning(f"No documents found for context: {context.get('name', 'unnamed')}")
+        
+        if all_documents:
+            self.kb_backend.upload_documents(vector_store_id, all_documents)
+        else:
+            logger.warning("No documents found in any context")
+        
+        return vector_store_id
