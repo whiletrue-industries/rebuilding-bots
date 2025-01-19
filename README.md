@@ -60,6 +60,14 @@ botnim sync {staging/production} {budgetkey/takanon/all} [--replace-context]
 botnim benchmarks {staging/production} {budgetkey/takanon/all} [--local] [--reuse-answers] [--select failed/all/ID] [--concurrency N]
 ```
 
+### Running the Benchmark
+
+Running the benchmark in production is best done using the action in the GitHub Actions tab.
+
+For running locally:
+`botnim benchmarks {staging/production} {budgetkey/takanon} {TRUE/FALSE whether to save results locally}`
+
+
 ### Updating the Specifications
 
 1. Edit the specifications in the `specs/` directory.
@@ -116,11 +124,5 @@ The project uses a centralized logging configuration:
 - This ensures consistent logging behavior across the application
 - Default log level is INFO, configurable through logging.basicConfig
 
-### Running the Benchmark
-
-Running the benchmark in production is best done using the action in the GitHub Actions tab.
-
-For running locally:
-`botnim benchmarks {staging/production} {budgetkey/takanon} {TRUE/FALSE whether to save results locally}`
 
   
