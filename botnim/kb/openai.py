@@ -136,3 +136,19 @@ class OpenAIVectorStore(VectorStore):
         except Exception as e:
             logger.error(f"Failed to delete files from vector store {vector_store_id}: {str(e)}")
             raise
+
+    def list(self) -> List[dict]:
+        """List all vector stores"""
+        try:
+            vector_stores = self.client.beta.vector_stores.list()
+            return [
+                {
+                    'id': vs.id,
+                    'name': vs.name,
+                    'created_at': vs.created_at
+                }
+                for vs in vector_stores.data
+            ]
+        except Exception as e:
+            logger.error(f"Failed to list vector stores: {str(e)}")
+            raise

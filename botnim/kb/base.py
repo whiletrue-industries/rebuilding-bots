@@ -16,6 +16,18 @@ class VectorStore(ABC):
         pass
 
     @abstractmethod
+    def list(self) -> List[dict]:
+        """List all vector stores
+        
+        Returns:
+            List of dictionaries containing vector store information:
+            - id: str
+            - name: str
+            - created_at: datetime
+        """
+        pass
+
+    @abstractmethod
     def upload_documents(self, kb_id: str, documents: List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]) -> None:
         """Upload documents to the vector store"""
         pass
