@@ -77,6 +77,7 @@ For running locally:
 3. In case of changes to the vector stores, remove them in the OpenAI account playground.
 Either:
 4. `botnim sync {staging/production} {budgetkey/takanon}` to sync the specifications with the OpenAI account.
+   - Use `--replace-context` flag to force a complete rebuild of the vector store (useful when context files have been modified)
 Or
 5. Commit the changes to the repository
 6. Run the 'Sync' action from the GitHub Actions tab.
