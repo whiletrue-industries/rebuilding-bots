@@ -47,7 +47,29 @@ class ContextManager:
         ) for f in valid_files]
 
     def _process_split_file(self, context_config: dict) -> List[Tuple[str, BinaryIO, str]]:
-        """Process a directory of split files"""
+        """Process a directory of split files
+        
+        This method supports a different way of organizing knowledge base content,
+        where information is split into multiple markdown files. Each file in the
+        specified directory becomes a separate entry in the knowledge base.
+        
+        This is useful when:
+        - Content is manually curated
+        - Information is naturally split into distinct files
+        - Content comes from multiple sources
+        
+        Args:
+            context_config: Configuration dictionary containing:
+                - split: Path to directory containing split markdown files
+                
+        Returns:
+            List of tuples (filename, file_handle, content_type) for each markdown file
+        
+        Example config:
+            context:
+              - name: Manual Knowledge
+                split: manual_kb    # Directory containing .md files
+        """
         dir_path = self.config_dir / context_config['split']
         
         if not dir_path.exists():
@@ -69,11 +91,23 @@ class ContextManager:
         return documents
 
     def collect_documents(self, context_config: dict) -> List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]:
-        """Collect documents from all configured sources"""
+        """Collect documents from all configured sources
+        
+        Supports multiple source types:
+        1. Spreadsheet source (type: spreadsheet)
+        2. Split files (split: directory_path)
+        3. Regular files (files: glob_pattern)
+        
+        Args:
+            context_config: Configuration dictionary specifying the source type and location
+            
+        Returns:
+            List of documents in the format required by the vector store
+        """
         documents = []
         
-        # If source is present, treat as spreadsheet
-        if 'source' in context_config:
+        # Handle spreadsheet source
+        if context_config.get('type') == 'spreadsheet' and 'source' in context_config:
             from .download_sources import download_and_convert_spreadsheet
             split_path = (
                 self.config_dir / context_config['split'] 
@@ -90,7 +124,11 @@ class ContextManager:
                 )
             ])
         
-        # Process files if specified
+        # Handle split files
+        elif 'split' in context_config:
+            documents.extend(self._process_split_file(context_config))
+        
+        # Handle regular files
         elif 'files' in context_config:
             documents.extend(self._process_files(context_config['files']))
         
