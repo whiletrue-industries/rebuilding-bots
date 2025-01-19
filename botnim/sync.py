@@ -60,6 +60,8 @@ def update_assistant(config, config_dir, production, replace_context=False):
         production: Whether this is a production environment
         replace_context: If True, update both assistant and context. If False, only update assistant.
     """
+    logger.info(f"Starting update_assistant with replace_context={replace_context}")
+    
     # Initialize knowledge base backend and context manager
     kb_backend = OpenAIVectorStore(production)
     context_manager = ContextManager(config_dir, kb_backend)
@@ -67,9 +69,12 @@ def update_assistant(config, config_dir, production, replace_context=False):
     # Find or create the main assistant first
     assistant_name = context_manager._add_environment_suffix(config['name'])
     assistant_id = None
+    existing_assistant = None
     for assistant in client.beta.assistants.list():
         if assistant.name == assistant_name:
             assistant_id = assistant.id
+            existing_assistant = assistant
+            logger.info(f"Found existing assistant: {assistant_id}")
             break
 
     if assistant_id is None:
@@ -82,24 +87,50 @@ def update_assistant(config, config_dir, production, replace_context=False):
             temperature=0.00001,
         )
         assistant_id = assistant.id
-        logger.info(f'Assistant created: {assistant_id}')
-        # Always set up context for new assistants
+        logger.info(f'Created new assistant: {assistant_id}')
         replace_context = True
-    
-    # Set up context if configured and requested
-    vector_store_id = None
-    if config.get('context') and replace_context:
-        vector_store_id = context_manager.setup_contexts(config['context'])
-        
-        # Update assistant with file search capability
+        logger.info('Forcing replace_context=True for new assistant')
+    else:
+        # Update existing assistant's configuration
         assistant = client.beta.assistants.update(
             assistant_id=assistant_id,
-            tools=[{"type": "file_search"}],
-            tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}}
+            description=config['description'],
+            instructions=config['instructions'],
+            temperature=0.00001,
         )
-        logger.info(f'Assistant updated with vector store: {assistant_id}')
-    elif not replace_context:
-        logger.info(f'Skipping context update for assistant: {assistant_id}')
+        logger.info(f'Updated assistant configuration: {assistant_id}')
+    
+    # Set up context if configured
+    vector_store_id = None
+    if config.get('context'):
+        logger.info(f"Context configuration found, replace_context={replace_context}")
+        if replace_context:
+            logger.info("Setting up new contexts...")
+            vector_store_id = context_manager.setup_contexts(config['context'])
+            
+            # Update assistant with new vector store
+            assistant = client.beta.assistants.update(
+                assistant_id=assistant_id,
+                tools=[{"type": "file_search"}],
+                tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}}
+            )
+            logger.info(f'Assistant updated with new vector store: {assistant_id}')
+        else:
+            # Keep existing vector store connection
+            try:
+                if (existing_assistant and 
+                    hasattr(existing_assistant, 'tool_resources') and 
+                    existing_assistant.tool_resources and
+                    hasattr(existing_assistant.tool_resources, 'file_search') and
+                    existing_assistant.tool_resources.file_search and
+                    existing_assistant.tool_resources.file_search.vector_store_ids):
+                    vector_store_id = existing_assistant.tool_resources.file_search.vector_store_ids[0]
+                    logger.info(f'Keeping existing vector store: {vector_store_id}')
+                else:
+                    logger.warning(f'No existing vector store found for assistant: {assistant_id}')
+            except Exception as e:
+                logger.warning(f'Error accessing existing vector store: {e}')
+                logger.warning(f'Assistant tool_resources: {existing_assistant.tool_resources}')
 
     return assistant_id, vector_store_id
 
