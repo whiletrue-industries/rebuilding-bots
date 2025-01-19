@@ -10,34 +10,25 @@ import io
 
 logger = get_logger(__name__)
 
-def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_name: str, force_all: bool = True) -> List[Tuple[str, BinaryIO, str]]:
-    """Download and convert Google Spreadsheet data to memory buffers and cache files
+def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_name: str) -> List[Tuple[str, BinaryIO, str]]:
+    """Download and convert Google Spreadsheet data to memory buffers
     
     Args:
         source_url: URL of the Google Spreadsheet
-        target_dir: Directory to store cache files
+        target_dir: Directory to store files
         context_name: Name of the context for file naming
-        force_all: If True, return all entries regardless of changes
         
     Returns:
         List of tuples (filename, file_buffer, content_type) for entries
     """
     try:
-        logger.info(f"Downloading spreadsheet from {source_url} to {target_dir}")
+        logger.info(f"Downloading spreadsheet from {source_url}")
         sheet_id = source_url.split('/d/')[1].split('/')[0]
         url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
         
         response = requests.get(url)
         response.encoding = 'utf-8'
         response.raise_for_status()
-        
-        # Load existing files for comparison
-        existing_files = {}
-        if target_dir.exists():
-            logger.info(f"Found existing cache directory: {target_dir}")
-            for file_path in target_dir.glob('*.md'):
-                existing_files[file_path.name] = file_path.read_text()
-            logger.info(f"Found {len(existing_files)} existing files")
         
         # Create target directory if it doesn't exist
         target_dir.mkdir(exist_ok=True, parents=True)
@@ -49,7 +40,6 @@ def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_
         headers = [h.strip() for h in headers if h.strip()]
         
         documents = []
-        target_dir.mkdir(exist_ok=True)
         
         for i, columns in enumerate(csv_reader):
             columns = [col.strip() for col in columns[:len(headers)]]
@@ -67,22 +57,19 @@ def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_
                 filename = f"{context_name}_{i+1:03d}.md"
                 file_path = target_dir / filename
                 
-                # Always write to cache file
+                # Write to file
                 file_path.write_text(content)
                 
-                # Include if forced or if content changed
-                if force_all or filename not in existing_files or existing_files[filename] != content:
-                    file_obj = io.BytesIO(content.encode('utf-8'))
-                    file_obj.name = filename
-                    documents.append((
-                        filename,
-                        file_obj,
-                        'text/markdown'
-                    ))
-                    if not force_all:
-                        logger.info(f"New/modified entry: {filename}")
+                # Create memory buffer for OpenAI
+                file_obj = io.BytesIO(content.encode('utf-8'))
+                file_obj.name = filename
+                documents.append((
+                    filename,
+                    file_obj,
+                    'text/markdown'
+                ))
         
-        logger.info(f"Returning {len(documents)} entries from spreadsheet")
+        logger.info(f"Processed {len(documents)} entries from spreadsheet")
         return documents
         
     except Exception as e:

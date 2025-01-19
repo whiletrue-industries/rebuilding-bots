@@ -107,8 +107,7 @@ class ContextManager:
                 in download_and_convert_spreadsheet(
                     context_config['source'], 
                     split_path, 
-                    context_config['name'],
-                    force_all=True  # Always get all entries when syncing
+                    context_config['name']
                 )
             ])
         
