@@ -77,15 +77,33 @@ def update_assistant(config, config_dir, production, replace_context=False):
             logger.info(f"Found existing assistant: {assistant_id}")
             break
 
+    # Create new assistant
+    assistant_params = {
+        'name': assistant_name,
+        'description': config['description'],
+        'model': 'gpt-4o',
+        'instructions': config['instructions'],
+        'temperature': 0.00001,
+    }
+    
+    # Handle tools configuration
+    tools = []
+    if config.get('tools'):
+        for tool in config['tools']:
+            if tool == 'code-interpreter':
+                tools.append({"type": "code_interpreter"})
+            else:
+                openapi_spec = (SPECS / 'openapi' / tool).with_suffix('.yaml').open()
+                openapi_spec = yaml.safe_load(openapi_spec)
+                openapi_tools = openapi_to_tools(openapi_spec)
+                tools.extend(openapi_tools)
+    
+    if tools:
+        assistant_params['tools'] = tools
+    
     if assistant_id is None:
         # Create new assistant
-        assistant = client.beta.assistants.create(
-            name=assistant_name,
-            description=config['description'],
-            model='gpt-4o',
-            instructions=config['instructions'],
-            temperature=0.00001,
-        )
+        assistant = client.beta.assistants.create(**assistant_params)
         assistant_id = assistant.id
         logger.info(f'Created new assistant: {assistant_id}')
         replace_context = True
@@ -94,9 +112,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
         # Update existing assistant's configuration
         assistant = client.beta.assistants.update(
             assistant_id=assistant_id,
-            description=config['description'],
-            instructions=config['instructions'],
-            temperature=0.00001,
+            **assistant_params
         )
         logger.info(f'Updated assistant configuration: {assistant_id}')
     
