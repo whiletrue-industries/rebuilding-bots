@@ -30,6 +30,9 @@ def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_
         response.encoding = 'utf-8'
         response.raise_for_status()
         
+        logger.debug("Raw response text (first 500 chars):")
+        logger.debug(response.text[:500])
+        
         # Create target directory if it doesn't exist
         target_dir.mkdir(exist_ok=True, parents=True)
         
