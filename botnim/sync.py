@@ -52,7 +52,14 @@ def openapi_to_tools(openapi_spec):
     return ret
 
 def update_assistant(config, config_dir, production, replace_context=False):
-    """Update or create an assistant with the given configuration"""
+    """Update or create an assistant with the given configuration
+    
+    Args:
+        config: Bot configuration
+        config_dir: Directory containing bot files
+        production: Whether this is a production environment
+        replace_context: If True, update both assistant and context. If False, only update assistant.
+    """
     # Initialize knowledge base backend and context manager
     kb_backend = OpenAIVectorStore(production)
     context_manager = ContextManager(config_dir, kb_backend)
@@ -76,10 +83,12 @@ def update_assistant(config, config_dir, production, replace_context=False):
         )
         assistant_id = assistant.id
         logger.info(f'Assistant created: {assistant_id}')
+        # Always set up context for new assistants
+        replace_context = True
     
-    # Set up context if configured
+    # Set up context if configured and requested
     vector_store_id = None
-    if config.get('context'):
+    if config.get('context') and replace_context:
         vector_store_id = context_manager.setup_contexts(config['context'])
         
         # Update assistant with file search capability
@@ -89,6 +98,8 @@ def update_assistant(config, config_dir, production, replace_context=False):
             tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}}
         )
         logger.info(f'Assistant updated with vector store: {assistant_id}')
+    elif not replace_context:
+        logger.info(f'Skipping context update for assistant: {assistant_id}')
 
     return assistant_id, vector_store_id
 
