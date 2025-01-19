@@ -13,11 +13,12 @@ def cli():
 
 # Sync command, receives two arguments: production/staging and a list of bots to sync ('budgetkey'/'takanon' or 'all')
 @cli.command()
-@click.argument('environment', type=click.Choice(['staging', 'production']))
-@click.argument('bots', default='all')
-def sync(environment, bots):
+@click.argument('environment', type=click.Choice(['production', 'staging']))
+@click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
+@click.option('--replace-context', is_flag=True, default=False, help='Replace existing context')
+def sync(environment, bots, replace_context):
     """Sync all or specific bots with their configurations"""
-    sync_agents(environment, bots)
+    sync_agents(environment, bots, replace_context)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command()

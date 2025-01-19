@@ -51,7 +51,7 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(config, config_dir, production):
+def update_assistant(config, config_dir, production, replace_context=False):
     """Update or create an assistant with the given configuration"""
     # Initialize knowledge base backend and context manager
     kb_backend = OpenAIVectorStore(production)
@@ -92,7 +92,7 @@ def update_assistant(config, config_dir, production):
 
     return assistant_id, vector_store_id
 
-def sync_agents(environment, bots):
+def sync_agents(environment, bots, replace_context=False):
     """Sync all or specific bots with their configurations"""
     production = environment == 'production'
     for config_fn in SPECS.glob('*/config.yaml'):
@@ -102,4 +102,4 @@ def sync_agents(environment, bots):
             with config_fn.open() as config_f:
                 config = yaml.safe_load(config_f)
                 config['instructions'] = (config_dir / config['instructions']).read_text()
-                update_assistant(config, config_dir, production)
+                update_assistant(config, config_dir, production, replace_context)
