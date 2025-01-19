@@ -3,6 +3,7 @@ description: עונה על שאלות מתוך תקנון הכנסת וחוקי�
 instructions: agent.txt
 context:
   - name: ידע רלוונטי על התקנון
+    type: spreadsheet
     split: common-knowledge
     max_num_results: 7
     source: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/"
