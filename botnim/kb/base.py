@@ -34,7 +34,16 @@ class VectorStore(ABC):
 
     @abstractmethod
     def delete(self, vector_store_id: str) -> None:
-        """Delete the vector store and all its associated files"""
+        """Delete the vector store and all its associated files
+        
+        TODO: Currently not in use, but kept for future administrative tasks:
+        - Cleanup of deprecated or unused vector stores
+        - Complete removal of a bot's knowledge base
+        - Managing vector store lifecycle in production
+        
+        Args:
+            vector_store_id: ID of the vector store to delete
+        """
         pass
 
     @abstractmethod
