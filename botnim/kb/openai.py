@@ -5,6 +5,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from .base import VectorStore
 from ..config import get_logger
+import io
 
 logger = get_logger(__name__)
 
@@ -41,13 +42,14 @@ class OpenAIVectorStore(VectorStore):
             existing_files = set()
             files_list = self.client.beta.vector_stores.files.list(vector_store_id=kb_id)
             for file in files_list.data:
-                existing_files.add(file.filename)
+                # Try both name and filename since API responses can vary
+                file_name = getattr(file, 'filename', None) or getattr(file, 'name', None)
+                if file_name:
+                    existing_files.add(file_name)
             logger.info(f"Found {len(existing_files)} existing files in vector store")
 
-            # Process files in batches
-            BATCH_SIZE = 20
-            current_batch = []
-            
+            # Store document data for batching
+            document_data = []
             for doc in documents:
                 if isinstance(doc, tuple):
                     filename, file_data, content_type = doc
@@ -55,37 +57,37 @@ class OpenAIVectorStore(VectorStore):
                         logger.info(f"Skipping existing file: {filename}")
                         continue
                     
-                    # Add to current batch
-                    current_batch.append((filename, file_data))
+                    # Store the content and metadata instead of the file object
+                    if isinstance(file_data, (str, Path)):
+                        with open(file_data, 'rb') as f:
+                            content = f.read()
+                    else:
+                        content = file_data.read()
+                        file_data.seek(0)  # Reset position for potential reuse
                     
-                    # Process batch if it's full
-                    if len(current_batch) >= BATCH_SIZE:
-                        self._upload_batch_with_polling(kb_id, current_batch)
-                        current_batch = []
+                    document_data.append((filename, content))
             
-            # Process remaining files
-            if current_batch:
-                self._upload_batch_with_polling(kb_id, current_batch)
+            # Process in batches
+            BATCH_SIZE = 20
+            for i in range(0, len(document_data), BATCH_SIZE):
+                batch = document_data[i:i + BATCH_SIZE]
+                self._upload_batch_with_polling(kb_id, batch)
                 
         except Exception as e:
             logger.error(f"Failed to upload documents to vector store {kb_id}: {str(e)}")
             raise
 
-    def _upload_batch_with_polling(self, kb_id: str, batch: List[Tuple[str, Union[str, BinaryIO]]]):
+    def _upload_batch_with_polling(self, kb_id: str, batch: List[Tuple[str, bytes]]):
         """Upload a batch of files with polling for completion"""
         try:
             logger.info(f"Processing batch of {len(batch)} files")
             
-            # Create file batch
+            # Create file batch with fresh file objects
             batch_files = []
-            for filename, file_data in batch:
-                if isinstance(file_data, (str, Path)):
-                    # It's a file path
-                    with open(file_data, 'rb') as file_stream:
-                        batch_files.append((filename, file_stream))
-                else:
-                    # It's already a file-like object
-                    batch_files.append((filename, file_data))
+            for filename, content in batch:
+                file_obj = io.BytesIO(content)
+                file_obj.name = filename
+                batch_files.append((filename, file_obj))
             
             # Upload and poll for completion
             batch_result = self.client.beta.vector_stores.file_batches.upload_and_poll(
@@ -93,10 +95,10 @@ class OpenAIVectorStore(VectorStore):
                 files=batch_files
             )
             
-            if batch_result.failed_files:
-                failed_files = [f.filename for f in batch_result.failed_files]
-                logger.error(f"Failed to upload files: {failed_files}")
-                raise Exception(f"Failed to upload {len(failed_files)} files")
+            # Check status instead of failed_files
+            if batch_result.status != 'completed':
+                logger.error(f"Batch upload failed with status: {batch_result.status}")
+                raise Exception(f"Failed to upload batch: {batch_result.status}")
                 
             logger.info(f"Successfully uploaded batch to vector store {kb_id}")
             
