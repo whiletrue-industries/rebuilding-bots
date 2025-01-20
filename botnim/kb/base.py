@@ -50,3 +50,21 @@ class VectorStore(ABC):
     def delete_files(self, vector_store_id: str) -> None:
         """Delete all files associated with a vector store without deleting the store itself"""
         pass
+
+    @abstractmethod
+    def setup_contexts(self, name: str, documents: List[Tuple[str, Union[BinaryIO, Tuple[str, BinaryIO, str]]]]) -> str:
+        """Set up contexts with their documents
+        
+        Args:
+            name: Base name for the vector store(s)
+            documents: List of (context_name, document) tuples
+            
+        Returns:
+            str: ID of the primary vector store
+            
+        Each implementation can decide how to organize the contexts:
+        - Single vector store for all contexts
+        - Separate vector store per context
+        - Custom grouping strategy
+        """
+        pass

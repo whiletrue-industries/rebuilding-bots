@@ -25,20 +25,6 @@ class ContextManager:
             return f"{name_parts[0]} - פיתוח.{name_parts[1]}" if len(name_parts) > 1 else f"{name} - פיתוח"
         return name
 
-    def create_vector_store(self, context_config: dict) -> str:
-        """Create a vector store for the given context configuration
-        
-        Args:
-            context_config: Configuration dictionary for the context
-            
-        Returns:
-            str: ID of the created vector store
-        """
-        kb_name = context_config['name']
-        vector_store_id = self.vs_backend.create(self._add_environment_suffix(kb_name))
-        logger.info(f"Created vector store '{kb_name}' with ID: {vector_store_id}")
-        return vector_store_id
-
     def _process_files(self, file_pattern: str) -> List[Tuple[str, str, str]]:
         """Process markdown files matching the pattern"""
         files = sorted(self.config_dir.glob(file_pattern))
@@ -154,26 +140,31 @@ class ContextManager:
             contexts: List of context configurations
             
         Returns:
-            str: ID of the created vector store
+            str: ID of the vector store created by the backend
+            
+        The actual organization of contexts into vector stores is determined
+        by the vector store backend implementation. Some backends might use
+        a single store for all contexts, while others might use multiple stores.
         """
         if not contexts:
             return None
         
-        # Create vector store using the first context's name
-        vector_store_id = self.create_vector_store(contexts[0])
-        
-        # Collect and upload documents from all contexts
+        # Let the vector store backend handle the contexts
         all_documents = []
         for context in contexts:
             documents = self.collect_documents(context)
             if documents:
-                all_documents.extend(documents)
+                all_documents.extend([
+                    (context['name'], doc) for doc in documents
+                ])
             else:
                 logger.warning(f"No documents found for context: {context.get('name', 'unnamed')}")
         
         if all_documents:
-            self.vs_backend.upload_documents(vector_store_id, all_documents)
+            # Let the backend decide how to organize the vector stores
+            vector_store_id = self.vs_backend.setup_contexts(contexts[0]['name'], all_documents)
+            logger.info(f"Vector store setup complete: {vector_store_id}")
+            return vector_store_id
         else:
             logger.warning("No documents found in any context")
-        
-        return vector_store_id
+            return None

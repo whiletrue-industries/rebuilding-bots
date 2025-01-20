@@ -152,3 +152,13 @@ class OpenAIVectorStore(VectorStore):
         except Exception as e:
             logger.error(f"Failed to list vector stores: {str(e)}")
             raise
+
+    def setup_contexts(self, name: str, documents: List[Tuple[str, Union[BinaryIO, Tuple[str, BinaryIO, str]]]]) -> str:
+        """OpenAI implementation uses a single vector store for all contexts"""
+        vector_store_id = self.create(name)
+        
+        # Extract just the documents from the (context_name, document) tuples
+        docs_only = [doc for _, doc in documents]
+        self.upload_documents(vector_store_id, docs_only)
+        
+        return vector_store_id
