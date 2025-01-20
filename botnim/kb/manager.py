@@ -135,8 +135,10 @@ class ContextManager:
                 logger.warning(f"No documents found for context: {context.get('name', 'unnamed')}")
         
         if context_documents:
+            # Add environment suffix to the name before passing to backend
+            name_with_env = self._add_environment_suffix(contexts[0]['name'])
             # Let backend decide how to organize the vector stores
-            return self.vs_backend.setup_contexts(contexts[0]['name'], context_documents)
+            return self.vs_backend.setup_contexts(name_with_env, context_documents)
         else:
             logger.warning("No documents found in any context")
             return None
