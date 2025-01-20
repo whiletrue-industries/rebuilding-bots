@@ -50,9 +50,6 @@ $ botnim --help
 The following CLI commands are available:
 
 ```bash
-# Download external sources (e.g., Google Spreadsheets)
-botnim download
-
 # Sync bots with OpenAI
 botnim sync {staging/production} {budgetkey/takanon/all} [--replace-context]
 
@@ -73,7 +70,7 @@ For running locally:
 1. Edit the specifications in the `specs/` directory.
 2. If using external sources (e.g., Google Spreadsheets):
    - Configure the source URL in the bot's `config.yaml`
-   - Run `botnim download` to fetch and convert the latest data
+   - The content will be automatically downloaded during sync
 3. In case of changes to the vector stores, remove them in the OpenAI account playground.
 Either:
 4. `botnim sync {staging/production} {budgetkey/takanon}` to sync the specifications with the OpenAI account.
