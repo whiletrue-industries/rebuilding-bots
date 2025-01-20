@@ -3,6 +3,7 @@ import requests
 import io
 from typing import List, Union, BinaryIO, Tuple
 from .base import VectorStore
+from .download_sources import download_and_convert_spreadsheet
 from ..config import get_logger
 
 logger = get_logger(__name__)
@@ -83,12 +84,7 @@ class ContextManager:
         return documents
 
     def collect_documents(self, context_config: dict) -> List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]:
-        """Collect documents from all configured sources
-        
-        Supports multiple source types:
-        1. Spreadsheet source (type: spreadsheet)
-        2. Split files (split: directory_path)
-        3. Regular files (files: glob_pattern)
+        """Collect documents from a single context source
         
         Args:
             context_config: Configuration dictionary specifying the source type and location
@@ -96,29 +92,26 @@ class ContextManager:
         Returns:
             List of documents in the format required by the vector store
         """
-        documents = []
-        
         # Handle spreadsheet source
         if context_config.get('type') == 'spreadsheet' and 'source' in context_config:
-            from .download_sources import download_and_convert_spreadsheet
-            documents.extend([
+            return [
                 (self._add_environment_suffix(filename), file_obj, content_type)
                 for filename, file_obj, content_type 
                 in download_and_convert_spreadsheet(
                     context_config['source'],
                     context_config['name']
                 )
-            ])
+            ]
         
         # Handle split files
         elif 'split' in context_config:
-            documents.extend(self._process_split_file(context_config))
+            return self._process_split_file(context_config)
         
         # Handle regular files
         elif 'files' in context_config:
-            documents.extend(self._process_files(context_config['files']))
-        
-        return documents
+            return self._process_files(context_config['files'])
+            
+        return []
 
     def _process_directory(self, dir_path: Path) -> List[Tuple[str, str, str]]:
         """Process all markdown files in a directory"""
@@ -133,38 +126,30 @@ class ContextManager:
                 ))
         return documents
 
-    def setup_contexts(self, contexts: list) -> str:
-        """Set up all contexts and return the vector store ID
+    def setup_contexts(self, contexts: list) -> dict:
+        """Collect documents from all contexts and let backend handle organization
         
         Args:
             contexts: List of context configurations
             
         Returns:
-            str: ID of the vector store created by the backend
-            
-        The actual organization of contexts into vector stores is determined
-        by the vector store backend implementation. Some backends might use
-        a single store for all contexts, while others might use multiple stores.
+            dict: Tools and tool_resources for the assistant
         """
         if not contexts:
             return None
         
-        # Let the vector store backend handle the contexts
-        all_documents = []
+        # Collect documents from each context separately
+        context_documents = []
         for context in contexts:
             documents = self.collect_documents(context)
             if documents:
-                all_documents.extend([
-                    (context['name'], doc) for doc in documents
-                ])
+                context_documents.append((context['name'], documents))
             else:
                 logger.warning(f"No documents found for context: {context.get('name', 'unnamed')}")
         
-        if all_documents:
-            # Let the backend decide how to organize the vector stores
-            vector_store_id = self.vs_backend.setup_contexts(contexts[0]['name'], all_documents)
-            logger.info(f"Vector store setup complete: {vector_store_id}")
-            return vector_store_id
+        if context_documents:
+            # Let backend decide how to organize the vector stores
+            return self.vs_backend.setup_contexts(contexts[0]['name'], context_documents)
         else:
             logger.warning("No documents found in any context")
             return None

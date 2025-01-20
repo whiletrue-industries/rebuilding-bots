@@ -52,103 +52,48 @@ def openapi_to_tools(openapi_spec):
     return ret
 
 def update_assistant(config, config_dir, production, replace_context=False):
-    """Update or create an assistant with the given configuration
-    
-    Args:
-        config: Bot configuration
-        config_dir: Directory containing bot files
-        production: Whether this is a production environment
-        replace_context: If True, update both assistant and context. If False, only update assistant.
-    """
-    logger.info(f"Starting update_assistant with replace_context={replace_context}")
-    
+    """Update or create an assistant with the given configuration"""
     # Initialize knowledge base backend and context manager
-    kb_backend = OpenAIVectorStore(production)
-    context_manager = ContextManager(config_dir, kb_backend)
+    vs_backend = OpenAIVectorStore(production)
+    context_manager = ContextManager(config_dir, vs_backend)
     
     # Find or create the main assistant first
     assistant_name = context_manager._add_environment_suffix(config['name'])
     assistant_id = None
-    existing_assistant = None
     for assistant in client.beta.assistants.list():
         if assistant.name == assistant_name:
             assistant_id = assistant.id
-            existing_assistant = assistant
-            logger.info(f"Found existing assistant: {assistant_id}")
             break
 
-    # Create new assistant
-    assistant_params = {
-        'name': assistant_name,
-        'description': config['description'],
-        'model': 'gpt-4o',
-        'instructions': config['instructions'],
-        'temperature': 0.00001,
-    }
-    
-    # Handle tools configuration
-    tools = []
-    if config.get('tools'):
-        for tool in config['tools']:
-            if tool == 'code-interpreter':
-                tools.append({"type": "code_interpreter"})
-            else:
-                openapi_spec = (SPECS / 'openapi' / tool).with_suffix('.yaml').open()
-                openapi_spec = yaml.safe_load(openapi_spec)
-                openapi_tools = openapi_to_tools(openapi_spec)
-                tools.extend(openapi_tools)
-    
-    if tools:
-        assistant_params['tools'] = tools
-    
     if assistant_id is None:
         # Create new assistant
-        assistant = client.beta.assistants.create(**assistant_params)
-        assistant_id = assistant.id
-        logger.info(f'Created new assistant: {assistant_id}')
-        replace_context = True
-        logger.info('Forcing replace_context=True for new assistant')
-    else:
-        # Update existing assistant's configuration
-        assistant = client.beta.assistants.update(
-            assistant_id=assistant_id,
-            **assistant_params
+        assistant = client.beta.assistants.create(
+            name=assistant_name,
+            description=config['description'],
+            model='gpt-4',
+            instructions=config['instructions'],
+            temperature=0.00001,
         )
-        logger.info(f'Updated assistant configuration: {assistant_id}')
+        assistant_id = assistant.id
+        logger.info(f'Assistant created: {assistant_id}')
+        # Always set up context for new assistants
+        replace_context = True
     
-    # Set up context if configured
-    vector_store_id = None
-    if config.get('context'):
-        logger.info(f"Context configuration found, replace_context={replace_context}")
-        if replace_context:
-            logger.info("Setting up new contexts...")
-            vector_store_id = context_manager.setup_contexts(config['context'])
-            
-            # Update assistant with new vector store
+    # Set up context if configured and requested
+    if config.get('context') and replace_context:
+        tools_config = context_manager.setup_contexts(config['context'])
+        if tools_config:
+            # Update assistant with tools configuration
             assistant = client.beta.assistants.update(
                 assistant_id=assistant_id,
-                tools=[{"type": "file_search"}],
-                tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}}
+                tools=tools_config['tools'],
+                tool_resources=tools_config['tool_resources']
             )
-            logger.info(f'Assistant updated with new vector store: {assistant_id}')
-        else:
-            # Keep existing vector store connection
-            try:
-                if (existing_assistant and 
-                    hasattr(existing_assistant, 'tool_resources') and 
-                    existing_assistant.tool_resources and
-                    hasattr(existing_assistant.tool_resources, 'file_search') and
-                    existing_assistant.tool_resources.file_search and
-                    existing_assistant.tool_resources.file_search.vector_store_ids):
-                    vector_store_id = existing_assistant.tool_resources.file_search.vector_store_ids[0]
-                    logger.info(f'Keeping existing vector store: {vector_store_id}')
-                else:
-                    logger.warning(f'No existing vector store found for assistant: {assistant_id}')
-            except Exception as e:
-                logger.warning(f'Error accessing existing vector store: {e}')
-                logger.warning(f'Assistant tool_resources: {existing_assistant.tool_resources}')
+            logger.info(f'Assistant updated with tools: {assistant_id}')
+    elif not replace_context:
+        logger.info(f'Skipping context update for assistant: {assistant_id}')
 
-    return assistant_id, vector_store_id
+    return assistant_id
 
 def sync_agents(environment, bots, replace_context=False):
     """Sync all or specific bots with their configurations"""
