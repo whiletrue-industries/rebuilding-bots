@@ -52,8 +52,15 @@ def openapi_to_tools(openapi_spec):
     return ret
 
 def update_assistant(config, config_dir, production, replace_context=False):
-    """Update or create an assistant with the given configuration"""
-    # Initialize knowledge base backend and context manager
+    """Update or create an assistant with the given configuration
+    
+    Args:
+        config: Bot configuration
+        config_dir: Directory containing bot files
+        production: Whether this is a production environment
+        replace_context: If True, update both assistant and context. If False, only update assistant.
+    """
+    # Initialize vector store backend and context manager
     vs_backend = OpenAIVectorStore(production)
     context_manager = ContextManager(config_dir, vs_backend)
     
@@ -65,29 +72,58 @@ def update_assistant(config, config_dir, production, replace_context=False):
             assistant_id = assistant.id
             break
 
+    # Prepare assistant configuration
+    assistant_params = {
+        'name': assistant_name,
+        'description': config['description'],
+        'model': 'gpt-4',
+        'instructions': config['instructions'],
+        'temperature': 0.00001,
+    }
+    
+    # Handle tools configuration
+    tools = []
+    if config.get('tools'):
+        for tool in config['tools']:
+            if tool == 'code-interpreter':
+                tools.append({"type": "code_interpreter"})
+            else:
+                openapi_spec = (SPECS / 'openapi' / tool).with_suffix('.yaml').open()
+                openapi_spec = yaml.safe_load(openapi_spec)
+                openapi_tools = openapi_to_tools(openapi_spec)
+                tools.extend(openapi_tools)
+    
+    if tools:
+        assistant_params['tools'] = tools
+
     if assistant_id is None:
         # Create new assistant
-        assistant = client.beta.assistants.create(
-            name=assistant_name,
-            description=config['description'],
-            model='gpt-4',
-            instructions=config['instructions'],
-            temperature=0.00001,
-        )
+        assistant = client.beta.assistants.create(**assistant_params)
         assistant_id = assistant.id
         logger.info(f'Assistant created: {assistant_id}')
         # Always set up context for new assistants
         replace_context = True
+    else:
+        # Update existing assistant
+        assistant = client.beta.assistants.update(
+            assistant_id=assistant_id,
+            **assistant_params
+        )
+        logger.info(f'Assistant configuration updated: {assistant_id}')
     
     # Set up context if configured and requested
     if config.get('context') and replace_context:
         tools_config = context_manager.setup_contexts(config['context'])
         if tools_config:
-            # Update assistant with tools configuration
+            # Merge tools configurations
+            all_tools = tools + tools_config['tools']
+            tool_resources = tools_config['tool_resources']
+            
+            # Update assistant with combined tools configuration
             assistant = client.beta.assistants.update(
                 assistant_id=assistant_id,
-                tools=tools_config['tools'],
-                tool_resources=tools_config['tool_resources']
+                tools=all_tools,
+                tool_resources=tool_resources
             )
             logger.info(f'Assistant updated with tools: {assistant_id}')
     elif not replace_context:
@@ -96,13 +132,19 @@ def update_assistant(config, config_dir, production, replace_context=False):
     return assistant_id
 
 def sync_agents(environment, bots, replace_context=False):
-    """Sync all or specific bots with their configurations"""
+    """Sync all or specific bots with their configurations
+    
+    Args:
+        environment: 'production' or 'staging'
+        bots: Bot ID or 'all'
+        replace_context: If True, update both assistant and context. If False, only update assistant.
+    """
     production = environment == 'production'
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
         bot_id = config_dir.name
         if bots in ['all', bot_id]:
-            with config_fn.open() as config_f:
-                config = yaml.safe_load(config_f)
+            with config_fn.open() as f:
+                config = yaml.safe_load(f)
                 config['instructions'] = (config_dir / config['instructions']).read_text()
                 update_assistant(config, config_dir, production, replace_context)
