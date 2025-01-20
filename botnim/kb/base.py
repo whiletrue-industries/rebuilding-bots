@@ -52,19 +52,14 @@ class VectorStore(ABC):
         pass
 
     @abstractmethod
-    def setup_contexts(self, name: str, documents: List[Tuple[str, Union[BinaryIO, Tuple[str, BinaryIO, str]]]]) -> str:
+    def setup_contexts(self, name: str, context_documents: List[Tuple[str, List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]]]) -> dict:
         """Set up contexts with their documents
         
         Args:
             name: Base name for the vector store(s)
-            documents: List of (context_name, document) tuples
+            context_documents: List of (context_name, documents) tuples
             
         Returns:
-            str: ID of the primary vector store
-            
-        Each implementation can decide how to organize the contexts:
-        - Single vector store for all contexts
-        - Separate vector store per context
-        - Custom grouping strategy
+            dict: Tools and tool_resources for the assistant
         """
         pass

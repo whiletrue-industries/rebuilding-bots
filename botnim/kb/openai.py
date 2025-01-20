@@ -34,10 +34,10 @@ class OpenAIVectorStore(VectorStore):
             logger.error(f"Failed to create vector store {name}: {str(e)}")
             raise
 
-    def upload_documents(self, kb_id: str, documents: List[Union[BinaryIO, Tuple[str, Union[str, BinaryIO], str]]]) -> None:
+    def upload_documents(self, kb_id: str, documents: List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]) -> None:
         """Upload documents to the vector store"""
         try:
-            # Get list of existing files in the vector store
+            # Get list of existing files
             existing_files = set()
             files_list = self.client.beta.vector_stores.files.list(vector_store_id=kb_id)
             for file in files_list.data:
@@ -60,48 +60,45 @@ class OpenAIVectorStore(VectorStore):
                     
                     # Process batch if it's full
                     if len(current_batch) >= BATCH_SIZE:
-                        self._process_batch(kb_id, current_batch)
+                        self._upload_batch_with_polling(kb_id, current_batch)
                         current_batch = []
-                
+            
             # Process remaining files
             if current_batch:
-                self._process_batch(kb_id, current_batch)
+                self._upload_batch_with_polling(kb_id, current_batch)
                 
         except Exception as e:
             logger.error(f"Failed to upload documents to vector store {kb_id}: {str(e)}")
             raise
 
-    def _process_batch(self, kb_id: str, batch: List[Tuple[str, Union[str, BinaryIO]]]):
-        """Process a batch of files"""
+    def _upload_batch_with_polling(self, kb_id: str, batch: List[Tuple[str, Union[str, BinaryIO]]]):
+        """Upload a batch of files with polling for completion"""
         try:
             logger.info(f"Processing batch of {len(batch)} files")
-            file_ids = []
             
-            # First create all files
+            # Create file batch
+            batch_files = []
             for filename, file_data in batch:
                 if isinstance(file_data, (str, Path)):
                     # It's a file path
                     with open(file_data, 'rb') as file_stream:
-                        file = self.client.files.create(
-                            file=file_stream,
-                            purpose='assistants'
-                        )
+                        batch_files.append((filename, file_stream))
                 else:
-                    # It's already a file-like object (BytesIO)
-                    file = self.client.files.create(
-                        file=file_data,
-                        purpose='assistants'
-                    )
-                logger.info(f"Created file: {filename} (ID: {file.id})")
-                file_ids.append(file.id)
+                    # It's already a file-like object
+                    batch_files.append((filename, file_data))
             
-            # Then add them to the vector store
-            for file_id in file_ids:
-                self.client.beta.vector_stores.files.create(
-                    vector_store_id=kb_id,
-                    file_id=file_id
-                )
-            logger.info(f"Successfully added batch to vector store {kb_id}")
+            # Upload and poll for completion
+            batch_result = self.client.beta.vector_stores.file_batches.upload_and_poll(
+                vector_store_id=kb_id,
+                files=batch_files
+            )
+            
+            if batch_result.failed_files:
+                failed_files = [f.filename for f in batch_result.failed_files]
+                logger.error(f"Failed to upload files: {failed_files}")
+                raise Exception(f"Failed to upload {len(failed_files)} files")
+                
+            logger.info(f"Successfully uploaded batch to vector store {kb_id}")
             
         except Exception as e:
             logger.error(f"Failed to process batch: {str(e)}")
@@ -153,10 +150,10 @@ class OpenAIVectorStore(VectorStore):
             logger.error(f"Failed to list vector stores: {str(e)}")
             raise
 
-    def setup_contexts(self, name: str, documents: List[Tuple[str, Union[BinaryIO, Tuple[str, BinaryIO, str]]]]) -> str:
+    def setup_contexts(self, name: str, context_documents: List[Tuple[str, List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]]]) -> dict:
         """OpenAI implementation uses a single vector store for all contexts"""
-        # Check if vector store already exists
-        name_with_env = name  # Name should already include environment suffix
+        # Check if vector store exists
+        name_with_env = name
         existing_stores = self.list()
         vector_store_id = None
         
@@ -164,17 +161,21 @@ class OpenAIVectorStore(VectorStore):
             if store['name'] == name_with_env:
                 vector_store_id = store['id']
                 logger.info(f"Found existing vector store: {vector_store_id}")
-                # Clear existing files
                 self.delete_files(vector_store_id)
                 break
         
         if vector_store_id is None:
-            # Create new vector store if not found
             vector_store_id = self.create(name_with_env)
             logger.info(f"Created new vector store: {vector_store_id}")
         
-        # Extract just the documents from the (context_name, document) tuples
-        docs_only = [doc for _, doc in documents]
-        self.upload_documents(vector_store_id, docs_only)
+        # Combine all documents into one list
+        all_documents = []
+        for _, documents in context_documents:
+            all_documents.extend(documents)
+            
+        self.upload_documents(vector_store_id, all_documents)
         
-        return vector_store_id
+        return {
+            "tools": [{"type": "file_search"}],
+            "tool_resources": {"file_search": {"vector_store_ids": [vector_store_id]}}
+        }
