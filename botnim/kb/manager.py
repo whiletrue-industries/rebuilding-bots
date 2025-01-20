@@ -113,19 +113,6 @@ class ContextManager:
             
         return []
 
-    def _process_directory(self, dir_path: Path) -> List[Tuple[str, str, str]]:
-        """Process all markdown files in a directory"""
-        documents = []
-        for file_path in sorted(dir_path.glob('*.md')):
-            if file_path.read_text().strip():
-                env_filename = self._add_environment_suffix(file_path.name)
-                documents.append((
-                    env_filename,
-                    str(file_path),
-                    'text/markdown'
-                ))
-        return documents
-
     def setup_contexts(self, contexts: list) -> dict:
         """Collect documents from all contexts and let backend handle organization
         
