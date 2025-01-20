@@ -8,13 +8,19 @@ from ..config import get_logger
 logger = get_logger(__name__)
 
 class ContextManager:
-    def __init__(self, config_dir: Path, kb_backend: VectorStore):
+    def __init__(self, config_dir: Path, vs_backend: VectorStore):
+        """Initialize the context manager
+        
+        Args:
+            config_dir: Directory containing bot configuration and files
+            vs_backend: Vector store backend for storing and retrieving documents
+        """
         self.config_dir = config_dir
-        self.kb_backend = kb_backend
+        self.vs_backend = vs_backend
 
     def _add_environment_suffix(self, name: str) -> str:
         """Add environment suffix if not in production"""
-        if not self.kb_backend.production:
+        if not self.vs_backend.production:
             name_parts = name.rsplit('.', 1)
             return f"{name_parts[0]} - פיתוח.{name_parts[1]}" if len(name_parts) > 1 else f"{name} - פיתוח"
         return name
@@ -29,7 +35,7 @@ class ContextManager:
             str: ID of the created vector store
         """
         kb_name = context_config['name']
-        vector_store_id = self.kb_backend.create(self._add_environment_suffix(kb_name))
+        vector_store_id = self.vs_backend.create(self._add_environment_suffix(kb_name))
         logger.info(f"Created vector store '{kb_name}' with ID: {vector_store_id}")
         return vector_store_id
 
@@ -166,7 +172,7 @@ class ContextManager:
                 logger.warning(f"No documents found for context: {context.get('name', 'unnamed')}")
         
         if all_documents:
-            self.kb_backend.upload_documents(vector_store_id, all_documents)
+            self.vs_backend.upload_documents(vector_store_id, all_documents)
         else:
             logger.warning("No documents found in any context")
         
