@@ -10,12 +10,11 @@ import io
 
 logger = get_logger(__name__)
 
-def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_name: str) -> List[Tuple[str, BinaryIO, str]]:
+def download_and_convert_spreadsheet(source_url: str, context_name: str) -> List[Tuple[str, BinaryIO, str]]:
     """Download and convert Google Spreadsheet data to memory buffers
     
     Args:
         source_url: URL of the Google Spreadsheet
-        target_dir: Directory to store files
         context_name: Name of the context for file naming
         
     Returns:
@@ -32,9 +31,6 @@ def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_
         
         logger.debug("Raw response text (first 500 chars):")
         logger.debug(response.text[:500])
-        
-        # Create target directory if it doesn't exist
-        target_dir.mkdir(exist_ok=True, parents=True)
         
         csv_file = StringIO(response.text)
         csv_reader = csv.reader(csv_file)
@@ -58,10 +54,6 @@ def download_and_convert_spreadsheet(source_url: str, target_dir: Path, context_
             content = ''.join(entry)
             if content.strip():
                 filename = f"{context_name}_{i+1:03d}.md"
-                file_path = target_dir / filename
-                
-                # Write to file
-                file_path.write_text(content)
                 
                 # Create memory buffer for OpenAI
                 file_obj = io.BytesIO(content.encode('utf-8'))
@@ -95,4 +87,4 @@ def download_sources(specs_dir: Path, bot_filter: str = 'all'):
                     target_dir = config_file.parent / f"{context['name']}_split"
                     target_dir.mkdir(exist_ok=True)
                     logger.info(f"Downloading source for {context['name']} to {target_dir}")
-                    download_and_convert_spreadsheet(context['source'], target_dir, context['name'])
+                    download_and_convert_spreadsheet(context['source'], context['name'])

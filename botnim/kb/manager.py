@@ -109,17 +109,11 @@ class ContextManager:
         # Handle spreadsheet source
         if context_config.get('type') == 'spreadsheet' and 'source' in context_config:
             from .download_sources import download_and_convert_spreadsheet
-            split_path = (
-                self.config_dir / context_config['split'] 
-                if 'split' in context_config 
-                else self.config_dir / f"{context_config['name']}_split"
-            )
             documents.extend([
                 (self._add_environment_suffix(filename), file_obj, content_type)
                 for filename, file_obj, content_type 
                 in download_and_convert_spreadsheet(
-                    context_config['source'], 
-                    split_path, 
+                    context_config['source'],
                     context_config['name']
                 )
             ])
