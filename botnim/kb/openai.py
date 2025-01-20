@@ -155,7 +155,23 @@ class OpenAIVectorStore(VectorStore):
 
     def setup_contexts(self, name: str, documents: List[Tuple[str, Union[BinaryIO, Tuple[str, BinaryIO, str]]]]) -> str:
         """OpenAI implementation uses a single vector store for all contexts"""
-        vector_store_id = self.create(name)
+        # Check if vector store already exists
+        name_with_env = name  # Name should already include environment suffix
+        existing_stores = self.list()
+        vector_store_id = None
+        
+        for store in existing_stores:
+            if store['name'] == name_with_env:
+                vector_store_id = store['id']
+                logger.info(f"Found existing vector store: {vector_store_id}")
+                # Clear existing files
+                self.delete_files(vector_store_id)
+                break
+        
+        if vector_store_id is None:
+            # Create new vector store if not found
+            vector_store_id = self.create(name_with_env)
+            logger.info(f"Created new vector store: {vector_store_id}")
         
         # Extract just the documents from the (context_name, document) tuples
         docs_only = [doc for _, doc in documents]
