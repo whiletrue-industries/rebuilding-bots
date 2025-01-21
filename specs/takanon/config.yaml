@@ -4,8 +4,8 @@ instructions: agent.txt
 context:
   - name: ידע רלוונטי על התקנון
     type: spreadsheet
-    split: common-knowledge
-    max_num_results: 7
+    split: true
     source: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/"
+    max_num_results: 7
   - name: Knesset Bylaws (תקנון הכנסת) and related laws
     files: extraction/*.md

@@ -6,5 +6,6 @@ tools:
   - budgetkey
 context:
   - name: ידע רלוונטי על התקציב
-    split: common-knowledge.md
+    split: true
+    source: common-knowledge.md
     max_num_results: 7
