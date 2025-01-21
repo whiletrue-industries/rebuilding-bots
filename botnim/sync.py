@@ -73,7 +73,7 @@ async def update_assistant(config, config_dir, production, replace_context=False
     assistant_params = {
         'name': assistant_name,
         'description': config['description'],
-        'model': 'gpt-4',
+        'model': 'gpt-4o',
         'instructions': config['instructions'],
         'temperature': 0.00001,
     }
