@@ -64,13 +64,11 @@ def update_assistant(config, config_dir, production, replace_context=False):
     vs_backend = OpenAIVectorStore(production)
     context_manager = ContextManager(config_dir, vs_backend)
     
-    # Find or create the main assistant first
-    assistant_name = context_manager._add_environment_suffix(config['name'])
-    assistant_id = None
-    for assistant in client.beta.assistants.list():
-        if assistant.name == assistant_name:
-            assistant_id = assistant.id
-            break
+    # Set up context first if configured
+    tools_config = None
+    if config.get('context') and replace_context:
+        logger.info("Setting up new contexts...")
+        tools_config = context_manager.setup_contexts(config['context'])
 
     # Prepare assistant configuration
     assistant_params = {
@@ -93,8 +91,21 @@ def update_assistant(config, config_dir, production, replace_context=False):
                 openapi_tools = openapi_to_tools(openapi_spec)
                 tools.extend(openapi_tools)
     
+    # Merge tools from context if available
+    if tools_config:
+        tools.extend(tools_config['tools'])
+        assistant_params['tool_resources'] = tools_config['tool_resources']
+    
     if tools:
         assistant_params['tools'] = tools
+
+    # Find or create the main assistant first
+    assistant_name = context_manager._add_environment_suffix(config['name'])
+    assistant_id = None
+    for assistant in client.beta.assistants.list():
+        if assistant.name == assistant_name:
+            assistant_id = assistant.id
+            break
 
     if assistant_id is None:
         # Create new assistant

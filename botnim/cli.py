@@ -1,5 +1,5 @@
 import click
-from .sync import sync_agents
+from .sync import main_sync
 from .benchmark.runner import run_benchmarks
 from .config import SPECS
 
@@ -11,11 +11,12 @@ def cli():
 # Sync command, receives two arguments: production/staging and a list of bots to sync ('budgetkey'/'takanon' or 'all')
 @cli.command()
 @click.argument('environment', type=click.Choice(['production', 'staging']))
-@click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
-@click.option('--replace-context', is_flag=True, default=False, help='Replace existing context')
-def sync(environment, bots, replace_context):
-    """Sync all or specific bots with their configurations"""
-    sync_agents(environment, bots, replace_context)
+@click.argument('bots')
+@click.option('--replace-context', is_flag=True, help='Replace existing context')
+@click.option('--debug', is_flag=True, help='Enable debug mode')
+def sync(environment, bots, replace_context=False, debug=False):
+    """Sync bot configurations with OpenAI"""
+    main_sync(environment, bots, replace_context=replace_context, debug=debug)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command()
