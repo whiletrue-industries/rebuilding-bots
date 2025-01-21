@@ -3,8 +3,9 @@ import requests
 import io
 from typing import List, Union, BinaryIO, Tuple
 from .base import VectorStore
-from .download_sources import download_and_convert_spreadsheet
+from .download_sources import download_and_convert_spreadsheet, process_document
 from ..config import get_logger
+from .base import ProgressCallback
 
 logger = get_logger(__name__)
 
@@ -84,61 +85,53 @@ class ContextManager:
         return documents
 
     def collect_documents(self, context_config: dict) -> List[Union[BinaryIO, Tuple[str, BinaryIO, str]]]:
-        """Collect documents from a single context source
-        
-        Args:
-            context_config: Configuration dictionary specifying the source type and location
-            
-        Returns:
-            List of documents in the format required by the vector store
-        """
-        # Handle spreadsheet source
-        if context_config.get('type') == 'spreadsheet' and 'source' in context_config:
+        """Collect documents from a single context source"""
+        if 'source' in context_config:
             return [
                 (self._add_environment_suffix(filename), file_obj, content_type)
                 for filename, file_obj, content_type 
-                in download_and_convert_spreadsheet(
+                in process_document(
                     context_config['source'],
-                    context_config['name']
+                    context_config['name'],
+                    context_config.get('split', False)
                 )
             ]
-        
-        # Handle split files
-        elif 'split' in context_config:
-            return self._process_split_file(context_config)
-        
-        # Handle regular files
         elif 'files' in context_config:
             return self._process_files(context_config['files'])
             
         return []
 
-    def setup_contexts(self, contexts: list) -> dict:
-        """Collect documents from all contexts and let backend handle organization
+    async def setup_contexts(self, contexts: list) -> dict:
+        """Setup contexts with progress tracking
         
         Args:
             contexts: List of context configurations
-            
-        Returns:
-            dict: Tools and tool_resources for the assistant
         """
-        if not contexts:
-            return None
-        
-        # Collect documents from each context separately
+        # Collect and count total documents
         context_documents = []
+        total_docs = 0
+        
         for context in contexts:
             documents = self.collect_documents(context)
             if documents:
+                total_docs += len(documents)
                 context_documents.append((context['name'], documents))
             else:
                 logger.warning(f"No documents found for context: {context.get('name', 'unnamed')}")
-        
+
         if context_documents:
-            # Add environment suffix to the name before passing to backend
+            # Add environment suffix to the name
             name_with_env = self._add_environment_suffix(contexts[0]['name'])
-            # Let backend decide how to organize the vector stores
-            return self.vs_backend.setup_contexts(name_with_env, context_documents)
+            
+            # Create progress tracker
+            progress = ProgressCallback(total_docs, logger)
+            
+            # Let backend handle vector store organization with progress tracking
+            return await self.vs_backend.setup_contexts(
+                name_with_env,
+                context_documents,
+                progress_callback=progress
+            )
         else:
             logger.warning("No documents found in any context")
             return None
