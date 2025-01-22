@@ -22,7 +22,7 @@ $ botnim --help
   - `__init__.py`: Package initialization file.
   - `cli.py`: Command line interface for the bots.
   - `sync.py`: Script for syncing the specifications with the OpenAI account.
-  - `kb/`: Knowledge base management package.
+  - `vector_db/`: Knowledge base management package.
     - `__init__.py`: Package initialization.
     - `base.py`: Abstract base class for knowledge base implementations.
     - `openai.py`: OpenAI Vector Store implementation.
