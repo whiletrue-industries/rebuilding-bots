@@ -2,8 +2,8 @@ import os
 import yaml
 from pathlib import Path
 from openai import OpenAI
-from .kb.openai import OpenAIVectorStore
-from .kb.manager import ContextManager
+from .vector_db.openai import OpenAIVectorStore
+from .vector_db.manager import ContextManager
 from .config import SPECS, get_logger
 import asyncio
 
