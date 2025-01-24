@@ -143,6 +143,15 @@ async def sync_agents(environment, bots, replace_context=False, debug=False):
                 config['instructions'] = (config_dir / config['instructions']).read_text()
                 await update_assistant(config, config_dir, production, replace_context, debug)
 
-def main_sync(environment, bots, replace_context=False, debug=False):
-    """Main entry point for sync command"""
+def main_sync(environment: str, bots: list[str], replace_context: bool = False, debug: bool = False, limit: int = None):
+    """
+    Main sync function to synchronize bots with the environment
+    
+    Args:
+        environment: The environment to sync to (staging/production)
+        bots: List of bot names to sync
+        replace_context: Whether to replace the existing context
+        debug: Enable debug mode
+        limit: Limit the number of items to sync (optional)
+    """
     asyncio.run(sync_agents(environment, bots, replace_context, debug))

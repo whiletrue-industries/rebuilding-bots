@@ -14,9 +14,10 @@ def cli():
 @click.argument('bots')
 @click.option('--replace-context', is_flag=True, help='Replace existing context')
 @click.option('--debug', is_flag=True, help='Enable debug mode')
-def sync(environment, bots, replace_context=False, debug=False):
+@click.option('--limit', type=int, help='Limit the number of files to process')
+def sync(environment, bots, replace_context=False, debug=False, limit=None):
     """Sync bot configurations with OpenAI"""
-    main_sync(environment, bots, replace_context=replace_context, debug=debug)
+    main_sync(environment, bots, replace_context=replace_context, debug=debug, limit=limit)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command()
