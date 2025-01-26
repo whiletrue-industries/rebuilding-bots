@@ -1,7 +1,8 @@
+from abc import ABC, abstractmethod
 from ..collect_sources import collect_context_sources
 
 
-class VectorStoreBase():
+class VectorStoreBase(ABC):
 
     def __init__(self, config, config_dir, production):
         self.config = config
@@ -31,3 +32,36 @@ class VectorStoreBase():
             self.update_tools(context_, vector_store)
         return self.tools, self.tool_resources
 
+    def get_or_create_vector_store(self, context, context_name, replace_context):
+        ret = None
+        vs_name = self.env_name(self.config['name'])
+        vector_store = self.openai_client.beta.vector_stores.list()
+        for vs in vector_store:
+            if vs.name == vs_name:
+                if replace_context and not self.init:
+                    self.openai_client.beta.vector_stores.delete(vs.id)
+                else:
+                    ret = vs
+                break
+        if not ret:
+            assert not self.init, 'Attempt to create a new vector store after initialization'
+            vector_store = self.openai_client.beta.vector_stores.create(name=vs_name)
+            ret = vector_store
+        self.init = True
+        return ret
+
+    @abstractmethod
+    def upload_files(self, context, context_name, vector_store, file_streams, callback):
+        pass
+
+    @abstractmethod
+    def delete_existing_files(self, context_, vector_store, file_names):
+        pass
+
+    @abstractmethod
+    def update_tools(self, context_, vector_store):
+        pass
+
+    @abstractmethod
+    def update_tool_resources(self, context_, vector_store):
+        pass

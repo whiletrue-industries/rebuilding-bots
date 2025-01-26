@@ -10,30 +10,32 @@ class VectorStoreOpenAI(VectorStoreBase):
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
         ret = None
-        if not self.init:
-            vs_name = self.env_name(self.config['name'])
-            vector_store = self.openai_client.beta.vector_stores.list()
-            for vs in vector_store:
-                if vs.name == vs_name:
-                    if replace_context:
-                        self.openai_client.beta.vector_stores.delete(vs.id)
-                    else:
-                        self.init = True
-                        ret = vs
-                    break
-            if not self.init:
-                vector_store = self.openai_client.beta.vector_stores.create(name=vs_name)
-                self.init = True
-                ret = vector_store
+        vs_name = self.env_name(self.config['name'])
+        vector_store = self.openai_client.beta.vector_stores.list()
+        for vs in vector_store:
+            if vs.name == vs_name:
+                if replace_context and not self.init:
+                    self.openai_client.beta.vector_stores.delete(vs.id)
+                else:
+                    ret = vs
+                break
+        if not ret:
+            assert not self.init, 'Attempt to create a new vector store after initialization'
+            vector_store = self.openai_client.beta.vector_stores.create(name=vs_name)
+            ret = vector_store
+        self.init = True
         return ret
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
+        count = 0
         while len(file_streams) > 0:
+            current = file_streams[:32]
             file_batch = self.openai_client.beta.vector_stores.file_batches.upload_and_poll(
-                vector_store_id=vector_store.id, files=file_streams[:32]
+                vector_store_id=vector_store.id, files=current
             )
+            count += len(current)
             if callable(callback):
-                callback(file_batch.file_counts.completed)
+                callback(count)
             file_streams = file_streams[32:]
 
     def delete_existing_files(self, context_, vector_store, file_names):
