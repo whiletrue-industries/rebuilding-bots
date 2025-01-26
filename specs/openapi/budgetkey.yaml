@@ -37,12 +37,12 @@
           {
             "name": "dataset",
             "in": "path",
-            "description": "id of the dataset to get search",
+            "description": "id of the dataset to search",
             "required": true,
             "schema": {
               "type": "string"
             }
-          },          
+          },
           {
             "name": "q",
             "in": "query",
@@ -56,11 +56,20 @@
         "deprecated": false
       }
     },
-    "/api/query": {
+    "/api/tables/{dataset}/query": {
       "get": {
         "description": "Perform SQL on a specific dataset's database",
         "operationId": "DatasetDBQuery",
         "parameters": [     
+          {
+            "name": "dataset",
+            "in": "path",
+            "description": "id of the dataset to query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },          
           {
             "name": "query",
             "in": "query",
