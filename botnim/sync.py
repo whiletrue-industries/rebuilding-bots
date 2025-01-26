@@ -58,7 +58,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
     print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
     if config.get('context'):
-        vs = VectorStoreOpenAI(config_dir, production, client)
+        vs = VectorStoreOpenAI(config_dir, config, production, client)
         tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
 
     # List all the assistants in the organization:

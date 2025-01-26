@@ -3,17 +3,22 @@ from ..collect_sources import collect_context_sources
 
 class VectorStoreBase():
 
-    def __init__(self, config_dir, production):
+    def __init__(self, config, config_dir, production):
+        self.config = config
         self.config_dir = config_dir
         self.production = production
         self.tool_resources = None
         self.tools = []
 
+    def env_name(self, name):
+        if not self.production:
+            name += ' - פיתוח'
+        return name
+
     def vector_store_update(self, context, replace_context):
         for context_ in context:
             context_name = context_['name']
-            if not self.production:
-                context_name += ' - פיתוח'
+            context_name = self.env_name(context_name)
             vector_store = self.get_or_create_vector_store(context_, context_name, replace_context)
             file_streams = collect_context_sources(context_, self.config_dir)
             file_streams = [((fname if self.production else '_' + fname), f, t) for fname, f, t in file_streams]
@@ -29,17 +34,18 @@ class VectorStoreBase():
 
 class VectorStoreOpenAI(VectorStoreBase):
 
-    def __init__(self, config_dir, production, openai_client):
-        super().__init__(config_dir, production)
+    def __init__(self, config, config_dir, production, openai_client):
+        super().__init__(config, config_dir, production)
         self.openai_client = openai_client
         self.init = False
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
         ret = None
         if not self.init:
+            vs_name = self.env_name(self.config['name'])
             vector_store = self.openai_client.beta.vector_stores.list()
             for vs in vector_store:
-                if vs.name == context_name:
+                if vs.name == vs_name:
                     if replace_context:
                         self.openai_client.beta.vector_stores.delete(vs.id)
                     else:
@@ -47,7 +53,7 @@ class VectorStoreOpenAI(VectorStoreBase):
                         ret = vs
                     break
             if not self.init:
-                vector_store = self.openai_client.beta.vector_stores.create(name=context_name)
+                vector_store = self.openai_client.beta.vector_stores.create(name=vs_name)
                 self.init = True
                 ret = vector_store
         return ret
