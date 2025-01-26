@@ -8,7 +8,7 @@ import yaml
 from openai import OpenAI
 
 from .config import SPECS
-from .vector_store.vector_store_base import VectorStoreOpenAI
+from .vector_store import VectorStoreOpenAI
 
 
 api_key = os.environ['OPENAI_API_KEY']
@@ -58,7 +58,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
     print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
     if config.get('context'):
-        vs = VectorStoreOpenAI(config_dir, config, production, client)
+        vs = VectorStoreOpenAI(config, config_dir, production, client)
         tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
 
     # List all the assistants in the organization:
