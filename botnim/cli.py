@@ -11,8 +11,8 @@ def cli():
 @cli.command()
 @click.argument('environment', type=click.Choice(['production', 'staging']))
 @click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
-@click.option('--replace-context', type=click.BOOL, default=False)
-def sync(environment, bots, replace_context=False):
+@click.option('--replace-context', is_flag=True, help='Replace existing context')
+def sync(environment, bots, replace_context):
     """Sync bots to Airtable."""
     click.echo(f"Syncing {bots} to {environment}")
     sync_agents(environment, bots, replace_context=replace_context)

@@ -8,6 +8,7 @@ import yaml
 from openai import OpenAI
 
 from .config import SPECS
+from .collect_sources import collect_context_sources
 
 
 api_key = os.environ['OPENAI_API_KEY']
@@ -70,23 +71,14 @@ def update_assistant(config, config_dir, production, replace_context=False):
                     else:
                         vector_store_id = vs.id
                     break
-            context_type = context_['type']
             if vector_store_id is None:
-                if context_type == 'files':
-                    files = list(config_dir.glob(context_['source']))
-                    existing_files = client.files.list()
-                    # delete existing files:
-                    for f in files:
-                        for ef in existing_files:
-                            if ef.filename == f.name:
-                                client.files.delete(ef.id)
-                    file_streams = [f.open('rb') for f in files]
-                elif context_type == 'split':
-                    filename = config_dir / context_['source']
-                    content = filename.read_text()
-                    content = content.split('\n---\n')
-                    file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
-                    file_streams = [(f'{name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
+                file_streams = collect_context_sources(context_, config_dir)
+                existing_files = client.files.list()
+                # delete existing files:
+                for name, _, _ in file_streams:
+                    for ef in existing_files:
+                        if ef.filename == name:
+                            client.files.delete(ef.id)
                 vector_store = client.beta.vector_stores.create(name=name)
                 while len(file_streams) > 0:
                     file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
