@@ -70,9 +70,10 @@ def update_assistant(config, config_dir, production, replace_context=False):
                     else:
                         vector_store_id = vs.id
                     break
+            context_type = context_['type']
             if vector_store_id is None:
-                if 'files' in context_:
-                    files = list(config_dir.glob(context_['files']))
+                if context_type == 'files':
+                    files = list(config_dir.glob(context_['source']))
                     existing_files = client.files.list()
                     # delete existing files:
                     for f in files:
@@ -80,11 +81,8 @@ def update_assistant(config, config_dir, production, replace_context=False):
                             if ef.filename == f.name:
                                 client.files.delete(ef.id)
                     file_streams = [f.open('rb') for f in files]
-                elif 'split' in context_:
-                    filename = config_dir / context_['split']
-                    if 'source' in context_:
-                        # Download google spreadsheet file to md file in filename
-                        ...
+                elif context_type == 'split':
+                    filename = config_dir / context_['source']
                     content = filename.read_text()
                     content = content.split('\n---\n')
                     file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]

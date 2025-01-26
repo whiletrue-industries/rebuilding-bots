@@ -8,4 +8,5 @@ context:
   #   source: ....
   #   # TODO MAKE SURE THE FILE IS THERE
   - name: Knesset Bylaws (תקנון הכנסת) and related laws
-    files: extraction/*.md
+    type: files
+    source: extraction/*.md
