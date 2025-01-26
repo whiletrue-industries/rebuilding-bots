@@ -8,6 +8,7 @@ import yaml
 from openai import OpenAI
 
 from .config import SPECS
+from .vector_store import VectorStoreOpenAI
 
 
 api_key = os.environ['OPENAI_API_KEY']
@@ -57,60 +58,8 @@ def update_assistant(config, config_dir, production, replace_context=False):
     print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
     if config.get('context'):
-        for context_ in config['context']:
-            name = context_['name']
-            if not production:
-                name += ' - פיתוח'
-            vector_store = client.beta.vector_stores.list()
-            vector_store_id = None
-            for vs in vector_store:
-                if vs.name == name:
-                    if replace_context:
-                        client.beta.vector_stores.delete(vs.id)
-                    else:
-                        vector_store_id = vs.id
-                    break
-            if vector_store_id is None:
-                if 'files' in context_:
-                    files = list(config_dir.glob(context_['files']))
-                    existing_files = client.files.list()
-                    # delete existing files:
-                    for f in files:
-                        for ef in existing_files:
-                            if ef.filename == f.name:
-                                client.files.delete(ef.id)
-                    file_streams = [f.open('rb') for f in files]
-                elif 'split' in context_:
-                    filename = config_dir / context_['split']
-                    if 'source' in context_:
-                        # Download google spreadsheet file to md file in filename
-                        ...
-                    content = filename.read_text()
-                    content = content.split('\n---\n')
-                    file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
-                    file_streams = [(f'{name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
-                vector_store = client.beta.vector_stores.create(name=name)
-                while len(file_streams) > 0:
-                    file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-                        vector_store_id=vector_store.id, files=file_streams[:32]
-                    )
-                    print(f'VECTOR STORE {name} batch: uploaded {file_batch.file_counts.completed}, ' +\
-                          f'failed {file_batch.file_counts.failed}, ' + \
-                          f'pending {file_batch.file_counts.in_progress}, ' + \
-                          f'remaining {len(file_streams)}')
-                    file_streams = file_streams[32:]
-                vector_store_id = vector_store.id
-            tool_resources = dict(
-                file_search=dict(
-                    vector_store_ids=[vector_store_id],
-                ),
-            )
-        tools = [dict(
-            type='file_search',
-            file_search=dict(
-                max_num_results=context_.get('max_num_results', 20),
-            ),
-        )]
+        vs = VectorStoreOpenAI(config, config_dir, production, client)
+        tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
 
     # List all the assistants in the organization:
     assistants = client.beta.assistants.list()
