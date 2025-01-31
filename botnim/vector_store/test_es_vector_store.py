@@ -43,8 +43,12 @@ def cleanup(vector_store):
     """Cleanup test indices after each test"""
     yield
     try:
+<<<<<<< HEAD
         # Use the same index name format as get_or_create_vector_store
         test_index = f"{vector_store.env_name('test_assistant')}_test_context".lower().replace(' ', '_')
+=======
+        test_index = vector_store.env_name("test_assistant").lower().replace(' ', '_')
+>>>>>>> ca13b4f (add tests)
         if vector_store.es_client.indices.exists(index=test_index):
             vector_store.es_client.indices.delete(index=test_index)
             logger.info(f"Cleaned up test index: {test_index}")
@@ -107,7 +111,11 @@ def test_upload_files(vector_store):
     for filename, content, _ in test_docs:
         doc = vector_store.es_client.get(index=vs_info['id'], id=filename)
         assert doc['_source']['content'] == content
+<<<<<<< HEAD
         assert len(doc['_source']['vector']) == DEFAULT_EMBEDDING_SIZE
+=======
+        assert len(doc['_source']['vector']) == 1536  # OpenAI embedding size
+>>>>>>> ca13b4f (add tests)
 
 def test_delete_existing_files(vector_store):
     """Test deleting files from vector store"""
@@ -212,4 +220,3 @@ def test_semantic_search(vector_store):
     assert len(results['hits']['hits']) > 0
     # Python document should be in top results
     assert any("Python" in hit['_source']['content'] for hit in results['hits']['hits'])
-
