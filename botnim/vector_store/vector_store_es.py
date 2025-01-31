@@ -141,9 +141,4 @@ class VectorStoreES(VectorStoreBase):
                 ),
             )
 
-    def query(self, text: str, limit: int = 5):
-        """Query the Elasticsearch vector store"""
-        # Perform query
-        results = self.es_client.search(
-            index=self.vector_store['id'],
-
+    
