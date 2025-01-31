@@ -146,4 +146,8 @@ class VectorStoreES(VectorStoreBase):
         # For Elasticsearch, we don't need to set tool_resources - which is OpenAI's vector store
         self.tool_resources = None
 
-    
+    def query(self, text: str, limit: int = 5):
+        """Query the Elasticsearch vector store"""
+        # Perform query
+        results = self.es_client.search(
+            index=self.vector_store['id'],
