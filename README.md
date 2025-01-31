@@ -15,6 +15,11 @@ $ pip install -U -e .
 $ botnim --help
 ```
 
+for development:
+```bash
+$ pip install -U -e .[dev]
+```
+
 ## Directory Structure
 
 - `.env.sample`: Sample environment file for the benchmarking scripts.
@@ -27,6 +32,7 @@ $ botnim --help
     - `__init__.py`: Package initialization.
     - `vector_store_base.py`: Abstract base class for vector store implementations.
     - `vector_store_openai.py`: OpenAI Vector Store implementation.
+    - `vector_store_es.py`: Elasticsearch Vector Store implementation (see the 'backend/es' directory for examples).
   - `benchmark/`: Benchmarking scripts for the bots.
       Copy this file to `.env` and fill in the necessary values.
     - `run-benchmark.py`: Main benchmarking script.
@@ -52,7 +58,7 @@ $ botnim --help
    - Configure the source URL in the bot's `config.yaml`
    - The content will be automatically downloaded during sync
 Either:
-3. `botnim sync {staging/production} {budgetkey/takanon}` to sync the specifications with the OpenAI account.
+3. `botnim sync {staging/production} {budgetkey/takanon} --backend {openai/es}` to sync the specifications with the OpenAI account.
    - Use `--replace-context` flag to force a complete rebuild of the vector store (useful when context files have been modified)
 Or
 3. Commit the changes to the repository
