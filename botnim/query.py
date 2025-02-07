@@ -1,19 +1,17 @@
 import os
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict
 from dataclasses import dataclass
 from dotenv import load_dotenv
 from openai import OpenAI
 from botnim.vector_store.vector_store_es import VectorStoreES
-from botnim.config import get_logger
-import argparse
-import sys
+from botnim.config import get_logger, SPECS
 import yaml
 
 logger = get_logger(__name__)
 load_dotenv()
 
-@dataclass  
+@dataclass
 class SearchResult:
     """Data class for search results"""
     score: float
@@ -30,54 +28,61 @@ class QueryClient:
 
     def _load_config(self) -> dict:
         """Load configuration from the specs directory"""
-        specs_dir = Path(__file__).parent.parent / 'specs' / self.bot_name / 'config.yaml'
+        specs_dir = SPECS / self.bot_name / 'config.yaml'
         if not specs_dir.exists():
             logger.warning(f"No config found for {self.bot_name}, using default config")
             return {"name": f"{self.bot_name}_assistant"}
             
         with open(specs_dir) as f:
-            return yaml.safe_load(f)
-        
+            config = yaml.safe_load(f)
+            # Store original name before any environment suffix is added
+            config['original_name'] = config['name']
+            return config
+
     def _initialize_vector_store(self) -> VectorStoreES:
         """Initialize the vector store connection"""
         return VectorStoreES(
-            config=self.config,  # Use the config from the QueryClient instance
+            config=self.config,
             es_host=os.getenv('ES_HOST', 'https://localhost:9200'),
             es_username=os.getenv('ES_USERNAME', 'elastic'),
             es_password=os.getenv('ES_PASSWORD'),
-            verify_certs=False  # TODO: change to True when in production to use the production index
+            es_timeout=30,
+            verify_certs=False
         )
 
-    def _build_search_query(self, query_text: str, embedding: List[float]) -> Dict[str, Any]:
-        """Build the hybrid search query"""
+    def _get_index_name(self) -> str:
+        """Get the correct index name including environment suffix"""
+        try:
+            # First get all available indices
+            indices = self.vector_store.es_client.indices.get_alias(index="*")
+            logger.debug(f"Available indices: {list(indices.keys())}")
+            
+            # Get base name from config and prepare possible variations
+            base_name = self.config['name'].replace(' ', '_').lower()
+            dev_suffix = "_-_פיתוח"
+            possible_names = [
+                base_name,
+                base_name + dev_suffix,
+                base_name.replace('_', '')
+            ]
+            
+            # Find matching index
+            for index_name in indices:
+                normalized_index = index_name.lower()
+                if any(possible in normalized_index for possible in possible_names):
+                    logger.debug(f"Found matching index: {index_name}")
+                    return index_name
+            
+            # If no match found, return the default constructed name
+            default_name = base_name + dev_suffix
+            logger.debug(f"No matching index found, using default: {default_name}")
+            return default_name
+            
+        except Exception as e:
+            logger.error(f"Error getting index name: {str(e)}")
+            # Fall back to default name construction
+            return self.config['name'].replace(' ', '_').lower() + "_-_פיתוח"
 
-        text_match = {
-            "multi_match": {            ## you can define here the fields you want to search in
-                "query": query_text,
-                "fields": ["content"],
-                "boost": 0.2,          ## you can define here the boost for the text match vs. vector match
-                "type": 'best_fields',  ## you can define here the type of search: cross_fields, bool, simple, phrase, phrase_prefix
-                "operator": 'or',       ## you can define here the operator: or, and 
-            }
-        }
-        
-        vector_match = {
-            "knn": {
-                "field": "vector",  # the field we want to search in
-                "query_vector": embedding,  # the embedding we want to search for
-                "k": 7,  # the number of results we want to get
-                "num_candidates": 20,  # the number of candidates we want to consider
-                "boost": 0.5  # the boost for the vector match
-            }
-        }
-        
-        return {
-            "bool": {
-                "should": [text_match, vector_match],
-                "minimum_should_match": 1,
-            }
-        }
-    
     def search(self, query_text: str, num_results: int = 7) -> List[SearchResult]:
         """
         Search the vector store with the given text
@@ -97,16 +102,14 @@ class QueryClient:
             )
             embedding = response.data[0].embedding
             
-            # Build query
-            query = self._build_search_query(query_text, embedding)
-            
-            # Get index name using the vector store's env_name method
-            index_name = self.vector_store.env_name(self.config['name']).lower().replace(' ', '_')
+            # Get correct index name
+            index_name = self._get_index_name()
             logger.debug(f"Searching in index: {index_name}")
             
+            # Execute search directly with elasticsearch client
             results = self.vector_store.es_client.search(
                 index=index_name,
-                query=query,
+                query=self.vector_store._build_search_query(query_text, embedding, num_results),
                 size=num_results,
                 _source=['content']
             )
@@ -134,4 +137,40 @@ class QueryClient:
         except Exception as e:
             logger.error(f"Failed to list indexes: {str(e)}")
             raise
+
+def get_available_bots() -> List[str]:
+    """Get list of available bots from specs directory"""
+    return [d.name for d in SPECS.iterdir() if d.is_dir() and (d / 'config.yaml').exists()]
+
+def run_query(query_text: str, bot_name: str = "takanon", num_results: int = 7) -> List[SearchResult]:
+    """
+    Run a query against the vector store
+    
+    Args:
+        query_text (str): The text to search for
+        bot_name (str): Name of the bot to use
+        num_results (int): Number of results to return
+        
+    Returns:
+        List[SearchResult]: List of search results
+    """
+    client = QueryClient(bot_name)
+    return client.search(query_text, num_results)
+
+def get_available_indexes(bot_name: str = "takanon") -> List[str]:
+    """
+    Get list of available indexes
+    
+    Args:
+        bot_name (str): Name of the bot to use
+        
+    Returns:
+        List[str]: List of available index names
+    """
+    client = QueryClient(bot_name)
+    return client.list_indexes()
+
+def format_result(result: SearchResult) -> str:
+    """Format a single search result for display"""
+    return f"{result.score:5.2f}: {result.id:30s}   [{result.content}]"
 
