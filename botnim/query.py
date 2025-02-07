@@ -13,7 +13,13 @@ import yaml
 logger = get_logger(__name__)
 load_dotenv()
 
-
+@dataclass  
+class SearchResult:
+    """Data class for search results"""
+    score: float
+    id: str
+    content: str
+    full_content: str
 
 class QueryClient:
     """Class to handle vector store queries"""
@@ -72,4 +78,51 @@ class QueryClient:
             }
         }
     
-    
+    def search(self, query_text: str, num_results: int = 7) -> List[SearchResult]:
+        """
+        Search the vector store with the given text
+        
+        Args:
+            query_text (str): The text to search for
+            num_results (int): Number of results to return
+        
+        Returns:
+            List[SearchResult]: List of search results
+        """
+        try:
+            # Get embedding using the vector store's OpenAI client
+            response = self.vector_store.openai_client.embeddings.create(
+                input=query_text,
+                model="text-embedding-3-small",
+            )
+            embedding = response.data[0].embedding
+            
+            # Build query
+            query = self._build_search_query(query_text, embedding)
+            
+            # Get index name using the vector store's env_name method
+            index_name = self.vector_store.env_name(self.config['name']).lower().replace(' ', '_')
+            logger.debug(f"Searching in index: {index_name}")
+            
+            results = self.vector_store.es_client.search(
+                index=index_name,
+                query=query,
+                size=num_results,
+                _source=['content']
+            )
+            
+            # Format results
+            return [
+                SearchResult(
+                    score=hit['_score'],
+                    id=hit['_id'],
+                    content=hit['_source']['content'].strip().split('\n')[0],
+                    full_content=hit['_source']['content']
+                )
+                for hit in results['hits']['hits']
+            ]
+            
+        except Exception as e:
+            logger.error(f"Search failed: {str(e)}")
+            raise
+
