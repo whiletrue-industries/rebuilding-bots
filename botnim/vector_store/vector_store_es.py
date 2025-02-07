@@ -5,9 +5,14 @@ from typing import List, Dict, Any
 from elasticsearch import Elasticsearch
 from openai import OpenAI
 from botnim.config import get_logger
+<<<<<<< HEAD
 from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
+=======
+from pathlib import Path
+from typing import List, Dict, Any
+>>>>>>> 98157ba (move _build_search_query to the es vector store class)
 
 logger = get_logger(__name__)
 
@@ -15,9 +20,15 @@ class VectorStoreES(VectorStoreBase):
     """
     Vector store for Elasticsearch
     """	
+<<<<<<< HEAD
     def __init__(self, config, config_dir, es_host, es_username, es_password, 
                  es_timeout=30, production=False):
         super().__init__(config, config_dir, production=production)
+=======
+    def __init__(self, config, es_host, es_username, es_password, 
+                 es_timeout=30, verify_certs=False):
+        super().__init__(config, Path("."), production=not verify_certs)
+>>>>>>> 98157ba (move _build_search_query to the es vector store class)
         
         # Initialize Elasticsearch client
         es_kwargs = {
@@ -43,9 +54,12 @@ class VectorStoreES(VectorStoreBase):
             logger.error(f"Failed to connect to Elasticsearch: {str(e)}")
             raise ConnectionError(f"Could not connect to Elasticsearch: {str(e)}")
 
+<<<<<<< HEAD
     def _index_name_for_context(self, context_name: str) -> str:
         return self.env_name_slug(f"{self.config['slug']}__{context_name}".lower().replace(' ', '_'))
 
+=======
+>>>>>>> 98157ba (move _build_search_query to the es vector store class)
     def _build_search_query(self, query_text: str, embedding: List[float], 
                           num_results: int = 7) -> Dict[str, Any]:
         """Build the hybrid search query"""
@@ -76,7 +90,11 @@ class VectorStoreES(VectorStoreBase):
             }
         }
 
+<<<<<<< HEAD
     def search(self, context_name: str, query_text: str, embedding: List[float], 
+=======
+    def search(self, query_text: str, embedding: List[float], 
+>>>>>>> 98157ba (move _build_search_query to the es vector store class)
                num_results: int = 7) -> Dict[str, Any]:
         """
         Search the vector store with the given text and embedding
@@ -90,7 +108,11 @@ class VectorStoreES(VectorStoreBase):
             Dict[str, Any]: Elasticsearch search results
         """
         query = self._build_search_query(query_text, embedding, num_results)
+<<<<<<< HEAD
         index_name = self._index_name_for_context(context_name)
+=======
+        index_name = self.env_name(self.config['name']).lower().replace(' ', '_')
+>>>>>>> 98157ba (move _build_search_query to the es vector store class)
         
         return self.es_client.search(
             index=index_name,
