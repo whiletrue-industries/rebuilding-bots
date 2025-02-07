@@ -127,7 +127,7 @@ def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     Get list of available indexes
     
     Args:
-        bot_name (str): Name of the bot to use
+        bot_name (str): Name of the bot to use  
         
     Returns:
         List[str]: List of available index names
