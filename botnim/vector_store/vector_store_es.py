@@ -3,6 +3,8 @@ from elasticsearch import Elasticsearch
 from openai import OpenAI
 import os
 from botnim.config import get_logger
+from pathlib import Path
+from typing import List, Dict, Any
 
 logger = get_logger(__name__)
 
@@ -10,10 +12,9 @@ class VectorStoreES(VectorStoreBase):
     """
     Vector store for Elasticsearch
     """	
-    def __init__(self, config, config_dir, production, 
-                 es_host, es_username, es_password, 
+    def __init__(self, config, es_host, es_username, es_password, 
                  es_timeout=30, verify_certs=False):
-        super().__init__(config, config_dir, production)
+        super().__init__(config, Path("."), production=not verify_certs)
         
         # Initialize Elasticsearch client
         es_kwargs = {
@@ -37,6 +38,59 @@ class VectorStoreES(VectorStoreBase):
         except Exception as e:
             logger.error(f"Failed to connect to Elasticsearch: {str(e)}")
             raise ConnectionError(f"Could not connect to Elasticsearch: {str(e)}")
+
+    def _build_search_query(self, query_text: str, embedding: List[float], 
+                          num_results: int = 7) -> Dict[str, Any]:
+        """Build the hybrid search query"""
+        text_match = {
+            "multi_match": {            # fields to search in
+                "query": query_text,
+                "fields": ["content"],
+                "boost": 0.2,           # boost for text match vs vector match
+                "type": 'best_fields',  # type of search: cross_fields, bool, simple, phrase, phrase_prefix
+                "operator": 'or',       # operator: or, and 
+            }
+        }
+        
+        vector_match = {
+            "knn": {
+                "field": "vector",      # field to search in
+                "query_vector": embedding,  # embedding to search for
+                "k": num_results,       # number of results to get
+                "num_candidates": 20,   # number of candidates to consider
+                "boost": 0.5           # boost for vector match
+            }
+        }
+        
+        return {
+            "bool": {
+                "should": [text_match, vector_match],
+                "minimum_should_match": 1,
+            }
+        }
+
+    def search(self, query_text: str, embedding: List[float], 
+               num_results: int = 7) -> Dict[str, Any]:
+        """
+        Search the vector store with the given text and embedding
+        
+        Args:
+            query_text (str): The text to search for
+            embedding (List[float]): The embedding vector to search with
+            num_results (int): Number of results to return
+            
+        Returns:
+            Dict[str, Any]: Elasticsearch search results
+        """
+        query = self._build_search_query(query_text, embedding, num_results)
+        index_name = self.env_name(self.config['name']).lower().replace(' ', '_')
+        
+        return self.es_client.search(
+            index=index_name,
+            query=query,
+            size=num_results,
+            _source=['content']
+        )
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
         ret = None # return value 
