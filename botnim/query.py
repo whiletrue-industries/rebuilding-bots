@@ -276,4 +276,16 @@ def format_mapping(mapping: Dict, indent: int = 0) -> str:
             logger.error(f"Search failed: {str(e)}")
             raise
 
+<<<<<<< HEAD
 >>>>>>> 5ea63c3 (add a basic hybrid search runner and a search result class)
+=======
+    def list_indexes(self) -> List[str]:
+        """List all available indexes in the Elasticsearch database"""
+        try:
+            indices = self.vector_store.es_client.indices.get_alias(index="*")
+            return list(indices.keys())
+        except Exception as e:
+            logger.error(f"Failed to list indexes: {str(e)}")
+            raise
+
+>>>>>>> 97fc2d9 (add a handtool to explre available indexes)
