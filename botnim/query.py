@@ -138,6 +138,16 @@ class QueryClient:
             logger.error(f"Failed to list indexes: {str(e)}")
             raise
 
+    def get_index_mapping(self) -> Dict:
+        """Get the mapping (fields) for the current index"""
+        try:
+            index_name = self._get_index_name()
+            mapping = self.vector_store.es_client.indices.get_mapping(index=index_name)
+            return mapping[index_name]['mappings']['properties']
+        except Exception as e:
+            logger.error(f"Failed to get index mapping: {str(e)}")
+            raise
+
 def get_available_bots() -> List[str]:
     """Get list of available bots from specs directory"""
     return [d.name for d in SPECS.iterdir() if d.is_dir() and (d / 'config.yaml').exists()]
@@ -173,4 +183,34 @@ def get_available_indexes(bot_name: str = "takanon") -> List[str]:
 def format_result(result: SearchResult) -> str:
     """Format a single search result for display"""
     return f"{result.score:5.2f}: {result.id:30s}   [{result.content}]"
+
+def get_index_fields(bot_name: str = "takanon") -> Dict:
+    """
+    Get the fields/mapping for the bot's index
+    
+    Args:
+        bot_name (str): Name of the bot to use
+        
+    Returns:
+        Dict: Index mapping showing all fields and their types
+    """
+    client = QueryClient(bot_name)
+    return client.get_index_mapping()
+
+def format_mapping(mapping: Dict, indent: int = 0) -> str:
+    """Format the mapping for display"""
+    result = []
+    for field_name, field_info in mapping.items():
+        field_type = field_info.get('type', 'object')
+        properties = field_info.get('properties', {})
+        
+        # Format current field
+        indent_str = "  " * indent
+        result.append(f"{indent_str}{field_name}: {field_type}")
+        
+        # Recursively format nested fields
+        if properties:
+            result.append(format_mapping(properties, indent + 1))
+    
+    return "\n".join(result)
 
