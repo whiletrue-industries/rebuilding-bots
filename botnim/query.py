@@ -126,3 +126,12 @@ class QueryClient:
             logger.error(f"Search failed: {str(e)}")
             raise
 
+    def list_indexes(self) -> List[str]:
+        """List all available indexes in the Elasticsearch database"""
+        try:
+            indices = self.vector_store.es_client.indices.get_alias(index="*")
+            return list(indices.keys())
+        except Exception as e:
+            logger.error(f"Failed to list indexes: {str(e)}")
+            raise
+
