@@ -1,13 +1,10 @@
 import click
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
-<<<<<<< HEAD
 from .config import AVAILABLE_BOTS
 from .query import run_query, get_available_indexes, format_result, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
-=======
 from .config import SPECS
->>>>>>> 6ed0a48 (add cli interface for es vetorstore sync)
 
 
 @click.group()
