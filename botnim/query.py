@@ -7,8 +7,14 @@ from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS
 import yaml
 
 logger = get_logger(__name__)
+<<<<<<< HEAD
 
 @dataclass
+=======
+load_dotenv()
+
+@dataclass  
+>>>>>>> 5ea63c3 (add a basic hybrid search runner and a search result class)
 class SearchResult:
     """Data class for search results"""
     score: float
@@ -218,5 +224,56 @@ def format_mapping(mapping: Dict, indent: int = 0) -> str:
             }
         }
     
+<<<<<<< HEAD
     
 >>>>>>> ab635e1 (add a basic hybrid search)
+=======
+    def search(self, query_text: str, num_results: int = 7) -> List[SearchResult]:
+        """
+        Search the vector store with the given text
+        
+        Args:
+            query_text (str): The text to search for
+            num_results (int): Number of results to return
+        
+        Returns:
+            List[SearchResult]: List of search results
+        """
+        try:
+            # Get embedding using the vector store's OpenAI client
+            response = self.vector_store.openai_client.embeddings.create(
+                input=query_text,
+                model="text-embedding-3-small",
+            )
+            embedding = response.data[0].embedding
+            
+            # Build query
+            query = self._build_search_query(query_text, embedding)
+            
+            # Get index name using the vector store's env_name method
+            index_name = self.vector_store.env_name(self.config['name']).lower().replace(' ', '_')
+            logger.debug(f"Searching in index: {index_name}")
+            
+            results = self.vector_store.es_client.search(
+                index=index_name,
+                query=query,
+                size=num_results,
+                _source=['content']
+            )
+            
+            # Format results
+            return [
+                SearchResult(
+                    score=hit['_score'],
+                    id=hit['_id'],
+                    content=hit['_source']['content'].strip().split('\n')[0],
+                    full_content=hit['_source']['content']
+                )
+                for hit in results['hits']['hits']
+            ]
+            
+        except Exception as e:
+            logger.error(f"Search failed: {str(e)}")
+            raise
+
+>>>>>>> 5ea63c3 (add a basic hybrid search runner and a search result class)
