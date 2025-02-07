@@ -2,7 +2,7 @@ import click
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
 from .config import SPECS
-from .query import run_query, get_available_indexes, format_result, get_available_bots
+from .query import run_query, get_available_indexes, format_result, get_available_bots, get_index_fields, format_mapping
 
 
 @click.group()
@@ -64,6 +64,19 @@ def list_indexes(bot: str):
         click.echo("Available indexes:")
         for index in indexes:
             click.echo(f"  - {index}")
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        raise click.Abort()
+
+@query_group.command(name='show-fields')
+@click.option('--bot', type=click.Choice(get_available_bots()), default='takanon', 
+              help='Bot to show fields for')
+def show_fields(bot: str):
+    """Show all available fields in the index."""
+    try:
+        mapping = get_index_fields(bot)
+        click.echo(f"\nFields in index for bot '{bot}':")
+        click.echo(format_mapping(mapping))
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)
         raise click.Abort()
