@@ -75,10 +75,11 @@ class VectorStoreES(VectorStoreBase):
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         count = 0
-        while len(file_streams) > 0:
-            current = file_streams[:32]
+        # Process files in batches of 32
+        for i in range(0, len(file_streams), 32):
+            batch = file_streams[i:i+32]
             
-            for filename, content_file, content_type in current:
+            for filename, content_file, content_type in batch:
                 try:
                     # Read content
                     content = content_file.read().decode('utf-8')
@@ -101,11 +102,10 @@ class VectorStoreES(VectorStoreBase):
                     )
                 except Exception as e:
                     logger.error(f"Failed to process file {filename}: {str(e)}")
-                    
-            count += len(current)
+            
+            count += len(batch)
             if callable(callback):
                 callback(count)
-            file_streams = file_streams[32:]
 
     def delete_existing_files(self, context_, vector_store, file_names):
         try:
