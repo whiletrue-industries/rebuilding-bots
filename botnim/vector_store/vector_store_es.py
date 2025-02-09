@@ -3,8 +3,7 @@ from elasticsearch import Elasticsearch
 from openai import OpenAI
 import os
 from botnim.config import get_logger
-from backend.es.config import DEFAULT_EMBEDDING_MODEL  # Add this import
-
+from botnim.config import DEFAULT_EMBEDDING_MODEL 
 
 logger = get_logger(__name__)
 
@@ -147,11 +146,7 @@ class VectorStoreES(VectorStoreBase):
             })
 
     def update_tool_resources(self, context_, vector_store):
-        if self.tool_resources is None:
-            self.tool_resources = dict(
-                file_search=dict(
-                    vector_store_ids=[vector_store['id']],
-                ),
-            )
+        # For Elasticsearch, we don't need to set tool_resources - which is OpenAI's vector store
+        self.tool_resources = None
 
     
