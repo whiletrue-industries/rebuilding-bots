@@ -128,12 +128,23 @@ class VectorStoreES(VectorStoreBase):
 
     def update_tools(self, context_, vector_store):
         if len(self.tools) == 0:
-            self.tools.append(dict(
-                type='file_search',
-                file_search=dict(
-                    max_num_results=context_.get('max_num_results', 20),
-                ),
-            ))
+            self.tools.append({
+                "type": "function",
+                "function": {
+                    "name": "search_common_knowledge",
+                    "description": "Semantic search the 'common-knowledge' vector store",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The query string to use for searching"
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            })
 
     def update_tool_resources(self, context_, vector_store):
         if self.tool_resources is None:
