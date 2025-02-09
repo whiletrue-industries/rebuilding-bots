@@ -3,6 +3,8 @@ from elasticsearch import Elasticsearch
 from openai import OpenAI
 import os
 from botnim.config import get_logger
+from backend.es.config import DEFAULT_EMBEDDING_MODEL  # Add this import
+
 
 logger = get_logger(__name__)
 
@@ -84,7 +86,7 @@ class VectorStoreES(VectorStoreBase):
                     # Generate embedding
                     response = self.openai_client.embeddings.create(
                         input=content,
-                        model="text-embedding-ada-002",
+                        model=DEFAULT_EMBEDDING_MODEL,
                     )
                     vector = response.data[0].embedding
 
