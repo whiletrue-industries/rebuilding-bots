@@ -174,18 +174,6 @@ def test_semantic_search(vector_store):
         ("doc3.txt", "Docker helps with containerization", "text/plain")
     ]
     
-def test_semantic_search(vector_store):
-    """Test semantic search functionality"""
-    # First create and populate vector store
-    vs_info = vector_store.get_or_create_vector_store({}, "test_context", True)
-    
-    # Upload some test documents
-    test_docs = [
-        ("doc1.txt", "Python is a high-level programming language", "text/plain"),
-        ("doc2.txt", "JavaScript runs in web browsers", "text/plain"),
-        ("doc3.txt", "Docker helps with containerization", "text/plain")
-    ]
-    
     docs_to_upload = [
         (filename, BytesIO(content.encode('utf-8')), content_type)
         for filename, content, content_type in test_docs

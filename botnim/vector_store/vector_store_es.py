@@ -5,9 +5,13 @@ from typing import List, Dict, Any
 from elasticsearch import Elasticsearch
 from openai import OpenAI
 from botnim.config import get_logger
+<<<<<<< HEAD
 from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
+=======
+from botnim.config import DEFAULT_EMBEDDING_MODEL 
+>>>>>>> cdf0a9f (remove OpenAI-specific vector store IDs from ES implementation)
 
 logger = get_logger(__name__)
 
