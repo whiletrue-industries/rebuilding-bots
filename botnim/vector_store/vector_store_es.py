@@ -42,7 +42,7 @@ class VectorStoreES(VectorStoreBase):
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
         ret = None # return value 
-        vs_name = self.env_name(self.config['name']).lower().replace(' ', '_')
+        vs_name = f"{self.env_name(self.config['name'])}_{context_name}".lower().replace(' ', '_')
         
         # Check if index exists
         if self.es_client.indices.exists(index=vs_name):
