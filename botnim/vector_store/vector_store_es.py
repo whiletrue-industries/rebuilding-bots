@@ -5,6 +5,7 @@ import os
 from botnim.config import get_logger
 from pathlib import Path
 from typing import List, Dict, Any
+from botnim.config import DEFAULT_EMBEDDING_MODEL 
 
 logger = get_logger(__name__)
 
@@ -94,7 +95,7 @@ class VectorStoreES(VectorStoreBase):
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
         ret = None # return value 
-        vs_name = self.env_name(self.config['name']).lower().replace(' ', '_')
+        vs_name = f"{self.env_name(self.config['name'])}_{context_name}".lower().replace(' ', '_')
         
         # Check if index exists
         if self.es_client.indices.exists(index=vs_name):
@@ -127,10 +128,11 @@ class VectorStoreES(VectorStoreBase):
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         count = 0
-        while len(file_streams) > 0:
-            current = file_streams[:32]
+        # Process files in batches of 32
+        for i in range(0, len(file_streams), 32):
+            batch = file_streams[i:i+32]
             
-            for filename, content_file, content_type in current:
+            for filename, content_file, content_type in batch:
                 try:
                     # Read content
                     content = content_file.read().decode('utf-8')
@@ -138,7 +140,7 @@ class VectorStoreES(VectorStoreBase):
                     # Generate embedding
                     response = self.openai_client.embeddings.create(
                         input=content,
-                        model="text-embedding-ada-002",
+                        model=DEFAULT_EMBEDDING_MODEL,
                     )
                     vector = response.data[0].embedding
 
@@ -153,11 +155,10 @@ class VectorStoreES(VectorStoreBase):
                     )
                 except Exception as e:
                     logger.error(f"Failed to process file {filename}: {str(e)}")
-                    
-            count += len(current)
+            
+            count += len(batch)
             if callable(callback):
                 callback(count)
-            file_streams = file_streams[32:]
 
     def delete_existing_files(self, context_, vector_store, file_names):
         try:
@@ -180,19 +181,26 @@ class VectorStoreES(VectorStoreBase):
 
     def update_tools(self, context_, vector_store):
         if len(self.tools) == 0:
-            self.tools.append(dict(
-                type='file_search',
-                file_search=dict(
-                    max_num_results=context_.get('max_num_results', 20),
-                ),
-            ))
+            self.tools.append({
+                "type": "function",
+                "function": {
+                    "name": "search_common_knowledge",
+                    "description": "Semantic search the 'common-knowledge' vector store",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The query string to use for searching"
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            })
 
     def update_tool_resources(self, context_, vector_store):
-        if self.tool_resources is None:
-            self.tool_resources = dict(
-                file_search=dict(
-                    vector_store_ids=[vector_store['id']],
-                ),
-            )
+        # For Elasticsearch, we don't need to set tool_resources - which is OpenAI's vector store
+        self.tool_resources = None
 
     

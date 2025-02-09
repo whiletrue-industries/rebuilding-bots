@@ -58,7 +58,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
     tools = None
     print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
-    if config.get('context') and replace_context:  # Only runs if both conditions are true
+    if config.get('context'):  
         ## create vector store based on backend parameter
         if backend == 'openai':
             vs = VectorStoreOpenAI(config, config_dir, production, client)

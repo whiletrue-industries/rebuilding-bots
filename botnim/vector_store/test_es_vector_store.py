@@ -6,6 +6,7 @@ from io import BytesIO
 
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import get_logger
+from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 logger = get_logger(__name__)
 load_dotenv()
@@ -42,7 +43,8 @@ def cleanup(vector_store):
     """Cleanup test indices after each test"""
     yield
     try:
-        test_index = vector_store.env_name("test_assistant").lower().replace(' ', '_')
+        # Use the same index name format as get_or_create_vector_store
+        test_index = f"{vector_store.env_name('test_assistant')}_test_context".lower().replace(' ', '_')
         if vector_store.es_client.indices.exists(index=test_index):
             vector_store.es_client.indices.delete(index=test_index)
             logger.info(f"Cleaned up test index: {test_index}")
@@ -105,7 +107,7 @@ def test_upload_files(vector_store):
     for filename, content, _ in test_docs:
         doc = vector_store.es_client.get(index=vs_info['id'], id=filename)
         assert doc['_source']['content'] == content
-        assert len(doc['_source']['vector']) == 1536  # OpenAI embedding size
+        assert len(doc['_source']['vector']) == DEFAULT_EMBEDDING_SIZE
 
 def test_delete_existing_files(vector_store):
     """Test deleting files from vector store"""
@@ -144,16 +146,70 @@ def test_update_tools(vector_store):
     vector_store.update_tools(context, vs_info)
     
     assert len(vector_store.tools) == 1
-    assert vector_store.tools[0]['type'] == 'file_search'
-    assert vector_store.tools[0]['file_search']['max_num_results'] == 10
+    tool = vector_store.tools[0]
+    assert tool['type'] == 'function'
+    assert tool['function']['name'] == 'search_common_knowledge'
+    assert 'query' in tool['function']['parameters']['properties']
+    assert tool['function']['parameters']['required'] == ['query']
 
 def test_update_tool_resources(vector_store):
     """Test updating tool resources"""
+    context = {}
+    vs_info = vector_store.get_or_create_vector_store(context, "test_context", True)
+    
+    vector_store.update_tool_resources(context, vs_info)
+    
+    # For ES implementation, tool_resources should be None
+    assert vector_store.tool_resources is None
+
+def test_semantic_search(vector_store):
+    """Test semantic search functionality"""
+    # First create and populate vector store
     vs_info = vector_store.get_or_create_vector_store({}, "test_context", True)
     
-    vector_store.update_tool_resources({}, vs_info)
+    # Upload some test documents
+    test_docs = [
+        ("doc1.txt", "Python is a high-level programming language", "text/plain"),
+        ("doc2.txt", "JavaScript runs in web browsers", "text/plain"),
+        ("doc3.txt", "Docker helps with containerization", "text/plain")
+    ]
     
-    assert vector_store.tool_resources is not None
-    assert 'file_search' in vector_store.tool_resources
-    assert vector_store.tool_resources['file_search']['vector_store_ids'] == [vs_info['id']]
+    docs_to_upload = [
+        (filename, BytesIO(content.encode('utf-8')), content_type)
+        for filename, content, content_type in test_docs
+    ]
+    
+    vector_store.upload_files({}, "test_context", vs_info, docs_to_upload, None)
+    vector_store.es_client.indices.refresh(index=vs_info['id'])
+    
+    # Test search
+    query = "What programming languages are mentioned?"
+    response = vector_store.openai_client.embeddings.create(
+        input=query,
+        model=DEFAULT_EMBEDDING_MODEL
+    )
+    query_vector = response.data[0].embedding
+    
+    search_body = {
+        "query": {
+            "script_score": {
+                "query": {"match_all": {}},
+                "script": {
+                    "source": "cosineSimilarity(params.query_vector, 'vector') + 1.0",
+                    "params": {"query_vector": query_vector}
+                }
+            }
+        }
+    }
+    
+    search_body['size'] = 2  # Include size in the body
+    results = vector_store.es_client.search(
+        index=vs_info['id'],
+        body=search_body
+    )
+    
+    # Verify results
+    assert len(results['hits']['hits']) > 0
+    # Python document should be in top results
+    assert any("Python" in hit['_source']['content'] for hit in results['hits']['hits'])
 
