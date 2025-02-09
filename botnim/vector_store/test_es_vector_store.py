@@ -6,6 +6,7 @@ from io import BytesIO
 
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import get_logger
+from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 logger = get_logger(__name__)
 load_dotenv()
@@ -106,7 +107,7 @@ def test_upload_files(vector_store):
     for filename, content, _ in test_docs:
         doc = vector_store.es_client.get(index=vs_info['id'], id=filename)
         assert doc['_source']['content'] == content
-        assert len(doc['_source']['vector']) == 1536  # OpenAI embedding size
+        assert len(doc['_source']['vector']) == DEFAULT_EMBEDDING_SIZE
 
 def test_delete_existing_files(vector_store):
     """Test deleting files from vector store"""
@@ -185,7 +186,7 @@ def test_semantic_search(vector_store):
     query = "What programming languages are mentioned?"
     response = vector_store.openai_client.embeddings.create(
         input=query,
-        model="text-embedding-3-small"
+        model=DEFAULT_EMBEDDING_MODEL
     )
     query_vector = response.data[0].embedding
     
