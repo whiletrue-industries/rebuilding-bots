@@ -43,12 +43,8 @@ def cleanup(vector_store):
     """Cleanup test indices after each test"""
     yield
     try:
-<<<<<<< HEAD
         # Use the same index name format as get_or_create_vector_store
         test_index = f"{vector_store.env_name('test_assistant')}_test_context".lower().replace(' ', '_')
-=======
-        test_index = vector_store.env_name("test_assistant").lower().replace(' ', '_')
->>>>>>> ca13b4f (add tests)
         if vector_store.es_client.indices.exists(index=test_index):
             vector_store.es_client.indices.delete(index=test_index)
             logger.info(f"Cleaned up test index: {test_index}")
@@ -111,11 +107,7 @@ def test_upload_files(vector_store):
     for filename, content, _ in test_docs:
         doc = vector_store.es_client.get(index=vs_info['id'], id=filename)
         assert doc['_source']['content'] == content
-<<<<<<< HEAD
         assert len(doc['_source']['vector']) == DEFAULT_EMBEDDING_SIZE
-=======
-        assert len(doc['_source']['vector']) == 1536  # OpenAI embedding size
->>>>>>> ca13b4f (add tests)
 
 def test_delete_existing_files(vector_store):
     """Test deleting files from vector store"""
@@ -170,6 +162,18 @@ def test_update_tool_resources(vector_store):
     # For ES implementation, tool_resources should be None
     assert vector_store.tool_resources is None
 
+def test_semantic_search(vector_store):
+    """Test semantic search functionality"""
+    # First create and populate vector store
+    vs_info = vector_store.get_or_create_vector_store({}, "test_context", True)
+    
+    # Upload some test documents
+    test_docs = [
+        ("doc1.txt", "Python is a high-level programming language", "text/plain"),
+        ("doc2.txt", "JavaScript runs in web browsers", "text/plain"),
+        ("doc3.txt", "Docker helps with containerization", "text/plain")
+    ]
+    
 def test_semantic_search(vector_store):
     """Test semantic search functionality"""
     # First create and populate vector store
