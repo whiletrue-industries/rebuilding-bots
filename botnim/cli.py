@@ -19,6 +19,8 @@ def cli():
 def sync(environment, bots, replace_context, backend):
     """Sync bots to Airtable."""
     click.echo(f"Syncing {bots} to {environment}")
+    production = environment == 'production'
+    sync_agents(environment, bots, backend=backend, replace_context=replace_context)
     sync_agents(environment, bots, backend=backend,replace_context=replace_context)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
