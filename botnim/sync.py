@@ -120,8 +120,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         # ...
 
 
-def sync_agents(environment, bots, backend='openai', replace_context=False):
-    production = environment == 'production'
+def sync_agents(environment, bots, backend='openai', replace_context=False, production=False):
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
         bot_id = config_dir.name
