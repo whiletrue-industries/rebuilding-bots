@@ -24,38 +24,20 @@ def get_assistants():
     my_assistants = [{"id":assistant.id, "name": assistant.name} for assistant in my_assistants_data.data]
     return my_assistants
 
-def get_assistant_name(assistant_id):
-    """
-    Get the name of the assistant with the given ID
-    """
-    return client.beta.assistants.retrieve(assistant_id).name
-
-def start_conversation(assistant_id, rtl=False):
+def start_conversation(assistant_id):
     """
     Creates a new conversation thread for the given assistant and
     continuously processes user inputs until '/stop' is typed.
-    
-    Args:
-        assistant_id (str): The ID of the assistant to chat with
-        rtl (bool): If True, reverses the output format for RTL languages
     """
-
-    # get the assistant name
-    assistant_name = get_assistant_name(assistant_id)
-
     # Create a new thread (a new conversation session)
     thread = openai.beta.threads.create()
-    prefix = f"{assistant_name}: "[::-1] if not rtl else f"{assistant_name}: "
-    thread_msg = f"Created new thread with ID: {thread.id} (type /stop to end the conversation)"
-    print(thread_msg[::-1] if rtl else thread_msg)
+    print(f"Created new thread with ID: {thread.id}")
 
     while True:
         # Read user input from the console
-        user_prompt = "משתמש-ת: "[::-1] if not rtl else "משתמש-ת: "
-        user_input = input("\n---\n"+user_prompt[::-1]+"\n" if rtl else user_prompt).strip()
+        user_input = input("User: ").strip()
         if user_input == "/stop":
-            end_msg = "השיחה הסתיימה."
-            print(end_msg[::-1] if rtl else end_msg)
+            print("Conversation ended.")
             break
 
         # Add the user message to the thread
@@ -64,8 +46,7 @@ def start_conversation(assistant_id, rtl=False):
             role="user",
             content=user_input
         )
-        sent_msg = "User message sent." if not rtl else "User message sent."[::-1]
-        print(sent_msg[::-1] if rtl else sent_msg)
+        print("User message sent.")
 
         # Start a new run on the thread using the specified assistant
         run = openai.beta.threads.runs.create(
@@ -103,50 +84,36 @@ def start_conversation(assistant_id, rtl=False):
         if messages_response.data:
             latest_message = messages_response.data[0]
             if latest_message.role == "assistant":
-                message = latest_message.content[0].text.value
-                if rtl:
-                    # Reverse both the message and the prefix for RTL
-                    print(f"{message[::-1]} {prefix[::-1]}")
-                else:
-                    print(f"{prefix}{message}")
+                print(f"Assistant: {latest_message.content[0].text.value}")
             else:
-                no_reply = "No assistant reply found."
-                print(no_reply[::-1] if rtl else no_reply)
+                print("No assistant reply found.")
         else:
-            no_msg = "No messages found."
-            print(no_msg[::-1] if rtl else no_msg)
+            print("No messages found.")
 
 # based on the cli input (assistant_id), start the conversation with the assistant, if no assistant_id is provided, print the list of assistants and ask the user to select one
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start a conversation with an OpenAI assistant')
     parser.add_argument('--assistant-id', type=str, help='ID of the assistant to chat with')
-    parser.add_argument('--rtl', action='store_true', help='Reverse output format for RTL languages')
     args = parser.parse_args()
 
     if args.assistant_id:
-        start_conversation(args.assistant_id, rtl=args.rtl)
+        start_conversation(args.assistant_id)
     else:
         assistants = get_assistants()
         
         # Print available assistants in a formatted way
-        header = "\nAvailable Assistants:"
-        print(header)
+        print("\nAvailable Assistants:")
         for idx, assistant in enumerate(assistants, 1):
-            assistant_id_text = f"ID: {assistant['id']}" if not args.rtl else f"ID: {assistant['id']}"[::-1]
-            assistant_name_text = f"{assistant['name']}" if args.rtl else f"{assistant['name']}"[::-1]
-            assistant_line = f"{idx}. {assistant_name_text}  - {assistant_id_text}"
-            print(assistant_line[::-1] if args.rtl else assistant_line)
+            print(f"{idx}. {assistant['name']} (ID: {assistant['id']})")
         
         # Get assistant selection from user
         while True:
             try:
-                select_prompt = "\nSelect an assistant number (or press Enter to input ID directly): " if not args.rtl else "\nSelect an assistant number (or press Enter to input ID directly): "[::-1]
-                selection = input(select_prompt[::-1] if args.rtl else select_prompt).strip()
+                selection = input("\nSelect an assistant number (or press Enter to input ID directly): ").strip()
                 
                 if selection == "":
                     # Direct ID input
-                    id_prompt = "Enter the assistant ID: "
-                    assistant_id = input(id_prompt[::-1] if args.rtl else id_prompt).strip()
+                    assistant_id = input("Enter the assistant ID: ").strip()
                     if assistant_id:
                         break
                 else:
@@ -154,14 +121,11 @@ if __name__ == "__main__":
                     idx = int(selection) - 1
                     if 0 <= idx < len(assistants):
                         assistant_id = assistants[idx]['id']
-                        selected_msg = f"\nSelected: {assistants[idx]['name']}"
-                        print(selected_msg[::-1] if args.rtl else selected_msg)
+                        print(f"\nSelected: {assistants[idx]['name']}")
                         break
                     else:
-                        error_msg = "Invalid selection. Please try again."
-                        print(error_msg[::-1] if args.rtl else error_msg)
+                        print("Invalid selection. Please try again.")
             except ValueError:
-                error_msg = "Please enter a valid number or press Enter for direct ID input."
-                print(error_msg[::-1] if args.rtl else error_msg)
+                print("Please enter a valid number or press Enter for direct ID input.")
         
-        start_conversation(assistant_id, rtl=args.rtl)        
+        start_conversation(assistant_id)        
