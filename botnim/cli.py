@@ -2,7 +2,6 @@ import click
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
 from .config import SPECS
-from .cli_assistant import assistant_main
 
 
 @click.group()
@@ -34,12 +33,6 @@ def benchmarks(environment, bots, local, reuse_answers, select, concurrency):
     click.echo(f"Running benchmarks on {bots} in {environment} (save results locally: {local}, reuse answers: {reuse_answers}, select: {select})")
     run_benchmarks(environment, bots, local, reuse_answers, select, concurrency)
 
-@cli.command(name='assistant')
-@click.option('--assistant-id', type=str, help='ID of the assistant to chat with')
-@click.option('--rtl', is_flag=True, help='Enable RTL support for Hebrew/Arabic')
-def assistant(assistant_id, rtl):
-    """Start an interactive chat with an OpenAI assistant."""
-    assistant_main(assistant_id, rtl)
 
 def main():
     cli()

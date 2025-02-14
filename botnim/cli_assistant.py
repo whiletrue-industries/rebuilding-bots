@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import os
 import argparse
-from typing import TypedDict
 
 load_dotenv()
 
@@ -13,17 +12,6 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 client = OpenAI(
     api_key=OPENAI_API_KEY
 )
-
-
-class ToolOutput(TypedDict, total=False):
-    output: str
-    """The output of the tool call to be submitted to continue the run."""
-
-    tool_call_id: str
-    """
-    The ID of the tool call in the `required_action` object within the run object
-    the output is being submitted for.
-    """
 
 def get_assistants():
     """
@@ -105,15 +93,6 @@ def start_conversation(assistant_id, rtl=False):
                 break
             time.sleep(2)
 
-            if current_run.status == "requires_action":
-                print("\nAction required:")
-                print(f"Action type: {current_run.required_action.type}")
-                
-                for tool in current_run.required_action.submit_tool_outputs.tool_calls:
-                    print(f"\nTool call ID: {tool.id}")
-                    print(f"Function name: {tool.function.name}")
-                    print(f"Function arguments: {tool.function.arguments}")
-
         # Once the run is complete, retrieve only the latest message
         messages_response = client.beta.threads.messages.list(
             thread_id=thread.id,
@@ -137,16 +116,15 @@ def start_conversation(assistant_id, rtl=False):
             no_msg = "No messages found."
             print(no_msg[::-1] if rtl else no_msg)
 
-def assistant_main(assistant_id=None, rtl=False):
-    """
-    Main function to start the assistant conversation
-    
-    Args:
-        assistant_id (str, optional): ID of the assistant to chat with
-        rtl (bool): Enable RTL support for Hebrew/Arabic
-    """
-    if assistant_id:
-        start_conversation(assistant_id, rtl=rtl)
+# based on the cli input (assistant_id), start the conversation with the assistant, if no assistant_id is provided, print the list of assistants and ask the user to select one
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Start a conversation with an OpenAI assistant')
+    parser.add_argument('--assistant-id', type=str, help='ID of the assistant to chat with')
+    parser.add_argument('--rtl', action='store_true', help='Reverse output format for RTL languages')
+    args = parser.parse_args()
+
+    if args.assistant_id:
+        start_conversation(args.assistant_id, rtl=args.rtl)
     else:
         assistants = get_assistants()
         
@@ -154,21 +132,21 @@ def assistant_main(assistant_id=None, rtl=False):
         header = "\nAvailable Assistants:"
         print(header)
         for idx, assistant in enumerate(assistants, 1):
-            assistant_id_text = f"ID: {assistant['id']}" if not rtl else f"ID: {assistant['id']}"[::-1]
-            assistant_name_text = f"{assistant['name']}" if rtl else f"{assistant['name']}"[::-1]
+            assistant_id_text = f"ID: {assistant['id']}" if not args.rtl else f"ID: {assistant['id']}"[::-1]
+            assistant_name_text = f"{assistant['name']}" if args.rtl else f"{assistant['name']}"[::-1]
             assistant_line = f"{idx}. {assistant_name_text}  - {assistant_id_text}"
-            print(assistant_line[::-1] if rtl else assistant_line)
+            print(assistant_line[::-1] if args.rtl else assistant_line)
         
         # Get assistant selection from user
         while True:
             try:
-                select_prompt = "\nSelect an assistant number (or press Enter to input ID directly): " if not rtl else "\nSelect an assistant number (or press Enter to input ID directly): "[::-1]
-                selection = input(select_prompt[::-1] if rtl else select_prompt).strip()
+                select_prompt = "\nSelect an assistant number (or press Enter to input ID directly): " if not args.rtl else "\nSelect an assistant number (or press Enter to input ID directly): "[::-1]
+                selection = input(select_prompt[::-1] if args.rtl else select_prompt).strip()
                 
                 if selection == "":
                     # Direct ID input
                     id_prompt = "Enter the assistant ID: "
-                    assistant_id = input(id_prompt[::-1] if rtl else id_prompt).strip()
+                    assistant_id = input(id_prompt[::-1] if args.rtl else id_prompt).strip()
                     if assistant_id:
                         break
                 else:
@@ -177,22 +155,13 @@ def assistant_main(assistant_id=None, rtl=False):
                     if 0 <= idx < len(assistants):
                         assistant_id = assistants[idx]['id']
                         selected_msg = f"\nSelected: {assistants[idx]['name']}"
-                        print(selected_msg[::-1] if rtl else selected_msg)
+                        print(selected_msg[::-1] if args.rtl else selected_msg)
                         break
                     else:
                         error_msg = "Invalid selection. Please try again."
-                        print(error_msg[::-1] if rtl else error_msg)
+                        print(error_msg[::-1] if args.rtl else error_msg)
             except ValueError:
                 error_msg = "Please enter a valid number or press Enter for direct ID input."
-                print(error_msg[::-1] if rtl else error_msg)
+                print(error_msg[::-1] if args.rtl else error_msg)
         
-        start_conversation(assistant_id, rtl=rtl)
-
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Start a conversation with an OpenAI assistant')
-    parser.add_argument('--assistant-id', type=str, help='ID of the assistant to chat with')
-    parser.add_argument('--rtl', action='store_true', help='Enable RTL support for Hebrew/Arabic')
-    args = parser.parse_args()
-    assistant_main(args.assistant_id, args.rtl)
+        start_conversation(assistant_id, rtl=args.rtl)        
