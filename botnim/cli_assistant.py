@@ -105,6 +105,25 @@ def start_conversation(assistant_id, rtl=False):
                 break
             time.sleep(2)
 
+            if current_run.status == "requires_action":
+                # Get assistant details to understand available tools
+                assistant_details = client.beta.assistants.retrieve(assistant_id)
+                tools_dict = {
+                    tool.function.name: tool.function.description 
+                    for tool in assistant_details.tools 
+                    if hasattr(tool, 'function')
+                }
+
+                print("\nAction required:")
+                print(f"Action type: {current_run.required_action.type}")
+                
+                for tool in current_run.required_action.submit_tool_outputs.tool_calls:
+                    print(f"\nTool call ID: {tool.id}")
+                    print(f"Function: {tool.function.name}")
+                    if tool.function.name in tools_dict:
+                        print(f"Description: {tools_dict[tool.function.name]}")
+                    print(f"Arguments: {tool.function.arguments}")
+
         # Once the run is complete, retrieve only the latest message
         messages_response = client.beta.threads.messages.list(
             thread_id=thread.id,
