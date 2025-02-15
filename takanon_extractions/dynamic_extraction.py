@@ -5,13 +5,14 @@ import json
 
 load_dotenv()
 
-def extract_structured_content(text: str, template: str = None) -> dict:
+def extract_structured_content(text: str, template: str = None, document_type: str = "תקנון הכנסת") -> dict:
     """
     Extracts structured content from text using OpenAI API.
     
     Args:
         text (str): The text to extract information from
         template (str, optional): JSON template for extraction. If None, uses default template.
+        document_type (str, optional): Type of document being processed. Defaults to "תקנון הכנסת".
     
     Returns:
         dict: Extracted structured content
@@ -20,7 +21,6 @@ def extract_structured_content(text: str, template: str = None) -> dict:
         template = """{
           "DocumentMetadata": {
             "DocumentTitle": "",
-            "DocumentType": "תקנון הכנסת",
             "PublicationDate": "",
             "OfficialSource": "",
             "ReferenceLinks": [],
@@ -76,7 +76,7 @@ def extract_structured_content(text: str, template: str = None) -> dict:
         - Extract any official roles/positions mentioned in the document and list them in "OfficialRoles".
         - Extract any official organizations mentioned in the document and list them in "OfficialOrganizations".
         - Extract any real-world locations or placenames mentioned in the document and list them in "Placenames".
-        - "Description" should be a one-line summary describing the entire document's clause content.
+        - "Description" should be a one-line summary describing the entire document's clauses content.
     4. At the document level, also extract:
         - "LegalReferences": For each legal reference
         - "Amendments": If any amendment information is present
