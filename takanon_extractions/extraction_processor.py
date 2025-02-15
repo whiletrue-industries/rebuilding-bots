@@ -10,6 +10,27 @@ import sys
 from botnim.config import SPECS
 from dynamic_extraction import extract_structured_content
 
+def determine_document_type(file_path: Path) -> str:
+    """
+    Determine the document type by extracting it from the file name.
+    The convention is that the document type appears before the underscore.
+    
+    Args:
+        file_path (Path): Path to the source file
+        
+    Returns:
+        str: Document type, defaults to "תקנון הכנסת" if pattern not found
+    """
+    try:
+        filename = file_path.stem  # Get filename without extension
+        if '_' in filename:
+            doc_type = filename.split('_')[0]
+            return doc_type.strip()
+    except Exception as e:
+        print(f"Warning: Could not determine document type from filename {file_path}: {e}")
+    
+    return ""  # Default type if pattern not found
+
 def extract_content_metadata(file_path: Path, context_config: dict) -> dict:
     """
     Extract content and metadata from different file types.
@@ -30,7 +51,11 @@ def extract_content_metadata(file_path: Path, context_config: dict) -> dict:
             
         # Use dynamic extraction for supported file types
         if file_type in ['.txt', '.md']:
-            extracted_data = extract_structured_content(content)
+            # Detect document type from filename
+            document_type = determine_document_type(file_path)
+            
+            # Extract content with detected document type
+            extracted_data = extract_structured_content(content, document_type=document_type)
             
             # Combine with basic metadata
             metadata = {
@@ -39,6 +64,7 @@ def extract_content_metadata(file_path: Path, context_config: dict) -> dict:
                 'context_type': context_config['type'],
                 'context_name': context_config['name'],
                 'source_content': content,
+                'document_type': document_type,  # Include detected document type in metadata
                 'extracted_data': extracted_data
             }
             
