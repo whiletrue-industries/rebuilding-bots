@@ -3,10 +3,12 @@ from pathlib import Path
 import yaml
 import json
 from datetime import datetime
+from datetime import timezone
 import markdown
 import re
 import sys
 from botnim.config import SPECS
+from dynamic_extraction import extract_structured_content
 
 def extract_content_metadata(file_path: Path, context_config: dict) -> dict:
     """
@@ -20,55 +22,56 @@ def extract_content_metadata(file_path: Path, context_config: dict) -> dict:
         dict: Extracted metadata including title, content, sections, etc.
     """
     file_type = file_path.suffix.lower()
-    metadata = {
-        'title': file_path.stem,
-        'sections': [],
-        'content': '',
-        'extracted_at': datetime.utcnow().isoformat(),
-        'status': 'processed',
-        'context_type': context_config['type'],
-        'context_name': context_config['name']
-    }
     
     try:
-        if file_type == '.md':
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                
-            # Extract headers
-            headers = re.findall(r'^(#{1,6})\s+(.+)$', content, re.MULTILINE)
-            metadata['sections'] = [
-                {
-                    'level': len(h[0]),
-                    'title': h[1].strip(),
-                }
-                for h in headers
-            ]
+        # Read the file content
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
             
-            # Convert markdown to plain text for content
-            metadata['content'] = re.sub(r'[#*`_]', '', content)
+        # Use dynamic extraction for supported file types
+        if file_type in ['.txt', '.md']:
+            extracted_data = extract_structured_content(content)
             
-        elif file_type in ['.txt', '.json', '.yaml', '.yml']:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                metadata['content'] = f.read()
+            # Combine with basic metadata
+            metadata = {
+                'extracted_at': datetime.now(timezone.utc).isoformat(),
+                'status': 'processed',
+                'context_type': context_config['type'],
+                'context_name': context_config['name'],
+                'source_content': content,
+                'extracted_data': extracted_data
+            }
+            
+            # Use document title from extraction if available
+            if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
+                metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
+            else:
+                metadata['title'] = file_path.stem
                 
-        else:
-            metadata['status'] = 'unsupported_format'
-            metadata['error'] = f'Unsupported file type: {file_type}'
             return metadata
             
-        # Extract potential title from first line if not already set
-        if metadata['title'] == file_path.stem and metadata['content']:
-            first_line = metadata['content'].split('\n')[0].strip()
-            if len(first_line) < 100:  # Reasonable title length
-                metadata['title'] = first_line
-                
-        return metadata
-        
+        else:
+            # Fall back to basic extraction for unsupported types
+            metadata = {
+                'title': file_path.stem,
+                'content': content,
+                'extracted_at': datetime.now(timezone.utc).isoformat(),
+                'status': 'unsupported_format',
+                'context_type': context_config['type'],
+                'context_name': context_config['name'],
+                'error': f'Unsupported file type: {file_type}'
+            }
+            return metadata
+            
     except Exception as e:
-        metadata['status'] = 'error'
-        metadata['error'] = str(e)
-        return metadata
+        return {
+            'title': file_path.stem,
+            'status': 'error',
+            'error': str(e),
+            'extracted_at': datetime.now(timezone.utc).isoformat(),
+            'context_type': context_config['type'],
+            'context_name': context_config['name']
+        }
 
 def process_context_source(config_dir: Path, context_config: dict, metadata_dir: Path):
     """
@@ -110,23 +113,8 @@ def process_context_source(config_dir: Path, context_config: dict, metadata_dir:
                     
     elif context_type == 'google-spreadsheet':
         # Create placeholder metadata for spreadsheet source
-        metadata = {
-            'title': context_config['name'],
-            'source': source,
-            'type': 'google-spreadsheet',
-            'extracted_at': datetime.utcnow().isoformat(),
-            'status': 'pending',
-            'max_num_results': context_config.get('max_num_results'),
-            'context_type': context_type,
-            'context_name': context_config['name']
-        }
-        
-        # Save spreadsheet metadata
-        metadata_file_path = metadata_dir / f"spreadsheet_{Path(source).stem}.metadata.json"
-        with open(metadata_file_path, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, ensure_ascii=False, indent=2)
             
-        print(f"Created spreadsheet metadata file: {metadata_file_path}")
+        print(f"Did not process spreadsheet: {context_config['name']}")
     
     else:
         print(f"Unsupported context type: {context_type}")
