@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Dict
 from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
-from botnim.config import get_logger, SPECS
+from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS
 import yaml
 
 logger = get_logger(__name__)
@@ -62,7 +62,7 @@ class QueryClient:
             # Get embedding using the vector store's OpenAI client
             response = self.vector_store.openai_client.embeddings.create(
                 input=query_text,
-                model="text-embedding-3-small",
+                model=DEFAULT_EMBEDDING_MODEL,
             )
             embedding = response.data[0].embedding
 
