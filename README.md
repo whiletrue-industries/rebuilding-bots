@@ -53,6 +53,28 @@ $ pip install -U -e .[dev]
 
 ## Common Tasks
 
+### Querying the Vector Store
+
+The `botnim query` command provides several ways to interact with the vector store:
+
+```bash
+# Search in the vector store
+botnim query search staging takanon common_knowledge "מה עושה יושב ראש הכנסת?"
+botnim query search staging takanon common_knowledge --results 5 "your query here"
+
+# List all available indexes
+botnim query list-indexes staging --bot budgetkey
+botnim query list-indexes staging
+
+# Show fields/structure of an index
+botnim query show-fields staging budgetkey common_knowledge
+```
+
+Available query commands:
+- `search`: Search the vector store with semantic search
+- `list-indexes`: Show all available Elasticsearch indexes
+- `show-fields`: Display the structure and field types of an index
+
 ### Updating the Specifications
 
 1. Edit the specifications in the `specs/` directory.

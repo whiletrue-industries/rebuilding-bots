@@ -4,6 +4,7 @@ import logging
 
 ROOT = Path(__file__).parent.parent
 SPECS = ROOT / 'specs'
+AVAILABLE_BOTS = [d.name for d in SPECS.iterdir() if d.is_dir() and (d / 'config.yaml').exists()]
 
 dotenv.load_dotenv(ROOT / '.env')
 

@@ -212,4 +212,3 @@ def test_semantic_search(vector_store):
     assert len(results['hits']['hits']) > 0
     # Python document should be in top results
     assert any("Python" in hit['_source']['content'] for hit in results['hits']['hits'])
-
