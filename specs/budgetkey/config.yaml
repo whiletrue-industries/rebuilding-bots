@@ -1,3 +1,4 @@
+slug: budgetkey
 name: בוט נתונים תקציביים
 description: עונה על שאלות בנושאי תקציב המדינה, הכנסות המדינה, התקשרויות ותמיכות תקציביות
 instructions: agent.txt
@@ -5,7 +6,8 @@ tools:
   - code-interpreter
   - budgetkey
 context:
-  - name: ידע רלוונטי על התקציב
+  - slug: common_knowledge
+    name: ידע רלוונטי על התקציב
     type: split
     source: common-knowledge.md
     max_num_results: 7

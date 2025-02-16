@@ -2,14 +2,11 @@ import os
 from pathlib import Path
 from typing import List, Dict
 from dataclasses import dataclass
-from dotenv import load_dotenv
-from openai import OpenAI
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import get_logger, SPECS
 import yaml
 
 logger = get_logger(__name__)
-load_dotenv()
 
 @dataclass
 class SearchResult:
@@ -21,10 +18,11 @@ class SearchResult:
 
 class QueryClient:
     """Class to handle vector store queries"""
-    def __init__(self, bot_name: str):
+    def __init__(self, environment: str, bot_name: str, context_name: str):
+        self.environment = environment
         self.bot_name = bot_name
-        self.config = self._load_config()
-        self.vector_store = self._initialize_vector_store()
+        self.context_name = context_name
+        self.vector_store = self._initialize_vector_store(self._load_config())
 
     def _load_config(self) -> dict:
         """Load configuration from the specs directory"""
@@ -35,53 +33,19 @@ class QueryClient:
             
         with open(specs_dir) as f:
             config = yaml.safe_load(f)
-            # Store original name before any environment suffix is added
-            config['original_name'] = config['name']
             return config
 
-    def _initialize_vector_store(self) -> VectorStoreES:
+    def _initialize_vector_store(self, config) -> VectorStoreES:
         """Initialize the vector store connection"""
         return VectorStoreES(
-            config=self.config,
+            config=config,
+            config_dir=Path('.'),
             es_host=os.getenv('ES_HOST', 'https://localhost:9200'),
             es_username=os.getenv('ES_USERNAME', 'elastic'),
             es_password=os.getenv('ES_PASSWORD'),
             es_timeout=30,
-            verify_certs=False
+            production=self.environment == 'production'
         )
-
-    def _get_index_name(self) -> str:
-        """Get the correct index name including environment suffix"""
-        try:
-            # First get all available indices
-            indices = self.vector_store.es_client.indices.get_alias(index="*")
-            logger.debug(f"Available indices: {list(indices.keys())}")
-            
-            # Get base name from config and prepare possible variations
-            base_name = self.config['name'].replace(' ', '_').lower()
-            dev_suffix = "_-_פיתוח"
-            possible_names = [
-                base_name,
-                base_name + dev_suffix,
-                base_name.replace('_', '')
-            ]
-            
-            # Find matching index
-            for index_name in indices:
-                normalized_index = index_name.lower()
-                if any(possible in normalized_index for possible in possible_names):
-                    logger.debug(f"Found matching index: {index_name}")
-                    return index_name
-            
-            # If no match found, return the default constructed name
-            default_name = base_name + dev_suffix
-            logger.debug(f"No matching index found, using default: {default_name}")
-            return default_name
-            
-        except Exception as e:
-            logger.error(f"Error getting index name: {str(e)}")
-            # Fall back to default name construction
-            return self.config['name'].replace(' ', '_').lower() + "_-_פיתוח"
 
     def search(self, query_text: str, num_results: int = 7) -> List[SearchResult]:
         """
@@ -101,17 +65,12 @@ class QueryClient:
                 model="text-embedding-3-small",
             )
             embedding = response.data[0].embedding
-            
-            # Get correct index name
-            index_name = self._get_index_name()
-            logger.debug(f"Searching in index: {index_name}")
-            
+                        
             # Execute search directly with elasticsearch client
-            results = self.vector_store.es_client.search(
-                index=index_name,
-                query=self.vector_store._build_search_query(query_text, embedding, num_results),
-                size=num_results,
-                _source=['content']
+            results = self.vector_store.search(
+                self.context_name, 
+                query_text, embedding, 
+                num_results=num_results
             )
             
             # Format results
@@ -132,7 +91,7 @@ class QueryClient:
     def list_indexes(self) -> List[str]:
         """List all available indexes in the Elasticsearch database"""
         try:
-            indices = self.vector_store.es_client.indices.get_alias(index="*")
+            indices = self.vector_store.es_client.indices.get_alias(index=self.bot_name + "*")
             return list(indices.keys())
         except Exception as e:
             logger.error(f"Failed to list indexes: {str(e)}")
@@ -141,18 +100,14 @@ class QueryClient:
     def get_index_mapping(self) -> Dict:
         """Get the mapping (fields) for the current index"""
         try:
-            index_name = self._get_index_name()
+            index_name = self.vector_store._index_name_for_context(self.context_name)
             mapping = self.vector_store.es_client.indices.get_mapping(index=index_name)
             return mapping[index_name]['mappings']['properties']
         except Exception as e:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def get_available_bots() -> List[str]:
-    """Get list of available bots from specs directory"""
-    return [d.name for d in SPECS.iterdir() if d.is_dir() and (d / 'config.yaml').exists()]
-
-def run_query(query_text: str, bot_name: str = "takanon", num_results: int = 7) -> List[SearchResult]:
+def run_query(query_text: str, environment: str, bot_name: str, context_name: str, num_results: int = 7) -> List[SearchResult]:
     """
     Run a query against the vector store
     
@@ -164,10 +119,10 @@ def run_query(query_text: str, bot_name: str = "takanon", num_results: int = 7) 
     Returns:
         List[SearchResult]: List of search results
     """
-    client = QueryClient(bot_name)
+    client = QueryClient(environment, bot_name, context_name)
     return client.search(query_text, num_results)
 
-def get_available_indexes(bot_name: str = "takanon") -> List[str]:
+def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     """
     Get list of available indexes
     
@@ -177,14 +132,19 @@ def get_available_indexes(bot_name: str = "takanon") -> List[str]:
     Returns:
         List[str]: List of available index names
     """
-    client = QueryClient(bot_name)
-    return client.list_indexes()
+    client = QueryClient(environment, bot_name, '')
+    indexes = client.list_indexes()
+    if bot_name:
+        indexes = [index for index in indexes if index.startswith(bot_name)]
+    if environment != 'production':
+        indexes = [index for index in indexes if index.endswith('__dev')]
+    return indexes
 
 def format_result(result: SearchResult) -> str:
     """Format a single search result for display"""
     return f"{result.score:5.2f}: {result.id:30s}   [{result.content}]"
 
-def get_index_fields(bot_name: str = "takanon") -> Dict:
+def get_index_fields(environment: str, bot_name: str, context_name: str) -> Dict:
     """
     Get the fields/mapping for the bot's index
     
@@ -194,7 +154,7 @@ def get_index_fields(bot_name: str = "takanon") -> Dict:
     Returns:
         Dict: Index mapping showing all fields and their types
     """
-    client = QueryClient(bot_name)
+    client = QueryClient(environment, bot_name, context_name)
     return client.get_index_mapping()
 
 def format_mapping(mapping: Dict, indent: int = 0) -> str:

@@ -1,8 +1,8 @@
 import click
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
-from .config import SPECS
-from .query import run_query, get_available_indexes, format_result, get_available_bots, get_index_fields, format_mapping
+from .config import AVAILABLE_BOTS
+from .query import run_query, get_available_indexes, format_result, get_index_fields, format_mapping
 
 
 @click.group()
@@ -40,14 +40,15 @@ def query_group():
     pass
 
 @query_group.command(name='search')
+@click.argument('environment', type=click.Choice(['production', 'staging']))
+@click.argument('bot', type=click.Choice(AVAILABLE_BOTS), default='takanon')
+@click.argument('context', type=click.STRING)
 @click.argument('query_text', type=str)
-@click.option('--bot', type=click.Choice(get_available_bots()), default='takanon', 
-              help='Bot to query')
-@click.option('--results', type=int, default=7, help='Number of results to return')
-def search(query_text: str, bot: str, results: int):
+@click.option('--num-results', type=int, default=7, help='Number of results to return')
+def search(environment: str, bot: str, context: str, query_text: str, num_results: int):
     """Search the vector store with the given query."""
     try:
-        search_results = run_query(query_text, bot, results)
+        search_results = run_query(query_text, environment, bot, context, num_results)
         for result in search_results:
             click.echo(format_result(result))
     except Exception as e:
@@ -55,12 +56,13 @@ def search(query_text: str, bot: str, results: int):
         raise click.Abort()
 
 @query_group.command(name='list-indexes')
-@click.option('--bot', type=click.Choice(get_available_bots()), default='takanon', 
+@click.argument('environment', type=click.Choice(['production', 'staging']))
+@click.option('--bot', type=click.Choice(AVAILABLE_BOTS), default='takanon', 
               help='Bot to list indexes for')
-def list_indexes(bot: str):
+def list_indexes(environment: str, bot: str):
     """List all available indexes in the vector store."""
     try:
-        indexes = get_available_indexes(bot)
+        indexes = get_available_indexes(environment, bot)
         click.echo("Available indexes:")
         for index in indexes:
             click.echo(f"  - {index}")
@@ -69,13 +71,14 @@ def list_indexes(bot: str):
         raise click.Abort()
 
 @query_group.command(name='show-fields')
-@click.option('--bot', type=click.Choice(get_available_bots()), default='takanon', 
-              help='Bot to show fields for')
-def show_fields(bot: str):
+@click.argument('environment', type=click.Choice(['production', 'staging']))
+@click.argument('bot', type=click.Choice(AVAILABLE_BOTS), default='takanon')
+@click.argument('context', type=click.STRING)
+def show_fields(environment: str, bot: str, context: str):
     """Show all available fields in the index."""
     try:
-        mapping = get_index_fields(bot)
-        click.echo(f"\nFields in index for bot '{bot}':")
+        mapping = get_index_fields(environment, bot, context)
+        click.echo(f"\nFields in index for bot '{bot}', context '{context}:")
         click.echo(format_mapping(mapping))
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)

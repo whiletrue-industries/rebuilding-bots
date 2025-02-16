@@ -5,13 +5,9 @@ from typing import List, Dict, Any
 from elasticsearch import Elasticsearch
 from openai import OpenAI
 from botnim.config import get_logger
-<<<<<<< HEAD
 from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
-=======
-from botnim.config import DEFAULT_EMBEDDING_MODEL 
->>>>>>> cdf0a9f (remove OpenAI-specific vector store IDs from ES implementation)
 
 logger = get_logger(__name__)
 
@@ -19,19 +15,20 @@ class VectorStoreES(VectorStoreBase):
     """
     Vector store for Elasticsearch
     """	
-    def __init__(self, config, es_host, es_username, es_password, 
-                 es_timeout=30, verify_certs=False):
-        super().__init__(config, Path("."), production=not verify_certs)
+    def __init__(self, config, config_dir, es_host, es_username, es_password, 
+                 es_timeout=30, production=False):
+        super().__init__(config, config_dir, production=production)
         
         # Initialize Elasticsearch client
         es_kwargs = {
             'hosts': [es_host],
             'basic_auth': (es_username, es_password or os.getenv('ELASTIC_PASSWORD')),
             'request_timeout': es_timeout,
-            'verify_certs': verify_certs,
-            'ssl_show_warn': False
+            'verify_certs': production,
+            'ssl_show_warn': production
         }
-        
+        print(es_kwargs)
+
         self.es_client = Elasticsearch(**es_kwargs)
         self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
         self.init = False
@@ -45,6 +42,9 @@ class VectorStoreES(VectorStoreBase):
         except Exception as e:
             logger.error(f"Failed to connect to Elasticsearch: {str(e)}")
             raise ConnectionError(f"Could not connect to Elasticsearch: {str(e)}")
+
+    def _index_name_for_context(self, context_name: str) -> str:
+        return self.env_name_slug(f"{self.config['slug']}__{context_name}".lower().replace(' ', '_'))
 
     def _build_search_query(self, query_text: str, embedding: List[float], 
                           num_results: int = 7) -> Dict[str, Any]:
@@ -76,7 +76,7 @@ class VectorStoreES(VectorStoreBase):
             }
         }
 
-    def search(self, query_text: str, embedding: List[float], 
+    def search(self, context_name: str, query_text: str, embedding: List[float], 
                num_results: int = 7) -> Dict[str, Any]:
         """
         Search the vector store with the given text and embedding
@@ -90,7 +90,7 @@ class VectorStoreES(VectorStoreBase):
             Dict[str, Any]: Elasticsearch search results
         """
         query = self._build_search_query(query_text, embedding, num_results)
-        index_name = self.env_name(self.config['name']).lower().replace(' ', '_')
+        index_name = self._index_name_for_context(context_name)
         
         return self.es_client.search(
             index=index_name,
@@ -101,14 +101,14 @@ class VectorStoreES(VectorStoreBase):
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
         ret = None # return value 
-        vs_name = f"{self.env_name(self.config['name'])}_{context_name}".lower().replace(' ', '_')
+        index_name = self._index_name_for_context(context_name)
         
         # Check if index exists
-        if self.es_client.indices.exists(index=vs_name):
+        if self.es_client.indices.exists(index=index_name):
             if replace_context and not self.init:
-                self.es_client.indices.delete(index=vs_name)
+                self.es_client.indices.delete(index=index_name)
             else:
-                ret = {'id': vs_name, 'name': vs_name}
+                ret = {'id': index_name, 'name': index_name}
         
         if not ret: # if index does not exist
             assert not self.init, 'Attempt to create a new vector store after initialization'
@@ -126,15 +126,15 @@ class VectorStoreES(VectorStoreBase):
                     }
                 }
             }
-            self.es_client.indices.create(index=vs_name, body=mapping)
-            ret = {'id': vs_name, 'name': vs_name}
+            self.es_client.indices.create(index=index_name, body=mapping)
+            ret = {'id': index_name, 'name': index_name}
             
         self.init = True
         return ret
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         count = 0
-        for filename, content_file, content_type in file_streams:
+        for filename, content_file, _ in file_streams:
             try:
                 # Read content
                 content = content_file.read().decode('utf-8')
