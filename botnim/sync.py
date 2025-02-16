@@ -2,16 +2,17 @@ import os
 import json
 import io
 from pathlib import Path
-
 import yaml
-
 from openai import OpenAI
-
 from .config import SPECS
-from .vector_store import VectorStoreOpenAI
+from .vector_store import VectorStoreOpenAI, VectorStoreES
 
 
 api_key = os.environ['OPENAI_API_KEY']
+es_username = os.environ['ES_USERNAME']
+es_password = os.environ['ES_PASSWORD']
+es_host = os.environ['ES_HOST']
+
 # Create openai client and get completion for prompt with the 'gpt4-o' model:
 client = OpenAI(api_key=api_key)
 
@@ -52,25 +53,35 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(config, config_dir, production, replace_context=False):
+def update_assistant(config, config_dir, production, backend, replace_context=False):
     tool_resources = None
     tools = None
     print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
-    if config.get('context'):
-        vs = VectorStoreOpenAI(config, config_dir, production, client)
+    if config.get('context'):  
+        ## create vector store based on backend parameter
+        if backend == 'openai':
+            vs = VectorStoreOpenAI(config, config_dir, production, client)
+        ## Elasticsearch
+        elif backend == 'es':
+            vs = VectorStoreES(config, config_dir, production, es_host, es_username, es_password)
+        # Update the vector store with the context
         tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
-
+    
     # List all the assistants in the organization:
     assistants = client.beta.assistants.list()
     assistant_id = None
     assistant_name = config['name']
     if not production:
         assistant_name += ' - פיתוח'
+    
+    print(f'Looking for assistant named: {assistant_name}')
     for assistant in assistants:
+        print(f'Found assistant: {assistant.name} (ID: {assistant.id})')
         if assistant.name == assistant_name:
             assistant_id = assistant.id
             break
+    
     print(f'Assistant ID: {assistant_id}')
     asst_params = dict(
         name=assistant_name,
@@ -109,7 +120,7 @@ def update_assistant(config, config_dir, production, replace_context=False):
         # ...
 
 
-def sync_agents(environment, bots, replace_context=False):
+def sync_agents(environment, bots, backend='openai', replace_context=False):
     production = environment == 'production'
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
@@ -118,4 +129,4 @@ def sync_agents(environment, bots, replace_context=False):
             with config_fn.open() as config_f:
                 config = yaml.safe_load(config_f)
                 config['instructions'] = (config_dir / config['instructions']).read_text()
-                update_assistant(config, config_dir, production, replace_context=replace_context)
+                update_assistant(config, config_dir, production, backend, replace_context=replace_context)
