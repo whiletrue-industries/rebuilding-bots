@@ -3,7 +3,7 @@ from elasticsearch import Elasticsearch
 from openai import OpenAI
 import os
 from botnim.config import get_logger
-from botnim.config import DEFAULT_EMBEDDING_MODEL 
+from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 logger = get_logger(__name__)
 
@@ -59,7 +59,7 @@ class VectorStoreES(VectorStoreBase):
                         "content": {"type": "text"},
                         "vector": {
                             "type": "dense_vector",
-                            "dims": 1536,  # OpenAI embedding size
+                            "dims": DEFAULT_EMBEDDING_SIZE,
                             "index": True,
                             "similarity": "cosine"
                         }
@@ -74,36 +74,32 @@ class VectorStoreES(VectorStoreBase):
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         count = 0
-        # Process files in batches of 32
-        for i in range(0, len(file_streams), 32):
-            batch = file_streams[i:i+32]
-            
-            for filename, content_file, content_type in batch:
-                try:
-                    # Read content
-                    content = content_file.read().decode('utf-8')
-                    
-                    # Generate embedding
-                    response = self.openai_client.embeddings.create(
-                        input=content,
-                        model=DEFAULT_EMBEDDING_MODEL,
-                    )
-                    vector = response.data[0].embedding
+        for filename, content_file, content_type in file_streams:
+            try:
+                # Read content
+                content = content_file.read().decode('utf-8')
 
-                    # Index document
-                    self.es_client.index(
-                        index=vector_store['id'],
-                        id=filename,
-                        document={
-                            "content": content,
-                            "vector": vector
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to process file {filename}: {str(e)}")
+                # Generate embedding
+                response = self.openai_client.embeddings.create(
+                    input=content,
+                    model=DEFAULT_EMBEDDING_MODEL,
+                )
+                vector = response.data[0].embedding
+
+                # Index document
+                self.es_client.index(
+                    index=vector_store['id'],
+                    id=filename,
+                    document={
+                        "content": content,
+                        "vector": vector
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Failed to process file {filename}: {str(e)}")
             
-            count += len(batch)
-            if callable(callback):
+            count += 1
+            if count % 32 == 0 and callable(callback):
                 callback(count)
 
     def delete_existing_files(self, context_, vector_store, file_names):
