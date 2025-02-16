@@ -65,11 +65,11 @@ class QueryClient:
                 model="text-embedding-3-small",
             )
             embedding = response.data[0].embedding
-                        
+
             # Execute search directly with elasticsearch client
             results = self.vector_store.search(
-                self.context_name, 
-                query_text, embedding, 
+                self.context_name,
+                query_text, embedding,
                 num_results=num_results
             )
             

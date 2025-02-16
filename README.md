@@ -59,16 +59,15 @@ The `botnim query` command provides several ways to interact with the vector sto
 
 ```bash
 # Search in the vector store
-botnim query search "מה עושה יושב ראש הכנסת?"
-botnim query search --bot takanon --results 5 "your query here"
+botnim query search staging takanon common_knowledge "מה עושה יושב ראש הכנסת?"
+botnim query search staging takanon common_knowledge --results 5 "your query here"
 
 # List all available indexes
-botnim query list-indexes
-botnim query list-indexes --bot budgetkey
+botnim query list-indexes staging --bot budgetkey
+botnim query list-indexes staging
 
 # Show fields/structure of an index
-botnim query show-fields
-botnim query show-fields --bot takanon
+botnim query show-fields staging budgetkey common_knowledge
 ```
 
 Available query commands:

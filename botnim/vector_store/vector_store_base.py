@@ -15,7 +15,7 @@ class VectorStoreBase(ABC):
         if not self.production:
             name += ' - פיתוח'
         return name
-    
+
     def env_name_slug(self, name):
         if not self.production:
             name += '__dev'
