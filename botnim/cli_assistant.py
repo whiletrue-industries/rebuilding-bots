@@ -6,6 +6,8 @@ import os
 import argparse
 from typing import TypedDict
 
+from .benchmark.assistant_loop import assistant_loop
+
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -42,7 +44,7 @@ def get_assistant_name(assistant_id):
     """
     return client.beta.assistants.retrieve(assistant_id).name
 
-def start_conversation(assistant_id, rtl=False):
+def start_conversation(assistant_id, openapi_spec = None, rtl=False):
     """
     Creates a new conversation thread for the given assistant and
     continuously processes user inputs until '/stop' is typed.
@@ -54,6 +56,9 @@ def start_conversation(assistant_id, rtl=False):
 
     # get the assistant name
     assistant_name = get_assistant_name(assistant_id)
+
+    if not openapi_spec.endswith(".yaml"):
+        openapi_spec += ".yaml"
 
     # Create a new thread (a new conversation session)
     thread = openai.beta.threads.create()
@@ -76,53 +81,11 @@ def start_conversation(assistant_id, rtl=False):
             role="user",
             content=user_input
         )
+        
         sent_msg = "User message sent." if not rtl else "User message sent."[::-1]
         print(sent_msg[::-1] if rtl else sent_msg)
 
-        # Start a new run on the thread using the specified assistant
-        run = openai.beta.threads.runs.create(
-            thread_id=thread.id,
-            assistant_id=assistant_id
-        )
-        print("Run started...")
-
-        # Poll the run status until it completes or fails, with a timeout of 5 minutes
-        start_time = time.time()
-        timeout = 5 * 60  # 5 minutes in seconds
-        while True:
-            current_run = openai.beta.threads.runs.retrieve(
-                thread_id=thread.id,
-                run_id=run.id
-            )
-            print(f"Current run status: {current_run.status}")  # Debug print
-            if current_run.status == "completed":
-                break
-            elif current_run.status == "failed":
-                print(f"Run failed with error: {current_run.last_error}")
-                break
-            elif time.time() - start_time > timeout:
-                print("Run polling timed out.")
-                break
-            time.sleep(2)
-
-            if current_run.status == "requires_action":
-                # Get assistant details to understand available tools
-                assistant_details = client.beta.assistants.retrieve(assistant_id)
-                tools_dict = {
-                    tool.function.name: tool.function.description 
-                    for tool in assistant_details.tools 
-                    if hasattr(tool, 'function')
-                }
-
-                print("\nAction required:")
-                print(f"Action type: {current_run.required_action.type}")
-                
-                for tool in current_run.required_action.submit_tool_outputs.tool_calls:
-                    print(f"\nTool call ID: {tool.id}")
-                    print(f"Function: {tool.function.name}")
-                    if tool.function.name in tools_dict:
-                        print(f"Description: {tools_dict[tool.function.name]}")
-                    print(f"Arguments: {tool.function.arguments}")
+        assistant_loop(client, assistant_id, thread=thread, openapi_spec=openapi_spec)
 
         # Once the run is complete, retrieve only the latest message
         messages_response = client.beta.threads.messages.list(
@@ -147,7 +110,7 @@ def start_conversation(assistant_id, rtl=False):
             no_msg = "No messages found."
             print(no_msg[::-1] if rtl else no_msg)
 
-def assistant_main(assistant_id=None, rtl=False):
+def assistant_main(assistant_id=None, openapi_spec=None, rtl=False):
     """
     Main function to start the assistant conversation
     
@@ -156,7 +119,7 @@ def assistant_main(assistant_id=None, rtl=False):
         rtl (bool): Enable RTL support for Hebrew/Arabic
     """
     if assistant_id:
-        start_conversation(assistant_id, rtl=rtl)
+        start_conversation(assistant_id, openapi_spec=openapi_spec, rtl=rtl)
     else:
         assistants = get_assistants()
         
@@ -196,13 +159,14 @@ def assistant_main(assistant_id=None, rtl=False):
                 error_msg = "Please enter a valid number or press Enter for direct ID input."
                 print(error_msg[::-1] if rtl else error_msg)
         
-        start_conversation(assistant_id, rtl=rtl)
+        start_conversation(assistant_id, openapi_spec=openapi_spec, rtl=rtl)
 
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start a conversation with an OpenAI assistant')
     parser.add_argument('--assistant-id', type=str, help='ID of the assistant to chat with')
+    parser.add_argument('--openapi-spec', type=str, default='budgetkey', help='either "budgetkey" or "takanon"')
     parser.add_argument('--rtl', action='store_true', help='Enable RTL support for Hebrew/Arabic')
     args = parser.parse_args()
-    assistant_main(args.assistant_id, args.rtl)
+    assistant_main(args.assistant_id, args.openapi_spec + ".yaml", args.rtl)

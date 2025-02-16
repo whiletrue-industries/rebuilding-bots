@@ -1,13 +1,9 @@
 import click
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
-<<<<<<< HEAD
 from .config import AVAILABLE_BOTS
 from .query import run_query, get_available_indexes, format_result, get_index_fields, format_mapping
-=======
-from .config import SPECS
 from .cli_assistant import assistant_main
->>>>>>> 4c8f39d (connect assistant qa to main cli command)
 
 
 @click.group()
@@ -91,10 +87,11 @@ def show_fields(environment: str, bot: str, context: str):
 
 @cli.command(name='assistant')
 @click.option('--assistant-id', type=str, help='ID of the assistant to chat with')
+@click.option('--openapi-spec', type=str, default='budgetkey', help='either "budgetkey" or "takanon"')
 @click.option('--rtl', is_flag=True, help='Enable RTL support for Hebrew/Arabic')
-def assistant(assistant_id, rtl):
+def assistant(assistant_id, openapi_spec, rtl):
     """Start an interactive chat with an OpenAI assistant."""
-    assistant_main(assistant_id, rtl)
+    assistant_main(assistant_id, openapi_spec, rtl)
 
 
 def main():
