@@ -110,3 +110,7 @@ For running locally:
       type: "split_file"    # Single file that needs splitting
       source: "path/to/file.md"
   ```
+
+## Tools
+
+- `botnim/cli_assistant.py`: Interactive CLI tool for chatting with OpenAI assistants (supports RTL languages)
