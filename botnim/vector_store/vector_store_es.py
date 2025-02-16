@@ -126,12 +126,13 @@ class VectorStoreES(VectorStoreBase):
             return 0
 
     def update_tools(self, context_, vector_store):
+        id = vector_store['id']
         if len(self.tools) == 0:
             self.tools.append({
                 "type": "function",
                 "function": {
-                    "name": "search_common_knowledge",
-                    "description": "Semantic search the 'common-knowledge' vector store",
+                    "name": f"search_{id}",
+                    "description": f"Semantic search the '{id}' vector store",
                     "parameters": {
                         "type": "object",
                         "properties": {
