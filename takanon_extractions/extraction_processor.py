@@ -99,14 +99,13 @@ def extract_content_metadata(file_path: Path, context_config: dict) -> dict:
             'context_name': context_config['name']
         }
 
-def process_context_source(config_dir: Path, context_config: dict, metadata_dir: Path):
+def process_context_source(config_dir: Path, context_config: dict):
     """
     Process a single context source based on its type.
     
     Args:
         config_dir (Path): Bot's config directory
         context_config (dict): Context configuration
-        metadata_dir (Path): Directory to store metadata files
     """
     context_type = context_config['type']
     source = context_config['source']
@@ -124,22 +123,11 @@ def process_context_source(config_dir: Path, context_config: dict, metadata_dir:
                     metadata = extract_content_metadata(source_file, context_config)
                     metadata['source_file'] = str(source_file.relative_to(source_dir))
                     
-                    # Create metadata file path
-                    metadata_filename = f"{source_file.relative_to(source_dir)}.metadata.json"
-                    metadata_file_path = metadata_dir / metadata_filename
-                    
-                    # Ensure parent directories exist
-                    metadata_file_path.parent.mkdir(parents=True, exist_ok=True)
-                    
-                    # Save metadata
-                    with open(metadata_file_path, 'w', encoding='utf-8') as f:
-                        json.dump(metadata, f, ensure_ascii=False, indent=2)
-                    
-                    print(f"Created metadata file: {metadata_file_path} (Status: {metadata['status']})")
+                    # Save metadata using the consolidated function
+                    save_metadata(metadata, source_file, source_dir)
                     
     elif context_type == 'google-spreadsheet':
         # Create placeholder metadata for spreadsheet source
-            
         print(f"Did not process spreadsheet: {context_config['name']}")
     
     else:
@@ -172,13 +160,9 @@ def process_bot(bot_id: str, specs_dir: Path):
         
     print(f"Processing bot: {bot_id}")
     
-    # Create metadata directory
-    metadata_dir = config_dir / 'metadata'
-    metadata_dir.mkdir(exist_ok=True)
-    
     # Process each context source
     for context_config in config['context']:
-        process_context_source(config_dir, context_config, metadata_dir)
+        process_context_source(config_dir, context_config)
 
 def main(specs_dir: Path, bot_id: str = 'all'):
     """
@@ -196,6 +180,30 @@ def main(specs_dir: Path, bot_id: str = 'all'):
     else:
         # Process specific bot
         process_bot(bot_id, specs_dir)
+
+def save_metadata(metadata: dict, source_file: Path, base_dir: Path) -> None:
+    """
+    Save metadata to a JSON file in a metadata subfolder within the source file's directory.
+    
+    Args:
+        metadata (dict): Metadata to save
+        source_file (Path): Original source file path
+        base_dir (Path): Base directory for relative path calculation
+    """
+    # Calculate relative path from base_dir to source_file
+    relative_source_path = source_file.relative_to(base_dir)
+    
+    # Create metadata directory in the same directory as the source file
+    metadata_dir = source_file.parent / 'metadata'
+    metadata_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create metadata file with same name as source + .metadata.json
+    metadata_file = metadata_dir / f"{source_file.name}.metadata.json"
+    
+    with open(metadata_file, 'w', encoding='utf-8') as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=2)
+    
+    print(f"Created metadata file: {metadata_file} (Status: {metadata.get('status', 'unknown')})")
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
