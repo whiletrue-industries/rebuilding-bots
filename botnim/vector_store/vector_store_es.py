@@ -125,6 +125,31 @@ class VectorStoreES(VectorStoreBase):
                             "dims": DEFAULT_EMBEDDING_SIZE,
                             "index": True,
                             "similarity": "cosine"
+                        },
+                        "metadata": {
+                            "type": "object",
+                            "dynamic": True,  # Allow dynamic fields in metadata
+                            "properties": {
+                                "title": {"type": "text"},
+                                "document_type": {"type": "keyword"},
+                                "extracted_at": {"type": "date"},
+                                "status": {"type": "keyword"},
+                                "context_type": {"type": "keyword"},
+                                "context_name": {"type": "keyword"},
+                                "extracted_data": {
+                                    "type": "object",
+                                    "dynamic": True  # Allow dynamic fields in extracted_data
+                                }
+                            }
+                        }
+                    }
+                },
+                "settings": {
+                    "analysis": {
+                        "analyzer": {
+                            "default": {
+                                "type": "standard"
+                            }
                         }
                     }
                 }
