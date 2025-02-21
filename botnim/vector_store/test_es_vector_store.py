@@ -92,15 +92,15 @@ def test_upload_files(vector_store):
     # Create vector store
     index_name = vector_store.get_or_create_vector_store({}, "test_context", True)
     
-    # Prepare test documents
+    # Prepare test documents with metadata
     test_docs = [
-        ("doc1.txt", "This is test document 1", "text/plain"),
-        ("doc2.txt", "This is test document 2", "text/plain")
+        ("doc1.txt", "This is test document 1", {"title": "Test 1"}),
+        ("doc2.txt", "This is test document 2", {"title": "Test 2"})
     ]
     
     docs_to_upload = [
-        (filename, BytesIO(content.encode('utf-8')), content_type)
-        for filename, content, content_type in test_docs
+        (filename, BytesIO(content.encode('utf-8')), metadata)
+        for filename, content, metadata in test_docs
     ]
     
     # Upload files
@@ -110,10 +110,11 @@ def test_upload_files(vector_store):
     vector_store.es_client.indices.refresh(index=index_name)
     
     # Verify documents were uploaded
-    for filename, content, _ in test_docs:
+    for filename, content, metadata in test_docs:
         doc = vector_store.es_client.get(index=index_name, id=filename)
         assert doc['_source']['content'] == content
         assert len(doc['_source']['vector']) == DEFAULT_EMBEDDING_SIZE
+        assert doc['_source']['metadata']['title'] == metadata['title']
 
 def test_delete_existing_files(vector_store):
     """Test deleting files from vector store"""
@@ -121,13 +122,13 @@ def test_delete_existing_files(vector_store):
     index_name = vector_store.get_or_create_vector_store({}, "test_context", True)
     
     test_docs = [
-        ("doc1.txt", "Test document 1", "text/plain"),
-        ("doc2.txt", "Test document 2", "text/plain")
+        ("doc1.txt", "Test document 1", {"title": "Test 1", "type": "text"}),
+        ("doc2.txt", "Test document 2", {"title": "Test 2", "type": "text"})
     ]
     
     docs_to_upload = [
-        (filename, BytesIO(content.encode('utf-8')), content_type)
-        for filename, content, content_type in test_docs
+        (filename, BytesIO(content.encode('utf-8')), metadata)
+        for filename, content, metadata in test_docs
     ]
     
     vector_store.upload_files({}, "test_context", index_name, docs_to_upload, None)
@@ -140,8 +141,10 @@ def test_delete_existing_files(vector_store):
     vector_store.es_client.indices.refresh(index=index_name)
     
     assert deleted_count == 1
-    with pytest.raises(Exception):
-        vector_store.es_client.get(index=index_name, id="doc1.txt")
+    
+    # Verify doc1 is deleted but doc2 still exists
+    assert not vector_store.es_client.exists(index=index_name, id="doc1.txt")
+    assert vector_store.es_client.exists(index=index_name, id="doc2.txt")
 
 def test_update_tools(vector_store):
     """Test updating tools"""
@@ -172,16 +175,16 @@ def test_semantic_search(vector_store):
     # First create and populate vector store
     index_name = vector_store.get_or_create_vector_store({}, "test_context", True)
     
-    # Upload some test documents
+    # Upload some test documents with metadata
     test_docs = [
-        ("doc1.txt", "Python is a high-level programming language", "text/plain"),
-        ("doc2.txt", "JavaScript runs in web browsers", "text/plain"),
-        ("doc3.txt", "Docker helps with containerization", "text/plain")
+        ("doc1.txt", "Python is a high-level programming language", {"title": "Python Doc"}),
+        ("doc2.txt", "JavaScript runs in web browsers", {"title": "JS Doc"}),
+        ("doc3.txt", "Docker helps with containerization", {"title": "Docker Doc"})
     ]
     
     docs_to_upload = [
-        (filename, BytesIO(content.encode('utf-8')), content_type)
-        for filename, content, content_type in test_docs
+        (filename, BytesIO(content.encode('utf-8')), metadata)
+        for filename, content, metadata in test_docs
     ]
     
     vector_store.upload_files({}, "test_context", index_name, docs_to_upload, None)
@@ -195,28 +198,15 @@ def test_semantic_search(vector_store):
     )
     query_vector = response.data[0].embedding
     
-    search_body = {
-        "query": {
-            "script_score": {
-                "query": {"match_all": {}},
-                "script": {
-                    "source": "cosineSimilarity(params.query_vector, 'vector') + 1.0",
-                    "params": {"query_vector": query_vector}
-                }
-            }
-        },
-        "size": 2
-    }
-    
-    results = vector_store.es_client.search(
-        index=index_name,
-        body=search_body
-    )
+    # Use the vector_store's search method instead of direct ES query
+    results = vector_store.search("test_context", query, query_vector)
     
     # Verify results
     assert len(results['hits']['hits']) > 0
-    # Python document should be in top results
-    assert any("Python" in hit['_source']['content'] for hit in results['hits']['hits'])
+    # Verify that Python and JavaScript documents are in top results
+    contents = [hit['_source']['content'] for hit in results['hits']['hits']]
+    assert any('Python' in content for content in contents)
+    assert any('JavaScript' in content for content in contents)
 
 def test_multiple_contexts(vector_store):
     """Test handling of multiple contexts and initialization state"""
@@ -225,8 +215,8 @@ def test_multiple_contexts(vector_store):
     index_name1 = vector_store.get_or_create_vector_store(context1, "test_context1", True)
     
     # Upload a document to first context
-    docs1 = [("doc1.txt", "Content for context 1", "text/plain")]
-    docs_to_upload1 = [(f, BytesIO(c.encode('utf-8')), t) for f, c, t in docs1]
+    docs1 = [("doc1.txt", "Content for context 1", {"title": "Context 1"})]
+    docs_to_upload1 = [(f, BytesIO(c.encode('utf-8')), m) for f, c, m in docs1]
     vector_store.upload_files(context1, "test_context1", index_name1, docs_to_upload1, None)
     
     # Create second context
@@ -234,8 +224,8 @@ def test_multiple_contexts(vector_store):
     index_name2 = vector_store.get_or_create_vector_store(context2, "test_context2", True)
     
     # Upload a document to second context
-    docs2 = [("doc2.txt", "Content for context 2", "text/plain")]
-    docs_to_upload2 = [(f, BytesIO(c.encode('utf-8')), t) for f, c, t in docs2]
+    docs2 = [("doc2.txt", "Content for context 2", {"title": "Context 2"})]
+    docs_to_upload2 = [(f, BytesIO(c.encode('utf-8')), m) for f, c, m in docs2]
     vector_store.upload_files(context2, "test_context2", index_name2, docs_to_upload2, None)
     
     # Force refresh indices
@@ -251,3 +241,45 @@ def test_multiple_contexts(vector_store):
     
     assert doc1['_source']['content'] == "Content for context 1"
     assert doc2['_source']['content'] == "Content for context 2"
+
+def test_metadata_handling(vector_store):
+    """Test metadata handling in vector store"""
+    # Create vector store
+    index_name = vector_store.get_or_create_vector_store({}, "test_context", True)
+    
+    # Prepare test documents with metadata
+    test_docs = [
+        {
+            "filename": "doc1.txt",
+            "content": "This is a legal document about procedures",
+            "metadata": {
+                "title": "Legal Procedures",
+                "document_type": "procedure",
+                "extracted_data": {
+                    "DocumentMetadata": {
+                        "DocumentTitle": "Legal Procedures",
+                        "Description": "Document about legal procedures"
+                    }
+                }
+            }
+        }
+    ]
+    
+    # Upload documents with metadata
+    docs_to_upload = [
+        (doc["filename"], 
+         BytesIO(doc["content"].encode('utf-8')), 
+         doc["metadata"]) for doc in test_docs
+    ]
+    
+    vector_store.upload_files({}, "test_context", index_name, docs_to_upload, None)
+    vector_store.es_client.indices.refresh(index=index_name)
+    
+    # Verify metadata was saved
+    doc_metadata = vector_store.verify_document_metadata(index_name, "doc1.txt")
+    assert doc_metadata.get("title") == "Legal Procedures"
+    assert doc_metadata.get("document_type") == "procedure"
+    
+    # Test search with metadata
+    has_metadata = vector_store.verify_search_includes_metadata("test_context", "legal procedures")
+    assert has_metadata is True
