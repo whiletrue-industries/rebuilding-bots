@@ -176,7 +176,7 @@ class VectorStoreES(VectorStoreBase):
                 }
             }
             result = self.es_client.delete_by_query(
-                index=vector_store['id'],
+                index=vector_store,  # Use the index name directly
                 body=body
             )
             return result['deleted']
