@@ -61,6 +61,10 @@ The `botnim query` command provides several ways to interact with the vector sto
 # Search in the vector store
 botnim query search staging takanon common_knowledge "מה עושה יושב ראש הכנסת?"
 botnim query search staging takanon common_knowledge --results 5 "your query here"
+# Show full content of search results
+botnim query search staging takanon common_knowledge "your query here" --full
+# or use the short flag
+botnim query search staging takanon common_knowledge "your query here" -f
 
 # List all available indexes
 botnim query list-indexes staging --bot budgetkey
@@ -72,6 +76,9 @@ botnim query show-fields staging budgetkey common_knowledge
 
 Available query commands:
 - `search`: Search the vector store with semantic search
+  - Options:
+    - `--num-results`, `-n`: Number of results to return (default: 7)
+    - `--full`, `-f`: Show full content of results instead of just summaries
 - `list-indexes`: Show all available Elasticsearch indexes
 - `show-fields`: Display the structure and field types of an index
 

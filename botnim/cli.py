@@ -46,12 +46,13 @@ def query_group():
 @click.argument('context', type=click.STRING)
 @click.argument('query_text', type=str)
 @click.option('--num-results', type=int, default=7, help='Number of results to return')
-def search(environment: str, bot: str, context: str, query_text: str, num_results: int):
+@click.option('--full', '-f', is_flag=True, help='Show full content of results')
+def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool):
     """Search the vector store with the given query."""
     try:
         search_results = run_query(query_text, environment, bot, context, num_results)
         for result in search_results:
-            click.echo(format_result(result))
+            click.echo(format_result(result, show_full=full))
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)
         raise click.Abort()
