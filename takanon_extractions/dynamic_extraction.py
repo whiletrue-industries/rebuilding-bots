@@ -5,7 +5,7 @@ import json
 
 load_dotenv()
 
-def extract_structured_content(text: str, template: str = None, document_type: str = "תקנון הכנסת") -> dict:
+def extract_structured_content(text: str, template: str = None, document_type: str = None) -> dict:
     """
     Extracts structured content from text using OpenAI API.
     
