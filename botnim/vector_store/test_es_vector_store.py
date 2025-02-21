@@ -39,10 +39,10 @@ def vector_store(es_client_config, test_config):
     vs = VectorStoreES(
         config=test_config,
         config_dir=config_dir,
-        production=production,
         es_host=es_client_config['es_host'],
         es_username=es_client_config['es_username'],
-        es_password=es_client_config['es_password']
+        es_password=es_client_config['es_password'],
+        production=production
     )
     return vs
 
@@ -51,7 +51,6 @@ def cleanup(vector_store):
     """Cleanup test indices after each test"""
     yield
     try:
-        # Use the same index name format as get_or_create_vector_store
         test_index = f"{vector_store.env_name('test_assistant')}_test_context".lower().replace(' ', '_')
         if vector_store.es_client.indices.exists(index=test_index):
             vector_store.es_client.indices.delete(index=test_index)
@@ -73,29 +72,25 @@ def test_initialization(es_client_config, test_config):
     assert vs.es_client is not None
     assert vs.openai_client is not None
     assert vs.init is False
-    assert vs.es_client is not None
-    assert vs.openai_client is not None
-    assert vs.init is False
 
 def test_get_or_create_vector_store(vector_store):
     """Test creating and getting vector store"""
     # Test creation
     context = {}
-    result = vector_store.get_or_create_vector_store(context, "test_context", True)
+    index_name = vector_store.get_or_create_vector_store(context, "test_context", True)
     
-    assert result is not None
-    assert 'id' in result
-    assert 'name' in result
-    assert vector_store.es_client.indices.exists(index=result['id'])
+    assert index_name is not None
+    assert isinstance(index_name, str)
+    assert vector_store.es_client.indices.exists(index=index_name)
     
     # Test getting existing
-    result2 = vector_store.get_or_create_vector_store(context, "test_context", False)
-    assert result2['id'] == result['id']
+    index_name2 = vector_store.get_or_create_vector_store(context, "test_context", False)
+    assert index_name2 == index_name
 
 def test_upload_files(vector_store):
     """Test uploading files to vector store"""
     # Create vector store
-    vs_info = vector_store.get_or_create_vector_store({}, "test_context", True)
+    index_name = vector_store.get_or_create_vector_store({}, "test_context", True)
     
     # Prepare test documents
     test_docs = [
@@ -109,21 +104,21 @@ def test_upload_files(vector_store):
     ]
     
     # Upload files
-    vector_store.upload_files({}, "test_context", vs_info, docs_to_upload, None)
+    vector_store.upload_files({}, "test_context", index_name, docs_to_upload, None)
     
     # Force refresh index
-    vector_store.es_client.indices.refresh(index=vs_info['id'])
+    vector_store.es_client.indices.refresh(index=index_name)
     
     # Verify documents were uploaded
     for filename, content, _ in test_docs:
-        doc = vector_store.es_client.get(index=vs_info['id'], id=filename)
+        doc = vector_store.es_client.get(index=index_name, id=filename)
         assert doc['_source']['content'] == content
         assert len(doc['_source']['vector']) == DEFAULT_EMBEDDING_SIZE
 
 def test_delete_existing_files(vector_store):
     """Test deleting files from vector store"""
     # Create and populate vector store
-    vs_info = vector_store.get_or_create_vector_store({}, "test_context", True)
+    index_name = vector_store.get_or_create_vector_store({}, "test_context", True)
     
     test_docs = [
         ("doc1.txt", "Test document 1", "text/plain"),
@@ -135,40 +130,39 @@ def test_delete_existing_files(vector_store):
         for filename, content, content_type in test_docs
     ]
     
-    vector_store.upload_files({}, "test_context", vs_info, docs_to_upload, None)
-    vector_store.es_client.indices.refresh(index=vs_info['id'])
+    vector_store.upload_files({}, "test_context", index_name, docs_to_upload, None)
+    vector_store.es_client.indices.refresh(index=index_name)
     
     # Delete one document
-    deleted_count = vector_store.delete_existing_files(
-        {}, vs_info, ["doc1.txt"]
-    )
+    vs_info = {'id': index_name}
+    deleted_count = vector_store.delete_existing_files({}, vs_info, ["doc1.txt"])
     
-    vector_store.es_client.indices.refresh(index=vs_info['id'])
+    vector_store.es_client.indices.refresh(index=index_name)
     
     assert deleted_count == 1
     with pytest.raises(Exception):
-        vector_store.es_client.get(index=vs_info['id'], id="doc1.txt")
+        vector_store.es_client.get(index=index_name, id="doc1.txt")
 
 def test_update_tools(vector_store):
     """Test updating tools"""
     context = {"max_num_results": 10}
-    vs_info = vector_store.get_or_create_vector_store(context, "test_context", True)
+    index_name = vector_store.get_or_create_vector_store(context, "test_context", True)
     
-    vector_store.update_tools(context, vs_info)
+    vector_store.update_tools(context, index_name)
     
     assert len(vector_store.tools) == 1
     tool = vector_store.tools[0]
     assert tool['type'] == 'function'
-    assert tool['function']['name'] == f"search_{vs_info['id']}"
+    assert tool['function']['name'] == f"search_{index_name}"
     assert 'query' in tool['function']['parameters']['properties']
     assert tool['function']['parameters']['required'] == ['query']
 
 def test_update_tool_resources(vector_store):
     """Test updating tool resources"""
     context = {}
-    vs_info = vector_store.get_or_create_vector_store(context, "test_context", True)
+    index_name = vector_store.get_or_create_vector_store(context, "test_context", True)
     
-    vector_store.update_tool_resources(context, vs_info)
+    vector_store.update_tool_resources(context, index_name)
     
     # For ES implementation, tool_resources should be None
     assert vector_store.tool_resources is None
@@ -176,7 +170,7 @@ def test_update_tool_resources(vector_store):
 def test_semantic_search(vector_store):
     """Test semantic search functionality"""
     # First create and populate vector store
-    vs_info = vector_store.get_or_create_vector_store({}, "test_context", True)
+    index_name = vector_store.get_or_create_vector_store({}, "test_context", True)
     
     # Upload some test documents
     test_docs = [
@@ -190,8 +184,8 @@ def test_semantic_search(vector_store):
         for filename, content, content_type in test_docs
     ]
     
-    vector_store.upload_files({}, "test_context", vs_info, docs_to_upload, None)
-    vector_store.es_client.indices.refresh(index=vs_info['id'])
+    vector_store.upload_files({}, "test_context", index_name, docs_to_upload, None)
+    vector_store.es_client.indices.refresh(index=index_name)
     
     # Test search
     query = "What programming languages are mentioned?"
@@ -210,12 +204,12 @@ def test_semantic_search(vector_store):
                     "params": {"query_vector": query_vector}
                 }
             }
-        }
+        },
+        "size": 2
     }
     
-    search_body['size'] = 2  # Include size in the body
     results = vector_store.es_client.search(
-        index=vs_info['id'],
+        index=index_name,
         body=search_body
     )
     
