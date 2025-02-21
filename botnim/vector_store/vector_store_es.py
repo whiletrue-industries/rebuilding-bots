@@ -100,19 +100,22 @@ class VectorStoreES(VectorStoreBase):
         )
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
-        ret = None # return value 
+        """Get or create a vector store for the given context.
+        Resets initialization state for each new context to allow multiple contexts.
+        """
+        # Reset init state for each new context
+        self.init = False
+        
         index_name = self._index_name_for_context(context_name)
         
-        # Check if index exists
-        if self.es_client.indices.exists(index=index_name):
-            if replace_context and not self.init:
-                self.es_client.indices.delete(index=index_name)
-            else:
-                ret = {'id': index_name, 'name': index_name}
+        # Delete existing index if replace_context is True
+        if replace_context and self.es_client.indices.exists(index=index_name):
+            self.es_client.indices.delete(index=index_name)
+            logger.info(f"Deleted existing index: {index_name}")
         
-        if not ret: # if index does not exist
-            assert not self.init, 'Attempt to create a new vector store after initialization'
-            # Create index with proper mapping
+        # Create new index if it doesn't exist
+        if not self.es_client.indices.exists(index=index_name):
+            # Create index with proper mappings
             mapping = {
                 "mappings": {
                     "properties": {
@@ -127,10 +130,10 @@ class VectorStoreES(VectorStoreBase):
                 }
             }
             self.es_client.indices.create(index=index_name, body=mapping)
-            ret = {'id': index_name, 'name': index_name}
-            
+            logger.info(f"Created new index: {index_name}")
+        
         self.init = True
-        return ret
+        return index_name
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         count = 0
@@ -148,7 +151,7 @@ class VectorStoreES(VectorStoreBase):
 
                 # Index document
                 self.es_client.index(
-                    index=vector_store['id'],
+                    index=vector_store,
                     id=filename,
                     document={
                         "content": content,
@@ -167,8 +170,8 @@ class VectorStoreES(VectorStoreBase):
             # Delete documents by their IDs (filenames)
             body = {
                 "query": {
-                    "terms": {
-                        "_id": file_names
+                    "ids": {
+                        "values": file_names
                     }
                 }
             }
@@ -182,13 +185,13 @@ class VectorStoreES(VectorStoreBase):
             return 0
 
     def update_tools(self, context_, vector_store):
-        id = vector_store['id']
+        # vector_store is now just the index name string
         if len(self.tools) == 0:
             self.tools.append({
                 "type": "function",
                 "function": {
-                    "name": f"search_{id}",
-                    "description": f"Semantic search the '{id}' vector store",
+                    "name": f"search_{vector_store}",
+                    "description": f"Semantic search the '{vector_store}' vector store",
                     "parameters": {
                         "type": "object",
                         "properties": {
