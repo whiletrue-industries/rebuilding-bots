@@ -22,14 +22,22 @@ def es_client_config():
     }
 
 @pytest.fixture
-def vector_store(es_client_config):
+def test_config():
+    """Test configuration with name and auto-generated slug"""
+    name = "test_assistant"
+    return {
+        "name": name,
+        "slug": name.lower().replace(' ', '_')
+    }
+
+@pytest.fixture
+def vector_store(es_client_config, test_config):
     """Initialize vector store for testing"""
-    config = {"name": "test_assistant"}
     config_dir = Path(".")
     production = False
     
     vs = VectorStoreES(
-        config=config,
+        config=test_config,
         config_dir=config_dir,
         production=production,
         es_host=es_client_config['es_host'],
@@ -51,10 +59,10 @@ def cleanup(vector_store):
     except Exception as e:
         logger.warning(f"Cleanup failed: {e}")
 
-def test_initialization(es_client_config):
+def test_initialization(es_client_config, test_config):
     """Test VectorStoreES initialization"""
     vs = VectorStoreES(
-        config={"name": "test_assistant"},
+        config=test_config,
         config_dir=Path("."),
         production=False,
         es_host=es_client_config['es_host'],
@@ -62,6 +70,9 @@ def test_initialization(es_client_config):
         es_password=es_client_config['es_password']
     )
     
+    assert vs.es_client is not None
+    assert vs.openai_client is not None
+    assert vs.init is False
     assert vs.es_client is not None
     assert vs.openai_client is not None
     assert vs.init is False
@@ -148,7 +159,7 @@ def test_update_tools(vector_store):
     assert len(vector_store.tools) == 1
     tool = vector_store.tools[0]
     assert tool['type'] == 'function'
-    assert tool['function']['name'] == 'search_common_knowledge'
+    assert tool['function']['name'] == f"search_{vs_info['id']}"
     assert 'query' in tool['function']['parameters']['properties']
     assert tool['function']['parameters']['required'] == ['query']
 
