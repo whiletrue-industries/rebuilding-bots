@@ -134,7 +134,7 @@ def test_delete_existing_files(vector_store):
     vector_store.es_client.indices.refresh(index=index_name)
     
     # Delete one document
-    vs_info = {'id': index_name}
+    vs_info = index_name
     deleted_count = vector_store.delete_existing_files({}, vs_info, ["doc1.txt"])
     
     vector_store.es_client.indices.refresh(index=index_name)
@@ -217,3 +217,37 @@ def test_semantic_search(vector_store):
     assert len(results['hits']['hits']) > 0
     # Python document should be in top results
     assert any("Python" in hit['_source']['content'] for hit in results['hits']['hits'])
+
+def test_multiple_contexts(vector_store):
+    """Test handling of multiple contexts and initialization state"""
+    # Create first context
+    context1 = {}
+    index_name1 = vector_store.get_or_create_vector_store(context1, "test_context1", True)
+    
+    # Upload a document to first context
+    docs1 = [("doc1.txt", "Content for context 1", "text/plain")]
+    docs_to_upload1 = [(f, BytesIO(c.encode('utf-8')), t) for f, c, t in docs1]
+    vector_store.upload_files(context1, "test_context1", index_name1, docs_to_upload1, None)
+    
+    # Create second context
+    context2 = {}
+    index_name2 = vector_store.get_or_create_vector_store(context2, "test_context2", True)
+    
+    # Upload a document to second context
+    docs2 = [("doc2.txt", "Content for context 2", "text/plain")]
+    docs_to_upload2 = [(f, BytesIO(c.encode('utf-8')), t) for f, c, t in docs2]
+    vector_store.upload_files(context2, "test_context2", index_name2, docs_to_upload2, None)
+    
+    # Force refresh indices
+    vector_store.es_client.indices.refresh(index=index_name1)
+    vector_store.es_client.indices.refresh(index=index_name2)
+    
+    # Verify both contexts exist and have correct content
+    assert vector_store.es_client.indices.exists(index=index_name1)
+    assert vector_store.es_client.indices.exists(index=index_name2)
+    
+    doc1 = vector_store.es_client.get(index=index_name1, id="doc1.txt")
+    doc2 = vector_store.es_client.get(index=index_name2, id="doc2.txt")
+    
+    assert doc1['_source']['content'] == "Content for context 1"
+    assert doc2['_source']['content'] == "Content for context 2"
