@@ -140,9 +140,18 @@ def get_available_indexes(environment: str, bot_name: str) -> List[str]:
         indexes = [index for index in indexes if index.endswith('__dev')]
     return indexes
 
-def format_result(result: SearchResult) -> str:
-    """Format a single search result for display"""
-    return f"{result.score:5.2f}: {result.id:30s}   [{result.content}]"
+def format_result(result: SearchResult, show_full: bool = True) -> str:
+    """
+    Format a single search result for display
+    
+    Args:
+        result: SearchResult object to format
+        show_full: Whether to include the full content in the output
+    """
+    summary = f"{result.score:5.2f}: {result.id:30s}   [{result.content}]"
+    if show_full:
+        return f"{summary}\n\nFull content:\n{result.full_content}\n{'-' * 80}\n"
+    return summary
 
 def get_index_fields(environment: str, bot_name: str, context_name: str) -> Dict:
     """
