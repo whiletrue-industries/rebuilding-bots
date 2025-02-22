@@ -65,13 +65,19 @@ botnim query search staging takanon common_knowledge --results 5 "your query her
 botnim query search staging takanon common_knowledge "your query here" --full
 # or use the short flag
 botnim query search staging takanon common_knowledge "your query here" -f
+# Display results in right-to-left order
+botnim query search staging takanon common_knowledge "your query here" --rtl
 
 # List all available indexes
 botnim query list-indexes staging --bot budgetkey
 botnim query list-indexes staging
+# Display indexes in right-to-left order
+botnim query list-indexes staging --rtl
 
 # Show fields/structure of an index
 botnim query show-fields staging budgetkey common_knowledge
+# Display fields in right-to-left order
+botnim query show-fields staging budgetkey common_knowledge --rtl
 ```
 
 Available query commands:
@@ -79,8 +85,13 @@ Available query commands:
   - Options:
     - `--num-results`, `-n`: Number of results to return (default: 7)
     - `--full`, `-f`: Show full content of results instead of just summaries
+    - `--rtl`: Display results in right-to-left order
 - `list-indexes`: Show all available Elasticsearch indexes
+  - Options:
+    - `--rtl`: Display indexes in right-to-left order
 - `show-fields`: Display the structure and field types of an index
+  - Options:
+    - `--rtl`: Display fields in right-to-left order
 
 ### Updating the Specifications
 
