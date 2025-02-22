@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 from typing import List, Dict, Any
+import json
+from datetime import datetime
 
 from elasticsearch import Elasticsearch
 from openai import OpenAI
@@ -96,7 +98,7 @@ class VectorStoreES(VectorStoreBase):
             index=index_name,
             query=query,
             size=num_results,
-            _source=['content']
+            _source=['content', 'metadata']
         )
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
@@ -161,28 +163,74 @@ class VectorStoreES(VectorStoreBase):
         return index_name
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
+        """Upload files to vector store"""
         count = 0
-        for filename, content_file, _ in file_streams:
+        for filename, content_file, file_type in file_streams:
             try:
+                # Skip metadata files to prevent recursion
+                if filename.endswith('.metadata.json'):
+                    logger.debug(f"Skipping metadata file: {filename}")
+                    continue
+
                 # Read content
                 content = content_file.read().decode('utf-8')
-
+                
                 # Generate embedding
                 response = self.openai_client.embeddings.create(
                     input=content,
                     model=DEFAULT_EMBEDDING_MODEL,
                 )
                 vector = response.data[0].embedding
-
+                
+                # Prepare base document
+                document = {
+                    "content": content,
+                    "vector": vector,
+                }
+                
+                # Try to load metadata from the metadata file
+                clean_filename = filename[1:] if filename.startswith('_') else filename
+                metadata_path = Path('specs/takanon/extraction/metadata') / f"{clean_filename}.metadata.json"
+                
+                try:
+                    if metadata_path.exists() and not metadata_path.name.endswith('.metadata.json.metadata.json'):
+                        logger.info(f"Found metadata file at {metadata_path}")
+                        with open(metadata_path, 'r', encoding='utf-8') as f:
+                            loaded_metadata = json.load(f)
+                            document["metadata"] = loaded_metadata
+                            logger.info(f"Loaded metadata from file for {filename}")
+                    else:
+                        logger.warning(f"No metadata file found at {metadata_path}")
+                        document["metadata"] = {
+                            "title": Path(filename).stem,
+                            "document_type": str(file_type),
+                            "extracted_at": datetime.now().isoformat(),
+                            "status": "no_metadata",
+                            "context_type": context.get("type", ""),
+                            "context_name": context_name,
+                            "extracted_data": {}
+                        }
+                except Exception as e:
+                    logger.warning(f"Failed to load metadata for {filename}: {str(e)}")
+                    document["metadata"] = {
+                        "title": Path(filename).stem,
+                        "document_type": str(file_type),
+                        "extracted_at": datetime.now().isoformat(),
+                        "status": "error",
+                        "context_type": context.get("type", ""),
+                        "context_name": context_name,
+                        "extracted_data": {"error": str(e)}
+                    }
+                
+                logger.info(f"Final document metadata for {filename}: {document['metadata']}")
+                
                 # Index document
                 self.es_client.index(
                     index=vector_store,
                     id=filename,
-                    document={
-                        "content": content,
-                        "vector": vector
-                    }
+                    document=document
                 )
+                
             except Exception as e:
                 logger.error(f"Failed to process file {filename}: {str(e)}")
             
