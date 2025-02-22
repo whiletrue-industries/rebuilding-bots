@@ -281,3 +281,16 @@ class VectorStoreES(VectorStoreBase):
     def update_tool_resources(self, context_, vector_store):
         # For Elasticsearch, we don't need to set tool_resources - which is OpenAI's vector store
         self.tool_resources = None
+
+    def verify_document_metadata(self, index_name: str, document_id: str) -> Dict:
+        """Verify metadata exists for a specific document"""
+        try:
+            result = self.es_client.get(
+                index=index_name,
+                id=document_id,
+                _source=['metadata']
+            )
+            return result['_source'].get('metadata', {})
+        except Exception as e:
+            logger.error(f"Failed to verify metadata for document {document_id}: {str(e)}")
+            return {}
