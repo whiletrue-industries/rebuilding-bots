@@ -4,6 +4,7 @@ from .benchmark.runner import run_benchmarks
 from .config import AVAILABLE_BOTS
 from .query import run_query, get_available_indexes, format_result, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
+from .config import SPECS
 
 
 @click.group()
@@ -40,18 +41,34 @@ def query_group():
     """Query the vector store."""
     pass
 
+def mirror_brackets(text: str) -> str:
+    """Replace bracket characters with their mirrored counterparts."""
+    bracket_map = str.maketrans("()[]{}", ")(][}{")
+    return text.translate(bracket_map)
+
+def reverse_lines(text: str) -> str:
+    """Reverse the order of lines in the text."""
+    lines = text.splitlines()
+    reversed_lines = [line[::-1] for line in lines]
+    return "\n".join(reversed_lines)
+
 @query_group.command(name='search')
 @click.argument('environment', type=click.Choice(['production', 'staging']))
 @click.argument('bot', type=click.Choice(AVAILABLE_BOTS), default='takanon')
 @click.argument('context', type=click.STRING)
 @click.argument('query_text', type=str)
 @click.option('--num-results', type=int, default=7, help='Number of results to return')
-def search(environment: str, bot: str, context: str, query_text: str, num_results: int):
+@click.option('--full', '-f', is_flag=True, help='Show full content of results')
+@click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
+def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool):
     """Search the vector store with the given query."""
     try:
         search_results = run_query(query_text, environment, bot, context, num_results)
         for result in search_results:
-            click.echo(format_result(result))
+            formatted_result = format_result(result, show_full=full)
+            if rtl:
+                formatted_result = reverse_lines(mirror_brackets(formatted_result))
+            click.echo(formatted_result)
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)
         raise click.Abort()
@@ -60,13 +77,15 @@ def search(environment: str, bot: str, context: str, query_text: str, num_result
 @click.argument('environment', type=click.Choice(['production', 'staging']))
 @click.option('--bot', type=click.Choice(AVAILABLE_BOTS), default='takanon', 
               help='Bot to list indexes for')
-def list_indexes(environment: str, bot: str):
+@click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
+def list_indexes(environment: str, bot: str, rtl: bool):
     """List all available indexes in the vector store."""
     try:
         indexes = get_available_indexes(environment, bot)
         click.echo("Available indexes:")
         for index in indexes:
-            click.echo(f"  - {index}")
+            index_display = index[::-1] if rtl else index
+            click.echo(f"  - {mirror_brackets(index_display)}")
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)
         raise click.Abort()
@@ -75,12 +94,16 @@ def list_indexes(environment: str, bot: str):
 @click.argument('environment', type=click.Choice(['production', 'staging']))
 @click.argument('bot', type=click.Choice(AVAILABLE_BOTS), default='takanon')
 @click.argument('context', type=click.STRING)
-def show_fields(environment: str, bot: str, context: str):
+@click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
+def show_fields(environment: str, bot: str, context: str, rtl: bool):
     """Show all available fields in the index."""
     try:
         mapping = get_index_fields(environment, bot, context)
-        click.echo(f"\nFields in index for bot '{bot}', context '{context}:")
-        click.echo(format_mapping(mapping))
+        formatted_mapping = format_mapping(mapping)
+        if rtl:
+            formatted_mapping = reverse_lines(mirror_brackets(formatted_mapping))
+        click.echo(f"\nFields in index for bot '{bot}', context '{context}':")
+        click.echo(formatted_mapping)
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)
         raise click.Abort()
