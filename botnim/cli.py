@@ -4,6 +4,7 @@ from .benchmark.runner import run_benchmarks
 from .config import AVAILABLE_BOTS
 from .query import run_query, get_available_indexes, format_result, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
+from .config import SPECS
 
 
 @click.group()
