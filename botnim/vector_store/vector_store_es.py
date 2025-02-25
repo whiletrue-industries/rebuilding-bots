@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 from typing import List, Dict, Any
+import json
+from datetime import datetime
 
 from elasticsearch import Elasticsearch
 from openai import OpenAI
@@ -96,23 +98,26 @@ class VectorStoreES(VectorStoreBase):
             index=index_name,
             query=query,
             size=num_results,
-            _source=['content']
+            _source=['content', 'metadata']
         )
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
-        ret = None # return value 
+        """Get or create a vector store for the given context.
+        Resets initialization state for each new context to allow multiple contexts.
+        """
+        # Reset init state for each new context
+        self.init = False
+        
         index_name = self._index_name_for_context(context_name)
         
-        # Check if index exists
-        if self.es_client.indices.exists(index=index_name):
-            if replace_context and not self.init:
-                self.es_client.indices.delete(index=index_name)
-            else:
-                ret = {'id': index_name, 'name': index_name}
+        # Delete existing index if replace_context is True
+        if replace_context and self.es_client.indices.exists(index=index_name):
+            self.es_client.indices.delete(index=index_name)
+            logger.info(f"Deleted existing index: {index_name}")
         
-        if not ret: # if index does not exist
-            assert not self.init, 'Attempt to create a new vector store after initialization'
-            # Create index with proper mapping
+        # Create new index if it doesn't exist
+        if not self.es_client.indices.exists(index=index_name):
+            # Create index with proper mappings
             mapping = {
                 "mappings": {
                     "properties": {
@@ -122,39 +127,110 @@ class VectorStoreES(VectorStoreBase):
                             "dims": DEFAULT_EMBEDDING_SIZE,
                             "index": True,
                             "similarity": "cosine"
+                        },
+                        "metadata": {
+                            "type": "object",
+                            "dynamic": True,  # Allow dynamic fields in metadata
+                            "properties": {
+                                "title": {"type": "text"},
+                                "document_type": {"type": "keyword"},
+                                "extracted_at": {"type": "date"},
+                                "status": {"type": "keyword"},
+                                "context_type": {"type": "keyword"},
+                                "context_name": {"type": "keyword"},
+                                "extracted_data": {
+                                    "type": "object",
+                                    "dynamic": True  # Allow dynamic fields in extracted_data
+                                }
+                            }
+                        }
+                    }
+                },
+                "settings": {
+                    "analysis": {
+                        "analyzer": {
+                            "default": {
+                                "type": "standard"
+                            }
                         }
                     }
                 }
             }
             self.es_client.indices.create(index=index_name, body=mapping)
-            ret = {'id': index_name, 'name': index_name}
-            
+            logger.info(f"Created new index: {index_name}")
+        
         self.init = True
-        return ret
+        return index_name
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
+        """Upload files to vector store"""
         count = 0
-        for filename, content_file, _ in file_streams:
+        for filename, content_file, file_type in file_streams:
             try:
+                # Skip metadata files to prevent recursion
+                if filename.endswith('.metadata.json'):
+                    logger.debug(f"Skipping metadata file: {filename}")
+                    continue
+
                 # Read content
                 content = content_file.read().decode('utf-8')
-
+                
                 # Generate embedding
                 response = self.openai_client.embeddings.create(
                     input=content,
                     model=DEFAULT_EMBEDDING_MODEL,
                 )
                 vector = response.data[0].embedding
-
+                
+                # Prepare base document
+                document = {
+                    "content": content,
+                    "vector": vector,
+                }
+                
+                # Try to load metadata from the metadata file
+                clean_filename = filename[1:] if filename.startswith('_') else filename
+                metadata_path = Path('specs/takanon/extraction/metadata') / f"{clean_filename}.metadata.json"
+                
+                try:
+                    if metadata_path.exists() and not metadata_path.name.endswith('.metadata.json.metadata.json'):
+                        logger.info(f"Found metadata file at {metadata_path}")
+                        with open(metadata_path, 'r', encoding='utf-8') as f:
+                            loaded_metadata = json.load(f)
+                            document["metadata"] = loaded_metadata
+                            logger.info(f"Loaded metadata from file for {filename}")
+                    else:
+                        logger.warning(f"No metadata file found at {metadata_path}")
+                        document["metadata"] = {
+                            "title": Path(filename).stem,
+                            "document_type": str(file_type),
+                            "extracted_at": datetime.now().isoformat(),
+                            "status": "no_metadata",
+                            "context_type": context.get("type", ""),
+                            "context_name": context_name,
+                            "extracted_data": {}
+                        }
+                except Exception as e:
+                    logger.warning(f"Failed to load metadata for {filename}: {str(e)}")
+                    document["metadata"] = {
+                        "title": Path(filename).stem,
+                        "document_type": str(file_type),
+                        "extracted_at": datetime.now().isoformat(),
+                        "status": "error",
+                        "context_type": context.get("type", ""),
+                        "context_name": context_name,
+                        "extracted_data": {"error": str(e)}
+                    }
+                
+                logger.info(f"Final document metadata for {filename}: {document['metadata']}")
+                
                 # Index document
                 self.es_client.index(
-                    index=vector_store['id'],
+                    index=vector_store,
                     id=filename,
-                    document={
-                        "content": content,
-                        "vector": vector
-                    }
+                    document=document
                 )
+                
             except Exception as e:
                 logger.error(f"Failed to process file {filename}: {str(e)}")
             
@@ -167,13 +243,13 @@ class VectorStoreES(VectorStoreBase):
             # Delete documents by their IDs (filenames)
             body = {
                 "query": {
-                    "terms": {
-                        "_id": file_names
+                    "ids": {
+                        "values": file_names
                     }
                 }
             }
             result = self.es_client.delete_by_query(
-                index=vector_store['id'],
+                index=vector_store,  # Use the index name directly
                 body=body
             )
             return result['deleted']
@@ -182,13 +258,13 @@ class VectorStoreES(VectorStoreBase):
             return 0
 
     def update_tools(self, context_, vector_store):
-        id = vector_store['id']
+        # vector_store is now just the index name string
         if len(self.tools) == 0:
             self.tools.append({
                 "type": "function",
                 "function": {
-                    "name": f"search_{id}",
-                    "description": f"Semantic search the '{id}' vector store",
+                    "name": f"search_{vector_store}",
+                    "description": f"Semantic search the '{vector_store}' vector store",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -205,3 +281,16 @@ class VectorStoreES(VectorStoreBase):
     def update_tool_resources(self, context_, vector_store):
         # For Elasticsearch, we don't need to set tool_resources - which is OpenAI's vector store
         self.tool_resources = None
+
+    def verify_document_metadata(self, index_name: str, document_id: str) -> Dict:
+        """Verify metadata exists for a specific document"""
+        try:
+            result = self.es_client.get(
+                index=index_name,
+                id=document_id,
+                _source=['metadata']
+            )
+            return result['_source'].get('metadata', {})
+        except Exception as e:
+            logger.error(f"Failed to verify metadata for document {document_id}: {str(e)}")
+            return {}
