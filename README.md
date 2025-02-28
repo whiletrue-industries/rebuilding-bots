@@ -38,6 +38,7 @@ $ pip install -U -e .[dev]
   - `benchmark/`: Benchmarking scripts for the bots.
       Copy this file to `.env` and fill in the necessary values.
     - `run-benchmark.py`: Main benchmarking script.
+    - `assistant_loop.py`: Local assistant loop tool.
 - `specs/`: Specifications for the bots.
   - `budgetkey/`: Specifications for the budgetkey bot.
     - `config.yaml`: Agent configuration file.
@@ -131,6 +132,25 @@ For running locally:
       source: "path/to/file.md"
   ```
 
-## Tools
 
+## Tools
+### CLI Assistant
 - `botnim/cli_assistant.py`: Interactive CLI tool for chatting with OpenAI assistants (supports RTL languages)
+
+
+The botnim assistant command provides an interactive chat interface with OpenAI assistants:
+
+# Basic usage - will show list of available assistants
+```bash
+botnim assistant
+```
+# Start chat with a specific assistant
+```bash
+botnim assistant --assistant-id <assistant-id>
+```
+# Enable RTL support for Hebrew
+```bash`
+botnim assistant --rtl
+```
+# Choose environment for vector search
+```
