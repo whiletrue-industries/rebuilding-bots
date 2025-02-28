@@ -47,7 +47,7 @@ $ pip install -U -e .[dev]
     - `agent.txt`: Agent instructions.
     - `extraction/`: Extracted and processed text from the Knesset Takanon
   - `openapi/`: OpenAPI definitions of the BudgetKey (and other deprecated) APIs.
-- `takanon_extractions/`: Code and extracted content from the Knesset Takanon and other laws.
+- `content_extraction/`: Content and metadata extraction logic, including the raw extracted content from the Knesset Takanon and other laws.
   - `process_clauses.py`: Script to parse the Knesset Takanon HTML, extract the document structure, save it as JSON/YAML and Markdown files and then to split the JSON data into individual Markdown files for each clause.
 - `ui/`: DEPRECATED: User interface for the bots.
 
