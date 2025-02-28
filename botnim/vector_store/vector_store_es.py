@@ -11,6 +11,8 @@ from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
 
+
+
 logger = get_logger(__name__)
 
 class VectorStoreES(VectorStoreBase):
@@ -261,28 +263,11 @@ class VectorStoreES(VectorStoreBase):
             return 0
 
     def update_tools(self, context_, vector_store):
-        # vector_store is now just the index name string
-        if len(self.tools) == 0:
-            self.tools.append({
-                "type": "function",
-                "function": {
-                    "name": f"search_{vector_store}",
-                    "description": f"Semantic search the '{vector_store}' vector store",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "The query string to use for searching"
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                }
-            })
+        # No need to create tools here as they're handled in sync.py
+        pass
 
     def update_tool_resources(self, context_, vector_store):
-        # For Elasticsearch, we don't need to set tool_resources - which is OpenAI's vector store
+        # For Elasticsearch, we don't need to set tool_resources
         self.tool_resources = None
 
     def verify_document_metadata(self, index_name: str, document_id: str) -> Dict:
