@@ -46,7 +46,9 @@ class VectorStoreES(VectorStoreBase):
             raise ConnectionError(f"Could not connect to Elasticsearch: {str(e)}")
 
     def _index_name_for_context(self, context_name: str) -> str:
-        return self.env_name_slug(f"{self.config['slug']}__{context_name}".lower().replace(' ', '_'))
+        """Standardize index name construction"""
+        base_name = f"{self.config['slug']}__{context_name}"
+        return self.env_name_slug(base_name.lower().replace(' ', '_'))
 
     def _build_search_query(self, query_text: str, embedding: List[float], 
                           num_results: int = 7) -> Dict[str, Any]:

@@ -91,7 +91,11 @@ class QueryClient:
     def list_indexes(self) -> List[str]:
         """List all available indexes in the Elasticsearch database"""
         try:
-            indices = self.vector_store.es_client.indices.get_alias(index=self.bot_name + "*")
+            # Use the standardized pattern for index name search
+            search_pattern = f"{self.bot_name}__*"
+            if not self.environment == 'production':
+                search_pattern += '__dev'
+            indices = self.vector_store.es_client.indices.get_alias(index=search_pattern)
             return list(indices.keys())
         except Exception as e:
             logger.error(f"Failed to list indexes: {str(e)}")
