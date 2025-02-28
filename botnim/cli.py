@@ -112,9 +112,11 @@ def show_fields(environment: str, bot: str, context: str, rtl: bool):
 @click.option('--assistant-id', type=str, help='ID of the assistant to chat with')
 @click.option('--openapi-spec', type=str, default='budgetkey', help='either "budgetkey" or "takanon"')
 @click.option('--rtl', is_flag=True, help='Enable RTL support for Hebrew/Arabic')
-def assistant(assistant_id, openapi_spec, rtl):
+@click.option('--environment', type=click.Choice(['production', 'staging']), default='staging', 
+              help='Environment to use for vector search')
+def assistant(assistant_id, openapi_spec, rtl, environment):
     """Start an interactive chat with an OpenAI assistant."""
-    assistant_main(assistant_id, openapi_spec, rtl)
+    assistant_main(assistant_id, openapi_spec, rtl, environment)
 
 
 def main():
