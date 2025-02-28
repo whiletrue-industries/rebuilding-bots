@@ -171,6 +171,49 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 # Log the output
                 logger.info(f"Tool output: {output}")
             
+            elif tool.function.name.startswith('ElasticVectorSearch'):
+                # Extract bot and context names from tool name
+                # e.g., ElasticVectorSearch_takanon_common_knowledge -> takanon, common_knowledge
+                tool_name = tool.function.name[len('ElasticVectorSearch_'):]
+                
+                # Split by underscore and get bot name and context
+                parts = tool_name.split('_', 1)  # Split only on first underscore
+                bot_name = parts[0]
+                context_name = parts[1] if len(parts) > 1 else ''
+                
+                # Load config to get context settings
+                config_path = Path('specs') / bot_name / 'config.yaml'
+                with open(config_path) as f:
+                    config = yaml.safe_load(f)
+                    
+                # Find matching context config by slug
+                context_config = next(
+                    (ctx for ctx in config.get('context', []) 
+                     if ctx.get('slug') == context_name),
+                    {}
+                )
+                
+                # Use context-specific settings if available
+                num_results = arguments.get('num_results', 
+                                         context_config.get('max_num_results', 3))
+                
+                # Use QueryClient directly instead of the handler
+                query_client = QueryClient(environment, bot_name, context_name)
+                results = query_client.search(arguments['query'], num_results=num_results)
+                
+                # Format results for the assistant
+                formatted_results = []
+                for result in results:
+                    formatted_results.append(
+                        f"[Score: {result.score:.2f}]\n"
+                        f"Content:\n{result.full_content}\n"
+                        f"{'-' * 40}"
+                    )
+                output = "\n\n".join(formatted_results)
+                
+                # Log the output
+                logger.info(f"ElasticVectorSearch tool output: {output[:200]}...")
+            
             # Handle all non-search tools with OpenAPI
             else:
                 # Set default page_size for DatasetDBQuery
