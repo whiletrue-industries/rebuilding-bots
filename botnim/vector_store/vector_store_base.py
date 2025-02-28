@@ -16,10 +16,14 @@ class VectorStoreBase(ABC):
             name += ' - פיתוח'
         return name
 
+    def env_name_slug(self, name):
+        if not self.production:
+            name += '__dev'
+        return name
+
     def vector_store_update(self, context, replace_context):
         for context_ in context:
-            context_name = context_['name']
-            context_name = self.env_name(context_name)
+            context_name = context_['slug']
             vector_store = self.get_or_create_vector_store(context_, context_name, replace_context)
             file_streams = collect_context_sources(context_, self.config_dir)
             file_streams = [((fname if self.production else '_' + fname), f, t) for fname, f, t in file_streams]
@@ -32,23 +36,9 @@ class VectorStoreBase(ABC):
             self.update_tools(context_, vector_store)
         return self.tools, self.tool_resources
 
+    @abstractmethod
     def get_or_create_vector_store(self, context, context_name, replace_context):
-        ret = None
-        vs_name = self.env_name(self.config['name'])
-        vector_store = self.openai_client.beta.vector_stores.list()
-        for vs in vector_store:
-            if vs.name == vs_name:
-                if replace_context and not self.init:
-                    self.openai_client.beta.vector_stores.delete(vs.id)
-                else:
-                    ret = vs
-                break
-        if not ret:
-            assert not self.init, 'Attempt to create a new vector store after initialization'
-            vector_store = self.openai_client.beta.vector_stores.create(name=vs_name)
-            ret = vector_store
-        self.init = True
-        return ret
+        pass
 
     @abstractmethod
     def upload_files(self, context, context_name, vector_store, file_streams, callback):

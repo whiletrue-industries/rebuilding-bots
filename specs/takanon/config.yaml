@@ -1,11 +1,14 @@
+slug: takanon
 name: בוט תקנון הכנסת
 description: עונה על שאלות מתוך תקנון הכנסת וחוקים נלווים
 instructions: agent.txt
 context: 
-  - name: ידע רלוונטי על התקנון
+  - slug: common_knowledge
+    name: ידע רלוונטי על התקנון
     type: google-spreadsheet
     source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/
     max_num_results: 7
-  - name: Knesset Bylaws (תקנון הכנסת) and related laws
+  - slug: legal_text
+    name: Knesset Bylaws (תקנון הכנסת) and related laws
     type: files
     source: extraction/*.md
