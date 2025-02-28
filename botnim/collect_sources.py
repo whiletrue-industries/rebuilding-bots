@@ -3,7 +3,7 @@ from pathlib import Path
 import dataflows as DF
 from datetime import datetime, timezone
 import json
-from takanon_extractions import extract_structured_content
+from content_extraction import extract_structured_content
 
 def collect_sources_files(config_dir, context_name, source):
     files = list(config_dir.glob(source))
