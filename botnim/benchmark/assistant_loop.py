@@ -4,6 +4,7 @@ from pathlib import Path
 import requests_openapi
 from typing import Dict
 import re
+import logging
 
 from openai import OpenAI
 from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
@@ -11,6 +12,8 @@ from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 from botnim.query import QueryClient
 from botnim.tools.elastic_vector_search import elastic_vector_search_handler
 TEMP = 0
+
+logger = logging.getLogger(__name__)
 
 def get_openapi_output(openapi_spec, tool_name, parameters):
     client = requests_openapi.Client(req_opts={"timeout": 30})
@@ -43,6 +46,11 @@ def get_dataset_info_cache(arguments, output):
 
 
 def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, notes=[], openapi_spec=None, environment='staging'):
+    # Initialize or append to log file in the same directory as the script
+    log_file = Path(__file__).parent / 'log.txt'
+    with open(log_file, 'w', encoding='utf-8') as f:  # open for writing, truncate the file
+        f.write(f"\n=== New Conversation ===\nAssistant ID: {assistant_id}\nEnvironment: {environment}\n\n")
+
     step_ids = set()
     if thread is None:
         thread = client.beta.threads.create()
@@ -51,6 +59,10 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
             role='user',
             content=question
         )
+        # Log initial question
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(f"User Question: {question}\nThread ID: {thread.id}\n\n")
+
     run = client.beta.threads.runs.create_and_poll(
         thread_id=thread.id,
         assistant_id=assistant_id,
@@ -58,10 +70,20 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
         top_p=1,
     )
     assert run.status in ['completed', 'requires_action']
+    
+    # Log new run
+    with open(log_file, 'a', encoding='utf-8') as f:
+        f.write(f"=== New Run ===\nRun ID: {run.id}\nStatus: {run.status}\n\n")
+
     while True:
         print('RUN', run.id, run.status, run.temperature, run.top_p)
         tool_outputs = []
         notes.append(f'RUN {run.status}')
+        
+        # Log run status
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(f"Run Status: {run.status}\n")
+
         for step in client.beta.threads.runs.steps.list(run.id, thread_id=thread.id, order='asc', extra_query=dict(include=['step_details.tool_calls[*].file_search.results[*].content'])):
             if step.id in step_ids:
                 continue
@@ -70,69 +92,83 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 step_details: ToolCallsStepDetails = step.step_details
                 for tool_call in step_details.tool_calls:
                     if tool_call.type == 'function':
-                        print('TOOL', tool_call.id, tool_call.function.name, tool_call.function.arguments)
-                        notes.append(f'{tool_call.function.name}({tool_call.function.arguments})')
+                        # Log function calls
+                        with open(log_file, 'a', encoding='utf-8') as f:
+                            f.write(f"\nTool Call:\n  Type: function\n  Name: {tool_call.function.name}\n  Arguments: {tool_call.function.arguments}\n")
                     elif tool_call.type == 'file_search':
-                        print('FILE-SEARCH', tool_call.id, tool_call.file_search)
-                        notes.append(f'file-search:')
-                        for result in(tool_call.file_search.results or []):
-                            text = result.content[0].text if result.content else None
-                            if text:
-                                notes.append(f'>>\n{text}\n<<')
+                        # Log file searches
+                        with open(log_file, 'a', encoding='utf-8') as f:
+                            f.write(f"\nTool Call:\n  Type: file_search\n  Query: {tool_call.file_search}\n")
+                            for result in (tool_call.file_search.results or []):
+                                text = result.content[0].text if result.content else None
+                                if text:
+                                    f.write(f"  Result:\n{text}\n")
 
-        if run.status == 'completed': 
+        if run.status == 'completed':
+            # Log assistant's response when run is completed
+            messages = client.beta.threads.messages.list(thread_id=thread.id, order='desc', limit=1)
+            for message in messages:
+                if message.role == "assistant":
+                    with open(log_file, 'a', encoding='utf-8') as f:
+                        f.write("\nAssistant Response:\n")
+                        for content in message.content:
+                            if content.type == 'text':
+                                f.write(f"{content.text.value}\n")
+                                break  # Only write the latest response
+            
+            # Log completion
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write("\n=== Run Completed ===\n\n")
             break
 
         for tool in run.required_action.submit_tool_outputs.tool_calls:
             arguments = json.loads(tool.function.arguments)
             output = None  # Initialize output variable
             
+            # Log tool input
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(f"\nTool Input:\n  Tool ID: {tool.id}\n  Name: {tool.function.name}\n  Arguments:\n")
+                for key, value in arguments.items():
+                    f.write(f"    {key}: {value}\n")
+            
             if tool.function.name.startswith('ElasticVectorSearch'):
-                # Extract bot and context names from tool name
-                # e.g., ElasticVectorSearch_takanon_common_knowledge -> takanon, common_knowledge
                 tool_name = tool.function.name[len('ElasticVectorSearch_'):]
-                
-                # Split by underscore and get bot name and context
-                parts = tool_name.split('_', 1)  # Split only on first underscore
+                parts = tool_name.split('_', 1)
                 bot_name = parts[0]
                 context_name = parts[1] if len(parts) > 1 else ''
                 
-                # Load config to get context settings
-                config_path = Path('specs') / bot_name / 'config.yaml'
-                with open(config_path) as f:
-                    config = yaml.safe_load(f)
-                    
-                # Find matching context config by slug
-                context_config = next(
-                    (ctx for ctx in config.get('context', []) 
-                     if ctx.get('slug') == context_name),
-                    {}
+                # Log the tool call parameters
+                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {arguments.get('num_results', 7)}")
+                
+                output = elastic_vector_search_handler(
+                    environment=environment,
+                    bot_name=bot_name,
+                    context_name=context_name,
+                    query=arguments['query'],
+                    num_results=arguments.get('num_results', 7)
                 )
                 
-                # Use context-specific settings if available
-                num_results = arguments.get('num_results', 
-                                         context_config.get('max_num_results', 3))
-                
-                query_client = QueryClient(environment, bot_name, context_name)
-                results = query_client.search(arguments['query'], num_results=num_results)
-                
-                # Format results for the assistant
-                formatted_results = []
-                for result in results:
-                    formatted_results.append(
-                        f"[Score: {result.score:.2f}]\n"
-                        f"Content:\n{result.full_content}\n"
-                        f"{'-' * 40}"
-                    )
-                output = "\n\n".join(formatted_results)
+                # Log the output
+                logger.info(f"Tool output: {output}")
             
             elif tool.function.name == 'DatasetDBQuery':
-                arguments['page_size'] = 30
                 output = get_openapi_output(openapi_spec, tool.function.name, arguments)
             elif tool.function.name == 'DatasetInfo':
                 output = get_dataset_info_cache(arguments, output)
             
             if output is not None:
+                # Log tool output
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    f.write(f"\nTool Output:\n  Tool ID: {tool.id}\n  Content:\n")
+                    if isinstance(output, str):
+                        f.write(f"    {output}\n")
+                    else:
+                        # For dictionary/list outputs, format them nicely
+                        output_str = json.dumps(output, ensure_ascii=False, indent=4)
+                        # Add indentation to each line
+                        formatted_output = "\n".join(f"    {line}" for line in output_str.split("\n"))
+                        f.write(f"{formatted_output}\n")
+                
                 tool_outputs.append(dict(
                     tool_call_id=tool.id,
                     output=json.dumps(output, ensure_ascii=False, indent=2)
