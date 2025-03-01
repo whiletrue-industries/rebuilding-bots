@@ -9,11 +9,11 @@ import logging
 from openai import OpenAI
 from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 
-from botnim.query import QueryClient, run_query
-from botnim.config import get_logger, validate_environment, DEFAULT_ENVIRONMENT
+from botnim.query import QueryClient
+from botnim.config import validate_environment, DEFAULT_ENVIRONMENT
 TEMP = 0
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 def get_openapi_output(openapi_spec, tool_name, parameters):
     client = requests_openapi.Client(req_opts={"timeout": 30})
@@ -143,38 +143,8 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 for key, value in arguments.items():
                     f.write(f"    {key}: {value}\n")
             
-            # Handle different tool types
-            if tool.function.name.startswith('search_'):
-                # Handle the search_takanon__context__dev pattern
-                # Remove 'search_' prefix and '__dev' suffix if present
-                tool_name = tool.function.name[len('search_'):]
-                if tool_name.endswith('__dev'):
-                    tool_name = tool_name[:-len('__dev')]
-                
-                # Split into bot_name and context_name
-                parts = tool_name.split('__', 1)
-                bot_name = parts[0]
-                context_name = parts[1] if len(parts) > 1 else ''
-                
-                # Get num_results from arguments or use default
-                num_results = arguments.get('num_results', 7)
-                
-                # Log the tool call parameters
-                logger.info(f"Calling run_query with query: {arguments['query']}, num_results: {num_results}")
-                
-                output = run_query(
-                    environment=environment,
-                    bot_name=bot_name,
-                    context_name=context_name,
-                    query=arguments['query'],
-                    num_results=num_results,
-                    format="text"
-                )
-                
-                # Log the output
-                logger.info(f"Tool output: {output}")
-            
-            elif tool.function.name.startswith('ElasticVectorSearch'):
+            # Handle ElasticVectorSearch tools
+            if tool.function.name.startswith('ElasticVectorSearch'):
                 # Extract bot and context names from tool name
                 # e.g., ElasticVectorSearch_takanon_common_knowledge -> takanon, common_knowledge
                 tool_name = tool.function.name[len('ElasticVectorSearch_'):]
@@ -200,7 +170,8 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 num_results = arguments.get('num_results', 
                                          context_config.get('max_num_results', 3))
                 
-                # Use QueryClient directly instead of the handler
+                # Use QueryClient directly
+                logger.info(f"Executing ElasticVectorSearch for {bot_name}/{context_name} with query: {arguments['query']}")
                 query_client = QueryClient(environment, bot_name, context_name)
                 results = query_client.search(arguments['query'], num_results=num_results)
                 
@@ -217,7 +188,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 # Log the output
                 logger.info(f"ElasticVectorSearch tool output: {output[:200]}...")
             
-            # Handle all non-search tools with OpenAPI
+            # Handle all other tools with OpenAPI
             else:
                 # Set default page_size for DatasetDBQuery
                 if tool.function.name == 'DatasetDBQuery':
@@ -225,6 +196,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 
                 # Call get_openapi_output for all non-search tools
                 try:
+                    logger.info(f"Executing OpenAPI tool {tool.function.name}")
                     if openapi_spec is not None:
                         output = get_openapi_output(openapi_spec, tool.function.name, arguments)
                         

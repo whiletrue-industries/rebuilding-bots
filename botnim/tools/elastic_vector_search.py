@@ -2,7 +2,10 @@ from typing import Dict
 import yaml
 from pathlib import Path
 from ..config import SPECS
-from botnim.query import QueryClient
+from botnim.query import QueryClient, run_query
+import logging
+
+logger = logging.getLogger(__name__)
 
 BOT_NAME_MAPPING = {
     'takanon': 'בוט תקנון הכנסת',
@@ -43,7 +46,7 @@ def create_elastic_search_tool(bot_name: str, context_name: str, environment: st
                     "num_results": {
                         "type": "integer",
                         "description": "Number of results to return",
-                        "default": context_config.get('max_num_results', 5)
+                        "default": 7
                     }
                 },
                 "required": ["query"]
@@ -53,8 +56,11 @@ def create_elastic_search_tool(bot_name: str, context_name: str, environment: st
 
 def elastic_vector_search_handler(environment: str, bot_name: str, context_name: str, query: str, num_results: int = 3) -> str:
     """Handles Elasticsearch vector search requests from the assistant"""
-    client = QueryClient(environment, bot_name, context_name)
-    results = client.search(query, num_results)
+    logger.info(f"Running elastic_vector_search_handler with query: {query}, num_results: {num_results}")
+    results = run_query(query, environment, bot_name, context_name, num_results)
+    
+    # Log the results
+    logger.info(f"Search results: {results}")
     
     # Format results for the assistant
     formatted_results = []
