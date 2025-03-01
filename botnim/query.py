@@ -5,14 +5,15 @@ from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, is_production
 import yaml
+import logging
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 @dataclass
 class SearchResult:
     """Data class for search results"""
-    score: float
     id: str
+    score: float
     content: str
     full_content: str
 
@@ -140,6 +141,10 @@ def run_query(query: str, environment: str, bot_name: str, context_name: str, nu
         logger.info(f"Running vector search with query: {query}, bot: {bot_name}, context: {context_name}, num_results: {num_results}")
         
         client = QueryClient(environment, bot_name, context_name)
+        
+        # Log the configuration used
+        logger.info(f"Using configuration: {client._load_config()}")
+        
         results = client.search(query_text=query, num_results=num_results)
         
         # Log the results
