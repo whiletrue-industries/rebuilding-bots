@@ -25,6 +25,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 TEMP = 0
 
+logger = logging.getLogger(__name__)
+
 def get_openapi_output(openapi_spec, tool_name, parameters):
     client = requests_openapi.Client(req_opts={"timeout": 30})
     client.load_spec_from_file(Path('specs/openapi') / openapi_spec)
@@ -134,6 +136,9 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 bot_name = parts[0]
                 context_name = parts[1] if len(parts) > 1 else ''
                 
+                # Log the tool call parameters
+                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {arguments.get('num_results', 7)}")
+                
                 # Load config to get context settings
                 config_path = Path('specs') / bot_name / 'config.yaml'
                 with open(config_path) as f:
@@ -150,8 +155,16 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 num_results = arguments.get('num_results', 
                                          context_config.get('max_num_results', 3))
                 
-                # Log the tool call parameters
-                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {num_results}")
+                output = elastic_vector_search_handler(
+                    environment=environment,
+                    bot_name=bot_name,
+                    context_name=context_name,
+                    query=arguments['query'],
+                    num_results=num_results
+                )
+                
+                # Log the output
+                logger.info(f"Tool output: {output}")
                 
                 query_client = QueryClient(environment, bot_name, context_name)
                 results = query_client.search(arguments['query'], num_results=num_results)
@@ -170,7 +183,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 logger.info(f"Tool output: {output}")
             
             elif tool.function.name == 'DatasetDBQuery':
-                arguments['page_size'] = 30
                 output = get_openapi_output(openapi_spec, tool.function.name, arguments)
             elif tool.function.name == 'DatasetInfo':
                 output = get_dataset_info_cache(arguments, output)
