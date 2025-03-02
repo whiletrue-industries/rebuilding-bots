@@ -18,7 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/botnim/retrieve/{bot}/{context}")
+@app.get("/retrieve/{bot}/{context}")
 async def search_datasets_handler(bot: str, context: str, query: str, num_results: int=10, environment: str='production') -> List[Dict[str, Any]]:
     results = run_query(query, environment, bot, context, num_results)
     return results
