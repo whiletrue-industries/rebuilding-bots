@@ -6,6 +6,7 @@ COPY requirements.txt .
 COPY backend/api/requirements.txt requirements-server.txt
 RUN pip install -r requirements-server.txt -r requirements.txt
 COPY botnim/ ./botnim
+COPY specs/ ./specs
 COPY setup.py ./
 COPY backend/api/server.py .
 COPY backend/api/api_server.sh .
