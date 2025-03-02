@@ -7,13 +7,6 @@ from typing import List, Dict, Any, Optional
 
 from botnim.query import run_query
 
-### A FastAPI server that serves the odds API
-# Exposes the following methods:
-# - search_datasets(query: str) -> List[Dict[str, str]]
-# - fetch_dataset(id: str) -> Optional[Dict[str, str]]
-# - fetch_resource(id: str) -> Optional[Dict[str, str]]
-# - query_db(resource_id: str, query: str) -> Optional[Dict[str, Any]]
-
 app = FastAPI(openapi_url=None)
 
 # Enable CORS:
@@ -25,7 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/retrieve/{bot}/{context}")
+@app.get("/botnim/retrieve/{bot}/{context}")
 async def search_datasets_handler(bot: str, context: str, query: str, num_results: int=10, environment: str='production') -> List[Dict[str, Any]]:
     results = run_query(query, environment, bot, context, num_results)
     return results
