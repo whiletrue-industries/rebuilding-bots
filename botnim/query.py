@@ -40,9 +40,9 @@ class QueryClient:
         return VectorStoreES(
             config=config,
             config_dir=Path('.'),
-            es_host=os.getenv('ES_HOST', 'https://localhost:9200'),
-            es_username=os.getenv('ES_USERNAME', 'elastic'),
-            es_password=os.getenv('ES_PASSWORD'),
+            es_host=None,
+            es_username=None,
+            es_password=None,
             es_timeout=30,
             production=self.environment == 'production'
         )

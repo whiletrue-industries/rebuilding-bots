@@ -9,9 +9,6 @@ from .vector_store import VectorStoreOpenAI, VectorStoreES
 
 
 api_key = os.environ['OPENAI_API_KEY']
-es_username = os.environ['ES_USERNAME']
-es_password = os.environ['ES_PASSWORD']
-es_host = os.environ['ES_HOST']
 
 # Create openai client and get completion for prompt with the 'gpt4-o' model:
 client = OpenAI(api_key=api_key)
@@ -64,7 +61,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
             vs = VectorStoreOpenAI(config, config_dir, production, client)
         ## Elasticsearch
         elif backend == 'es':
-            vs = VectorStoreES(config, config_dir, es_host, es_username, es_password, production=production)
+            vs = VectorStoreES(config, config_dir, None, None, None, production=production)
         # Update the vector store with the context
         tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
     
