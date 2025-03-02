@@ -1,0 +1,33 @@
+{
+  "extracted_at": "2025-03-02T19:45:33.447604+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 30. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_30)\n[תיקון: תשנ״ה]\n(בוטל).",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 30",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_30"
+      ],
+      "Language": "עברית",
+      "Version": "תיקון: תשנ״ה",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "This document pertains to the Basic Law: The Knesset."
+    },
+    "LegalReferences": [],
+    "Amendments": [
+      "תיקון: תשנ״ה"
+    ],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_30.md"
+}

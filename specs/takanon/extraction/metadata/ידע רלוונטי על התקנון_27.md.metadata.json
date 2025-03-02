@@ -1,0 +1,38 @@
+{
+  "extracted_at": "2025-03-02T19:50:46.529035+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "החלפת יושב ראש וועדה בכנסת תיעשה לפי המלצת ועדת הכנסת ובהצבעת רוב חברי הוועדה\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "החלפת יושב ראש וועדה בכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "וועדת הכנסת",
+          "ClauseLocation": "",
+          "Quote": "ועדת הכנסת"
+        },
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "",
+          "Quote": "בכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "המסמך עוסק בהליך החלפת יושב ראש וועדה בכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  }
+}

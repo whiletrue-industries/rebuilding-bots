@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:23:18.798393+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 42. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_42)\nפקיעת כהונה או מועמדות[תיקון: תשס״א־6]\nחבר הכנסת או מועמד לכנסת שנבחר או נתמנה לאחד התפקידים שנושאיהם מנועים מהיות מועמדים לכנסת, חברותו בכנסת או מועמדותו לכנסת, לפי הענין, נפסקת עם בחירתו או עם התמנותו לאחד התפקידים כאמור; לענין זה, ”מועמד לכנסת“ – מי ששמו כלול ברשימת מועמדים לכנסת, מיום הגשת רשימה עד יום תחילת כהונתו כחבר הכנסת.",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 42",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_42"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הסדרת פקיעת כהונה או מועמדות לחבר הכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון: תשס״א־6",
+        "ReferenceText": "",
+        "ReferenceQuote": "תיקון: תשס״א־6"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חבר הכנסת",
+      "מועמד לכנסת",
+      "כהונה"
+    ],
+    "Topics": [
+      "הסדרת פקיעת כהונה או מועמדות לחבר הכנסת."
+    ]
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_42.md"
+}

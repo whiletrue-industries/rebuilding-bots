@@ -1,0 +1,33 @@
+{
+  "extracted_at": "2025-03-02T19:22:36.392027+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 33. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_33)\n[תיקון: תשס״א־2]\n(בוטל).",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 33",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_33"
+      ],
+      "Language": "עברית",
+      "Version": "תיקון: תשס״א־2",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "This document pertains to the Basic Law: The Knesset."
+    },
+    "LegalReferences": [],
+    "Amendments": [
+      "תיקון: תשס״א־2"
+    ],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_33.md"
+}

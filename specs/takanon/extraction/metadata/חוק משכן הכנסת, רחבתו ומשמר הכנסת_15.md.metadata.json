@@ -1,0 +1,51 @@
+{
+  "extracted_at": "2025-03-02T19:38:40.416438+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 15. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_15)\nסמכות להשתמש בכוח[תיקון: תשנ״ה]\nסדרן או איש משמר הכנסת יהיו רשאים להשתמש בכוח במידה הדרושה למילוי תפקידיהם.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 15",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_15"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "סדרן",
+          "ClauseLocation": "סעיף 15",
+          "Quote": "סדרן או איש משמר הכנסת יהיו רשאים להשתמש בכוח"
+        },
+        {
+          "Role": "איש משמר הכנסת",
+          "ClauseLocation": "סעיף 15",
+          "Quote": "סדרן או איש משמר הכנסת יהיו רשאים להשתמש בכוח"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "סמכות להשתמש בכוח על ידי סדרן או איש משמר הכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון: תשנ״ה",
+        "ReferenceText": "",
+        "ReferenceQuote": "תיקון: תשנ״ה"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "כוח",
+      "תפקידים"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_15.md"
+}

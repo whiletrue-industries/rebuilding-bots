@@ -1,0 +1,27 @@
+{
+  "extracted_at": "2025-03-02T19:50:56.762609+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "לפני כל הצבעה בדיון בוועדה, למעט דיון ייעודי להצבעות, ניתן לבקש לקיים התייעצות סיעתית במשך זמן של חמש דקות לפחות. ההתייעצות תהיה פעם אחת לפני הצבעה ולא תתקיים בהצבעות של רביזיה (דיון מחדש)\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "המסמך מתאר את הליך ההתייעצות הסיעתית לפני הצבעות בוועדה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  }
+}

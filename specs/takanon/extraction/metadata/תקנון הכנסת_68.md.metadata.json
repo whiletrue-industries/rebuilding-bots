@@ -1,0 +1,31 @@
+{
+  "extracted_at": "2025-03-02T19:11:14.185199+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**הגדרות –חלק ו׳**\n\nמקור: חלק ו׳ - מצב חירום / פרק ראשון - הכרזת מצב חירום / סעיף 68\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_68\n\nבחלק זה–",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "הגדרות –חלק ו׳",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ו׳ - מצב חירום / פרק ראשון - הכרזת מצב חירום / סעיף 68",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_68"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הגדרות הקשורות למצב חירום."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "הגדרות –חלק ו׳",
+  "source_file": "תקנון הכנסת_68.md"
+}

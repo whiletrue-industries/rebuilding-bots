@@ -1,0 +1,42 @@
+{
+  "extracted_at": "2025-03-02T19:22:15.712900+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**ביטול מצב חירום**\n\nמקור: חלק ו׳ - מצב חירום / פרק ראשון - הכרזת מצב חירום / סעיף 71\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_71\n\nסברו הממשלה או שלושים חברי הכנסת כי מן הראוי שהכנסת תבטל הכרזה על מצב חירום לפיסעיף 38(ה) לחוק־יסוד: הממשלה, יעבירו את הצעתם אל יושב ראש הכנסת ואל הוועדה המשותפת, והוראותסעיף 69(ג) עד (ה)יחולו בשינויים המחויבים.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "ביטול מצב חירום",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ו׳ - מצב חירום / פרק ראשון - הכרזת מצב חירום / סעיף 71",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_71"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הצעת ביטול הכרזה על מצב חירום על ידי הממשלה או חברי הכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק־יסוד: הממשלה",
+        "ReferenceText": "פיסעיף 38(ה)",
+        "ReferenceQuote": "פיסעיף 38(ה) לחוק־יסוד: הממשלה"
+      },
+      {
+        "ReferenceTitle": "תקנון הכנסת",
+        "ReferenceText": "סעיף 69(ג) עד (ה)",
+        "ReferenceQuote": "הוראות סעיף 69(ג) עד (ה)"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "ביטול מצב חירום",
+  "source_file": "תקנון הכנסת_71.md"
+}

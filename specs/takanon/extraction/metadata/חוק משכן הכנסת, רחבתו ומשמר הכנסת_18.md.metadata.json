@@ -1,0 +1,45 @@
+{
+  "extracted_at": "2025-03-02T19:27:19.895550+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 18. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_18)\nשעות עבודה ומנוחה[תיקון: תשנ״ה]\nחוק שעות עבודה ומנוחה, תשי״א–1951, לא יחול על העבדתם של אנשי משמר הכנסת.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 18",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_18"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "משמר הכנסת",
+          "ClauseLocation": "סעיף 18",
+          "Quote": "לא יחול על העבדתם של אנשי משמר הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "החוק עוסק בשעות עבודה ומנוחה של אנשי משמר הכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק שעות עבודה ומנוחה",
+        "ReferenceText": "חוק שעות עבודה ומנוחה, תשי״א–1951",
+        "ReferenceQuote": "חוק שעות עבודה ומנוחה, תשי״א–1951, לא יחול על העבדתם של אנשי משמר הכנסת."
+      }
+    ],
+    "Amendments": [
+      "תיקון: תשנ״ה"
+    ],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_18.md"
+}

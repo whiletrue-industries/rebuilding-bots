@@ -1,0 +1,48 @@
+{
+  "extracted_at": "2025-03-02T19:38:52.925870+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**הודעה על הנחה על שולחן הכנסת**\n\nמקור: חלק ג׳ - עבודת הכנסת / פרק שני - סדר היום / סעיף 26\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_26\n\nמזכיר הכנסת או סגן למזכיר הכנסת ימסור לכנסת, במהלך ישיבתה, הודעה בדבר המסמכים שהונחו על שולחן הכנסת.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "הודעה על הנחה על שולחן הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ג׳ - עבודת הכנסת / פרק שני - סדר היום / סעיף 26",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_26"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "מזכיר הכנסת",
+          "ClauseLocation": "סעיף 26",
+          "Quote": "מזכיר הכנסת או סגן למזכיר הכנסת ימסור לכנסת"
+        },
+        {
+          "Role": "סגן למזכיר הכנסת",
+          "ClauseLocation": "סעיף 26",
+          "Quote": "מזכיר הכנסת או סגן למזכיר הכנסת ימסור לכנסת"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "סעיף 26",
+          "Quote": "ימסור לכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הודעה על המסמכים שהונחו על שולחן הכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "הודעה על הנחה על שולחן הכנסת",
+  "source_file": "תקנון הכנסת_26.md"
+}

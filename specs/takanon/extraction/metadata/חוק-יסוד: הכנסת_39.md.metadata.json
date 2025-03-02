@@ -1,0 +1,46 @@
+{
+  "extracted_at": "2025-03-02T19:39:23.235479+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 39. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_39)\nשכר חברי הכנסת\nחברי הכנסת יקבלו שכר כפי שנקבע בחוק.ראופרק ט׳ לחוק הכנסת, התשנ״ד–1994.",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 39",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_39"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "סעיף 39",
+          "Quote": "שכר חברי הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "שכר חברי הכנסת יקבע בחוק."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק הכנסת",
+        "ReferenceText": "ראופרק ט׳ לחוק הכנסת, התשנ״ד–1994",
+        "ReferenceQuote": "שכר חברי הכנסת יקבלו שכר כפי שנקבע בחוק."
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "שכר",
+      "חברי הכנסת"
+    ],
+    "Topics": []
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_39.md"
+}

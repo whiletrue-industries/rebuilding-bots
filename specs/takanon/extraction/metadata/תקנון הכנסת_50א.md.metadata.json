@@ -1,0 +1,31 @@
+{
+  "extracted_at": "2025-03-02T19:24:23.529659+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "****\n\nמקור: חלק ד׳ - כלים פרלמנטריים / פרק שלישי - שאילתות / סעיף 50א\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_50א\n\n(פקע).",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חלק ד׳ - כלים פרלמנטריים / פרק שלישי - שאילתות / סעיף 50א",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ד׳ - כלים פרלמנטריים / פרק שלישי - שאילתות / סעיף 50א",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_50א"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "This document outlines parliamentary tools related to inquiries."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חלק ד׳ - כלים פרלמנטריים / פרק שלישי - שאילתות / סעיף 50א",
+  "source_file": "תקנון הכנסת_50א.md"
+}

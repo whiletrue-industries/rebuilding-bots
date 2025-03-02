@@ -1,0 +1,35 @@
+{
+  "extracted_at": "2025-03-02T19:11:27.668149+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**הודעת סיעה בנושא שאינו הצעת חוק**\n\nמקור: חלק ג׳ - עבודת הכנסת / פרק שלישי - סדרי הדיון / סעיף 33\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_33\n\nבדיון בנושא שאינו הצעת חוק, רשאית כל סיעה שלא השתתפה גם בדיון וגם בהצבעה, למסור, עם סיום ההצבעה, הודעה במסגרת זמן שלא תעלה על חמש דקות.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "הודעת סיעה בנושא שאינו הצעת חוק",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ג׳ - עבודת הכנסת / פרק שלישי - סדרי הדיון / סעיף 33",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_33"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הסדרת דיון והודעה של סיעות שלא השתתפו בהצבעה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "הודעת סיעה",
+      "דיון",
+      "הצבעה"
+    ],
+    "Topics": []
+  },
+  "title": "הודעת סיעה בנושא שאינו הצעת חוק",
+  "source_file": "תקנון הכנסת_33.md"
+}

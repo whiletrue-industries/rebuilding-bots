@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:39:32.490516+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק רציפות הדיון בהצעות חוק: **\n\n[מקור: סעיף 3. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_3)\nהסכמת חבר הכנסת\n\n(א)הודעה כאמורבסעיף 1או 2לגבי הצעת חוק שהציע חבר הכנסת היוצאת, לא תימסר אלא אם כן אותו חבר הכנסת מכהן בכנסת הנכנסת ונתן את הסכמתו לכך.(ב)הצעת חוק שהגישו בכנסת היוצאת כמה חברי הכנסת, די בכך שנתקיימו לגבי אחד מהם התנאים האמורים בסעיף קטן (א).",
+  "document_type": "חוק רציפות הדיון בהצעות חוק",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק רציפות הדיון בהצעות חוק",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 3",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_3"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "חבר הכנסת",
+          "ClauseLocation": "סעיף 3",
+          "Quote": "חבר הכנסת היוצאת"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הסכמת חבר הכנסת להודעה לגבי הצעת חוק."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "הצעת חוק",
+      "חבר הכנסת",
+      "הסכמה"
+    ],
+    "Topics": [
+      "הסכמת חבר הכנסת להודעה לגבי הצעת חוק."
+    ]
+  },
+  "title": "חוק רציפות הדיון בהצעות חוק",
+  "source_file": "חוק רציפות הדיון בהצעות חוק_3.md"
+}

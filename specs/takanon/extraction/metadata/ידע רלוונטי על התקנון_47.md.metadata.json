@@ -1,0 +1,36 @@
+{
+  "extracted_at": "2025-03-02T19:51:59.788879+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "חברי הכנסת יכולים לגייס תרומות לטובת הוצאות משפטיות או לטובת טיפולים רפואיים. תרומות אלה לא ייחשבו לעניין הוצאות בחירות אולם הדבר צריך להיות לאחר קבלת אישור ועדת האתיקה. התרומות יכולות להיות בעבור חבר הכנסת עצמו או בן משפחה ועליהן להיות מנוהלות בחשבון בנק נפרד. על גובה התרומה חלות הגבלות כמו גם איסור קבלת תרומה מתאגיד או בעילום שם\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "המסמך עוסק בגיוס תרומות על ידי חברי הכנסת לצורכי הוצאות משפטיות וטיפולים רפואיים."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "תרומות",
+      "הוצאות משפטיות",
+      "טיפולים רפואיים",
+      "אישור ועדת האתיקה",
+      "חשבון בנק נפרד",
+      "הגבלות על גובה התרומה",
+      "איסור קבלת תרומה מתאגיד",
+      "איסור קבלת תרומה בעילום שם"
+    ],
+    "Topics": []
+  }
+}

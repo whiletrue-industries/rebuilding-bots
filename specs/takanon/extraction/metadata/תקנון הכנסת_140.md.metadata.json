@@ -1,0 +1,41 @@
+{
+  "extracted_at": "2025-03-02T19:45:30.296016+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**ארגונים בין־לאומיים**\n\nמקור: חלק ט׳ - שדולות חברי הכנסת וקבוצות ידידות בין־פרלמנטריות / סעיף 140\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_140\n\nיושב ראש הכנסת ימנה את חברי הכנסת שייצגו את הכנסת בארגונים בין־לאומיים שהכנסת חברה או משקיפה בהם, ובמקרים מיוחדים הוא רשאי למנות חבר כנסת המכהן כשר או כסגן שר לנציג כאמור.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "ארגונים בין־לאומיים",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ט׳ - שדולות חברי הכנסת וקבוצות ידידות בין־פרלמנטריות / סעיף 140",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_140"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "סעיף 140",
+          "Quote": "יושב ראש הכנסת ימנה את חברי הכנסת שייצגו את הכנסת בארגונים בין־לאומיים"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הסדרת מינוי חברי הכנסת לארגונים בין־לאומיים."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "שדולות",
+      "חברי הכנסת",
+      "ארגונים בין־לאומיים"
+    ],
+    "Topics": []
+  },
+  "title": "ארגונים בין־לאומיים",
+  "source_file": "תקנון הכנסת_140.md"
+}

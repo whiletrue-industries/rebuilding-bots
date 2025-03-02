@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:45:54.570261+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**הוועדה לפיקוח על הקרן לאזרחי ישראל**\n\nמקור: חלק ח׳ - ועדות הכנסת / פרק ראשון - ועדות קבועות, סמכויותיהן והרכבן / סעיף 105א\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_105א\n\nעל הוועדה לפיקוח על הקרן שהוקמה לפי הוראותחוק קרן לאזרחי ישראל, התשע״ד–2014, יחולו הוראותחלק זהבכפוף להוראותהחוק האמורובשינויים המחויבים.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "הוועדה לפיקוח על הקרן לאזרחי ישראל",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ח׳ - ועדות הכנסת / פרק ראשון - ועדות קבועות, סמכויותיהן והרכבן / סעיף 105א",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_105א"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הוועדה לפיקוח על הקרן לאזרחי ישראל",
+          "ClauseLocation": "סעיף 105א",
+          "Quote": "הוועדה לפיקוח על הקרן לאזרחי ישראל"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הוראות לגבי הוועדה לפיקוח על הקרן לאזרחי ישראל."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק קרן לאזרחי ישראל",
+        "ReferenceText": "חוק קרן לאזרחי ישראל, התשע״ד–2014",
+        "ReferenceQuote": "הוועדה לפיקוח על הקרן שהוקמה לפי הוראות חוק קרן לאזרחי ישראל, התשע״ד–2014"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "הוועדה לפיקוח על הקרן לאזרחי ישראל",
+  "source_file": "תקנון הכנסת_105א.md"
+}

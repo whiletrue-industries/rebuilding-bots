@@ -1,0 +1,46 @@
+{
+  "extracted_at": "2025-03-02T19:50:21.545522+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "לחברי הכנסת הסמכות בהתאם לחוק בתי המשפט לקבוע את מספר שופטי בתי המשפט העליון. הכנסת עושה זאת על סמך המלצת ועדת החוקה, חוק ומשפט וכל קבוצה של 10 חברי כנסת יכולה לבקש מוועדת החוקה לשנות את המספר ולדון בבקשתם. בקשה שכזו צריכה לעלות לדיון בתוך 120 יום מהגשתה\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק בתי המשפט",
+      "PublicationDate": "",
+      "OfficialSource": "חוק בתי המשפט",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "חברי הכנסת",
+          "ClauseLocation": "",
+          "Quote": "לחברי הכנסת הסמכות בהתאם לחוק בתי המשפט לקבוע את מספר שופטי בתי המשפט העליון."
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "ועדת החוקה, חוק ומשפט",
+          "ClauseLocation": "",
+          "Quote": "הכנסת עושה זאת על סמך המלצת ועדת החוקה, חוק ומשפט"
+        }
+      ],
+      "Placenames": [],
+      "Description": "המסמך עוסק בסמכות הכנסת לקבוע את מספר שופטי בתי המשפט העליון."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "שופטים",
+      "בתי המשפט",
+      "הכנסת",
+      "ועדת החוקה"
+    ],
+    "Topics": [
+      "הסמכות לקבוע את מספר שופטי בתי המשפט העליון"
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:38:58.117216+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 17. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_17)\nתנאי שירות[תיקון: תשנ״ה]\nקבלת אנשי משמר הכנסת לשירות ותנאי שירותם יהיו כקבלת שוטרים לשירות וכתנאי שירותם, בתיאומים שקבע יושב־ראש הכנסת.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 17",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_17"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב־ראש הכנסת",
+          "ClauseLocation": "סעיף 17",
+          "Quote": "בתיאומים שקבע יושב־ראש הכנסת"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "תנאי שירות אנשי משמר הכנסת יהיו כקבלת שוטרים לשירות."
+    },
+    "LegalReferences": [],
+    "Amendments": [
+      "תיקון: תשנ״ה"
+    ],
+    "AdditionalKeywords": [
+      "תנאי שירות",
+      "משמר הכנסת",
+      "שוטרים"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_17.md"
+}
