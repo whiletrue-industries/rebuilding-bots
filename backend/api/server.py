@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 
 from botnim.query import run_query
 
-app = FastAPI(openapi_url=None)
+app = FastAPI(openapi_url=None, redirect_slashes=False)
 
 # Enable CORS:
 app.add_middleware(
