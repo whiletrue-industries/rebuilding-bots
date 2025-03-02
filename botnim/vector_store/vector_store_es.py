@@ -27,6 +27,7 @@ class VectorStoreES(VectorStoreBase):
             'basic_auth': (es_username or os.getenv('ES_USERNAME'), es_password or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')),
             'request_timeout': es_timeout,
             'verify_certs': production,
+            'ca_certs': os.getenv('ES_CA_CERT'),
             'ssl_show_warn': production
         }
         print(es_kwargs)
