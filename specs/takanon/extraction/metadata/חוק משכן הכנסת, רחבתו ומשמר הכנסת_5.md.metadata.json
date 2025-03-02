@@ -1,0 +1,52 @@
+{
+  "extracted_at": "2025-03-02T19:27:03.859178+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 5. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_5)\nאיסור לשאת חפץ אסור[תיקון: תשס״ד]\nלא יכניס אדם חפץ אסור ולא יחזיקנו בתוך משכן הכנסת או ברחבה אלא בהיתר מאת יושב־ראש הכנסת.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 5",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_5"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [
+        {
+          "Name": "משכן הכנסת",
+          "ClauseLocation": "סעיף 5",
+          "Quote": "לא יכניס אדם חפץ אסור ולא יחזיקנו בתוך משכן הכנסת"
+        },
+        {
+          "Name": "רחבה",
+          "ClauseLocation": "סעיף 5",
+          "Quote": "ולא יחזיקנו בתוך משכן הכנסת או ברחבה"
+        }
+      ],
+      "Description": "איסור לשאת חפץ אסור בתוך משכן הכנסת או ברחבה."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון",
+        "ReferenceText": "תשס״ד",
+        "ReferenceQuote": "[תיקון: תשס״ד]"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "איסור",
+      "חפץ אסור",
+      "יושב־ראש הכנסת"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_5.md"
+}

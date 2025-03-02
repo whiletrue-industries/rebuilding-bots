@@ -1,0 +1,54 @@
+{
+  "extracted_at": "2025-03-02T19:13:04.602062+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 30. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_30)\nאצילת סמכויות[תיקון: תשנ״ה, תשס״ד]\n\n(א)יושב־ראש הכנסת רשאי לאצול בכתב לסגן יושב־ראש הכנסת את סמכויותיו לפיסעיפים 3(ב),4,6ו־7אם דרך כלל ואם לענין מסויים ואם לשעה.(ב)(בוטל).",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 30",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_30"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב־ראש הכנסת",
+          "ClauseLocation": "סעיף 30",
+          "Quote": "יושב־ראש הכנסת רשאי לאצול בכתב לסגן יושב־ראש הכנסת את סמכויותיו"
+        },
+        {
+          "Role": "סגן יושב־ראש הכנסת",
+          "ClauseLocation": "סעיף 30",
+          "Quote": "יושב־ראש הכנסת רשאי לאצול בכתב לסגן יושב־ראש הכנסת את סמכויותיו"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "החוק עוסק באצילת סמכויות יושב־ראש הכנסת לסגן יושב־ראש הכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון",
+        "ReferenceText": "תשנ״ה, תשס״ד",
+        "ReferenceQuote": "אצילת סמכויות[תיקון: תשנ״ה, תשס״ד]"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "אצילת סמכויות",
+      "יושב־ראש הכנסת",
+      "סגן יושב־ראש הכנסת"
+    ],
+    "Topics": [
+      "יושב־ראש הכנסת רשאי לאצול סמכויותיו לסגן יושב־ראש הכנסת."
+    ]
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_30.md"
+}

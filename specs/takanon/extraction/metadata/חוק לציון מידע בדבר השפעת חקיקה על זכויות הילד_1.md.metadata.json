@@ -1,0 +1,47 @@
+{
+  "extracted_at": "2025-03-02T19:40:48.301633+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד: **\n\n[מקור: סעיף 1. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_1)\nהגדרות\nבחוק זה –”ילד“ – אדם שטרם מלאו לו 18 שנים;”האמנה“ – אמנת האומות המאוחדות בדבר זכויות הילד, אשר אושרה על ידי עצרת האומות המאוחדות ביום כ״ב חשון התש״ן (20 בנובמבר 1989).",
+  "document_type": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 1",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_1"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "אומות המאוחדות",
+          "ClauseLocation": "סעיף 1",
+          "Quote": "האמנה – אמנת האומות המאוחדות בדבר זכויות הילד"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הגדרות הקשורות לזכויות הילד והאמנה הבינלאומית."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "האמנה",
+        "ReferenceText": "אמנת האומות המאוחדות בדבר זכויות הילד",
+        "ReferenceQuote": "האמנה – אמנת האומות המאוחדות בדבר זכויות הילד"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "זכויות הילד",
+      "חקיקה",
+      "הגדרות"
+    ],
+    "Topics": []
+  },
+  "title": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד",
+  "source_file": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד_1.md"
+}

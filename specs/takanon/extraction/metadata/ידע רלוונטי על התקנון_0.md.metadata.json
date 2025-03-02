@@ -1,0 +1,39 @@
+{
+  "extracted_at": "2025-03-02T19:49:25.927902+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "לתקנון הכנסת מעמד משפטי כאילו היה חוק. הוא מקבל את כוחו המשפטי מחוק יסוד הכנסת אולם הליך תיקון התקנון אינו דומה להליך חקיקה של חוק רגיל. תיקוני תקנון נידונים בוועדת הכנסת ומאושרים במליאה אולם לא נדרשים לחתימת הנשיא\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "תקנון הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "ועדת הכנסת",
+          "ClauseLocation": "",
+          "Quote": "תיקוני תקנון נידונים בוועדת הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "התקנון מקבל את כוחו המשפטי מחוק יסוד הכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חוק יסוד הכנסת",
+      "תיקון התקנון",
+      "הליך חקיקה"
+    ],
+    "Topics": [
+      "ההליך לתיקון התקנון אינו דומה להליך חקיקה של חוק רגיל."
+    ]
+  }
+}

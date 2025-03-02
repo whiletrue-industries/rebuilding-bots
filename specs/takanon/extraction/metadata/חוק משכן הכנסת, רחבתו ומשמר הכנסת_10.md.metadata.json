@@ -1,0 +1,51 @@
+{
+  "extracted_at": "2025-03-02T19:08:07.005454+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 10. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_10)\nהוראות סדרן ואיש משמר הכנסת[תיקון: תשנ״ה]\nסדרן או איש משמר הכנסת רשאים להורות לכל אדם לעשות מעשה או להימנע מעשותו כדי למלא אחר הוראות חוק זה או הוראות שניתנו לפיו.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 10",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_10"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "סדרן",
+          "ClauseLocation": "סעיף 10",
+          "Quote": "סדרן או איש משמר הכנסת רשאים להורות לכל אדם לעשות מעשה או להימנע מעשותו"
+        },
+        {
+          "Role": "איש משמר הכנסת",
+          "ClauseLocation": "סעיף 10",
+          "Quote": "סדרן או איש משמר הכנסת רשאים להורות לכל אדם לעשות מעשה או להימנע מעשותו"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הוראות סדרן ואיש משמר הכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [
+      {
+        "AmendmentText": "תיקון: תשנ״ה",
+        "AmendmentQuote": "תיקון: תשנ״ה"
+      }
+    ],
+    "AdditionalKeywords": [
+      "חוק",
+      "סדרן",
+      "איש משמר"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_10.md"
+}

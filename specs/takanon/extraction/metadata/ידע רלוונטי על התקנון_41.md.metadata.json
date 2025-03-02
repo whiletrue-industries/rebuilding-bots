@@ -1,0 +1,37 @@
+{
+  "extracted_at": "2025-03-02T19:51:34.285446+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "לחבר כנסת אסור להעסיק את היועץ הפרלמנטרי במשימות אישיות והדבר מהווה עבירה על סעיף 2 לכללי האתיקה של חברי הכנסת\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "כללי האתיקה של חברי הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 2",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "חבר כנסת",
+          "ClauseLocation": "סעיף 2",
+          "Quote": "לחבר כנסת אסור להעסיק את היועץ הפרלמנטרי במשימות אישיות"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "איסור על חבר הכנסת להעסיק את היועץ הפרלמנטרי במשימות אישיות."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "יועץ פרלמנטרי",
+      "עבירה",
+      "אתיקה"
+    ],
+    "Topics": []
+  }
+}

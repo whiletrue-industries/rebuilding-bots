@@ -1,0 +1,38 @@
+{
+  "extracted_at": "2025-03-02T19:50:06.925539+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "במידה ומוגשת בקשת אי אמון בידי 61 חברי כנסת ומעלה, יושב ראש הכנסת מחויב לקבוע את הדיון לא יאוחר משבוע מיום ההגשה, לרבות בזמן פגרת הכנסת\n\nקשור לסעיף:\n44(ה)(3)\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 44(ה)(3)",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "",
+          "Quote": "יושב ראש הכנסת מחויב לקבוע את הדיון לא יאוחר משבוע מיום ההגשה"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הוראות לגבי קביעת דיון בבקשת אי אמון."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "בקשת אי אמון",
+      "חברי כנסת",
+      "דיון",
+      "פגרת הכנסת"
+    ],
+    "Topics": []
+  }
+}

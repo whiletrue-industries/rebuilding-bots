@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:39:35.898158+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**קביעת תקדימים**\n\nמקור: חלק י׳ - תקנון הכנסת / פרק ראשון - תקדימים ופירושים / סעיף 141\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_141\n\nשאלה הנוגעת לדיוני הכנסת שאין לה הוראה בתקנון זה, תחליט בה ועדת הכנסת, והחלטתה תהיה תקדים מחייב כל עוד לא תוקן תקנון זה באותו עניין.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "קביעת תקדימים",
+      "PublicationDate": "",
+      "OfficialSource": "חלק י׳ - תקנון הכנסת / פרק ראשון - תקדימים ופירושים / סעיף 141",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_141"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "ועדת הכנסת",
+          "ClauseLocation": "סעיף 141",
+          "Quote": "ועדת הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "החלטות ועדת הכנסת יהיו תקדימים מחייבים לדיונים שאין להם הוראה בתקנון."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "תקלות",
+      "תקדימים",
+      "הוראות"
+    ],
+    "Topics": [
+      "שאלה הנוגעת לדיוני הכנסת שאין לה הוראה בתקנון זה, תחליט בה ועדת הכנסת."
+    ]
+  },
+  "title": "קביעת תקדימים",
+  "source_file": "תקנון הכנסת_141.md"
+}

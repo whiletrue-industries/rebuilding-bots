@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:14:44.400713+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**ועדה לעניין מסוים**\n\nמקור: חלק ח׳ - ועדות הכנסת / פרק שלישי - ועדות לעניין מסוים, ועדות משנה, ועדות משותפות / סעיף 108\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_108\n\nהכנסת רשאית לבחור, לפי הצעת ועדת הכנסת, ועדה לעניין מסוים כאמורבסעיף 21(א) לחוק־יסוד: הכנסת, ולקבוע את תחומי ענייניה וסמכויותיה; דינה של ועדה לעניין מסוים כדין ועדה קבועה לכל דבר, פרט לתקופת כהונתה, ויחולו עליה, במהלך תקופת כהונתה של הכנסת שבה נבחרה או בתקופה שבה קבעה הכנסת כי תפעל, הוראותחלק זהכפי שהן חלות על ועדה קבועה, ככל שהכנסת לא קבעה אחרת.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "ועדה לעניין מסוים",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ח׳ - ועדות הכנסת / פרק שלישי - ועדות לעניין מסוים, ועדות משנה, ועדות משותפות / סעיף 108",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_108"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "סעיף 108",
+          "Quote": "הכנסת רשאית לבחור, לפי הצעת ועדת הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הכנסת רשאית לבחור ועדה לעניין מסוים ולקבוע את תחומי ענייניה וסמכויותיה."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק־יסוד: הכנסת",
+        "ReferenceText": "סעיף 21(א)",
+        "ReferenceQuote": "לפי הצעת ועדת הכנסת, ועדה לעניין מסוים כאמור בסעיף 21(א) לחוק־יסוד: הכנסת"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "ועדה לעניין מסוים",
+  "source_file": "תקנון הכנסת_108.md"
+}

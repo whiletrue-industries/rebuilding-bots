@@ -1,0 +1,46 @@
+{
+  "extracted_at": "2025-03-02T19:09:01.478812+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 18. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_18)\nחסינות בנייני הכנסת\nלבנייני הכנסת תהיה חסינות; פרטים ייקבעו בחוק.ראוחוק משכן הכנסת, רחבתו ומשמר הכנסת, תשכ״ח–1968.",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 18",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_18"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "משכן הכנסת",
+          "ClauseLocation": "סעיף 18",
+          "Quote": "ראוחוק משכן הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "חסינות בנייני הכנסת"
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק משכן הכנסת",
+        "ReferenceText": "חוק משכן הכנסת, רחבתו ומשמר הכנסת, תשכ״ח–1968",
+        "ReferenceQuote": "חוק משכן הכנסת, רחבתו ומשמר הכנסת, תשכ״ח–1968"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חסינות",
+      "בנייני הכנסת"
+    ],
+    "Topics": []
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_18.md"
+}

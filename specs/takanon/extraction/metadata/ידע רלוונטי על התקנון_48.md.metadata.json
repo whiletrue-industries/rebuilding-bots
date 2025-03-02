@@ -1,0 +1,44 @@
+{
+  "extracted_at": "2025-03-02T19:52:03.343207+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "לחבר כנסת אסור לקבל כל מתנה בין אם בכסף או בשווי כסף אלא אם מדובר במתנה סמלית (עד 250ש\"ח לפי ועדת האתיקה ב2015). האמור חל על קבלת תלושי קנייה, כרטיסים לאירועים, הנחות ברכישת מוצרים וכיוצא באלה\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "חבר כנסת",
+          "ClauseLocation": "",
+          "Quote": "לחבר כנסת אסור לקבל כל מתנה"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "ועדת האתיקה",
+          "ClauseLocation": "",
+          "Quote": "לפי ועדת האתיקה ב2015"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הגבלות על קבלת מתנות על ידי חברי הכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "מתנה",
+      "תלושי קנייה",
+      "כרטיסים לאירועים",
+      "הנחות"
+    ],
+    "Topics": []
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:20:09.835603+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**תחילת תוקף ופרסום**\n\nמקור: חלק י׳ - תקנון הכנסת / פרק שני - תיקון תקנון הכנסת / סעיף 146\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_146\n\n * (א) תחילתו של תיקון תקנון זה עם אישורו על ידי הכנסת, אלא אם כן נקבע בו מועד מאוחר יותר.\n * (ב) יושב ראש הכנסת יפרסם ברשומות את נוסח התיקון שהתקבל.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "תחילת תוקף ופרסום",
+      "PublicationDate": "",
+      "OfficialSource": "חלק י׳ - תקנון הכנסת / פרק שני - תיקון תקנון הכנסת / סעיף 146",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_146"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "(ב)",
+          "Quote": "יושב ראש הכנסת יפרסם ברשומות את נוסח התיקון שהתקבל."
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "תיאור תחילת תוקף ופרסום תיקון תקנון הכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "תיקון",
+      "תקנון הכנסת",
+      "אישור"
+    ],
+    "Topics": [
+      "תחילת תוקף התיקון עם אישור הכנסת."
+    ]
+  },
+  "title": "תחילת תוקף ופרסום",
+  "source_file": "תקנון הכנסת_146.md"
+}

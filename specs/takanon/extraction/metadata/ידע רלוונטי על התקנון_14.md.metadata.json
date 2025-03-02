@@ -1,0 +1,31 @@
+{
+  "extracted_at": "2025-03-02T19:50:03.978867+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "מי שמנהל את ישיבת מליאת הכנסת יכול להוציא חבר כנסת מהמליאה בשל הפרה חמורה הקשורה בהצגת חפץ או כיתוב, גם אם לא קראו לו בשלוש קריאות קודם לכן.\n\nקשור לסעיף:\n42(ב)(2)\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 42(ב)(2)",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "Regulations regarding the expulsion of a Knesset member from a session due to serious violations."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חבר כנסת",
+      "מליאת הכנסת",
+      "הפרה חמורה"
+    ],
+    "Topics": []
+  }
+}

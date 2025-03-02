@@ -1,0 +1,49 @@
+{
+  "extracted_at": "2025-03-02T19:43:18.589536+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 26. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_26)\nהגשת תביעה פלילית\nלא תוגש תביעה פלילית נגד אדם בשל עבירה על חוק זה, ולא יהא היועץ המשפטי לממשלה רשאי לצוות על הפסקת הליכים שנפתחו – אלא על דעת יושב־ראש הכנסת.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 26",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_26"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב־ראש הכנסת",
+          "ClauseLocation": "סעיף 26",
+          "Quote": "אלא על דעת יושב־ראש הכנסת"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "היועץ המשפטי לממשלה",
+          "ClauseLocation": "סעיף 26",
+          "Quote": "ולא יהא היועץ המשפטי לממשלה רשאי"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הגשת תביעה פלילית נגד אדם בשל עבירה על חוק זה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "תביעה פלילית",
+      "חוק",
+      "יושב־ראש הכנסת"
+    ],
+    "Topics": [
+      "לא תוגש תביעה פלילית נגד אדם בשל עבירה על חוק זה."
+    ]
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_26.md"
+}

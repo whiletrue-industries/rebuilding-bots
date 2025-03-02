@@ -1,0 +1,41 @@
+{
+  "extracted_at": "2025-03-02T19:19:38.117668+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 42ב. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_42ב)\nהשעיה[תיקון: תשמ״א, תש״ס, תשס״ז]\n\n(א)חבר הכנסת שהורשע בעבירה פלילית וקבע בית המשפט, ביזמתו או לבקשת היועץ המשפטי לממשלה, שיש עם העבירה קלון, יושעה מכהונתו בכנסת מיום קביעת בית המשפט ועד למועד שבו פסק הדין נעשה סופי.(ב)חבר הכנסת שהורשע בעבירה פלילית ונידון למאסר, יושעה מכהונתו בכנסת למשך הזמן שהוא נושא את עונש המאסר.(ב1)הוראות סעיף זה יחולו גם על חבר הכנסת שהורשע בעבירה כאמור בסעיפים קטנים (א) או (ב) לפני היותו חבר הכנסת.(ג)(בוטל).",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 42ב",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_42ב"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הוראות השעיה של חבר הכנסת שהורשע בעבירה פלילית."
+    },
+    "LegalReferences": [],
+    "Amendments": [
+      "תיקון: תשמ״א, תש״ס, תשס״ז"
+    ],
+    "AdditionalKeywords": [
+      "חבר הכנסת",
+      "השעיה",
+      "עבירה פלילית",
+      "קלון",
+      "מאסר"
+    ],
+    "Topics": [
+      "חבר הכנסת שהורשע בעבירה פלילית יושעה מכהונתו."
+    ]
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_42ב.md"
+}

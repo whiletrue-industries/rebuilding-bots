@@ -1,0 +1,54 @@
+{
+  "extracted_at": "2025-03-02T19:31:05.696651+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק רציפות הדיון בהצעות חוק: **\n\n[מקור: סעיף 6. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_6)\nדין רציפות\n\n(א)לא הוצעה הצעה כאמורבסעיף 5, יודיע יושב ראש הכנסת על כך בכנסת, והכנסת תצביע, ללא דיון, אם להחיל רציפות.(ב)החליטה הכנסת להחיל רציפות כאמור בסעיף קטן (א), או שהוצעה הצעה כאמורבסעיף 5, ונדחתה על ידי הכנסת, תמשיך הכנסת הנכנסת, לדון בהצעת החוק ורשאית היא לנהוג בדיונים שנתקיימו בכנסת היוצאת כאילו היו אלה דיונים שלה.",
+  "document_type": "חוק רציפות הדיון בהצעות חוק",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק רציפות הדיון בהצעות חוק",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 6",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_6"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "(א)",
+          "Quote": "יודיע יושב ראש הכנסת על כך בכנסת"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "(א)",
+          "Quote": "הכנסת תצביע, ללא דיון"
+        },
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "(ב)",
+          "Quote": "תמשיך הכנסת הנכנסת, לדון בהצעת החוק"
+        }
+      ],
+      "Placenames": [],
+      "Description": "החוק עוסק ברציפות הדיון בהצעות חוק בכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "רציפות",
+      "הצעות חוק",
+      "הכנסת"
+    ],
+    "Topics": [
+      "דין רציפות"
+    ]
+  },
+  "title": "חוק רציפות הדיון בהצעות חוק",
+  "source_file": "חוק רציפות הדיון בהצעות חוק_6.md"
+}

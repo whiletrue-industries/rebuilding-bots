@@ -1,0 +1,48 @@
+{
+  "extracted_at": "2025-03-02T19:21:46.245847+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 16. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_16)\nתקיפת אדם מוסמך[תיקון: תשנ״ה, תשס״ד, תשס״ו]\nהתוקף אדם מוסמך כשהוא ממלא תפקידו כדין או המפריע לאדם מוסמך במילוי תפקידו או מכשילו בכך, רואים אותו כאילו עשה כאמור כלפי שוטר (כמשמעותובפקודת המשטרה), ויחול עליוהחוק לתיקון דיני העונשין (תקיפת שוטרים), תשי״ב–1952.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 16",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_16"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "החוק עוסק בתקיפת אדם מוסמך במילוי תפקידו."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "פקודת המשטרה",
+        "ReferenceText": "כמשמעות ובפקודת המשטרה",
+        "ReferenceQuote": "כמשמעות ובפקודת המשטרה"
+      },
+      {
+        "ReferenceTitle": "תיקון דיני העונשין (תקיפת שוטרים)",
+        "ReferenceText": "ויחול עליוהחוק לתיקון דיני העונשין (תקיפת שוטרים), תשי״ב–1952",
+        "ReferenceQuote": "ויחול עליוהחוק לתיקון דיני העונשין (תקיפת שוטרים), תשי״ב–1952"
+      }
+    ],
+    "Amendments": [
+      "תיקון: תשנ״ה, תשס״ד, תשס״ו"
+    ],
+    "AdditionalKeywords": [
+      "תקיפת אדם מוסמך",
+      "תפקיד",
+      "שוטרים"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_16.md"
+}

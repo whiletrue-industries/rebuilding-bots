@@ -1,0 +1,37 @@
+{
+  "extracted_at": "2025-03-02T19:50:17.761071+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "בדיון במליאת הכנסת על הצעה לסדר היום יכולה כל סיעה להגיש הצעה לסיכום הדיון ולבקש כי הכנסת תצביע עליה. הכנסת תצביע על הצעות הסיכום לפי סדר גודל המגישים שלה\n\nקשור לסעיף:\n56\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "הצעה לסדר היום",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 56",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "בדיון במליאת הכנסת",
+          "Quote": "הכנסת תצביע על הצעות הסיכום"
+        }
+      ],
+      "Placenames": [],
+      "Description": "דיון במליאת הכנסת על הצעה לסדר היום והצעות לסיכום."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "הצעה לסדר היום",
+      "סיכום הדיון",
+      "הצבעה"
+    ],
+    "Topics": []
+  }
+}

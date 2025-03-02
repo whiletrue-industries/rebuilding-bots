@@ -1,0 +1,48 @@
+{
+  "extracted_at": "2025-03-02T19:08:30.214318+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם: **\n\n[מקור: סעיף 12א. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_12א)\nכלי יריה[תיקון: תשנ״א]\nקצין הכנסת רשאי לתת תעודת הרשאה לחבר הכנסת לשאת כלי יריה של הכנסת; לא יתן קצין הכנסת תעודת הרשאה לפי סעיף זה אלא לאחר שחבר הכנסת עבר, להנחת דעתו של קצין הכנסת, הכשרה מתאימה בשימוש בכלי היריה שהוא מבקש לשאת, והפעיל אותו במטווח.",
+  "document_type": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 12א.",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_12א"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "קצין הכנסת",
+          "ClauseLocation": "סעיף 12א.",
+          "Quote": "קצין הכנסת רשאי לתת תעודת הרשאה לחבר הכנסת לשאת כלי יריה של הכנסת"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "החוק מתאר את זכויות וחובות חברי הכנסת בנוגע לשאת כלי יריה."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון: תשנ״א",
+        "ReferenceText": "",
+        "ReferenceQuote": "תיקון: תשנ״א"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חסינות",
+      "חבר הכנסת",
+      "כלי יריה",
+      "תעודת הרשאה"
+    ],
+    "Topics": []
+  },
+  "title": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם",
+  "source_file": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם_12א.md"
+}
