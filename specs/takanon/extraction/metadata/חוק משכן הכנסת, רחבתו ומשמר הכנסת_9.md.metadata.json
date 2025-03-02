@@ -1,0 +1,42 @@
+{
+  "extracted_at": "2025-03-02T19:24:28.049282+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 9. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_9)\nקצין הכנסת, מפקד הסדרנים ואנשי משמר הכנסת[תיקון: תשנ״ה, תשס״ד]\n\n(א)קצין הכנסת יפקד על הסדרנים ועל אנשי משמר הכנסת.(ב)(בוטל).",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 9",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_9"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "קצין הכנסת",
+          "ClauseLocation": "סעיף 9",
+          "Quote": "קצין הכנסת, מפקד הסדרנים ואנשי משמר הכנסת"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "החוק עוסק במינוי ובתפקידים של קצין הכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [
+      {
+        "AmendmentText": "תיקון: תשנ״ה, תשס״ד",
+        "AmendmentQuote": "קצין הכנסת, מפקד הסדרנים ואנשי משמר הכנסת"
+      }
+    ],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_9.md"
+}

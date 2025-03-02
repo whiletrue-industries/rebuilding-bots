@@ -1,0 +1,40 @@
+{
+  "extracted_at": "2025-03-02T19:51:15.655655+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "סעיף 6 לכללי האתיקה של חברי הכנסת מחייב את חברי הכנסת להודיע על ניגוד עניינים (עניין אישי כנוסח הסעיף) בטרם השתתפות בדיון או בהצבעה. לחבר הכנסת אין איסור על להשתתף בדיון אולם אסור עליו להצביע בוועדה. לחבר הכנסת מותר להצביע במליאה ואף ליזום פעולות אולם הוא מחוייב בדיווח על כך.\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "כללי האתיקה של חברי הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 6",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "חבר הכנסת",
+          "ClauseLocation": "סעיף 6",
+          "Quote": "חברי הכנסת להודיע על ניגוד עניינים"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הסעיף מחייב את חברי הכנסת להודיע על ניגוד עניינים לפני השתתפות בדיון או הצבעה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "ניגוד עניינים",
+      "הצבעה",
+      "דיון"
+    ],
+    "Topics": [
+      "חבר הכנסת יכול להשתתף בדיון אך לא להצביע בוועדה.",
+      "חבר הכנסת יכול להצביע במליאה וליזום פעולות עם דיווח."
+    ]
+  }
+}

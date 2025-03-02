@@ -1,0 +1,68 @@
+{
+  "extracted_at": "2025-03-02T19:13:54.548622+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 12. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_12)\nהרחקת מפר הוראות[תיקון: תשס״ד]\nקצין הכנסת, איש משמר הכנסת או סדרן רשאים להרחיק אדם ממשכן הכנסת והרחבה אם לא ציית להוראות שניתנו כדין, או הפר את הסדר במשכן או ברחבה, או שקיים יסוד סביר לחשוד שהוא עלול להפר את הסדר בהם, או שנכנס למקום שהכניסה אליו לא הותרה לו.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 12",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_12"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "קצין הכנסת",
+          "ClauseLocation": "סעיף 12",
+          "Quote": "קצין הכנסת, איש משמר הכנסת או סדרן רשאים להרחיק אדם"
+        },
+        {
+          "Role": "איש משמר הכנסת",
+          "ClauseLocation": "סעיף 12",
+          "Quote": "קצין הכנסת, איש משמר הכנסת או סדרן רשאים להרחיק אדם"
+        },
+        {
+          "Role": "סדרן",
+          "ClauseLocation": "סעיף 12",
+          "Quote": "קצין הכנסת, איש משמר הכנסת או סדרן רשאים להרחיק אדם"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [
+        {
+          "Name": "משכן הכנסת",
+          "ClauseLocation": "סעיף 12",
+          "Quote": "להרחיק אדם ממשכן הכנסת והרחבה"
+        },
+        {
+          "Name": "הרחבה",
+          "ClauseLocation": "סעיף 12",
+          "Quote": "להרחיק אדם ממשכן הכנסת והרחבה"
+        }
+      ],
+      "Description": "הוראות על הרחקת מפרי סדר ממשכן הכנסת והרחבה."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון",
+        "ReferenceText": "תיקון: תשס״ד",
+        "ReferenceQuote": "תיקון: תשס״ד"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "הרחקה",
+      "סדר",
+      "הוראות"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_12.md"
+}

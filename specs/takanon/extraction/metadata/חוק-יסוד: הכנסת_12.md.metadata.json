@@ -1,0 +1,39 @@
+{
+  "extracted_at": "2025-03-02T19:16:18.548991+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 12. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_12)\nכינוס הכנסת[תיקון: תשס״ו]\nהכנסת תתכנס לישיבתה הראשונה, לאחר פרסום תוצאות הבחירות, בתוך ארבעה עשר ימים מיום הבחירות לכנסת במועד שייקבע בחוק, אלא אם כן נקבע בחוק מועד סמוך אחר בשל יום מנוחה, חג, מועד, יום זיכרון או בשל סמיכות לאחד מהם, או בשל חול המועד.",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 12",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_12"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הכנסת תתכנס לישיבתה הראשונה לאחר פרסום תוצאות הבחירות."
+    },
+    "LegalReferences": [],
+    "Amendments": [
+      "תיקון: תשס״ו"
+    ],
+    "AdditionalKeywords": [
+      "כנסת",
+      "ישיבה",
+      "בחירות"
+    ],
+    "Topics": [
+      "הכנסת תתכנס לישיבתה הראשונה לאחר פרסום תוצאות הבחירות."
+    ]
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_12.md"
+}

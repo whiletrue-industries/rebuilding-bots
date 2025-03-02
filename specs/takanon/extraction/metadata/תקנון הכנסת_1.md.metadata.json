@@ -1,0 +1,31 @@
+{
+  "extracted_at": "2025-03-02T19:32:36.900290+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**הגדרות ופרשנות**\n\nמקור: חלק א׳ - הגדרות ופרשנות / סעיף 1\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_1\n\n * (א) בתקנון זה –\n * (ב) ימי הפגרה יבואו במניין התקופות האמורות בתקנון זה, אלא אם כן נאמר אחרת.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "הגדרות ופרשנות",
+      "PublicationDate": "",
+      "OfficialSource": "חלק א׳ - הגדרות ופרשנות / סעיף 1",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_1"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הגדרות ופרשנות של תקנון הכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "הגדרות ופרשנות",
+  "source_file": "תקנון הכנסת_1.md"
+}

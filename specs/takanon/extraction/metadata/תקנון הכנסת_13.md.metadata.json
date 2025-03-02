@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:20:54.210613+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**השתתפות בישיבות**\n\nמקור: חלק ב׳ - ארגון הכנסת / פרק שלישי - חברי הכנסת / סעיף 13\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_13\n\nחבר הכנסת יתמיד כמיטב יכולתו בהשתתפות בישיבות הכנסת ובישיבות הוועדות שהוא חבר בהן.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "השתתפות בישיבות",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ב׳ - ארגון הכנסת / פרק שלישי - חברי הכנסת / סעיף 13",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_13"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "חבר הכנסת",
+          "ClauseLocation": "סעיף 13",
+          "Quote": "חבר הכנסת יתמיד כמיטב יכולתו בהשתתפות בישיבות הכנסת ובישיבות הוועדות שהוא חבר בהן."
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "סעיף 13",
+          "Quote": "חבר הכנסת יתמיד כמיטב יכולתו בהשתתפות בישיבות הכנסת ובישיבות הוועדות שהוא חבר בהן."
+        }
+      ],
+      "Placenames": [],
+      "Description": "המסמך עוסק בהשתתפות חברי הכנסת בישיבות הכנסת ובישיבות הוועדות."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "השתתפות בישיבות",
+  "source_file": "תקנון הכנסת_13.md"
+}

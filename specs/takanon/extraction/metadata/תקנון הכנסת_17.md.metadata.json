@@ -1,0 +1,49 @@
+{
+  "extracted_at": "2025-03-02T19:41:13.265673+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**הצהרת אמונים**\n\nמקור: חלק ב׳ - ארגון הכנסת / פרק שלישי - חברי הכנסת / סעיף 17\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_17\n\nקרא יושב ראש הישיבה לחבר הכנסת להצהיר אמונים והצהיר חבר הכנסת שלא כלשון החוק, יקבע היושב ראש שחבר הכנסת לא הצהיר אמונים ויחולו לגביו הוראותסעיף 16 לחוק־יסוד: הכנסת, כאילו לא הצהיר אמונים.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "הצהרת אמונים",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ב׳ - ארגון הכנסת / פרק שלישי - חברי הכנסת / סעיף 17",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_17"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הישיבה",
+          "ClauseLocation": "סעיף 17",
+          "Quote": "קרא יושב ראש הישיבה לחבר הכנסת להצהיר אמונים"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "סעיף 17",
+          "Quote": "חוק־יסוד: הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הצהרת אמונים של חבר הכנסת והוראות במקרה של אי הצהרה."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק־יסוד: הכנסת",
+        "ReferenceText": "סעיף 16",
+        "ReferenceQuote": "הוראות סעיף 16 לחוק־יסוד: הכנסת"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "הצהרת אמונים",
+  "source_file": "תקנון הכנסת_17.md"
+}

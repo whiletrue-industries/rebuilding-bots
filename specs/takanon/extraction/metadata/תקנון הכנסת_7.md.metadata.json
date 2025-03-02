@@ -1,0 +1,61 @@
+{
+  "extracted_at": "2025-03-02T19:31:44.376230+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**פרסום ברשומות לעניין יושב ראש הכנסת וסגניו**\n\nמקור: חלק ב׳ - ארגון הכנסת / פרק ראשון - יושב ראש הכנסת וסגניו / סעיף 7\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_7\n\nלגבי יושב ראש הכנסת וסגניו תפורסם הודעה ברשומות מטעם הכנסת בעניינים אלה:\n * (1) בחירה, השעיה או סיום כהונתו של יושב ראש הכנסת או של סגן ליושב ראש הכנסת;\n * (2) כהונת סגן ליושב ראש הכנסת כיושב ראש הכנסת בפועל לפיסעיף 20א לחוק־יסוד: הכנסת.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "פרסום ברשומות לעניין יושב ראש הכנסת וסגניו",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ב׳ - ארגון הכנסת / פרק ראשון - יושב ראש הכנסת וסגניו / סעיף 7",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_7"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "סעיף 7",
+          "Quote": "יושב ראש הכנסת"
+        },
+        {
+          "Role": "סגן ליושב ראש הכנסת",
+          "ClauseLocation": "סעיף 7",
+          "Quote": "סגן ליושב ראש הכנסת"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "סעיף 7",
+          "Quote": "מטעם הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הודעה ברשומות על בחירה, השעיה או סיום כהונה של יושב ראש הכנסת וסגניו."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק־יסוד: הכנסת",
+        "ReferenceText": "פיסעיף 20א",
+        "ReferenceQuote": "כהונת סגן ליושב ראש הכנסת כיושב ראש הכנסת בפועל לפיסעיף 20א לחוק־יסוד: הכנסת"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "יושב ראש הכנסת",
+      "סגן ליושב ראש הכנסת",
+      "הודעה ברשומות"
+    ],
+    "Topics": [
+      "בחירה, השעיה או סיום כהונתו של יושב ראש הכנסת או של סגן ליושב ראש הכנסת",
+      "כהונת סגן ליושב ראש הכנסת כיושב ראש הכנסת בפועל"
+    ]
+  },
+  "title": "פרסום ברשומות לעניין יושב ראש הכנסת וסגניו",
+  "source_file": "תקנון הכנסת_7.md"
+}

@@ -1,0 +1,36 @@
+{
+  "extracted_at": "2025-03-02T19:20:21.649607+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק רציפות הדיון בהצעות חוק: **\n\n[מקור: סעיף 1. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_1)\nהצעת הממשלה\nהצעת חוק שכנסת יוצאת העבירה לאחר קריאה ראשונה לאחת מועדותיה, רשאית ממשלה שנתכוננה בכנסת הנכנסת, להודיע במליאת הכנסת על רצונה שיחול עליה דין רציפות כאמורבסעיף 6.",
+  "document_type": "חוק רציפות הדיון בהצעות חוק",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק רציפות הדיון בהצעות חוק",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 1.",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_1"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הצעת חוק המאפשרת לממשלה להודיע על רצונה שיחול עליה דין רציפות לאחר קריאה ראשונה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "רציפות",
+      "הצעת חוק",
+      "ממשלה",
+      "כנסת"
+    ],
+    "Topics": []
+  },
+  "title": "חוק רציפות הדיון בהצעות חוק",
+  "source_file": "חוק רציפות הדיון בהצעות חוק_1.md"
+}

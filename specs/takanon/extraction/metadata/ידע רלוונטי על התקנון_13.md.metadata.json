@@ -1,0 +1,27 @@
+{
+  "extracted_at": "2025-03-02T19:50:01.745641+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "לחברי הכנסת אסור לעשות שימוש במליאת הכנסת בכל חפץ או כיתוב לצורך הבעת עמדה. פעולה שכזו יכולה להוביל להוצאת חבר הכנסת מהמליאה\n\nקשור לסעיף:\n41(ה)\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 41(ה)",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "חברי הכנסת אסור לעשות שימוש במליאת הכנסת בכל חפץ או כיתוב לצורך הבעת עמדה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  }
+}

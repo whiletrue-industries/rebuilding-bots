@@ -1,0 +1,37 @@
+{
+  "extracted_at": "2025-03-02T19:50:14.710636+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "בהצעה דחופה לסדר היום ובבקשה לדיו מהיר יכולים רק חבר כנסת אחד, מכל סיעה, להגיש על אותו הנושא.\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "הצעה דחופה לסדר היום",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "חבר כנסת",
+          "ClauseLocation": "",
+          "Quote": "חבר כנסת אחד, מכל סיעה"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הצעה דחופה לסדר היום המאפשרת לחבר כנסת אחד מכל סיעה להגיש בקשה לדיו מהיר."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "הצעה דחופה",
+      "סדר היום",
+      "בקשה לדיו מהיר"
+    ],
+    "Topics": []
+  }
+}

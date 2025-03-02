@@ -1,0 +1,31 @@
+{
+  "extracted_at": "2025-03-02T19:07:54.150872+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**צילום ישיבות הכנסת**\n\nמקור: חלק ג׳ - עבודת הכנסת / פרק חמישי - תיעוד ישיבות מליאת הכנסת / סעיף 40\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_40\n\nישיבות הכנסת יצולמו ויהיו זמינות לצפייה באמצעים אלקטרוניים לציבור הרחב.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "צילום ישיבות הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ג׳ - עבודת הכנסת / פרק חמישי - תיעוד ישיבות מליאת הכנסת / סעיף 40",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_40"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "ישיבות הכנסת יצולמו ויהיו זמינות לצפייה באמצעים אלקטרוניים לציבור הרחב."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "צילום ישיבות הכנסת",
+  "source_file": "תקנון הכנסת_40.md"
+}

@@ -1,0 +1,41 @@
+{
+  "extracted_at": "2025-03-02T19:30:39.555350+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**ייחוד ההופעה**\n\nמקור: חלק ח׳ - ועדות הכנסת / פרק שביעי - מוזמנים לישיבות הוועדות ומסירת מידע לוועדות / סעיף 126\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_126\n\nיושב ראש ועדה רשאי להתיר למי שזומן להתייצב לפני ועדה או שהוזמן אליה להופיע לפני הוועדה שלא בנוכחות אחרים, שאינם חברי הכנסת, שרים, סגני שרים או נציגי הממשלה, אם ביקש זאת לפני תחילת הישיבה והיושב ראש נוכח כי יש הצדקה לכך, בנסיבות העניין.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "ייחוד ההופעה",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ח׳ - ועדות הכנסת / פרק שביעי - מוזמנים לישיבות הוועדות ומסירת מידע לוועדות / סעיף 126",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_126"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש ועדה",
+          "ClauseLocation": "סעיף 126",
+          "Quote": "יושב ראש ועדה רשאי להתיר למי שזומן להתייצב לפני ועדה"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "סעיף המתיר ליושב ראש ועדה לאשר הופעת מוזמנים בישיבות הוועדה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "וועדה",
+      "מוזמנים",
+      "הופעה"
+    ],
+    "Topics": []
+  },
+  "title": "ייחוד ההופעה",
+  "source_file": "תקנון הכנסת_126.md"
+}
