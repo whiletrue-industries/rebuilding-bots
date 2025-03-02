@@ -6,8 +6,8 @@ from datetime import datetime
 
 from elasticsearch import Elasticsearch
 from openai import OpenAI
-from botnim.config import get_logger
-from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
+from ..config import get_logger
+from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
 

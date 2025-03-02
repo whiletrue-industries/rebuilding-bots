@@ -21,7 +21,7 @@ app.add_middleware(
 @app.get("/retrieve/{bot}/{context}")
 async def search_datasets_handler(bot: str, context: str, query: str, num_results: int=10, environment: str='production') -> List[Dict[str, Any]]:
     results = run_query(query, environment, bot, context, num_results)
-    return results
+    return [dataclasses.asdict(result) for result in results]
 
 # Run the server with:
 # uvicorn server:app --reload
