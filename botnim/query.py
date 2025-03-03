@@ -5,8 +5,9 @@ from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS
 import yaml
+import logging
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 @dataclass
 class SearchResult:
@@ -112,19 +113,18 @@ class QueryClient:
             raise
 
 def run_query(query_text: str, environment: str, bot_name: str, context_name: str, num_results: int = 7) -> List[SearchResult]:
-    """
-    Run a query against the vector store
-    
-    Args:
-        query_text (str): The text to search for
-        bot_name (str): Name of the bot to use
-        num_results (int): Number of results to return
-        
-    Returns:
-        List[SearchResult]: List of search results
-    """
+    logger.info(f"Running run_query with query_text: {query_text}, num_results: {num_results}")
     client = QueryClient(environment, bot_name, context_name)
-    return client.search(query_text, num_results)
+    
+    # Log the configuration used
+    logger.info(f"Using configuration: {client._load_config()}")
+    
+    results = client.search(query_text, num_results)
+    
+    # Log the results
+    logger.info(f"Search results: {results}")
+    
+    return results
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     """
