@@ -127,5 +127,5 @@ def sync_agents(environment, bots, backend='openai', replace_context=False):
                 config = yaml.safe_load(config_f)
                 config['instructions'] = (config_dir / config['instructions']).read_text()
                 if production:
-                    config['instruction'] = config['instructions'].replace('__dev', '')
+                    config['instructions'] = config['instructions'].replace('__dev', '')
                 update_assistant(config, config_dir, production, backend, replace_context=replace_context)
