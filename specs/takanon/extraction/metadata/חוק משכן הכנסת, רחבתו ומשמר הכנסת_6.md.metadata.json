@@ -1,0 +1,52 @@
+{
+  "extracted_at": "2025-03-02T19:15:29.662290+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 6. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_6)\nפעולה שעובד ציבורי אינו רשאי לבצעה[תיקון: תשס״ד]\nכל אדם או גוף הממלא תפקיד על פי דין (בסעיף זה – עובד הציבור) אינו רשאי לעשות במשכן הכנסת או ברחבה כל פעולה שהוא חייב או רשאי לבצעה במילוי תפקידו, אלא בהיתר מאת יושב־ראש הכנסת, והעובדה שעובד הציבור פעל כאמור לפי הוראות הממונה עליו לא תשמש לו הגנה.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 6",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_6"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [
+        {
+          "Name": "משכן הכנסת",
+          "ClauseLocation": "סעיף 6",
+          "Quote": "במשכן הכנסת"
+        },
+        {
+          "Name": "רחבה",
+          "ClauseLocation": "סעיף 6",
+          "Quote": "או ברחבה"
+        }
+      ],
+      "Description": "החוק עוסק בפעולות שאסור לעובד ציבורי לבצע במשכן הכנסת או ברחבתו."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון",
+        "ReferenceText": "תשס״ד",
+        "ReferenceQuote": "תיקון: תשס״ד"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "עובד ציבור",
+      "יושב־ראש הכנסת",
+      "היתר"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_6.md"
+}

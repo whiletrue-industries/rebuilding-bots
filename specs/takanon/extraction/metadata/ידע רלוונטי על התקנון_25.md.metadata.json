@@ -1,0 +1,39 @@
+{
+  "extracted_at": "2025-03-02T19:50:41.160922+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "חבר כנסת יכול להתמנות כממלא מקום בוועדה פרלמנטרית גם מטעם סיעה שהוא אינו חבר בה. כך יכולות סיעות להגביר את שיתופי הפעולה ולהבטיח ייצוג בוועדות רלוונטיות לפעולתן\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "",
+      "OfficialRoles": [
+        {
+          "Role": "חבר כנסת",
+          "ClauseLocation": "",
+          "Quote": "חבר כנסת יכול להתמנות כממלא מקום בוועדה פרלמנטרית"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "חבר כנסת יכול להתמנות כממלא מקום בוועדה פרלמנטרית גם מטעם סיעה שהוא אינו חבר בה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "וועדה פרלמנטרית",
+      "סיעה",
+      "ייצוג"
+    ],
+    "Topics": [
+      "חבר כנסת יכול להתמנות כממלא מקום בוועדה פרלמנטרית גם מטעם סיעה שהוא אינו חבר בה."
+    ]
+  }
+}

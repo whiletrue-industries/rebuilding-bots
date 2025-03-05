@@ -1,0 +1,41 @@
+{
+  "extracted_at": "2025-03-02T19:28:44.051118+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק רציפות הדיון בהצעות חוק: **\n\n[מקור: סעיף 2. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_2)\nהצעת ועדה של הכנסת\nהצעת חוק שהציעה ועדה של הכנסת או שהציע חבר הכנסת, ושכנסת יוצאת העבירה לאחר קריאה ראשונה לאחת מועדותיה, רשאית אותה ועדה, ואם אין ועדה כזו או שאין היא מוסמכת עוד לאותו ענין – הועדה שהצעת החוק היא בתחום ענייניה (להלן – הועדה), להודיע במליאת הכנסת הנכנסת על רצונה שיחול עליה דין רציפות כאמורבסעיף 6.",
+  "document_type": "חוק רציפות הדיון בהצעות חוק",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק רציפות הדיון בהצעות חוק",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 2",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_2"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "סעיף 2",
+          "Quote": "הצעת ועדה של הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הצעת חוק שהציעה ועדה של הכנסת או חבר הכנסת בנוגע לרציפות הדיון בהצעות חוק."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "רציפות",
+      "הצעות חוק",
+      "ועדה"
+    ],
+    "Topics": []
+  },
+  "title": "חוק רציפות הדיון בהצעות חוק",
+  "source_file": "חוק רציפות הדיון בהצעות חוק_2.md"
+}

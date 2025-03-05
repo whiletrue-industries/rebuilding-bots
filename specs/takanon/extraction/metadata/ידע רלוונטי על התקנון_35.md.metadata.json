@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:51:08.243442+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "במידה ועובד ציבור לא התייצב בוועדה ללא הסבר רשאית הוועדה לפנות לנציבות שירות המדינה, לאחר שיושב ראש הכנסת אישר זאת, לבקש לפתוח בהליכים משמעתיים\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "",
+          "Quote": "לאחר שיושב ראש הכנסת אישר זאת"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "נציבות שירות המדינה",
+          "ClauseLocation": "",
+          "Quote": "הוועדה לפנות לנציבות שירות המדינה"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הסדרת הליך משמעתי לעובד ציבור שלא התייצב בוועדה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "עובד ציבור",
+      "הליכים משמעתיים",
+      "וועדה"
+    ],
+    "Topics": []
+  }
+}

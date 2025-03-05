@@ -1,0 +1,38 @@
+{
+  "extracted_at": "2025-03-02T19:50:24.803807+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "כדי להעלות הצעת חוק פרטית להצבעה נדרשת סיעת חבר הכנסת להודיע על כך למזכירות הכנסת שבוע לפני המועד בו מבקשים להעלות את ההצעה. לכל סיעה יש מכסת חקיקה אולם הצעת חוק שמקבלת את תמיכת הממשלה פטורה מהמכסה\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "הצעת חוק פרטית",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "מזכירות הכנסת",
+          "ClauseLocation": "",
+          "Quote": "המזכירות הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הדרישות להעלאת הצעת חוק פרטית להצבעה בכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "הצעת חוק",
+      "סיעת חבר הכנסת",
+      "מכסת חקיקה",
+      "תמיכת הממשלה"
+    ],
+    "Topics": []
+  }
+}

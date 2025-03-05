@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:38:35.567593+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 2. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_2)\nהוראות יושב־ראש הכנסת\nיושב ראש הכנסת רשאי לתת כל הוראה ולנקוט כל אמצעי הנראים לו דרושים לקיום הסדר והבטחון במשכן הכנסת וברחבה.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 2",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_2"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "סעיף 2",
+          "Quote": "יושב ראש הכנסת רשאי לתת כל הוראה ולנקוט כל אמצעי הנראים לו דרושים לקיום הסדר והבטחון במשכן הכנסת וברחבה."
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [
+        {
+          "Name": "משכן הכנסת",
+          "ClauseLocation": "סעיף 2",
+          "Quote": "לקיום הסדר והבטחון במשכן הכנסת וברחבה."
+        }
+      ],
+      "Description": "הוראות יושב־ראש הכנסת בנוגע להסדר והבטחון במשכן הכנסת וברחבה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_2.md"
+}

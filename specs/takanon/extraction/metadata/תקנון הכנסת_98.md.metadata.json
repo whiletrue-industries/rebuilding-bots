@@ -1,0 +1,41 @@
+{
+  "extracted_at": "2025-03-02T19:09:43.988557+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**סדרי דיון מיוחדים**\n\nמקור: חלק ז׳ - הליך החקיקה / פרק שביעי - הליך החקיקה – הוראות שונות (סימן ה׳: סדרי דיון מיוחדים) / סעיף 98\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_98\n\nבדיון בהצעת חוק תקציב המדינה ובמקרים אחרים יוצאים מן הכלל, רשאית ועדת הכנסת לקבוע סדרי דיון מיוחדים, לרבות קביעת מסגרת הדיון וזמני הדיבור.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "סדרי דיון מיוחדים",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ז׳ - הליך החקיקה / פרק שביעי - הליך החקיקה – הוראות שונות (סימן ה׳: סדרי דיון מיוחדים) / סעיף 98",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_98"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "ועדת הכנסת",
+          "ClauseLocation": "סעיף 98",
+          "Quote": "רשאית ועדת הכנסת לקבוע סדרי דיון מיוחדים"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הוראות לגבי סדרי דיון מיוחדים בהצעת חוק תקציב המדינה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "סדרי דיון",
+      "הצעת חוק",
+      "תקציב המדינה"
+    ],
+    "Topics": []
+  },
+  "title": "סדרי דיון מיוחדים",
+  "source_file": "תקנון הכנסת_98.md"
+}

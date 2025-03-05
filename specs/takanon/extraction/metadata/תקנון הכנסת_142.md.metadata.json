@@ -1,0 +1,41 @@
+{
+  "extracted_at": "2025-03-02T19:32:18.527095+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**סטייה מהתקנון והתקדימים**\n\nמקור: חלק י׳ - תקנון הכנסת / פרק ראשון - תקדימים ופירושים / סעיף 142\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_142\n\nהכנסת לא תדון בשום עניין בצורת דיון החורגת מהוראות תקנון זה או מהתקדימים, אלא אם כן דנה ועדת הכנסת והחליטה על כך בהסכמת כל חברי הוועדה שהשתתפו בהצבעה; החלטה כאמור לא תהיה תקדים מחייב.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "סטייה מהתקנון והתקדימים",
+      "PublicationDate": "",
+      "OfficialSource": "חלק י׳ - תקנון הכנסת / פרק ראשון - תקדימים ופירושים / סעיף 142",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_142"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "סעיף 142",
+          "Quote": "הכנסת לא תדון בשום עניין"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הכנסת לא תדון בשום עניין בצורת דיון החורגת מהוראות תקנון זה או מהתקדימים."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "סטייה",
+      "תקנון",
+      "תהליכי דיון"
+    ],
+    "Topics": []
+  },
+  "title": "סטייה מהתקנון והתקדימים",
+  "source_file": "תקנון הכנסת_142.md"
+}

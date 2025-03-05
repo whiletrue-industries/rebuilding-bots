@@ -1,0 +1,27 @@
+{
+  "extracted_at": "2025-03-02T19:49:59.748647+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "בהצבעה שמית, חבר כנסת יכול לשנות את הצבעתו אך ורק אם הדבר נעשה מיידית לאחר ההצבעה ובטרם מזכיר הכנסת פנה אל חבר הכנסת הבא ברשימה\n\nקשור לסעיף:\n36(ב)(5)\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 36(ב)(5)",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "חבר כנסת יכול לשנות את הצבעתו בהצבעה שמית."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  }
+}

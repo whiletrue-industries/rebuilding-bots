@@ -1,0 +1,89 @@
+{
+  "extracted_at": "2025-03-02T19:19:13.212413+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**עבודת הסיעות בכנסת**\n\nמקור: חלק ב׳ - ארגון הכנסת / פרק שני - סיעות / סעיף 11\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_11\n\n * (א) כל סיעה רשאית לקבל חדר במשכן הכנסת לצורכי עבודתה, בהתחשב בגודלן של הסיעות ובאפשרויות העומדות לרשות הכנסת.\n * (ב) מענה של הסיעה יהיה חדרה במשכן הכנסת; כל סיעה תודיע למזכיר הכנסת, בכתב, על מענה וכתובת דואר אלקטרוני, לצורך מסירת הודעות לסיעה בימים שבהם מליאת הכנסת אינה מתכנסת; יראו הודעה שנמסרה לאחד המענים כאמור, כהודעה מספקת.\n * (ג) הצוות הפרלמנטרי של סיעה, כהגדרתובחוק מימון מפלגות, זכאי להיתרי כניסה למשכן הכנסת, בכפוף להוראותחוק משכן הכנסת, במספר שיקבע יושב ראש הכנסת בהתחשב בגודלה של הסיעה.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "עבודת הסיעות בכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ב׳ - ארגון הכנסת / פרק שני - סיעות / סעיף 11",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_11"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "(ג)",
+          "Quote": "יושב ראש הכנסת"
+        },
+        {
+          "Role": "מזכיר הכנסת",
+          "ClauseLocation": "(ב)",
+          "Quote": "מזכיר הכנסת"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "(א)",
+          "Quote": "הכנסת"
+        },
+        {
+          "Organization": "מימון מפלגות",
+          "ClauseLocation": "(ג)",
+          "Quote": "חוק מימון מפלגות"
+        },
+        {
+          "Organization": "משכן הכנסת",
+          "ClauseLocation": "(ג)",
+          "Quote": "חוק משכן הכנסת"
+        }
+      ],
+      "Placenames": [
+        {
+          "Name": "הכנסת",
+          "ClauseLocation": "(א)",
+          "Quote": "הכנסת"
+        },
+        {
+          "Name": "משכן הכנסת",
+          "ClauseLocation": "(א)",
+          "Quote": "משכן הכנסת"
+        }
+      ],
+      "Description": "המסמך עוסק בזכויות הסיעות בכנסת ובדרישות הקשורות לעבודה במבנה הכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק מימון מפלגות",
+        "ReferenceText": "",
+        "ReferenceQuote": "חוק מימון מפלגות"
+      },
+      {
+        "ReferenceTitle": "חוק משכן הכנסת",
+        "ReferenceText": "",
+        "ReferenceQuote": "חוק משכן הכנסת"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "סיעה",
+      "חדר",
+      "מענה",
+      "הודעות"
+    ],
+    "Topics": [
+      "כל סיעה רשאית לקבל חדר במשכן הכנסת לצורכי עבודתה.",
+      "מענה של הסיעה יהיה חדרה במשכן הכנסת.",
+      "הצוות הפרלמנטרי של סיעה זכאי להיתרי כניסה למשכן הכנסת."
+    ]
+  },
+  "title": "עבודת הסיעות בכנסת",
+  "source_file": "תקנון הכנסת_11.md"
+}

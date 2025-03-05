@@ -1,0 +1,33 @@
+{
+  "extracted_at": "2025-03-02T19:31:31.925426+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 28. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_28)\nפרסום[תיקון: תשנ״ה]\nההליכים בישיבת הכנסת והדברים שנאמרו בה – פרסומם אינו מוגבל ואינו גורר אחריות פלילית או אזרחית.",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 28",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_28"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "ההליכים בישיבת הכנסת והדברים שנאמרו בה – פרסומם אינו מוגבל ואינו גורר אחריות פלילית או אזרחית."
+    },
+    "LegalReferences": [],
+    "Amendments": [
+      "תיקון: תשנ״ה"
+    ],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_28.md"
+}

@@ -1,0 +1,39 @@
+{
+  "extracted_at": "2025-03-02T19:50:27.914157+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "הצעת חוק פרטית חייבת להיות מונחת על שולחן הכנסת במשך 45 יום (תקופת הנחה) אולם במידה והממשלה תומכת בהצעת החוק או שוועדת הכנסת החליטה על כך, תקופת ההמתנה יכולה להתקצר (פטור מחובת הנחה)\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "הצעת חוק פרטית",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "",
+          "Quote": "שולחן הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הצעת חוק פרטית חייבת להיות מונחת על שולחן הכנסת במשך 45 יום."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "הצעת חוק",
+      "תקופת הנחה",
+      "פטור מחובת הנחה"
+    ],
+    "Topics": [
+      "הצעת חוק פרטית חייבת להיות מונחת על שולחן הכנסת במשך 45 יום."
+    ]
+  }
+}

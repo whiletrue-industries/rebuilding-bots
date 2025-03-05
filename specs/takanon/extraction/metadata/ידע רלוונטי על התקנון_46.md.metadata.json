@@ -1,0 +1,32 @@
+{
+  "extracted_at": "2025-03-02T19:51:56.978796+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "לחברי הכנסת אסור להשתתף בפרסומות למוצרים מסחריים, לתת חסות לאירועים מסחריים או לקחת חלק שוטף ומאורגן בתוכנית טלוויזיה מסחרית\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "Prohibition on Knesset members participating in commercial advertisements, sponsoring commercial events, or being involved in organized commercial television programs."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "Knesset",
+      "commercial advertisements",
+      "sponsorship",
+      "television programs"
+    ],
+    "Topics": []
+  }
+}

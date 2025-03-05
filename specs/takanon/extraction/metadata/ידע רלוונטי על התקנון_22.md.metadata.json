@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:50:30.970303+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "חברי הכנסת יכולים לבקש להצמיד הצעת חוק שלהם להצעת חוק זהה או דומה שנידונה במליאה. במידה ומעוניינים להצמיד הצעת חוק יש לבקש זאת ממזכירות הכנסת באותו היום בו התפרסם סדר היום השבועי. ההחלטה האם הצעת חוק זהה או דומה מספיק נתונה בידי הייעוץ המשפטי לכנסת\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "",
+          "Quote": "מזכירות הכנסת"
+        },
+        {
+          "Organization": "הייעוץ המשפטי לכנסת",
+          "ClauseLocation": "",
+          "Quote": "הייעוץ המשפטי לכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הצעת חוק יכולה להיות מוצמדת להצעת חוק דומה או זהה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "הצעת חוק",
+      "מליאה",
+      "מזכירות הכנסת",
+      "ייעוץ משפטי"
+    ],
+    "Topics": []
+  }
+}

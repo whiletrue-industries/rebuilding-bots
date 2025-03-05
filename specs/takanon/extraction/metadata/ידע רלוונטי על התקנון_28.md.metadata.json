@@ -1,0 +1,30 @@
+{
+  "extracted_at": "2025-03-02T19:50:48.964125+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "סמכויות ועדת חקירה פרלמנטרית הן כסמכויות רגילות של כל וועדה. המשמעות של ועדת חקירה פרלמנטרית הוא בייחוד הוועדה לטובת משימה החקירה אולם לא מוקנות סמכויות מיוחדות עם הקמת הוועדה\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "סמכויות ועדת חקירה פרלמנטרית",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "המסמך עוסק בסמכויות ועדת חקירה פרלמנטרית."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "סמכויות",
+      "ועדת חקירה פרלמנטרית"
+    ],
+    "Topics": []
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "extracted_at": "2025-03-02T19:44:50.649759+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**צורת הדיון**\n\nמקור: חלק ג׳ - עבודת הכנסת / פרק שלישי - סדרי הדיון / סעיף 27\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_27\n\n * (א) הדיונים בכנסת הם סיעתיים או אישיים.\n * (ב) הדיון באלה יהיה סיעתי:\n   * (1) כינון הממשלה או התפטרותה;\n   * (2) הודעת הממשלה לפיסעיף 32;\n   * (3) הבעת אי־אמון בממשלה;\n   * (4) דיון בהשתתפות ראש הממשלה לפיסעיף 42(ב) לחוק־יסוד: הממשלה.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "צורת הדיון",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ג׳ - עבודת הכנסת / פרק שלישי - סדרי הדיון / סעיף 27",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_27"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "המסמך מתאר את צורת הדיון בכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק־יסוד: הממשלה",
+        "ReferenceText": "פיסעיף 42(ב)",
+        "ReferenceQuote": "דיון בהשתתפות ראש הממשלה לפיסעיף 42(ב) לחוק־יסוד: הממשלה."
+      },
+      {
+        "ReferenceTitle": "",
+        "ReferenceText": "פיסעיף 32",
+        "ReferenceQuote": "הודעת הממשלה לפיסעיף 32"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "דיון",
+      "כנסת",
+      "סיעתיים",
+      "אישיים",
+      "אי־אמון"
+    ],
+    "Topics": [
+      "הדיונים בכנסת הם סיעתיים או אישיים.",
+      "הדיון באלה יהיה סיעתי: כינון הממשלה או התפטרותה.",
+      "הדיון באלה יהיה סיעתי: הודעת הממשלה לפיסעיף 32.",
+      "הדיון באלה יהיה סיעתי: הבעת אי־אמון בממשלה.",
+      "הדיון באלה יהיה סיעתי: דיון בהשתתפות ראש הממשלה לפיסעיף 42(ב) לחוק־יסוד: הממשלה."
+    ]
+  },
+  "title": "צורת הדיון",
+  "source_file": "תקנון הכנסת_27.md"
+}

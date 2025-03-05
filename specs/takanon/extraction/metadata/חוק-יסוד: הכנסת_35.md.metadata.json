@@ -1,0 +1,40 @@
+{
+  "extracted_at": "2025-03-02T19:30:05.069251+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 35. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_35)\nמועד הבחירות לאחר התפזרות הכנסת[תיקון: תשס״א־3]\nהחוק על התפזרות הכנסת יכלול הוראה על מועד הבחירות לכנסת שלאחריה, שלא יהיה מאוחר מחמישה חודשים מיום קבלת החוק.",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 35",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_35"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "החוק על התפזרות הכנסת יכלול הוראה על מועד הבחירות לכנסת שלאחריה."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון: תשס״א־3",
+        "ReferenceText": "",
+        "ReferenceQuote": ""
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "בחירות",
+      "התפזרות הכנסת"
+    ],
+    "Topics": []
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_35.md"
+}

@@ -1,0 +1,49 @@
+{
+  "extracted_at": "2025-03-02T19:23:38.681405+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 13. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_13)\nסמכות מעצר[תיקון: תשנ״ה, תשס״ד]\n\n(א)לא ציית אדם להוראות שניתנו על פי סמכויות העיכוב האמורותבסעיף 12באו הפריע לאיש משמר הכנסת או לסדרן להשתמש בסמכויות העיכוב, רשאי איש משמר הכנסת לעצרו ולמסור אותו לידי שוטר, בהקדם האפשרי, אך לא יאוחר מארבע שעות לאחר שנעצר.(ב)הוראותסעיפים 24 עד 26 לחוק המעצריםיחולו על מבצע מעצר לפי הוראות סעיף זה, בשינויים המחויבים.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 13",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_13"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "איש משמר הכנסת",
+          "ClauseLocation": "(א)",
+          "Quote": "איש משמר הכנסת לעצרו ולמסור אותו לידי שוטר"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "סמכות מעצר לפי הוראות סעיף 13 לחוק משכן הכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק המעצרים",
+        "ReferenceText": "הוראות סעיפים 24 עד 26 לחוק המעצרים",
+        "ReferenceQuote": "הוראות סעיפים 24 עד 26 לחוק המעצרים יחולו על מבצע מעצר לפי הוראות סעיף זה"
+      }
+    ],
+    "Amendments": [
+      "תיקון: תשנ״ה, תשס״ד"
+    ],
+    "AdditionalKeywords": [
+      "סמכות מעצר",
+      "עיכוב",
+      "איש משמר הכנסת"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_13.md"
+}

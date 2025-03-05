@@ -1,0 +1,75 @@
+{
+  "extracted_at": "2025-03-02T19:20:34.836536+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 27. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_27)\nתחולת החוק[תיקון: תשמ״ז־2, תש״ף]\n\n(א)הוראות חוק זה, פרטלסעיף 5, אינן חלות על –(1)נשיא המדינה;(2)חברי הכנסת.(ב)על אף האמור בסעיף קטן (א) יחולו הוראותסעיף 7גם על חברי הכנסת, אולם לענין זה לא יחולו עליהם הוראותפרק ה׳; עבר חבר הכנסת על הוראותסעיף 7, יובא העניין בידי יושב ראש הכנסת לוועדת האתיקה של חברי הכנסת.(ג)הוראות סעיף זה יחולו גם על שרים וסגני שרים שאינם חברי הכנסת.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 27",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_27"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "נשיא המדינה",
+          "ClauseLocation": "(א)",
+          "Quote": "נשיא המדינה"
+        },
+        {
+          "Role": "חברי הכנסת",
+          "ClauseLocation": "(א)",
+          "Quote": "חברי הכנסת"
+        },
+        {
+          "Role": "שרים וסגני שרים",
+          "ClauseLocation": "(ג)",
+          "Quote": "שרים וסגני שרים"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "ועדת האתיקה של חברי הכנסת",
+          "ClauseLocation": "(ב)",
+          "Quote": "וועדת האתיקה של חברי הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "החוק עוסק בתחולת החוק על נשיא המדינה, חברי הכנסת, שרים וסגני שרים."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק יסוד: הכנסת",
+        "ReferenceText": "סעיף 5",
+        "ReferenceQuote": "פרטלסעיף 5"
+      },
+      {
+        "ReferenceTitle": "חוק יסוד: הכנסת",
+        "ReferenceText": "סעיף 7",
+        "ReferenceQuote": "סעיף 7"
+      }
+    ],
+    "Amendments": [
+      "תיקון: תשמ״ז־2, תש״ף"
+    ],
+    "AdditionalKeywords": [
+      "חוק",
+      "משכן הכנסת",
+      "חוק יסוד",
+      "חברי הכנסת",
+      "שרים",
+      "סגני שרים"
+    ],
+    "Topics": [
+      "תחולת החוק על נשיא המדינה, חברי הכנסת, שרים וסגני שרים."
+    ]
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_27.md"
+}

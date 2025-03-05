@@ -1,0 +1,52 @@
+{
+  "extracted_at": "2025-03-02T19:08:57.614023+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 14א. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_14א)\nסמכות לדרוש הפקדת חפצים[תיקון: תשס״ד]\nהמוסמך לערוך חיפוש רשאי לדרוש שחפץ אסור יופקד במקום שיורה עליו, כל עוד נושאו נמצא במשכן הכנסת או ברחבה.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 14א.",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_14א"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [
+        {
+          "Name": "משכן הכנסת",
+          "ClauseLocation": "סעיף 14א.",
+          "Quote": "נושאו נמצא במשכן הכנסת"
+        },
+        {
+          "Name": "רחבה",
+          "ClauseLocation": "סעיף 14א.",
+          "Quote": "נושאו נמצא במשכן הכנסת או ברחבה"
+        }
+      ],
+      "Description": "סמכות לדרוש הפקדת חפצים"
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון",
+        "ReferenceText": "תשס״ד",
+        "ReferenceQuote": "תיקון: תשס״ד"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חיפוש",
+      "חפץ אסור",
+      "הפקדה"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_14א.md"
+}

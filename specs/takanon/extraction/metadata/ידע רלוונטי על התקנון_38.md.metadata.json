@@ -1,0 +1,38 @@
+{
+  "extracted_at": "2025-03-02T19:51:19.103660+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "לחבר כנסת מותר בהתנדבות למלא תפקידים בגופים ציבוריים לרבות תפקיד ניהולי אולם אסור לו לעשות שימוש בתפקידו כחבר כנסת בעבור הגוף הציבורי\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "חבר כנסת",
+          "ClauseLocation": "",
+          "Quote": "לחבר כנסת מותר בהתנדבות למלא תפקידים בגופים ציבוריים"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "Regulations regarding the volunteer roles of a member of the Knesset in public bodies."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חבר כנסת",
+      "תפקידים",
+      "גופים ציבוריים",
+      "ניהולי"
+    ],
+    "Topics": []
+  }
+}

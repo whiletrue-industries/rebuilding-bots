@@ -1,0 +1,42 @@
+{
+  "extracted_at": "2025-03-02T19:27:07.829349+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: הושמטה)**\n\n[מקור: סעיף (המפה הושמטה)](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_(המפ)\nנתקבל בכנסת ביום ו׳ באב תשכ״ח (31 ביולי 1968).\nשניאור זלמן שזרנשיא המדינהלוי אשכולראש הממשלה",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת: הושמטה",
+      "PublicationDate": "31 ביולי 1968",
+      "OfficialSource": "סעיף (המפה הושמטה)",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_(המפ"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "",
+      "OfficialRoles": [
+        {
+          "Role": "נשיא המדינה",
+          "ClauseLocation": "",
+          "Quote": "שניאור זלמן שזר"
+        },
+        {
+          "Role": "ראש הממשלה",
+          "ClauseLocation": "",
+          "Quote": "לוי אשכול"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "החוק עוסק במבנה ובתפקוד של הכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת: הושמטה",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_(המפה.md"
+}

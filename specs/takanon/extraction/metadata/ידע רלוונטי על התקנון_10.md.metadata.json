@@ -1,0 +1,33 @@
+{
+  "extracted_at": "2025-03-02T19:49:55.508171+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "בכל רגע נתון בדיון במליאה יכול לבקש שר אחד בלבד את רשות הדיבור בטרם החלה ההצבעה.\n\nקשור לסעיף:\n31\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 31",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "שר",
+          "ClauseLocation": "סעיף 31",
+          "Quote": "שר אחד בלבד"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הגבלה על מספר השרים שיכולים לבקש רשות דיבור בדיון במליאה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "extracted_at": "2025-03-02T19:11:56.566534+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**מועדי הכנסים**\n\nמקור: חלק ג׳ - עבודת הכנסת / פרק ראשון - ישיבות / סעיף 18\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_18\n\nיושב ראש הכנסת, לאחר התייעצות עם סגניו ובאישור ועדת הכנסת, יקבע את המועדים שבהם ייפתחו ויסתיימו כנסי הכנסת, בכפוף לאמורבסעיף 9 לחוק הכנסת.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "מועדי הכנסים",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ג׳ - עבודת הכנסת / פרק ראשון - ישיבות / סעיף 18",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_18"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "סעיף 18",
+          "Quote": "יושב ראש הכנסת, לאחר התייעצות עם סגניו ובאישור ועדת הכנסת"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "ועדת הכנסת",
+          "ClauseLocation": "סעיף 18",
+          "Quote": "באישור ועדת הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "קביעת מועדי פתיחה וסיום כנסי הכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק הכנסת",
+        "ReferenceText": "סעיף 9 לחוק הכנסת",
+        "ReferenceQuote": "בכפוף לאמורבסעיף 9 לחוק הכנסת"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "מועדי הכנסים",
+  "source_file": "תקנון הכנסת_18.md"
+}

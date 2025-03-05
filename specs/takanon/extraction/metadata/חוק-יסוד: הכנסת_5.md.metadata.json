@@ -1,0 +1,38 @@
+{
+  "extracted_at": "2025-03-02T19:45:03.445602+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 5. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_5)\nהזכות לבחור\nכל אזרח ישראלי בן שמונה עשרה שנה ומעלה זכאי לבחור לכנסת, אם בית משפט לא שלל ממנו זכות זו על פי חוק; חוק הבחירות יקבע את המועד שבו ייחשב אדם בן שמונה עשרה שנה לענין השימוש בזכות הבחירה לכנסת.",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 5",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_5"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הזכות לבחור לכנסת לכל אזרח ישראלי בן שמונה עשרה שנה ומעלה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "זכות לבחור",
+      "אזרח ישראלי",
+      "כנסת",
+      "חוק הבחירות"
+    ],
+    "Topics": [
+      "הזכות לבחור לכנסת לכל אזרח ישראלי בן שמונה עשרה שנה ומעלה."
+    ]
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_5.md"
+}
