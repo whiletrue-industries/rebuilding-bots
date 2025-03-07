@@ -20,6 +20,9 @@ app.add_middleware(
 
 @app.get("/retrieve/{bot}/{context}")
 async def search_datasets_handler(bot: str, context: str, query: str, num_results: int=10, environment: str='production') -> List[Dict[str, Any]]:
+    if context.endswith('__dev'):
+        context = context[:-5]
+        environment = 'staging'
     results = run_query(query, environment, bot, context, num_results)
     return [dataclasses.asdict(result) for result in results]
 
