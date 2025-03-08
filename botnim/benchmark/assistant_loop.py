@@ -9,7 +9,7 @@ import logging
 from openai import OpenAI
 from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 
-from botnim.query import QueryClient
+from botnim.query import QueryClient, run_query
 from botnim.config import validate_environment, DEFAULT_ENVIRONMENT
 TEMP = 0
 
@@ -142,44 +142,45 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 for key, value in arguments.items():
                     f.write(f"    {key}: {value}\n")
             
-            # Handle vector search tools with common implementation
-            if tool.function.name.startswith('ElasticVectorSearch') or tool.function.name.startswith('search_'):
-                # Extract bot and context names based on the tool prefix
-                if tool.function.name.startswith('ElasticVectorSearch'):
-                    tool_name = tool.function.name[len('ElasticVectorSearch_'):]
-                    parts = tool_name.split('_', 1)  # Split on first underscore
-                else:  # search_ prefix
-                    tool_name = tool.function.name[len('search_'):]
-                    if tool_name.endswith('__dev'):
-                        tool_name = tool_name[:-len('__dev')]
-                    parts = tool_name.split('__', 1)  # Split on double underscore
+            # Set default page_size for DatasetDBQuery
+            if tool.function.name == 'DatasetDBQuery':
+                arguments['page_size'] = 30
+            
+            # Handle different tool types
+            if tool.function.name.startswith('search_'):
+                # Handle the search_takanon__context__dev pattern
+                # Remove 'search_' prefix and '__dev' suffix if present
+                tool_name = tool.function.name[len('search_'):]
+                if tool_name.endswith('__dev'):
+                    tool_name = tool_name[:-len('__dev')]
                 
+                # Split into bot_name and context_name
+                parts = tool_name.split('__', 1)
                 bot_name = parts[0]
                 context_name = parts[1] if len(parts) > 1 else ''
                 
+                # Get num_results from arguments or use default
+                num_results = arguments.get('num_results', 7)
+                
                 # Log the tool call parameters
-                logger.info(f"Executing vector search for {bot_name}/{context_name} with query: {arguments['query']}")
+                logger.info(f"Calling run_query with query: {arguments['query']}, num_results: {num_results}")
                 
-                # Use QueryClient directly
-                query_client = QueryClient(environment, bot_name, context_name)
-                results = query_client.search(arguments['query'], num_results=arguments.get('num_results', 7))
-                
-                # Format results for the assistant
-                formatted_results = []
-                for result in results:
-                    formatted_results.append(
-                        f"[Score: {result.score:.2f}]\n"
-                        f"Content:\n{result.full_content}\n"
-                        f"{'-' * 40}"
-                    )
-                output = "\n\n".join(formatted_results)
+                output = run_query(
+                    environment=environment,
+                    bot_name=bot_name,
+                    context_name=context_name,
+                    query=arguments['query'],
+                    num_results=num_results,
+                    format="text"
+                )
                 
                 # Log the output
-                logger.info(f"Vector search tool output: {output[:200]}...")
+                logger.info(f"Tool output: {output[:200]}...")
             
-            elif tool.function.name == 'DatasetDBQuery':
+            # Handle OpenAPI tools
+            if tool.function.name == 'DatasetDBQuery':
                 output = get_openapi_output(openapi_spec, tool.function.name, arguments)
-            elif tool.function.name == 'DatasetInfo':
+            if tool.function.name == 'DatasetInfo':
                 output = get_dataset_info_cache(arguments, output)
             
             if output is not None:
