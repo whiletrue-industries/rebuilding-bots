@@ -264,12 +264,13 @@ class VectorStoreES(VectorStoreBase):
             return 0
 
     def update_tools(self, context_, vector_store):
-        """Create and return the search tool for this vector store"""
-        return self.create_search_tool(
+        """Create a search tool for this context and add it to self.tools"""
+        tool = self.create_search_tool(
             bot_name=self.config['slug'],
             context_name=context_['name'],
             environment='production' if self.production else 'staging'
         )
+        self.tools.append(tool)
 
     def update_tool_resources(self, context_, vector_store):
         # For Elasticsearch, we don't need to set tool_resources
