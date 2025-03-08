@@ -94,6 +94,9 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                         # Log function calls
                         with open(log_file, 'a', encoding='utf-8') as f:
                             f.write(f"\nTool Call:\n  Type: function\n  Name: {tool_call.function.name}\n  Arguments: {tool_call.function.arguments}\n")
+                        # Restore notes functionality
+                        print('TOOL', tool_call.id, tool_call.function.name, tool_call.function.arguments)
+                        notes.append(f'{tool_call.function.name}({tool_call.function.arguments})')
                     elif tool_call.type == 'file_search':
                         # Log file searches
                         with open(log_file, 'a', encoding='utf-8') as f:
@@ -102,6 +105,13 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                                 text = result.content[0].text if result.content else None
                                 if text:
                                     f.write(f"  Result:\n{text}\n")
+                        # Restore notes functionality
+                        print('FILE-SEARCH', tool_call.id, tool_call.file_search)
+                        notes.append(f'file-search:')
+                        for result in (tool_call.file_search.results or []):
+                            text = result.content[0].text if result.content else None
+                            if text:
+                                notes.append(f'>>\n{text}\n<<')
 
         if run.status == 'completed':
             # Log assistant's response when run is completed
