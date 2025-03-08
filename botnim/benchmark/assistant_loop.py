@@ -140,6 +140,11 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 for key, value in arguments.items():
                     f.write(f"    {key}: {value}\n")
             
+            # Set default page_size for DatasetDBQuery
+            if tool.function.name == 'DatasetDBQuery':
+                arguments['page_size'] = 30
+                
+            # Handle different tool types
             if tool.function.name.startswith('ElasticVectorSearch'):
                 tool_name = tool.function.name[len('ElasticVectorSearch_'):]
                 parts = tool_name.split('_', 1)
@@ -185,9 +190,10 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 # Log the output
                 logger.info(f"Tool output: {output}")
             
-            elif tool.function.name == 'DatasetDBQuery':
+            # Handle OpenAPI tools - these should be processed regardless of ElasticVectorSearch handling
+            if tool.function.name == 'DatasetDBQuery':
                 output = get_openapi_output(openapi_spec, tool.function.name, arguments)
-            elif tool.function.name == 'DatasetInfo':
+            if tool.function.name == 'DatasetInfo':
                 output = get_dataset_info_cache(arguments, output)
             
             if output is not None:
