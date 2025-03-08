@@ -1,0 +1,30 @@
+name: Build Docker Images
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+jobs:
+  ci:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build API Docker
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCKER_APP_IMAGE_NAME_API: "ghcr.io/whiletrue-industries/botnim/botnim-api"
+        run: |
+          echo "${GITHUB_TOKEN}" | docker login ghcr.io -u whiletrue-industries --password-stdin &&\
+
+          if docker pull "${DOCKER_APP_IMAGE_NAME_API}:latest"; then
+            CACHE_FROM_ARG="--cache-from ${DOCKER_APP_IMAGE_NAME_API}:latest"
+          else
+            CACHE_FROM_ARG=""
+          fi &&\
+          docker build $CACHE_FROM_ARG --build-arg VERSION=${GITHUB_SHA} -t app -f backend/api/Dockerfile . &&\
+          docker tag app "${DOCKER_APP_IMAGE_NAME_API}:${GITHUB_SHA}" &&\
+          docker push "${DOCKER_APP_IMAGE_NAME_API}:${GITHUB_SHA}" &&\
+          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+            docker tag app "${DOCKER_APP_IMAGE_NAME_API}:latest" &&\
+            docker push "${DOCKER_APP_IMAGE_NAME_API}:latest"
+          fi

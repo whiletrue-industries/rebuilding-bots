@@ -6,8 +6,8 @@ from datetime import datetime
 
 from elasticsearch import Elasticsearch
 from openai import OpenAI
-from botnim.config import get_logger
-from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
+from ..config import get_logger
+from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
 
@@ -25,10 +25,11 @@ class VectorStoreES(VectorStoreBase):
         
         # Initialize Elasticsearch client
         es_kwargs = {
-            'hosts': [es_host],
-            'basic_auth': (es_username, es_password or os.getenv('ELASTIC_PASSWORD')),
+            'hosts': [es_host or os.getenv('ES_HOST', 'https://localhost:9200')],
+            'basic_auth': (es_username or os.getenv('ES_USERNAME'), es_password or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')),
             'request_timeout': es_timeout,
-            'verify_certs': production,
+            'verify_certs': False,
+            'ca_certs': os.getenv('ES_CA_CERT'),
             'ssl_show_warn': production
         }
         print(es_kwargs)
@@ -48,7 +49,9 @@ class VectorStoreES(VectorStoreBase):
             raise ConnectionError(f"Could not connect to Elasticsearch: {str(e)}")
 
     def _index_name_for_context(self, context_name: str) -> str:
-        return self.env_name_slug(f"{self.config['slug']}__{context_name}".lower().replace(' ', '_'))
+        """Standardize index name construction"""
+        base_name = f"{self.config['slug']}__{context_name}"
+        return self.env_name_slug(base_name.lower().replace(' ', '_'))
 
     def _build_search_query(self, query_text: str, embedding: List[float], 
                           num_results: int = 7) -> Dict[str, Any]:

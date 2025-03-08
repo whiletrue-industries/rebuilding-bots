@@ -9,9 +9,6 @@ from .vector_store import VectorStoreOpenAI, VectorStoreES
 from botnim.tools.elastic_vector_search import create_elastic_search_tool
 
 api_key = os.environ['OPENAI_API_KEY']
-es_username = os.environ['ES_USERNAME']
-es_password = os.environ['ES_PASSWORD']
-es_host = os.environ['ES_HOST']
 
 # Create openai client and get completion for prompt with the 'gpt4-o' model:
 client = OpenAI(api_key=api_key)
@@ -65,36 +62,10 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
             vs = VectorStoreOpenAI(config, config_dir, production, client)
         ## Elasticsearch
         elif backend == 'es':
-            vs = VectorStoreES(config, config_dir, es_host, es_username, es_password, production=production)
-            # Add explicit Elasticsearch vector search tools for each context
-            tools = []
-            
-            # Only process context if replace_context is True or if it's the first time
-            if replace_context:
-                for context in config['context']:
-                    context_name = context['name']
-                    bot_name = config_dir.name
-                    elastic_tool = create_elastic_search_tool(
-                        bot_name=bot_name,
-                        context_name=context_name,
-                        environment='production' if production else 'staging'
-                    )
-                    tools.append(elastic_tool)
-                
-                # Update the vector store with the context and get any additional tools
-                base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context=True)
-            else:
-                # Just create the tools without updating the vector store
-                for context in config['context']:
-                    context_name = context['name']
-                    bot_name = config_dir.name
-                    elastic_tool = create_elastic_search_tool(
-                        bot_name=bot_name,
-                        context_name=context_name,
-                        environment='production' if production else 'staging'
-                    )
-                    tools.append(elastic_tool)
-
+            vs = VectorStoreES(config, config_dir, None, None, None, production=production)
+        # Update the vector store with the context
+        tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
+    
     # List all the assistants in the organization:
     assistants = client.beta.assistants.list()
     assistant_id = None
@@ -156,4 +127,6 @@ def sync_agents(environment, bots, backend='openai', replace_context=False):
             with config_fn.open() as config_f:
                 config = yaml.safe_load(config_f)
                 config['instructions'] = (config_dir / config['instructions']).read_text()
+                if production:
+                    config['instructions'] = config['instructions'].replace('__dev', '')
                 update_assistant(config, config_dir, production, backend, replace_context=replace_context)

@@ -1,0 +1,54 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Get botnim related information",
+    "description": "Retrieves various botnim related information from the botnim api",
+    "version": "v1.2.0"
+  },
+  "servers": [
+    {
+      "url": "https://www.botnim.co.il"
+    }
+  ],
+  "paths": {
+    "/botnim/retrieve/budgetkey/common_knowledge": {
+      "get": {
+        "description": "Full text search on the budgetkey common knowledge",
+        "operationId": "search_budgetkey__common_knowledge",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false      
+      }
+    },
+    "/botnim/retrieve/budgetkey/common_knowledge__dev": {
+      "get": {
+        "description": "Full text search on the budgetkey common knowledge",
+        "operationId": "search_budgetkey__common_knowledge__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false      
+      }
+    }
+  },
+  "components": {
+    "schemas": {}
+  }
+}
