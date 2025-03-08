@@ -43,6 +43,7 @@ def get_dataset_info_cache(arguments, output):
             print('USED CACHED', dataset)
     return output
 
+
 def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, notes=[], openapi_spec=None, environment=DEFAULT_ENVIRONMENT):
     # Validate environment
     environment = validate_environment(environment)
@@ -97,7 +98,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                         # Log function calls
                         with open(log_file, 'a', encoding='utf-8') as f:
                             f.write(f"\nTool Call:\n  Type: function\n  Name: {tool_call.function.name}\n  Arguments: {tool_call.function.arguments}\n")
-                        # Restore notes functionality
                         print('TOOL', tool_call.id, tool_call.function.name, tool_call.function.arguments)
                         notes.append(f'{tool_call.function.name}({tool_call.function.arguments})')
                     elif tool_call.type == 'file_search':
@@ -108,7 +108,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                                 text = result.content[0].text if result.content else None
                                 if text:
                                     f.write(f"  Result:\n{text}\n")
-                        # Restore notes functionality
                         print('FILE-SEARCH', tool_call.id, tool_call.file_search)
                         notes.append(f'file-search:')
                         for result in (tool_call.file_search.results or []):
@@ -143,37 +142,27 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 for key, value in arguments.items():
                     f.write(f"    {key}: {value}\n")
             
-            # Handle ElasticVectorSearch tools
-            if tool.function.name.startswith('ElasticVectorSearch'):
-                # Extract bot and context names from tool name
-                # e.g., ElasticVectorSearch_takanon_common_knowledge -> takanon, common_knowledge
-                tool_name = tool.function.name[len('ElasticVectorSearch_'):]
+            # Handle vector search tools with common implementation
+            if tool.function.name.startswith('ElasticVectorSearch') or tool.function.name.startswith('search_'):
+                # Extract bot and context names based on the tool prefix
+                if tool.function.name.startswith('ElasticVectorSearch'):
+                    tool_name = tool.function.name[len('ElasticVectorSearch_'):]
+                    parts = tool_name.split('_', 1)  # Split on first underscore
+                else:  # search_ prefix
+                    tool_name = tool.function.name[len('search_'):]
+                    if tool_name.endswith('__dev'):
+                        tool_name = tool_name[:-len('__dev')]
+                    parts = tool_name.split('__', 1)  # Split on double underscore
                 
-                # Split by underscore and get bot name and context
-                parts = tool_name.split('_', 1)  # Split only on first underscore
                 bot_name = parts[0]
                 context_name = parts[1] if len(parts) > 1 else ''
                 
-                # Load config to get context settings
-                config_path = Path('specs') / bot_name / 'config.yaml'
-                with open(config_path) as f:
-                    config = yaml.safe_load(f)
-                    
-                # Find matching context config by slug
-                context_config = next(
-                    (ctx for ctx in config.get('context', []) 
-                     if ctx.get('slug') == context_name),
-                    {}
-                )
-                
-                # Use context-specific settings if available
-                num_results = arguments.get('num_results', 
-                                         context_config.get('max_num_results', 3))
+                # Log the tool call parameters
+                logger.info(f"Executing vector search for {bot_name}/{context_name} with query: {arguments['query']}")
                 
                 # Use QueryClient directly
-                logger.info(f"Executing ElasticVectorSearch for {bot_name}/{context_name} with query: {arguments['query']}")
                 query_client = QueryClient(environment, bot_name, context_name)
-                results = query_client.search(arguments['query'], num_results=num_results)
+                results = query_client.search(arguments['query'], num_results=arguments.get('num_results', 7))
                 
                 # Format results for the assistant
                 formatted_results = []
@@ -186,28 +175,12 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 output = "\n\n".join(formatted_results)
                 
                 # Log the output
-                logger.info(f"ElasticVectorSearch tool output: {output[:200]}...")
+                logger.info(f"Vector search tool output: {output[:200]}...")
             
-            # Handle all other tools with OpenAPI
-            else:
-                # Set default page_size for DatasetDBQuery
-                if tool.function.name == 'DatasetDBQuery':
-                    arguments['page_size'] = 30
-                
-                # Call get_openapi_output for all non-search tools
-                try:
-                    logger.info(f"Executing OpenAPI tool {tool.function.name}")
-                    if openapi_spec is not None:
-                        output = get_openapi_output(openapi_spec, tool.function.name, arguments)
-                        
-                        if tool.function.name == 'DatasetInfo':
-                            # Special case for DatasetInfo
-                            output = get_dataset_info_cache(arguments, output)
-                    else:
-                        output = f"Error: No OpenAPI spec provided for bot. Cannot execute tool '{tool.function.name}'"
-                except Exception as e:
-                    logger.error(f"Error calling {tool.function.name}: {e}")
-                    output = f"Error: {str(e)}"
+            elif tool.function.name == 'DatasetDBQuery':
+                output = get_openapi_output(openapi_spec, tool.function.name, arguments)
+            elif tool.function.name == 'DatasetInfo':
+                output = get_dataset_info_cache(arguments, output)
             
             if output is not None:
                 # Log tool output
