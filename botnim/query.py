@@ -187,3 +187,35 @@ def format_mapping(mapping: Dict, indent: int = 0) -> str:
     
     return "\n".join(result)
 
+def elastic_vector_search_handler(environment: str, bot_name: str, context_name: str, query: str, num_results: int = 3) -> str:
+    """
+    Handles Elasticsearch vector search requests from the assistant
+    
+    Args:
+        environment (str): Environment to use (production or staging)
+        bot_name (str): Name of the bot to use
+        context_name (str): Name of the context to search in
+        query (str): The search query text
+        num_results (int): Number of results to return
+        
+    Returns:
+        str: Formatted search results as a string
+    """
+    logger.info(f"Running elastic_vector_search_handler with query: {query}, num_results: {num_results}")
+    results = run_query(query, environment, bot_name, context_name, num_results)
+    
+    # Log the results
+    logger.info(f"Search results: {results}")
+    
+    # Format results for the assistant
+    formatted_results = []
+    for result in results:
+        formatted_results.append(
+            f"[Score: {result.score:.2f}]\n"
+            f"ID: {result.id}\n"
+            f"Content:\n{result.full_content}\n"
+            f"{'-' * 40}"
+        )
+
+    return "\n\n".join(formatted_results)
+
