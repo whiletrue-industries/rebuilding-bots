@@ -6,7 +6,6 @@ import yaml
 from openai import OpenAI
 from .config import SPECS
 from .vector_store import VectorStoreOpenAI, VectorStoreES
-from botnim.tools.elastic_vector_search import create_elastic_search_tool
 
 api_key = os.environ['OPENAI_API_KEY']
 

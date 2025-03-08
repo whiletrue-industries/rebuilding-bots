@@ -9,8 +9,7 @@ import logging
 from openai import OpenAI
 from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 
-from botnim.query import QueryClient
-from botnim.tools.elastic_vector_search import elastic_vector_search_handler
+from botnim.query import QueryClient, elastic_vector_search_handler
 TEMP = 0
 
 logger = logging.getLogger(__name__)
