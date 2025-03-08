@@ -182,6 +182,32 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 # Log the output
                 logger.info(f"Tool output: {output}")
             
+            elif tool.function.name.startswith('search_'):
+                # Handle the search_takanon__context__dev pattern
+                # Remove 'search_' prefix and '__dev' suffix if present
+                tool_name = tool.function.name[len('search_'):]
+                if tool_name.endswith('__dev'):
+                    tool_name = tool_name[:-len('__dev')]
+                
+                # Split into bot_name and context_name
+                parts = tool_name.split('__', 1)
+                bot_name = parts[0]
+                context_name = parts[1] if len(parts) > 1 else ''
+                
+                # Log the tool call parameters
+                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {arguments.get('num_results', 7)}")
+                
+                output = elastic_vector_search_handler(
+                    environment=environment,
+                    bot_name=bot_name,
+                    context_name=context_name,
+                    query=arguments['query'],
+                    num_results=arguments.get('num_results', 7)
+                )
+                
+                # Log the output
+                logger.info(f"Tool output: {output}")
+            
             elif tool.function.name == 'DatasetDBQuery':
                 output = get_openapi_output(openapi_spec, tool.function.name, arguments)
             elif tool.function.name == 'DatasetInfo':
