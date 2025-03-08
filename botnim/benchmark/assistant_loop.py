@@ -1,8 +1,8 @@
 import yaml
 import json
+import os
 from pathlib import Path
 import requests_openapi
-import os
 from typing import Dict
 import re
 import logging
@@ -43,7 +43,6 @@ def get_dataset_info_cache(arguments, output):
             output = yaml.safe_load(f)
             print('USED CACHED', dataset)
     return output
-
 
 def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, notes=[], openapi_spec=None, environment=DEFAULT_ENVIRONMENT):
     # Initialize or append to log file in the same directory as the script
@@ -96,6 +95,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                         # Log function calls
                         with open(log_file, 'a', encoding='utf-8') as f:
                             f.write(f"\nTool Call:\n  Type: function\n  Name: {tool_call.function.name}\n  Arguments: {tool_call.function.arguments}\n")
+                        # Restore notes functionality
                         print('TOOL', tool_call.id, tool_call.function.name, tool_call.function.arguments)
                         notes.append(f'{tool_call.function.name}({tool_call.function.arguments})')
                     elif tool_call.type == 'file_search':
@@ -106,6 +106,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                                 text = result.content[0].text if result.content else None
                                 if text:
                                     f.write(f"  Result:\n{text}\n")
+                        # Restore notes functionality
                         print('FILE-SEARCH', tool_call.id, tool_call.file_search)
                         notes.append(f'file-search:')
                         for result in (tool_call.file_search.results or []):
@@ -168,8 +169,32 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                     format="text"
                 )
                 
-                # Log the output
-                logger.info(f"Tool output: {output}")
+                # Format results for better readability if output is a dictionary with results
+                if isinstance(output, dict) and 'results' in output:
+                    formatted_results = []
+                    for i, result in enumerate(output.get('results', [])):
+                        formatted_results.append(f"**Result {i+1}:**\n{result.get('content', '')}\n")
+                    
+                    # Store the original results but provide a formatted version for display
+                    response = {
+                        'results': '\n'.join(formatted_results),
+                        'raw_results': output.get('results', [])
+                    }
+                    formatted_output = json.dumps(response)
+                    
+                    # Add output file generation for traceability
+                    output_file = f'output/{bot_name}_{context_name}.json'
+                    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+                    with open(output_file, 'w') as f:
+                        json.dump(output, f, indent=2)
+                    
+                    logger.info(f"Saved search results to {output_file}")
+                    
+                    # For logging purposes
+                    logger.info(f"Tool output (formatted): {formatted_output[:200]}...")
+                else:
+                    # Log the output as is
+                    logger.info(f"Tool output: {output}")
             
             # Handle all non-search tools with OpenAPI
             else:
@@ -183,6 +208,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                         output = get_openapi_output(openapi_spec, tool.function.name, arguments)
                         
                         if tool.function.name == 'DatasetInfo':
+                            # Special case for DatasetInfo
                             output = get_dataset_info_cache(arguments, output)
                     else:
                         output = f"Error: No OpenAPI spec provided for bot. Cannot execute tool '{tool.function.name}'"
