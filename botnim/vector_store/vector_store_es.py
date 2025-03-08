@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 import json
 from datetime import datetime
+import yaml
 
 from elasticsearch import Elasticsearch
 from openai import OpenAI
@@ -263,8 +264,12 @@ class VectorStoreES(VectorStoreBase):
             return 0
 
     def update_tools(self, context_, vector_store):
-        # No need to create tools here as they're handled in sync.py
-        pass
+        """Create and return the search tool for this vector store"""
+        return self.create_search_tool(
+            bot_name=self.config['slug'],
+            context_name=context_['name'],
+            environment='production' if self.production else 'staging'
+        )
 
     def update_tool_resources(self, context_, vector_store):
         # For Elasticsearch, we don't need to set tool_resources
@@ -282,3 +287,45 @@ class VectorStoreES(VectorStoreBase):
         except Exception as e:
             logger.error(f"Failed to verify metadata for document {document_id}: {str(e)}")
             return {}
+
+    def create_search_tool(self, bot_name: str, context_name: str, environment: str) -> Dict:
+        """Creates an Elasticsearch vector search tool configuration for a specific context"""
+        
+        # Load the bot's config to get context details
+        config_path = Path(self.config_dir) / 'config.yaml'
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        
+        # Find the specific context configuration to get its slug
+        context_config = next(
+            (ctx for ctx in config.get('context', []) if ctx['name'] == context_name),
+            {'slug': context_name.lower().replace(' ', '_')}  # fallback to sanitized name
+        )
+        
+        # Use slugs for the tool name
+        tool_name = f"ElasticVectorSearch_{bot_name}_{context_config['slug']}"
+        
+        return {
+            "type": "function",
+            "function": {
+                "name": tool_name,
+                "description": context_config.get('description', 
+                    f"Search the {config['name']}'s {context_name} knowledge base using semantic search"),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": context_config.get('search_description', 
+                                "The search query text")
+                        },
+                        "num_results": {
+                            "type": "integer",
+                            "description": "Number of results to return",
+                            "default": 7
+                        }
+                    },
+                    "required": ["query"]
+                }
+            }
+        }

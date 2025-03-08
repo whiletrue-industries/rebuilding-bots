@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from ..collect_sources import collect_context_sources
+from typing import Dict
 
 
 class VectorStoreBase(ABC):
@@ -55,3 +56,7 @@ class VectorStoreBase(ABC):
     @abstractmethod
     def update_tool_resources(self, context_, vector_store):
         pass
+
+    def create_search_tool(self, bot_name: str, context_name: str, environment: str) -> Dict:
+        """Creates a search tool configuration for this vector store"""
+        raise NotImplementedError
