@@ -155,6 +155,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 # Log the tool call parameters
                 logger.info(f"Calling vector_search_handler with query: {arguments['query']}, num_results: {arguments.get('num_results', 7)}")
                 
+                # Don't pass environment parameter - it's already encoded in the tool name
                 output = elastic_vector_search_handler(
                     environment=environment,
                     bot_name=bot_name,

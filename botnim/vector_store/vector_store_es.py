@@ -52,6 +52,7 @@ class VectorStoreES(VectorStoreBase):
     def _index_name_for_context(self, context_name: str) -> str:
         """Standardize index name construction"""
         base_name = f"{self.config['slug']}__{context_name}"
+        # add __dev suffix if in development mode, don't add environment name
         return self.env_name_slug(base_name.lower().replace(' ', '_'))
 
     def _build_search_query(self, query_text: str, embedding: List[float], 
@@ -303,30 +304,15 @@ class VectorStoreES(VectorStoreBase):
             {'slug': context_name.lower().replace(' ', '_')}  # fallback to sanitized name
         )
         
-        # Get default num_results from context config or use a reasonable default
-        default_num_results = context_config.get('default_num_results', 7)
+        # Use the search_ prefix for the tool name
+        # Format: search_botname__contextslug
+        # Don't add environment to the tool name - it's handled by the index name construction
+        tool_name = f"search_{bot_name}__{context_config['slug']}"
         
-        # Use slugs for the tool name and include environment
-        # Format: search_botname__contextslug__environment
-        env_suffix = "" if environment == "production" else f"__{environment}"
-        tool_name = f"search_{bot_name}__{context_config['slug']}{env_suffix}"
-        
-        # Determine whether to include num_results parameter based on context config
-        properties = {
-            "query": {
-                "type": "string",
-                "description": context_config.get('search_description', 
-                    "The search query text")
-            }
-        }
-        
-        # Only include num_results parameter if explicitly enabled in config
-        if context_config.get('allow_agent_num_results', False):
-            properties["num_results"] = {
-                "type": "integer",
-                "description": "Number of results to return",
-                "default": default_num_results
-            }
+        # Add __dev suffix only in development mode (non-production)
+        # This matches how the index names are actually created
+        if environment != "production":
+            tool_name += "__dev"
         
         return {
             "type": "function",
@@ -336,7 +322,18 @@ class VectorStoreES(VectorStoreBase):
                     f"Search the {config['name']}'s {context_name} knowledge base using semantic search"),
                 "parameters": {
                     "type": "object",
-                    "properties": properties,
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": context_config.get('search_description', 
+                                "The search query text")
+                        },
+                        "num_results": {
+                            "type": "integer",
+                            "description": "Number of results to return",
+                            "default": 7
+                        }
+                    },
                     "required": ["query"]
                 }
             }
