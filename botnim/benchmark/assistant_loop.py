@@ -140,14 +140,8 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 for key, value in arguments.items():
                     f.write(f"    {key}: {value}\n")
             
-            # Set default page_size for DatasetDBQuery
-            if tool.function.name == 'DatasetDBQuery':
-                arguments['page_size'] = 30
-                
-            # Handle different tool types
-
+            # Handle different tool types based on name
             if tool.function.name.startswith('search_'):
-                # Handle the search_takanon__context__dev pattern
                 # Remove 'search_' prefix and '__dev' suffix if present
                 tool_name = tool.function.name[len('search_'):]
                 if tool_name.endswith('__dev'):
@@ -159,7 +153,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 context_name = parts[1] if len(parts) > 1 else ''
                 
                 # Log the tool call parameters
-                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {arguments.get('num_results', 7)}")
+                logger.info(f"Calling vector_search_handler with query: {arguments['query']}, num_results: {arguments.get('num_results', 7)}")
                 
                 output = elastic_vector_search_handler(
                     environment=environment,
@@ -171,12 +165,16 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 
                 # Log the output
                 logger.info(f"Tool output: {output}")
-            
-            # Handle OpenAPI tools - these should be processed regardless of ElasticVectorSearch handling
-            if tool.function.name == 'DatasetDBQuery':
+            elif tool.function.name == 'DatasetDBQuery':
+                # Handle DatasetDBQuery tool
+                arguments['page_size'] = 30
                 output = get_openapi_output(openapi_spec, tool.function.name, arguments)
-            if tool.function.name == 'DatasetInfo':
+            elif tool.function.name == 'DatasetInfo':
+                # Handle DatasetInfo tool
                 output = get_dataset_info_cache(arguments, output)
+            else:
+                # Handle any other tools
+                logger.warning(f"Unknown tool type: {tool.function.name}")
             
             if output is not None:
                 # Log tool output
