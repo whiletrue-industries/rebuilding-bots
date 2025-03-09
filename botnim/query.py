@@ -113,6 +113,19 @@ class QueryClient:
             raise
 
 def run_query(query_text: str, environment: str, bot_name: str, context_name: str, num_results: int = 7) -> List[SearchResult]:
+    """
+    Run a query against the vector store
+    
+    Args:
+        query_text (str): The text to search for
+        environment (str): Environment to use (production or staging)
+        bot_name (str): Name of the bot to use
+        context_name (str): Name of the context to search in
+        num_results (int): Number of results to return
+        
+    Returns:
+        List[SearchResult]: List of search results
+    """
     logger.info(f"Running run_query with query_text: {query_text}, num_results: {num_results}")
     client = QueryClient(environment, bot_name, context_name)
     
