@@ -38,6 +38,7 @@ $ pip install -U -e .[dev]
   - `benchmark/`: Benchmarking scripts for the bots.
       Copy this file to `.env` and fill in the necessary values.
     - `run-benchmark.py`: Main benchmarking script.
+    - `assistant_loop.py`: Local assistant loop tool.
 - `specs/`: Specifications for the bots.
   - `budgetkey/`: Specifications for the budgetkey bot.
     - `config.yaml`: Agent configuration file.
@@ -47,6 +48,8 @@ $ pip install -U -e .[dev]
     - `agent.txt`: Agent instructions.
     - `extraction/`: Extracted and processed text from the Knesset Takanon
   - `openapi/`: OpenAPI definitions of the BudgetKey (and other deprecated) APIs.
+  - `tools/`: Tools for the bots.
+    - `elasticsearch_vector_search.py`: Tool for searching the Elasticsearch vector store.
 - `takanon_extractions/`: Code and extracted content from the Knesset Takanon and other laws.
   - `process_clauses.py`: Script to parse the Knesset Takanon HTML, extract the document structure, save it as JSON/YAML and Markdown files and then to split the JSON data into individual Markdown files for each clause.
 - `ui/`: DEPRECATED: User interface for the bots.
@@ -129,6 +132,28 @@ For running locally:
       source: "path/to/file.md"
   ```
 
-## Tools
 
+## Tools
+### CLI Assistant
 - `botnim/cli_assistant.py`: Interactive CLI tool for chatting with OpenAI assistants (supports RTL languages)
+
+
+The botnim assistant command provides an interactive chat interface with OpenAI assistants:
+
+# Basic usage - will show list of available assistants
+```bash
+botnim assistant
+```
+# Start chat with a specific assistant
+```bash
+botnim assistant --assistant-id <assistant-id>
+```
+# Enable RTL support for Hebrew
+```bash`
+botnim assistant --rtl
+```
+# Choose environment for vector search
+```bash
+botnim assistant --environment production  # or staging (default)
+```
+
