@@ -303,10 +303,30 @@ class VectorStoreES(VectorStoreBase):
             {'slug': context_name.lower().replace(' ', '_')}  # fallback to sanitized name
         )
         
+        # Get default num_results from context config or use a reasonable default
+        default_num_results = context_config.get('default_num_results', 7)
+        
         # Use slugs for the tool name and include environment
         # Format: search_botname__contextslug__environment
         env_suffix = "" if environment == "production" else f"__{environment}"
         tool_name = f"search_{bot_name}__{context_config['slug']}{env_suffix}"
+        
+        # Determine whether to include num_results parameter based on context config
+        properties = {
+            "query": {
+                "type": "string",
+                "description": context_config.get('search_description', 
+                    "The search query text")
+            }
+        }
+        
+        # Only include num_results parameter if explicitly enabled in config
+        if context_config.get('allow_agent_num_results', False):
+            properties["num_results"] = {
+                "type": "integer",
+                "description": "Number of results to return",
+                "default": default_num_results
+            }
         
         return {
             "type": "function",
@@ -316,18 +336,7 @@ class VectorStoreES(VectorStoreBase):
                     f"Search the {config['name']}'s {context_name} knowledge base using semantic search"),
                 "parameters": {
                     "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": context_config.get('search_description', 
-                                "The search query text")
-                        },
-                        "num_results": {
-                            "type": "integer",
-                            "description": "Number of results to return",
-                            "default": 7
-                        }
-                    },
+                    "properties": properties,
                     "required": ["query"]
                 }
             }
