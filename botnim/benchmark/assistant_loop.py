@@ -143,7 +143,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
             
             # Handle different tool types
             if tool.function.name.startswith('search_'):
-                # Handle the search_takanon__context__dev pattern
                 # Remove 'search_' prefix and '__dev' suffix if present
                 tool_name = tool.function.name[len('search_'):]
                 if tool_name.endswith('__dev'):
