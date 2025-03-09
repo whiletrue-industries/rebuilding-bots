@@ -1,0 +1,27 @@
+{
+  "extracted_at": "2025-03-02T19:49:57.461830+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "סיעה שלא משתתפת כלל בדיון  ובהצבעה על נושא כלשהו במליאה זכאית למסור הודעה במשך 5 דקות דיבור עם סיום ההצבעה\n\nקשור לסעיף:\n33\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 33",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "Regulations regarding a party that does not participate in discussions and voting in the plenum."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:32:40.870405+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 29ב. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_29ב)\n[תיקון: תשנ״ג, תשס״ח]\n(בוטל).",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 29ב",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_29ב"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [
+        {
+          "Name": "משכן הכנסת",
+          "ClauseLocation": "",
+          "Quote": ""
+        }
+      ],
+      "Description": "חוק העוסק במשכן הכנסת ובמשמר הכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון",
+        "ReferenceText": "תשנ״ג, תשס״ח",
+        "ReferenceQuote": "(בוטל)"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_29ב.md"
+}

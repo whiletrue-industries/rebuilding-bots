@@ -1,0 +1,33 @@
+{
+  "extracted_at": "2025-03-02T19:51:51.420875+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "קיזוזים הם הסכם אישי בין חברי הכנסת להיעדרות מתואמת. הנושא לא מוסדר בחקיקה או בתקנון הכנסת ואין לו מעמד מחייב פרט להסכמה בין אותם חברי כנסת. על אף החשיבות של הקיזוז אין יכולת לאכוף אותו ואין סנקציה מטעם הכנסת על הפרתו.\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הסכם אישי בין חברי הכנסת להיעדרות מתואמת שאינו מוסדר בחקיקה."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "קיזוזים",
+      "חברי הכנסת",
+      "היעדרות מתואמת",
+      "חקיקה",
+      "תקנון הכנסת"
+    ],
+    "Topics": []
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "extracted_at": "2025-03-02T19:40:36.581136+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד: **\n\n[מקור: סעיף 4. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_4)\nביצוע ותקנות\n\n(א)שר המשפטים ממונה על ביצוע חוק זה לענין הצעות חוק מטעם הממשלה, והוא רשאי, באישור ועדת החוקה חוק ומשפט של הכנסת, להתקין תקנות לביצועו.(ב)יושב ראש הכנסת ממונה על ביצוע חוק זה לענין הצעות חוק מטעם חברי הכנסת והוא רשאי, באישור ועדת הכנסת, להתקין תקנות לביצועו.",
+  "document_type": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 4.",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_4"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "שר המשפטים",
+          "ClauseLocation": "(א)",
+          "Quote": "שר המשפטים ממונה על ביצוע חוק זה לענין הצעות חוק מטעם הממשלה"
+        },
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "(ב)",
+          "Quote": "יושב ראש הכנסת ממונה על ביצוע חוק זה לענין הצעות חוק מטעם חברי הכנסת"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "ועדת החוקה חוק ומשפט",
+          "ClauseLocation": "(א)",
+          "Quote": "באישור ועדת החוקה חוק ומשפט של הכנסת"
+        },
+        {
+          "Organization": "ועדת הכנסת",
+          "ClauseLocation": "(ב)",
+          "Quote": "באישור ועדת הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "החוק עוסק בביצוע חקיקה והשפעתה על זכויות הילד."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חקיקה",
+      "זכויות הילד",
+      "ביצוע",
+      "תקנות"
+    ],
+    "Topics": []
+  },
+  "title": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד",
+  "source_file": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד_4.md"
+}

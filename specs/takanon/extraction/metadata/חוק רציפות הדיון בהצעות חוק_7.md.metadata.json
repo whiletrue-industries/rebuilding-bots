@@ -1,0 +1,53 @@
+{
+  "extracted_at": "2025-03-02T19:31:11.074701+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק רציפות הדיון בהצעות חוק: **\n\n[מקור: סעיף 7. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_7)\nביטול\nחוק רציפות הדיון בהצעות חוק, התשכ״ה–1964 – בטל.\nנתקבל בכנסת ביום י״ב בשבט התשנ״ג (3 בפברואר 1993).\nיצחק רביןראש הממשלהחיים הרצוגנשיא המדינהשבח וייסיושב ראש הכנסת",
+  "document_type": "חוק רציפות הדיון בהצעות חוק",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק רציפות הדיון בהצעות חוק",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 7",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_7"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "ראש הממשלה",
+          "ClauseLocation": "",
+          "Quote": "יצחק רבין"
+        },
+        {
+          "Role": "נשיא המדינה",
+          "ClauseLocation": "",
+          "Quote": "חיים הרצוג"
+        },
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "",
+          "Quote": "שבח וייס"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "ביטול חוק רציפות הדיון בהצעות חוק, התשכ״ה–1964."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק רציפות הדיון בהצעות חוק, התשכ״ה–1964",
+        "ReferenceText": "ביטול חוק רציפות הדיון בהצעות חוק, התשכ״ה–1964 – בטל.",
+        "ReferenceQuote": "חוק רציפות הדיון בהצעות חוק, התשכ״ה–1964 – בטל."
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חוק רציפות הדיון בהצעות חוק",
+  "source_file": "חוק רציפות הדיון בהצעות חוק_7.md"
+}

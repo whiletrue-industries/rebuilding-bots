@@ -1,0 +1,48 @@
+{
+  "extracted_at": "2025-03-02T19:27:27.790841+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 23. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_23)\nדינם של שר וסגן שר שאינם חברי הכנסת[תיקון: תשע״ה־2, תש״ף־2]\nשר או סגן שר שאינם חברי הכנסת, דינם לכל דבר הנוגע לכנסת כדין שר או סגן שר שהם חברי הכנסת, אולם לא תהא להם זכות הצבעה.",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 23",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_23"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "שר",
+          "ClauseLocation": "סעיף 23",
+          "Quote": "שר או סגן שר שאינם חברי הכנסת"
+        },
+        {
+          "Role": "סגן שר",
+          "ClauseLocation": "סעיף 23",
+          "Quote": "שר או סגן שר שאינם חברי הכנסת"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "דינם של שר וסגן שר שאינם חברי הכנסת כדין שר או סגן שר שהם חברי הכנסת, אולם לא תהא להם זכות הצבעה."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון",
+        "ReferenceText": "תשע״ה־2, תש״ף־2",
+        "ReferenceQuote": "דינם של שר וסגן שר שאינם חברי הכנסת"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_23.md"
+}

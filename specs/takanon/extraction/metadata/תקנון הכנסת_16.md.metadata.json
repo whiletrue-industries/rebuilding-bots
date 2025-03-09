@@ -1,0 +1,45 @@
+{
+  "extracted_at": "2025-03-02T19:13:59.028883+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**הודעה על חילופים של חברי הכנסת**\n\nמקור: חלק ב׳ - ארגון הכנסת / פרק שלישי - חברי הכנסת / סעיף 16\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_16\n\n * (א) נתפנתה משרתו של חבר הכנסת, יודיע יושב ראש הכנסת בכתב לחבר הכנסת שבא במקומו, כאמורבסעיף 34 לחוק־יסוד: הכנסת, על תחילת כהונתו בכנסת.\n * (ב) (בוטל).",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "הודעה על חילופים של חברי הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ב׳ - ארגון הכנסת / פרק שלישי - חברי הכנסת / סעיף 16",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_16"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "(א)",
+          "Quote": "יודיע יושב ראש הכנסת בכתב לחבר הכנסת שבא במקומו"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הודעה על חילופים של חברי הכנסת בעקבות פ vacancy."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק־יסוד: הכנסת",
+        "ReferenceText": "סעיף 34",
+        "ReferenceQuote": "כאמור בסעיף 34 לחוק־יסוד: הכנסת"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [],
+    "Topics": [
+      "נתפנתה משרתו של חבר הכנסת"
+    ]
+  },
+  "title": "הודעה על חילופים של חברי הכנסת",
+  "source_file": "תקנון הכנסת_16.md"
+}

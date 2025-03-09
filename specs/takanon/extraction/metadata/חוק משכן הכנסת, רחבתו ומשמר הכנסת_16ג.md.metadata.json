@@ -1,0 +1,59 @@
+{
+  "extracted_at": "2025-03-02T19:39:28.858170+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 16ג. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_16ג)\nסמכות לצורך הכוונת תנועת רכב[תיקון: תשנ״ט]\nלצורך הכוונת תנועת רכב, חנייתו או עצירתו ברחבת הכנסת, תהיה לקצין הכנסת או לאיש משמר הכנסת שקצין הכנסת הסמיכו לכך לאחר שקיבל הכשרה מתאימה, כל סמכות הנתונה לפי כל דין לשוטר.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 16ג.",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_16g"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "קצין הכנסת",
+          "ClauseLocation": "סעיף 16ג.",
+          "Quote": "סמכות לצורך הכוונת תנועת רכב, חנייתו או עצירתו ברחבת הכנסת, תהיה לקצין הכנסת"
+        },
+        {
+          "Role": "איש משמר הכנסת",
+          "ClauseLocation": "סעיף 16ג.",
+          "Quote": "או לאיש משמר הכנסת שקצין הכנסת הסמיכו לכך"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [
+        {
+          "Name": "רחבת הכנסת",
+          "ClauseLocation": "סעיף 16ג.",
+          "Quote": "חנייתו או עצירתו ברחבת הכנסת"
+        }
+      ],
+      "Description": "סמכות הכוונת תנועת רכב ברחבת הכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון: תשנ״ט",
+        "ReferenceText": "",
+        "ReferenceQuote": "לצורך הכוונת תנועת רכב, חנייתו או עצירתו ברחבת הכנסת, תהיה לקצין הכנסת או לאיש משמר הכנסת"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "סמכות",
+      "תנועת רכב",
+      "חנייה",
+      "עצירה"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_16ג.md"
+}

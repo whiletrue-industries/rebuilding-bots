@@ -1,0 +1,39 @@
+{
+  "extracted_at": "2025-03-02T19:50:43.683232+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "סיעה בכנסת היא זו שממנה את חבריה לתפקידים בוועדות ויכולה להחליפם בהודעה לוועדת הכנסת בכל עת\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "סיעה בכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "כנסת",
+          "ClauseLocation": "",
+          "Quote": "סיעה בכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הסיעה בכנסת ממנה את חבריה לתפקידים בוועדות."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "סיעה",
+      "כנסת",
+      "חברים",
+      "תפקידים",
+      "וועדות"
+    ],
+    "Topics": []
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "extracted_at": "2025-03-02T19:22:40.553818+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם: **\n\n[מקור: סעיף 8. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_8)\nמועד למתן עדות\nנדרש חבר הכנסת למסור עדות לפני בית משפט, ייקבע המועד לגביית עדותו בהסכמת יושב ראש הכנסת.",
+  "document_type": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 8",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_8"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "יושב ראש הכנסת",
+          "ClauseLocation": "סעיף 8",
+          "Quote": "בהסכמת יושב ראש הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "מועד למתן עדות לחברי הכנסת"
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חסינות",
+      "חברי הכנסת",
+      "זכויות",
+      "חובות",
+      "עדות",
+      "בית משפט"
+    ],
+    "Topics": [
+      "נדרש חבר הכנסת למסור עדות לפני בית משפט"
+    ]
+  },
+  "title": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם",
+  "source_file": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם_8.md"
+}

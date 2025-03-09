@@ -1,0 +1,42 @@
+{
+  "extracted_at": "2025-03-02T19:31:13.984207+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חתימת חבר הכנסת**\n\nמקור: חלק ב׳ - ארגון הכנסת / פרק שלישי - חברי הכנסת / סעיף 14\nקישור: https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_14\n\nמסמך שחבר הכנסת מגישו בכתב לפי תקנון זה, ייחתם בידי חבר הכנסת אישית; הוראה זו לא תחול על מסמך המוגש רק באמצעות המערכת הממוחשבת בכנסת.",
+  "document_type": "תקנון הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חתימת חבר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "חלק ב׳ - ארגון הכנסת / פרק שלישי - חברי הכנסת / סעיף 14",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_14"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "סעיף 14",
+          "Quote": "המערכת הממוחשבת בכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הוראות לגבי חתימת מסמכים על ידי חבר הכנסת."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חתימה",
+      "חבר הכנסת",
+      "מסמך",
+      "תקנון"
+    ],
+    "Topics": []
+  },
+  "title": "חתימת חבר הכנסת",
+  "source_file": "תקנון הכנסת_14.md"
+}

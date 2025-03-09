@@ -1,0 +1,48 @@
+{
+  "extracted_at": "2025-03-02T19:26:50.182032+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 14ב. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_14ב)\nסמכות תפיסה[תיקון: תשס״ד]\n\n(א)המוסמך לערוך חיפוש רשאי לתפוס חפץ אסור שלא הופקד כאמורבסעיף 14א, או כל חפץ שיש לו יסוד סביר להניח כי הוא עשוי לשמש ראיה בהליך משפטי בשל עבירה.(ב)מי שביצע תפיסת חפצים לפי סעיף קטן (א) יערוך רשימה שלהם, והוא רשאי להעבירם ידי המשטרה או להחזירם לאדם שממנו נתפסו.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 14ב.",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_14ב"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [
+        {
+          "Name": "כנסת",
+          "ClauseLocation": "סעיף 14ב.",
+          "Quote": "חוק משכן הכנסת, רחבתו ומשמר הכנסת"
+        }
+      ],
+      "Description": "סמכות תפיסה של חפצים אסורים או ראיות בהליך משפטי."
+    },
+    "LegalReferences": [],
+    "Amendments": [
+      "תיקון: תשס״ד"
+    ],
+    "AdditionalKeywords": [
+      "חיפוש",
+      "תפיסה",
+      "חפץ אסור",
+      "ראיה",
+      "הליך משפטי",
+      "עבירה"
+    ],
+    "Topics": [
+      "סמכות תפיסה של חפצים אסורים או ראיות בהליך משפטי."
+    ]
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_14ב.md"
+}

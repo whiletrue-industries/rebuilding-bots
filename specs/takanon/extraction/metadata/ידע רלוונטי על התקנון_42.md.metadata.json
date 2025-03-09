@@ -1,0 +1,43 @@
+{
+  "extracted_at": "2025-03-02T19:51:44.176376+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "לחבר כנסת אסור לעשות שימוש בנייר הכנסת ובסמל הכנסת למכתבים אישיים\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "חבר כנסת",
+          "ClauseLocation": "",
+          "Quote": "לחבר כנסת אסור לעשות שימוש"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "",
+          "Quote": "בנייר הכנסת ובסמל הכנסת"
+        }
+      ],
+      "Placenames": [],
+      "Description": "The document states that a member of the Knesset is prohibited from using Knesset paper and emblem for personal letters."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חבר כנסת",
+      "נייר הכנסת",
+      "סמל הכנסת"
+    ],
+    "Topics": []
+  }
+}

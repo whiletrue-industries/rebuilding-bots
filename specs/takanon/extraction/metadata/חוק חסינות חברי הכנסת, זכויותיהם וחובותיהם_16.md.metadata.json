@@ -1,0 +1,42 @@
+{
+  "extracted_at": "2025-03-02T19:44:17.756335+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם: **\n\n[מקור: סעיף 16. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_16)\nביצוע\nיושב ראש הכנסת ממונה על ביצוע חוק זה.",
+  "document_type": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 16",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_16"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב ראש הכנסת",
+          "ClauseLocation": "סעיף 16",
+          "Quote": "יושב ראש הכנסת ממונה על ביצוע חוק זה."
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "חוק המפרט את חסינות חברי הכנסת וזכויותיהם וחובותיהם."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חסינות",
+      "חברי הכנסת",
+      "זכויות",
+      "חובות"
+    ],
+    "Topics": []
+  },
+  "title": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם",
+  "source_file": "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם_16.md"
+}

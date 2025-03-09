@@ -1,0 +1,33 @@
+{
+  "extracted_at": "2025-03-02T19:50:59.605546+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "בקשה לדיון מחדש (רביזיה) ניתן להגיש פעם אחת בלבד וכל עוד לא הונחה הצעת החוק על שולחן הכנסת\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "בקשה לדיון מחדש (רביזיה)",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "המסמך עוסק בהגשת בקשה לדיון מחדש בחוק."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "בקשה",
+      "דיון מחדש",
+      "רביזיה",
+      "הצעת חוק",
+      "כנסת"
+    ],
+    "Topics": []
+  }
+}

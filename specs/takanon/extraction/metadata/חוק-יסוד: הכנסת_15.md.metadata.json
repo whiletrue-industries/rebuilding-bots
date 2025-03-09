@@ -1,0 +1,48 @@
+{
+  "extracted_at": "2025-03-02T19:15:54.413062+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 15. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_15)\nהצהרת אמונים של חבר הכנסת[תיקון: תשנ״ו־5]\n\n(א)חבר הכנסת יצהיר אמונים; ואלה דברי ההצהרה:”אני מתחייב לשמור אמונים למדינת ישראל ולמלא באמונה את שליחותי בכנסת“.(ב)סדרי ההצהרה ייקבעו בחוק.ראוחוק הכנסת, התשנ״ד–1994.",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 15",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_15"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [
+        {
+          "Name": "מדינת ישראל",
+          "ClauseLocation": "(א)",
+          "Quote": "אני מתחייב לשמור אמונים למדינת ישראל"
+        }
+      ],
+      "Description": "הצהרת אמונים של חבר הכנסת"
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק הכנסת",
+        "ReferenceText": "ראוחוק הכנסת, התשנ״ד–1994",
+        "ReferenceQuote": "ראוחוק הכנסת, התשנ״ד–1994"
+      }
+    ],
+    "Amendments": [
+      "תיקון: תשנ״ו־5"
+    ],
+    "AdditionalKeywords": [
+      "הצהרת אמונים",
+      "חבר הכנסת"
+    ],
+    "Topics": []
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_15.md"
+}

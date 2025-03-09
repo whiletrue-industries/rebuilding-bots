@@ -1,0 +1,63 @@
+{
+  "extracted_at": "2025-03-02T19:22:53.876914+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 16ב. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_16ב)\nהסדרת התנועה[תיקון: תשנ״ט]\nקצין הכנסת, או מי שיושב ראש הכנסת הסמיכו לכך, רשאי לקבוע את הסדרי התנועה והחניה ברחבת הכנסת לפיפקודת התעבורה, ולשם כך יהיו לו כל הסמכויות הנתונות לפיהפקודה האמורהלמפקח על התעבורה, לקצין משטרה ולרשויות התימרור.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 16ב.",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_16ב"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "קצין הכנסת",
+          "ClauseLocation": "סעיף 16ב.",
+          "Quote": "קצין הכנסת, או מי שיושב ראש הכנסת הסמיכו לכך"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "יושב ראש הכנסת",
+          "ClauseLocation": "סעיף 16ב.",
+          "Quote": "מי שיושב ראש הכנסת הסמיכו לכך"
+        }
+      ],
+      "Placenames": [
+        {
+          "Name": "רחבת הכנסת",
+          "ClauseLocation": "סעיף 16ב.",
+          "Quote": "הסדרי התנועה והחניה ברחבת הכנסת"
+        }
+      ],
+      "Description": "הסדרת התנועה ברחבת הכנסת על ידי קצין הכנסת."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "פקודת התעבורה",
+        "ReferenceText": "",
+        "ReferenceQuote": "הסדרי התנועה והחניה ברחבת הכנסת לפיפקודת התעבורה"
+      }
+    ],
+    "Amendments": [
+      "תיקון: תשנ״ט"
+    ],
+    "AdditionalKeywords": [
+      "תנועה",
+      "חניה",
+      "סמכויות"
+    ],
+    "Topics": [
+      "הסדרת התנועה ברחבת הכנסת"
+    ]
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_16ב.md"
+}

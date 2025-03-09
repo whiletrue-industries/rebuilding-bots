@@ -1,0 +1,37 @@
+{
+  "extracted_at": "2025-03-02T19:51:21.784068+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "נסיעה לחו\"ל שלא במימון עצמי או של הכנסת מחויבת באישור ועדת האתיקה לרבות פירוט הגורם המממן, מטרת הנסיעה וכיוצא באלה\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "ועדת האתיקה",
+          "ClauseLocation": "",
+          "Quote": "אישור ועדת האתיקה"
+        }
+      ],
+      "Placenames": [],
+      "Description": "הדרישה לאישור ועדת האתיקה לנסיעות לחו\"ל שאינן ממומנות באופן עצמי."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "נסיעה לחו\"ל",
+      "אישור",
+      "ועדת האתיקה"
+    ],
+    "Topics": []
+  }
+}

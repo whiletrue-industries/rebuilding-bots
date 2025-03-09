@@ -1,0 +1,51 @@
+{
+  "extracted_at": "2025-03-02T19:14:03.967994+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק-יסוד: הכנסת: **\n\n[מקור: סעיף 14. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_14)\nישיבת הפתיחה[תיקון: תשנ״ו־5]\nסדרי ישיבת הפתיחה ייקבעו בחוק, והם יבטאו את אופיה של מדינת ישראל ומורשתה.ראוחוק הכנסת, התשנ״ד–1994.",
+  "document_type": "חוק-יסוד: הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק-יסוד: הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 14",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_14"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "סעיף 14",
+          "Quote": "חוק הכנסת, התשנ״ד–1994"
+        }
+      ],
+      "Placenames": [
+        {
+          "Name": "מדינת ישראל",
+          "ClauseLocation": "סעיף 14",
+          "Quote": "אופיה של מדינת ישראל ומורשתה"
+        }
+      ],
+      "Description": "סדרי ישיבת הפתיחה ייקבעו בחוק, והם יבטאו את אופיה של מדינת ישראל ומורשתה."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק הכנסת",
+        "ReferenceText": "חוק הכנסת, התשנ״ד–1994",
+        "ReferenceQuote": "חוק הכנסת, התשנ״ד–1994"
+      }
+    ],
+    "Amendments": [
+      "תיקון: תשנ״ו־5"
+    ],
+    "AdditionalKeywords": [],
+    "Topics": []
+  },
+  "title": "חוק-יסוד: הכנסת",
+  "source_file": "חוק-יסוד: הכנסת_14.md"
+}

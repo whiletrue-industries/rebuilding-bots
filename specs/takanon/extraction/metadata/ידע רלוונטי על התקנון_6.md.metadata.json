@@ -1,0 +1,32 @@
+{
+  "extracted_at": "2025-03-02T19:49:42.997105+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "חבר כנסת שלא מצהיר אמונים בכנסת במועד ההצהרה עשוי להישלל ממנו זכויות מתוקף חוק החסינות עד אשר יצהיר כנדרש בחוק יסוד הכנסת\n\nקשור לסעיף:\n17\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 17",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "חבר כנסת שלא מצהיר אמונים בכנסת במועד ההצהרה עשוי להישלל ממנו זכויות מתוקף חוק החסינות."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "חבר כנסת",
+      "הצהרת אמונים",
+      "חוק החסינות",
+      "חוק יסוד הכנסת"
+    ],
+    "Topics": []
+  }
+}

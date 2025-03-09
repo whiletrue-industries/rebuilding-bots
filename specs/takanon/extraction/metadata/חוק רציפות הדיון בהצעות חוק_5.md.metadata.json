@@ -1,0 +1,59 @@
+{
+  "extracted_at": "2025-03-02T19:22:12.386551+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק רציפות הדיון בהצעות חוק: **\n\n[מקור: סעיף 5. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_5)\nהתנגדות לרציפות\nהודיעה הממשלה, כאמורבסעיף 1, או הועדה כאמורבסעיף 2, רשאית סיעה להציע, תוך שבועיים, שדין הרציפות לא יחול על הצעת החוק, וכן רשאית הממשלה להציע כאמור, לגבי הודעה של ועדה; הוגשה הצעה כזאת, ינמקה אחד מחברי הסיעה או הממשלה, לפי הענין; הממשלה או הועדה, לפי הענין, ישיבו, והכנסת תצביע על ההצעה.",
+  "document_type": "חוק רציפות הדיון בהצעות חוק",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק רציפות הדיון בהצעות חוק",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 5",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_5"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "ממשלה",
+          "ClauseLocation": "סעיף 1",
+          "Quote": "הודיעה הממשלה, כאמור בסעיף 1"
+        },
+        {
+          "Role": "ועדה",
+          "ClauseLocation": "סעיף 2",
+          "Quote": "הועדה כאמור בסעיף 2"
+        },
+        {
+          "Role": "חברי הסיעה",
+          "ClauseLocation": "",
+          "Quote": "ינמקה אחד מחברי הסיעה"
+        }
+      ],
+      "OfficialOrganizations": [
+        {
+          "Organization": "הכנסת",
+          "ClauseLocation": "",
+          "Quote": "הכנסת תצביע על ההצעה"
+        }
+      ],
+      "Placenames": [],
+      "Description": "המסמך עוסק בהתנגדות לרציפות הדיון בהצעות חוק."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "התנגדות",
+      "רציפות",
+      "הצעת חוק"
+    ],
+    "Topics": [
+      "המסמך עוסק בהתנגדות לרציפות הדיון בהצעות חוק."
+    ]
+  },
+  "title": "חוק רציפות הדיון בהצעות חוק",
+  "source_file": "חוק רציפות הדיון בהצעות חוק_5.md"
+}

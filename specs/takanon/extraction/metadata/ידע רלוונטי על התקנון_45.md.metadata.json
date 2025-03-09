@@ -1,0 +1,35 @@
+{
+  "extracted_at": "2025-03-02T19:51:54.148099+00:00",
+  "status": "processed",
+  "context_type": "google-spreadsheet",
+  "context_name": "ידע רלוונטי על התקנון",
+  "source_content": "ועת האתיקה קבעה כי על יושבי ראש ועדות הכנסת חובה לנהוג בנימוס במומחים שהוזמנו לוועדה להשמיע את עמדתם ויש לאפשרם לעשות זאת אף אם עמדתם אינה כדעת היושב ראש\n\n",
+  "document_type": "spreadsheet_entry",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "",
+      "PublicationDate": "",
+      "OfficialSource": "",
+      "ReferenceLinks": [],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "Guidelines for committee chairpersons in the Knesset regarding conduct towards invited experts."
+    },
+    "LegalReferences": [],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "אתיקה",
+      "יושבי ראש",
+      "ועדות הכנסת",
+      "נימוס",
+      "מומחים"
+    ],
+    "Topics": [
+      "Conduct of committee chairpersons towards invited experts."
+    ]
+  }
+}

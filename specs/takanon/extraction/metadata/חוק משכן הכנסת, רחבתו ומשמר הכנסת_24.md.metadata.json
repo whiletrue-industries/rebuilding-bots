@@ -1,0 +1,58 @@
+{
+  "extracted_at": "2025-03-02T19:36:10.262153+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 24. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_24)\nדין מבצע תפקיד ציבורי ללא רשות והשתתפות באסיפה או בתהלוכה\nואלה דינם מאסר שנה:(1)העובר על הוראותסעיף 6;(2)המשתתף באסיפה או בתהלוכה במשכן הכנסת או ברחבה בניגודלסעיף 7(ב).",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 24",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_24"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [],
+      "OfficialOrganizations": [],
+      "Placenames": [
+        {
+          "Name": "משכן הכנסת",
+          "ClauseLocation": "סעיף 24",
+          "Quote": "המשתתף באסיפה או בתהלוכה במשכן הכנסת"
+        },
+        {
+          "Name": "רחבה",
+          "ClauseLocation": "סעיף 24",
+          "Quote": "באסיפה או בתהלוכה במשכן הכנסת או ברחבה"
+        }
+      ],
+      "Description": "דין מבצע תפקיד ציבורי ללא רשות והשתתפות באסיפה או בתהלוכה"
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "סעיף 6",
+        "ReferenceText": "",
+        "ReferenceQuote": "העובר על הוראות סעיף 6"
+      },
+      {
+        "ReferenceTitle": "סעיף 7(ב)",
+        "ReferenceText": "",
+        "ReferenceQuote": "בניגוד לסעיף 7(ב)"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "מאסר",
+      "תפקיד ציבורי",
+      "אסיפה",
+      "תהלוכה"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_24.md"
+}

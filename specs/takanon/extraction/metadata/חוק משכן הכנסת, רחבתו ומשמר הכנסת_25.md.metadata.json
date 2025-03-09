@@ -1,0 +1,74 @@
+{
+  "extracted_at": "2025-03-02T19:40:18.125677+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 25. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_25)\nדין המפר הוראות אחרות[תיקון: תשנ״ה]\nואלה דינם מאסר חודש ימים או קנס 500 לירות:(1)הנכנס למשכן הכנסת, לרחבה או לאולם ישיבות המליאה ללא היתר לפיסעיפים 3או 4;(2)העובר על הוראותהסעיפים 7(א),7(ג);(3)המפר הוראות שניתנו כדין מאת קצין הכנסת או מאת סדרן או איש משמר הכנסת;(4)המפר הוראות יושב־ראש הכנסת לפיסעיף 2ולא נקבע בחוק זה עונש אחר לאותה עבירה.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 25",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_25"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "יושב־ראש הכנסת",
+          "ClauseLocation": "סעיף 25",
+          "Quote": "המפר הוראות יושב־ראש הכנסת לפיסעיף 2"
+        },
+        {
+          "Role": "קצין הכנסת",
+          "ClauseLocation": "סעיף 25",
+          "Quote": "המפר הוראות שניתנו כדין מאת קצין הכנסת"
+        },
+        {
+          "Role": "סדרן",
+          "ClauseLocation": "סעיף 25",
+          "Quote": "המפר הוראות שניתנו כדין מאת קצין הכנסת או מאת סדרן"
+        },
+        {
+          "Role": "איש משמר הכנסת",
+          "ClauseLocation": "סעיף 25",
+          "Quote": "המפר הוראות שניתנו כדין מאת קצין הכנסת או מאת סדרן או איש משמר הכנסת"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [
+        {
+          "Name": "משכן הכנסת",
+          "ClauseLocation": "סעיף 25",
+          "Quote": "הנכנס למשכן הכנסת"
+        },
+        {
+          "Name": "רחבה",
+          "ClauseLocation": "סעיף 25",
+          "Quote": "לרחבה או לאולם ישיבות המליאה"
+        }
+      ],
+      "Description": "החוק עוסק בעונש על הפרת הוראות הקשורות למשכן הכנסת ורחבתו."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "תיקון: תשנ״ה",
+        "ReferenceText": "",
+        "ReferenceQuote": "ואלה דינם מאסר חודש ימים או קנס 500 לירות"
+      }
+    ],
+    "Amendments": [],
+    "AdditionalKeywords": [
+      "מאסר",
+      "קנס",
+      "הוראות",
+      "עבירה"
+    ],
+    "Topics": []
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_25.md"
+}

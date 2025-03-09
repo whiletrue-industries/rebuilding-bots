@@ -1,0 +1,58 @@
+{
+  "extracted_at": "2025-03-02T19:23:54.833053+00:00",
+  "status": "processed",
+  "context_type": "files",
+  "context_name": "Knesset Bylaws (תקנון הכנסת) and related laws",
+  "source_content": "**חוק משכן הכנסת, רחבתו ומשמר הכנסת: **\n\n[מקור: סעיף 33. ](https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_33)\nהוראות מעבר[תיקון: תשנ״ה]\nמי שנתמנה להיות איש משמר הכנסת על פי חוק חסינות בניני הכנסת, תשי״ב–1952, והוא עודנו בשירות, רואים אותו כאילו נתמנה להיות איש משמר הכנסת על פי חוק זה, ותקופת שירותו כשומר תובא בחשבון לענין זכותו לגימלאות לפיחוק שירות המדינה (גימלאות), תשט״ו–1955.",
+  "document_type": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "extracted_data": {
+    "DocumentMetadata": {
+      "DocumentTitle": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+      "PublicationDate": "",
+      "OfficialSource": "סעיף 33",
+      "ReferenceLinks": [
+        "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_33"
+      ],
+      "Language": "עברית",
+      "Version": "",
+      "ClauseRepresentation": "main clause",
+      "OfficialRoles": [
+        {
+          "Role": "איש משמר הכנסת",
+          "ClauseLocation": "סעיף 33",
+          "Quote": "מי שנתמנה להיות איש משמר הכנסת"
+        }
+      ],
+      "OfficialOrganizations": [],
+      "Placenames": [],
+      "Description": "הוראות מעבר לגבי איש משמר הכנסת והכרת תקופת שירותו."
+    },
+    "LegalReferences": [
+      {
+        "ReferenceTitle": "חוק חסינות בניני הכנסת",
+        "ReferenceText": "תשי״ב–1952",
+        "ReferenceQuote": "על פי חוק חסינות בניני הכנסת, תשי״ב–1952"
+      },
+      {
+        "ReferenceTitle": "חוק הגימלאות",
+        "ReferenceText": "תשט״ו–1955",
+        "ReferenceQuote": "זכותו לגימלאות לפיחוק שירות המדינה (גימלאות), תשט״ו–1955"
+      }
+    ],
+    "Amendments": [
+      {
+        "AmendmentText": "תיקון: תשנ״ה"
+      }
+    ],
+    "AdditionalKeywords": [
+      "משמר הכנסת",
+      "גימלאות",
+      "חוק"
+    ],
+    "Topics": [
+      "הוראות מעבר לגבי איש משמר הכנסת והכרת תקופת שירותו."
+    ]
+  },
+  "title": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
+  "source_file": "חוק משכן הכנסת, רחבתו ומשמר הכנסת_33.md"
+}
