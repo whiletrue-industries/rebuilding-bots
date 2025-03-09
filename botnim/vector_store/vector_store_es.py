@@ -303,9 +303,10 @@ class VectorStoreES(VectorStoreBase):
             {'slug': context_name.lower().replace(' ', '_')}  # fallback to sanitized name
         )
         
-        # Use the search_ prefix for the tool name
-        # Format: search_botname__contextslug
-        tool_name = f"search_{bot_name}__{context_config['slug']}"
+        # Use slugs for the tool name and include environment
+        # Format: search_botname__contextslug__environment
+        env_suffix = "" if environment == "production" else f"__{environment}"
+        tool_name = f"search_{bot_name}__{context_config['slug']}{env_suffix}"
         
         return {
             "type": "function",
