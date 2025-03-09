@@ -290,7 +290,7 @@ class VectorStoreES(VectorStoreBase):
             return {}
 
     def create_search_tool(self, bot_name: str, context_name: str, environment: str) -> Dict:
-        """Creates an Elasticsearch vector search tool configuration for a specific context"""
+        """Creates a search tool configuration for a specific context"""
         
         # Load the bot's config to get context details
         config_path = Path(self.config_dir) / 'config.yaml'
@@ -303,8 +303,9 @@ class VectorStoreES(VectorStoreBase):
             {'slug': context_name.lower().replace(' ', '_')}  # fallback to sanitized name
         )
         
-        # Use slugs for the tool name
-        tool_name = f"ElasticVectorSearch_{bot_name}_{context_config['slug']}"
+        # Use the search_ prefix for the tool name
+        # Format: search_botname__contextslug
+        tool_name = f"search_{bot_name}__{context_config['slug']}"
         
         return {
             "type": "function",

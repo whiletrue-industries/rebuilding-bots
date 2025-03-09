@@ -136,20 +136,18 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 for key, value in arguments.items():
                     f.write(f"    {key}: {value}\n")
             
-            # Set default page_size for DatasetDBQuery
-            if tool.function.name == 'DatasetDBQuery':
-                arguments['page_size'] = 30
+            # Handle different tool types with mutually exclusive conditions
+            if tool.function.name.startswith('search_'):
+                # Handle the search_takanon__context__dev pattern
+                # Remove 'search_' prefix and '__dev' suffix if present
+                tool_name = tool.function.name[len('search_'):]
+                if tool_name.endswith('__dev'):
+                    tool_name = tool_name[:-len('__dev')]
                 
-            # Handle different tool types
-            if tool.function.name.startswith('ElasticVectorSearch'):
-                # Extract bot and context names from tool name
-                tool_name = tool.function.name[len('ElasticVectorSearch_'):]
-                parts = tool_name.split('_', 1)
+                # Split into bot_name and context_name
+                parts = tool_name.split('__', 1)
                 bot_name = parts[0]
                 context_name = parts[1] if len(parts) > 1 else ''
-                
-                # Log the tool call parameters
-                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {arguments.get('num_results', 7)}")
                 
                 # Load config to get context settings
                 config_path = Path('specs') / bot_name / 'config.yaml'
@@ -167,6 +165,9 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 num_results = arguments.get('num_results', 
                                          context_config.get('max_num_results', 3))
                 
+                # Log the tool call parameters
+                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {num_results}")
+                
                 output = elastic_vector_search_handler(
                     environment=environment,
                     bot_name=bot_name,
@@ -177,54 +178,64 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 
                 # Log the output
                 logger.info(f"Tool output: {output}")
-                
-                query_client = QueryClient(environment, bot_name, context_name)
-                results = query_client.search(arguments['query'], num_results=num_results)
-                
-                # Format results for the assistant
-                formatted_results = []
-                for result in results:
-                    formatted_results.append(
-                        f"[Score: {result.score:.2f}]\n"
-                        f"Content:\n{result.full_content}\n"
-                        f"{'-' * 40}"
-                    )
-                output = "\n\n".join(formatted_results)
-                
-                # Log the output
-                logger.info(f"Tool output: {output}")
             
-            elif tool.function.name.startswith('search_'):
-                # Handle the search_takanon__context__dev pattern
-                # Remove 'search_' prefix and '__dev' suffix if present
-                tool_name = tool.function.name[len('search_'):]
-                if tool_name.endswith('__dev'):
-                    tool_name = tool_name[:-len('__dev')]
-                
-                # Split into bot_name and context_name
-                parts = tool_name.split('__', 1)
+            # For backward compatibility, also handle ElasticVectorSearch prefix
+            elif tool.function.name.startswith('ElasticVectorSearch'):
+                # Extract bot and context names from tool name
+                tool_name = tool.function.name[len('ElasticVectorSearch_'):]
+                parts = tool_name.split('_', 1)
                 bot_name = parts[0]
                 context_name = parts[1] if len(parts) > 1 else ''
                 
+                # Load config to get context settings
+                config_path = Path('specs') / bot_name / 'config.yaml'
+                with open(config_path) as f:
+                    config = yaml.safe_load(f)
+                    
+                # Find matching context config by slug
+                context_config = next(
+                    (ctx for ctx in config.get('context', []) 
+                     if ctx.get('slug') == context_name),
+                    {}
+                )
+                
+                # Use context-specific settings if available
+                num_results = arguments.get('num_results', 
+                                         context_config.get('max_num_results', 3))
+                
                 # Log the tool call parameters
-                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {arguments.get('num_results', 7)}")
+                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {num_results}")
                 
                 output = elastic_vector_search_handler(
                     environment=environment,
                     bot_name=bot_name,
                     context_name=context_name,
                     query=arguments['query'],
-                    num_results=arguments.get('num_results', 7)
+                    num_results=num_results
                 )
                 
                 # Log the output
                 logger.info(f"Tool output: {output}")
             
-            # Handle OpenAPI tools - these should be processed regardless of ElasticVectorSearch handling
-            if tool.function.name == 'DatasetDBQuery':
+            # Handle DatasetDBQuery tool
+            elif tool.function.name == 'DatasetDBQuery':
+                # Set default page_size for DatasetDBQuery
+                arguments['page_size'] = 30
                 output = get_openapi_output(openapi_spec, tool.function.name, arguments)
-            if tool.function.name == 'DatasetInfo':
+            
+            # Handle DatasetInfo tool
+            elif tool.function.name == 'DatasetInfo':
                 output = get_dataset_info_cache(arguments, output)
+            
+            # Handle any other tools
+            else:
+                # For any other tools, try to use OpenAPI if specified
+                if openapi_spec:
+                    try:
+                        output = get_openapi_output(openapi_spec, tool.function.name, arguments)
+                    except Exception as e:
+                        logger.error(f"Error calling {tool.function.name}: {e}")
+                        output = f"Error: {str(e)}"
             
             if output is not None:
                 # Log tool output
