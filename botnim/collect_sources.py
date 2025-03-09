@@ -18,7 +18,7 @@ def collect_sources_split(config_dir, context_name, source):
     file_streams = [(f'{context_name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
     return file_streams
 
-def collect_sources_google_spreadsheet(context_name, source):
+def collect_sources_google_spreadsheet(bot_id, context_name, source):
     resources, dp, _ = DF.Flow(
         DF.load(source, name='rows'),
     ).results()
@@ -70,7 +70,7 @@ def collect_sources_google_spreadsheet(context_name, source):
                 
                 # Save metadata file
                 filename = f'{context_name}_{idx}.md'
-                metadata_path = Path('specs/takanon/extraction/metadata') / f"{filename}.metadata.json"
+                metadata_path = Path(f'specs/{bot_id}/extraction/metadata') / f"{filename}.metadata.json"
                 metadata_path.parent.mkdir(parents=True, exist_ok=True)
                 
                 with open(metadata_path, 'w', encoding='utf-8') as f:
@@ -91,15 +91,16 @@ def collect_sources_google_spreadsheet(context_name, source):
 def collect_context_sources(context_, config_dir: Path):
     context_name = context_['name']
     context_type = context_['type']
+    bot_id = config_dir.name  # Get the bot ID from the config directory
+    
     if context_type == 'files':
-        file_streams = collect_sources_files(config_dir, context_name, context_['source'])
+        return collect_sources_files(config_dir, context_name, context_['source'])
     elif context_type == 'split':
-        file_streams = collect_sources_split(config_dir, context_name, context_['source'])
+        return collect_sources_split(config_dir, context_name, context_['source'])
     elif context_type == 'google-spreadsheet':
-        file_streams = collect_sources_google_spreadsheet(context_name, context_['source'])
+        return collect_sources_google_spreadsheet(bot_id, context_name, context_['source'])
     else:
         raise ValueError(f'Unknown context type: {context_type}')
-    return file_streams
 
 def collect_all_sources(context_list, config_dir):
     all_sources = []
