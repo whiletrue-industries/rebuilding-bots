@@ -136,7 +136,11 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 for key, value in arguments.items():
                     f.write(f"    {key}: {value}\n")
             
-            # Handle different tool types with mutually exclusive conditions
+            # Set default page_size for DatasetDBQuery
+            if tool.function.name == 'DatasetDBQuery':
+                arguments['page_size'] = 30
+                
+            # Handle different tool types
             if tool.function.name.startswith('search_'):
                 # Handle the search_takanon__context__dev pattern
                 # Remove 'search_' prefix and '__dev' suffix if present
@@ -219,8 +223,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
             
             # Handle DatasetDBQuery tool
             elif tool.function.name == 'DatasetDBQuery':
-                # Set default page_size for DatasetDBQuery
-                arguments['page_size'] = 30
                 output = get_openapi_output(openapi_spec, tool.function.name, arguments)
             
             # Handle DatasetInfo tool
