@@ -1,12 +1,13 @@
 import os
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Union
 from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS
 import yaml
+import logging
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 @dataclass
 class SearchResult:
@@ -117,14 +118,59 @@ def run_query(query_text: str, environment: str, bot_name: str, context_name: st
     
     Args:
         query_text (str): The text to search for
+        environment (str): Environment to use (production or staging)
         bot_name (str): Name of the bot to use
+        context_name (str): Name of the context to search in
         num_results (int): Number of results to return
         
     Returns:
         List[SearchResult]: List of search results
     """
+    logger.info(f"Running run_query with query_text: {query_text}, num_results: {num_results}")
     client = QueryClient(environment, bot_name, context_name)
-    return client.search(query_text, num_results)
+    
+    # Log the configuration used
+    logger.info(f"Using configuration: {client._load_config()}")
+    
+    results = client.search(query_text, num_results)
+    
+    # Log the results
+    logger.info(f"Search results: {results}")
+    
+    return results
+
+def format_search_results(results: List[SearchResult], format_type: str = 'text') -> Union[str, List[Dict]]:
+    """
+    Format search results in different output formats
+    
+    Args:
+        results (List[SearchResult]): The search results to format
+        format_type (str): The output format type ('text' or 'dict')
+        
+    Returns:
+        Union[str, List[Dict]]: Formatted search results in the requested format
+    """
+    if format_type == 'dict':
+        # Return as list of dictionaries for programmatic use
+        return [
+            {
+                'score': result.score,
+                'id': result.id,
+                'content': result.full_content
+            }
+            for result in results
+        ]
+    else:  # Default to text format
+        # Format results for human-readable text output
+        formatted_results = []
+        for result in results:
+            formatted_results.append(
+                f"[Score: {result.score:.2f}]\n"
+                f"ID: {result.id}\n"
+                f"Content:\n{result.full_content}\n"
+                f"{'-' * 40}"
+            )
+        return "\n\n".join(formatted_results)
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     """
@@ -186,4 +232,27 @@ def format_mapping(mapping: Dict, indent: int = 0) -> str:
             result.append(format_mapping(properties, indent + 1))
     
     return "\n".join(result)
+
+def elastic_vector_search_handler(environment: str, bot_name: str, context_name: str, query: str, num_results: int = 3) -> str:
+    """
+    Handles Elasticsearch vector search requests from the assistant
+    
+    Args:
+        environment (str): Environment to use (production or staging)
+        bot_name (str): Name of the bot to use
+        context_name (str): Name of the context to search in
+        query (str): The search query text
+        num_results (int): Number of results to return
+        
+    Returns:
+        str: Formatted search results as a string
+    """
+    logger.info(f"Running elastic_vector_search_handler with query: {query}, num_results: {num_results}")
+    results = run_query(query, environment, bot_name, context_name, num_results)
+    
+    # Log the results
+    logger.info(f"Search results: {results}")
+    
+    # Use the new utility function to format results
+    return format_search_results(results, format_type='text')
 

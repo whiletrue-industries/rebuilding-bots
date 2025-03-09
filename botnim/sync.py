@@ -7,7 +7,6 @@ from openai import OpenAI
 from .config import SPECS
 from .vector_store import VectorStoreOpenAI, VectorStoreES
 
-
 api_key = os.environ['OPENAI_API_KEY']
 
 # Create openai client and get completion for prompt with the 'gpt4-o' model:
@@ -54,6 +53,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
     tool_resources = None
     tools = None
     print(f'Updating assistant: {config["name"]}')
+    
     # Load context, if necessary
     if config.get('context'):  
         ## create vector store based on backend parameter
