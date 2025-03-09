@@ -233,7 +233,7 @@ def format_mapping(mapping: Dict, indent: int = 0) -> str:
     
     return "\n".join(result)
 
-def elastic_vector_search_handler(environment: str, bot_name: str, context_name: str, query: str, num_results: int = 3) -> str:
+def elastic_vector_search_handler(environment: str, bot_name: str, context_name: str, query: str, num_results: int = None) -> str:
     """
     Handles Elasticsearch vector search requests from the assistant
     
@@ -242,17 +242,34 @@ def elastic_vector_search_handler(environment: str, bot_name: str, context_name:
         bot_name (str): Name of the bot to use
         context_name (str): Name of the context to search in
         query (str): The search query text
-        num_results (int): Number of results to return
+        num_results (int, optional): Number of results to return, or None to use context default
         
     Returns:
         str: Formatted search results as a string
     """
+    # If num_results is None, get the default from context config
+    if num_results is None:
+        # Load the bot's config to get context details
+        config_dir = SPECS / bot_name
+        config_path = config_dir / 'config.yaml'
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        
+        # Find the specific context configuration
+        context_config = next(
+            (ctx for ctx in config.get('context', []) if ctx['name'] == context_name),
+            {}
+        )
+        
+        # Get default num_results from context config or use a reasonable default
+        num_results = context_config.get('default_num_results', 7)
+    
     logger.info(f"Running elastic_vector_search_handler with query: {query}, num_results: {num_results}")
     results = run_query(query, environment, bot_name, context_name, num_results)
     
     # Log the results
     logger.info(f"Search results: {results}")
     
-    # Use the new utility function to format results
-    return format_search_results(results, format_type='text')
+    # Format results for the assistant
+    return format_search_results(results)
 
