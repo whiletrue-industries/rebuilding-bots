@@ -145,26 +145,8 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 arguments['page_size'] = 30
                 
             # Handle different tool types
-            if tool.function.name.startswith('ElasticVectorSearch'):
-                tool_name = tool.function.name[len('ElasticVectorSearch_'):]
-                parts = tool_name.split('_', 1)
-                bot_name = parts[0]
-                context_name = parts[1] if len(parts) > 1 else ''
-                
-                # Log the tool call parameters
-                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {arguments.get('num_results', 7)}")
-                
-                output = elastic_vector_search_handler(
-                    environment=environment,
-                    bot_name=bot_name,
-                    context_name=context_name,
-                    query=arguments['query'],
-                    num_results=arguments.get('num_results', 7)
-                )
-                
-                # Log the output
-                logger.info(f"Tool output: {output}")
-            elif tool.function.name.startswith('search_'):
+
+            if tool.function.name.startswith('search_'):
                 # Handle the search_takanon__context__dev pattern
                 # Remove 'search_' prefix and '__dev' suffix if present
                 tool_name = tool.function.name[len('search_'):]
