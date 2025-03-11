@@ -6,6 +6,8 @@ import yaml
 from openai import OpenAI
 from .config import SPECS
 from .vector_store import VectorStoreOpenAI, VectorStoreES
+import argparse
+from .collect_sources import collect_context_sources, collect_all_sources
 
 api_key = os.environ['OPENAI_API_KEY']
 
@@ -49,15 +51,23 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(config, config_dir, production, backend, replace_context=False):
+def update_assistant(config, config_dir, production, backend, replace_context=False, force_extract=False):
     tool_resources = None
     tools = None
     print(f'Updating assistant: {config["name"]}')
+    
     
     # Load context, if necessary
     if config.get('context'):  
         ## create vector store based on backend parameter
         if backend == 'openai':
+            vector_store = VectorStoreOpenAI(config, config_dir, production)
+        else:
+            vector_store = VectorStoreES(config, config_dir, es_host, es_username, es_password, production)
+        
+        # Pass the entire context list to vector_store_update, not individual sources
+        # This matches the interface expected by the vector store implementations
+        tools, tool_resources = vector_store.vector_store_update(config['context'], replace_context, force_extract)
             vs = VectorStoreOpenAI(config, config_dir, production, client)
         ## Elasticsearch
         elif backend == 'es':
@@ -117,7 +127,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         # ...
 
 
-def sync_agents(environment, bots, backend='openai', replace_context=False):
+def sync_agents(environment, bots, backend='openai', replace_context=False, force_extract=False):
     production = environment == 'production'
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
@@ -126,6 +136,9 @@ def sync_agents(environment, bots, backend='openai', replace_context=False):
             with config_fn.open() as config_f:
                 config = yaml.safe_load(config_f)
                 config['instructions'] = (config_dir / config['instructions']).read_text()
+                update_assistant(config, config_dir, production, backend, replace_context=replace_context, force_extract=force_extract)
+
+
                 if production:
                     config['instructions'] = config['instructions'].replace('__dev', '')
                 update_assistant(config, config_dir, production, backend, replace_context=replace_context)

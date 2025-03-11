@@ -18,10 +18,11 @@ def cli():
 @click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
 @click.option('--replace-context', is_flag=True, help='Replace existing context')
 @click.option('--backend', type=click.Choice(['es', 'openai']), default='openai', help='Vector store backend')
-def sync(environment, bots, replace_context, backend):
-    """Sync bots to Airtable."""
+@click.option('--force-extract', is_flag=True, help='Force metadata extraction even if content is unchanged')
+def sync(environment, bots, replace_context, backend, force_extract):
+    """Sync assistants with OpenAI."""
     click.echo(f"Syncing {bots} to {environment}")
-    sync_agents(environment, bots, backend=backend,replace_context=replace_context)
+    sync_agents(environment, bots, backend, replace_context, force_extract)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command(name='benchmarks')
