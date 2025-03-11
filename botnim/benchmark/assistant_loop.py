@@ -179,10 +179,18 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                     arguments['page_size'] = 30
                 
                 # Call get_openapi_output for all non-search tools
-                if tool.function.name == 'DatasetDBQuery':
-                    output = get_openapi_output(openapi_spec, tool.function.name, arguments)
-                if tool.function.name == 'DatasetInfo':
-                    output = get_dataset_info_cache(arguments, output)
+                try:
+                    if openapi_spec is not None:
+                        output = get_openapi_output(openapi_spec, tool.function.name, arguments)
+                        
+                        if tool.function.name == 'DatasetInfo':
+                            # Special case for DatasetInfo
+                            output = get_dataset_info_cache(arguments, output)
+                    else:
+                        output = f"Error: No OpenAPI spec provided for bot. Cannot execute tool '{tool.function.name}'"
+                except Exception as e:
+                    logger.error(f"Error calling {tool.function.name}: {e}")
+                    output = f"Error: {str(e)}"
             
             if output is not None:
                 # Log tool output
