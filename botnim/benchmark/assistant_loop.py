@@ -155,7 +155,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 # Log the tool call parameters
                 logger.info(f"Calling vector_search_handler with query: {arguments['query']}, num_results: {arguments.get('num_results', 7)}")
                 
-                # Don't pass environment parameter - it's already encoded in the tool name
                 output = elastic_vector_search_handler(
                     environment=environment,
                     bot_name=bot_name,
@@ -166,16 +165,18 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 
                 # Log the output
                 logger.info(f"Tool output: {output}")
-            elif tool.function.name == 'DatasetDBQuery':
-                # Handle DatasetDBQuery tool
-                arguments['page_size'] = 30
-                output = get_openapi_output(openapi_spec, tool.function.name, arguments)
-            elif tool.function.name == 'DatasetInfo':
-                # Handle DatasetInfo tool
-                output = get_dataset_info_cache(arguments, output)
             else:
-                # Handle any other tools
-                logger.warning(f"Unknown tool type: {tool.function.name}")
+                # For non-search tools, use OpenAPI
+                if tool.function.name == 'DatasetDBQuery':
+                    # Special case for DatasetDBQuery
+                    arguments['page_size'] = 30
+                
+                # Call get_openapi_output for all non-search tools
+                output = get_openapi_output(openapi_spec, tool.function.name, arguments)
+                
+                if tool.function.name == 'DatasetInfo':
+                    # Special case for DatasetInfo
+                    output = get_dataset_info_cache(arguments, output)
             
             if output is not None:
                 # Log tool output
