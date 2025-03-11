@@ -172,7 +172,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 # Log the tool call parameters
                 logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {num_results}")
                 
-                # Don't pass environment parameter - it's already encoded in the tool name
                 output = elastic_vector_search_handler(
                     environment=environment,
                     bot_name=bot_name,
@@ -222,23 +221,23 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 # Log the output
                 logger.info(f"Tool output: {output}")
             
-            # Handle DatasetDBQuery tool
-            elif tool.function.name == 'DatasetDBQuery':
-                output = get_openapi_output(openapi_spec, tool.function.name, arguments)
-            
-            # Handle DatasetInfo tool
-            elif tool.function.name == 'DatasetInfo':
-                output = get_dataset_info_cache(arguments, output)
-            
-            # Handle any other tools
+            # Handle all non-search tools with OpenAPI
             else:
-                # For any other tools, try to use OpenAPI if specified
-                if openapi_spec:
-                    try:
-                        output = get_openapi_output(openapi_spec, tool.function.name, arguments)
-                    except Exception as e:
-                        logger.error(f"Error calling {tool.function.name}: {e}")
-                        output = f"Error: {str(e)}"
+                # For non-search tools, use OpenAPI
+                if tool.function.name == 'DatasetDBQuery':
+                    # Special case for DatasetDBQuery - already set page_size earlier
+                    pass
+                
+                # Call get_openapi_output for all non-search tools
+                try:
+                    output = get_openapi_output(openapi_spec, tool.function.name, arguments)
+                    
+                    if tool.function.name == 'DatasetInfo':
+                        # Special case for DatasetInfo
+                        output = get_dataset_info_cache(arguments, output)
+                except Exception as e:
+                    logger.error(f"Error calling {tool.function.name}: {e}")
+                    output = f"Error: {str(e)}"
             
             if output is not None:
                 # Log tool output
