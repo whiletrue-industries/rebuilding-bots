@@ -68,6 +68,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         # Pass the entire context list to vector_store_update, not individual sources
         # This matches the interface expected by the vector store implementations
         tools, tool_resources = vector_store.vector_store_update(config['context'], replace_context, force_extract)
+        if backend == 'openai':
             vs = VectorStoreOpenAI(config, config_dir, production, client)
         ## Elasticsearch
         elif backend == 'es':
