@@ -18,11 +18,11 @@ def cli():
 @click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
 @click.option('--replace-context', is_flag=True, help='Replace existing context')
 @click.option('--backend', type=click.Choice(['es', 'openai']), default='openai', help='Vector store backend')
-@click.option('--force-extract', is_flag=True, help='Force metadata extraction even if content is unchanged')
-def sync(environment, bots, replace_context, backend, force_extract):
-    """Sync assistants with OpenAI."""
+@click.option('--extract-metadata', is_flag=True, help='Extract metadata from content (may be slow)')
+def sync(environment, bots, replace_context, backend, extract_metadata):
+    """Sync bots to Airtable."""
     click.echo(f"Syncing {bots} to {environment}")
-    sync_agents(environment, bots, backend, replace_context, force_extract)
+    sync_agents(environment, bots, backend=backend, replace_context=replace_context, extract_metadata=extract_metadata)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command(name='benchmarks')
@@ -113,11 +113,9 @@ def show_fields(environment: str, bot: str, context: str, rtl: bool):
 @click.option('--assistant-id', type=str, help='ID of the assistant to chat with')
 @click.option('--openapi-spec', type=str, default='budgetkey', help='either "budgetkey" or "takanon"')
 @click.option('--rtl', is_flag=True, help='Enable RTL support for Hebrew/Arabic')
-@click.option('--environment', type=click.Choice(['production', 'staging']), default='staging', 
-              help='Environment to use for vector search')
-def assistant(assistant_id, openapi_spec, rtl, environment):
+def assistant(assistant_id, openapi_spec, rtl):
     """Start an interactive chat with an OpenAI assistant."""
-    assistant_main(assistant_id, openapi_spec, rtl, environment)
+    assistant_main(assistant_id, openapi_spec, rtl)
 
 
 def main():

@@ -3,16 +3,13 @@ from pathlib import Path
 from typing import List, Dict, Any
 import json
 from datetime import datetime
-import yaml
 
 from elasticsearch import Elasticsearch
 from openai import OpenAI
-from ..config import get_logger
-from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
+from botnim.config import get_logger
+from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
-
-
 
 logger = get_logger(__name__)
 
@@ -26,11 +23,10 @@ class VectorStoreES(VectorStoreBase):
         
         # Initialize Elasticsearch client
         es_kwargs = {
-            'hosts': [es_host or os.getenv('ES_HOST', 'https://localhost:9200')],
-            'basic_auth': (es_username or os.getenv('ES_USERNAME'), es_password or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')),
+            'hosts': [es_host],
+            'basic_auth': (es_username, es_password or os.getenv('ELASTIC_PASSWORD')),
             'request_timeout': es_timeout,
-            'verify_certs': False,
-            'ca_certs': os.getenv('ES_CA_CERT'),
+            'verify_certs': production,
             'ssl_show_warn': production
         }
         print(es_kwargs)
@@ -50,10 +46,7 @@ class VectorStoreES(VectorStoreBase):
             raise ConnectionError(f"Could not connect to Elasticsearch: {str(e)}")
 
     def _index_name_for_context(self, context_name: str) -> str:
-        """Standardize index name construction"""
-        base_name = f"{self.config['slug']}__{context_name}"
-        # add __dev suffix if in development mode, don't add environment name
-        return self.env_name_slug(base_name.lower().replace(' ', '_'))
+        return self.env_name_slug(f"{self.config['slug']}__{context_name}".lower().replace(' ', '_'))
 
     def _build_search_query(self, query_text: str, embedding: List[float], 
                           num_results: int = 7) -> Dict[str, Any]:
@@ -265,16 +258,28 @@ class VectorStoreES(VectorStoreBase):
             return 0
 
     def update_tools(self, context_, vector_store):
-        """Create a search tool for this context and add it to self.tools"""
-        tool = self.create_search_tool(
-            bot_name=self.config['slug'],
-            context_name=context_['name'],
-            environment='production' if self.production else 'staging'
-        )
-        self.tools.append(tool)
+        # vector_store is now just the index name string
+        if len(self.tools) == 0:
+            self.tools.append({
+                "type": "function",
+                "function": {
+                    "name": f"search_{vector_store}",
+                    "description": f"Semantic search the '{vector_store}' vector store",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The query string to use for searching"
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            })
 
     def update_tool_resources(self, context_, vector_store):
-        # For Elasticsearch, we don't need to set tool_resources
+        # For Elasticsearch, we don't need to set tool_resources - which is OpenAI's vector store
         self.tool_resources = None
 
     def verify_document_metadata(self, index_name: str, document_id: str) -> Dict:
@@ -289,52 +294,3 @@ class VectorStoreES(VectorStoreBase):
         except Exception as e:
             logger.error(f"Failed to verify metadata for document {document_id}: {str(e)}")
             return {}
-
-    def create_search_tool(self, bot_name: str, context_name: str, environment: str) -> Dict:
-        """Creates a search tool configuration for a specific context"""
-        
-        # Load the bot's config to get context details
-        config_path = Path(self.config_dir) / 'config.yaml'
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-        
-        # Find the specific context configuration to get its slug
-        context_config = next(
-            (ctx for ctx in config.get('context', []) if ctx['name'] == context_name),
-            {'slug': context_name.lower().replace(' ', '_')}  # fallback to sanitized name
-        )
-        
-        # Use the search_ prefix for the tool name
-        # Format: search_botname__contextslug
-        # Don't add environment to the tool name - it's handled by the index name construction
-        tool_name = f"search_{bot_name}__{context_config['slug']}"
-        
-        # Add __dev suffix only in development mode (non-production)
-        # This matches how the index names are actually created
-        if environment != "production":
-            tool_name += "__dev"
-        
-        return {
-            "type": "function",
-            "function": {
-                "name": tool_name,
-                "description": context_config.get('description', 
-                    f"Search the {config['name']}'s {context_name} knowledge base using semantic search"),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": context_config.get('search_description', 
-                                "The search query text")
-                        },
-                        "num_results": {
-                            "type": "integer",
-                            "description": "Number of results to return",
-                            "default": 7
-                        }
-                    },
-                    "required": ["query"]
-                }
-            }
-        }
