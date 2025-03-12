@@ -29,7 +29,9 @@ class VectorStoreOpenAI(VectorStoreBase):
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         count = 0
         while len(file_streams) > 0:
-            current = file_streams[:32]
+            # Extract just the first three elements from each tuple for OpenAI upload
+            # (OpenAI doesn't support per-file metadata)
+            current = [(fname, f, t) for fname, f, t, _ in file_streams[:32]]
             file_batch = self.openai_client.beta.vector_stores.file_batches.upload_and_poll(
                 vector_store_id=vector_store.id, files=current
             )

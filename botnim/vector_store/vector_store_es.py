@@ -165,7 +165,7 @@ class VectorStoreES(VectorStoreBase):
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         """Upload files to vector store"""
         count = 0
-        for filename, content_file, file_type in file_streams:
+        for filename, content_file, file_type, metadata in file_streams:
             try:
                 # Skip metadata files to prevent recursion
                 if filename.endswith('.metadata.json'):
@@ -188,45 +188,27 @@ class VectorStoreES(VectorStoreBase):
                     "vector": vector,
                 }
                 
-                # Try to load metadata from the metadata file
-                clean_filename = filename[1:] if filename.startswith('_') else filename
-                metadata_path = Path('specs/takanon/extraction/metadata') / f"{clean_filename}.metadata.json"
-                
-                try:
-                    if metadata_path.exists() and not metadata_path.name.endswith('.metadata.json.metadata.json'):
-                        logger.info(f"Found metadata file at {metadata_path}")
-                        with open(metadata_path, 'r', encoding='utf-8') as f:
-                            loaded_metadata = json.load(f)
-                            document["metadata"] = loaded_metadata
-                            logger.info(f"Loaded metadata from file for {filename}")
-                    else:
-                        logger.warning(f"No metadata file found at {metadata_path}")
-                        document["metadata"] = {
-                            "title": Path(filename).stem,
-                            "document_type": str(file_type),
-                            "extracted_at": datetime.now().isoformat(),
-                            "status": "no_metadata",
-                            "context_type": context.get("type", ""),
-                            "context_name": context_name,
-                            "extracted_data": {}
-                        }
-                except Exception as e:
-                    logger.warning(f"Failed to load metadata for {filename}: {str(e)}")
+                # Use metadata from the tuple if available, otherwise create default metadata
+                if metadata:
+                    document["metadata"] = metadata
+                    logger.info(f"Using provided metadata for {filename}")
+                else:
+                    # Create default metadata
                     document["metadata"] = {
                         "title": Path(filename).stem,
                         "document_type": str(file_type),
                         "extracted_at": datetime.now().isoformat(),
-                        "status": "error",
+                        "status": "no_metadata",
                         "context_type": context.get("type", ""),
                         "context_name": context_name,
-                        "extracted_data": {"error": str(e)}
+                        "extracted_data": {}
                     }
                 
                 logger.info(f"Final document metadata for {filename}: {document['metadata']}")
                 
-                # Index document
+                # Index document - use vector_store directly as the index name
                 self.es_client.index(
-                    index=vector_store,
+                    index=vector_store,  # vector_store is already the index name
                     id=filename,
                     document=document
                 )

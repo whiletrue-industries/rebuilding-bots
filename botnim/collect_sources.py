@@ -7,15 +7,18 @@ from content_extraction import extract_structured_content
 
 def collect_sources_files(config_dir, context_name, source):
     files = list(config_dir.glob(source))
-    file_streams = [(f.name, f.open('rb'), 'text/markdown') for f in files]
+    file_streams = []
+    for f in files:
+        with open(f, 'rb') as ff:
+            content = ff.read()
+        file_streams.append((f.name, io.BytesIO(content), f'text/{f.suffix[1:]}', None))
     return file_streams
 
 def collect_sources_split(config_dir, context_name, source):
-    filename = config_dir / source
-    content = filename.read_text()
-    content = content.split('\n---\n')
-    file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
-    file_streams = [(f'{context_name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
+    with open(config_dir / source, 'r') as f:
+        content = f.read()
+    file_streams = content.split('---')
+    file_streams = [(f'{context_name}_{i}.md', io.BytesIO(f.encode('utf-8')), 'text/markdown', None) for i, f in enumerate(file_streams)]
     return file_streams
 
 def collect_sources_google_spreadsheet(bot_id, context_name, source, extract_metadata=False):
@@ -37,6 +40,9 @@ def collect_sources_google_spreadsheet(bot_id, context_name, source, extract_met
                         content += f'{row[header]}\n\n'
         
         if content:
+            # Initialize metadata as None by default
+            metadata = None
+            
             # Only perform extraction if explicitly requested
             if extract_metadata:
                 print(f"\nProcessing row {idx}:")
@@ -65,27 +71,30 @@ def collect_sources_google_spreadsheet(bot_id, context_name, source, extract_met
                         'status': 'processed',
                         'context_type': 'google-spreadsheet',
                         'context_name': context_name,
+                        'bot_id': bot_id,  # Include bot_id for reference
                         'source_content': content,
                         'document_type': 'spreadsheet_entry',
                         'extracted_data': extracted_data
                     }
                     
-                    # Save metadata file
-                    filename = f'{context_name}_{idx}.md'
-                    metadata_path = Path(f'specs/{bot_id}/extraction/metadata') / f"{filename}.metadata.json"
-                    metadata_path.parent.mkdir(parents=True, exist_ok=True)
-                    
-                    with open(metadata_path, 'w', encoding='utf-8') as f:
-                        json.dump(metadata, f, ensure_ascii=False, indent=2)
-                    
                 except Exception as e:
                     print(f"Warning: Failed to extract metadata for row {idx}: {e}")
+                    metadata = {
+                        'extracted_at': datetime.now(timezone.utc).isoformat(),
+                        'status': 'error',
+                        'context_type': 'google-spreadsheet',
+                        'context_name': context_name,
+                        'bot_id': bot_id,
+                        'source_content': content,
+                        'document_type': 'spreadsheet_entry',
+                        'error': str(e)
+                    }
             
-            # Return file stream as before
             file_streams.append((
                 f'{context_name}_{idx}.md',
                 io.BytesIO(content.strip().encode('utf-8')),
-                'text/markdown'
+                'text/markdown',
+                metadata 
             ))
             
     return file_streams
