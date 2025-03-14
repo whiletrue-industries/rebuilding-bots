@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from ..collect_sources import collect_context_sources
-from typing import Dict
 
 
 class VectorStoreBase(ABC):
