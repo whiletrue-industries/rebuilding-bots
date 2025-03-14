@@ -10,19 +10,10 @@ from openai import OpenAI
 from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 
 from botnim.query import QueryClient, elastic_vector_search_handler
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('assistant.log'),
-        logging.StreamHandler()
-    ]
-)
-
-logger = logging.getLogger(__name__)
+from botnim.config import get_logger
 TEMP = 0
+
+logger = get_logger(__name__)
 
 def get_openapi_output(openapi_spec, tool_name, parameters):
     client = requests_openapi.Client(req_opts={"timeout": 30})
