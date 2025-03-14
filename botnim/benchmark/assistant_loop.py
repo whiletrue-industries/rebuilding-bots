@@ -9,11 +9,11 @@ import logging
 from openai import OpenAI
 from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 
-from botnim.query import QueryClient, run_query
-from botnim.config import validate_environment, DEFAULT_ENVIRONMENT
+from botnim.query import run_query
+from botnim.config import get_logger, validate_environment, DEFAULT_ENVIRONMENT
 TEMP = 0
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def get_openapi_output(openapi_spec, tool_name, parameters):
     client = requests_openapi.Client(req_opts={"timeout": 30})
