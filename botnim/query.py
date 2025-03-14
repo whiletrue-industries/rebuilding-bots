@@ -5,9 +5,8 @@ from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS
 import yaml
-import logging
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 @dataclass
 class SearchResult:
@@ -23,7 +22,8 @@ class QueryClient:
         self.environment = environment
         self.bot_name = bot_name
         self.context_name = context_name
-        self.vector_store = self._initialize_vector_store(self._load_config())
+        self.config = self._load_config()
+        self.vector_store = self._initialize_vector_store(self.config)
 
     def _load_config(self) -> dict:
         """Load configuration from the specs directory"""
@@ -112,32 +112,82 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def run_query(query_text: str, environment: str, bot_name: str, context_name: str, num_results: int = 7) -> List[SearchResult]:
+    def get_default_num_results(self, context_name: str) -> int:
+        """
+        Get the default number of results for a context
+        
+        Args:
+            context_name (str): Name of the context
+            
+        Returns:
+            int: Default number of results
+        """
+        # Find the specific context configuration
+        context_config = next(
+            (ctx for ctx in self.config.get('context', []) if ctx['name'] == context_name),
+            {}
+        )
+        
+        # Get default num_results from context config or use a reasonable default
+        return context_config.get('default_num_results', 7)
+
+    def query(self, query_text: str, bot_name: str = None, context_name: str = None, num_results: int = None) -> List[SearchResult]:
+        """
+        Query the vector store with the given text
+        
+        Args:
+            query_text (str): The text to search for
+            bot_name (str, optional): Name of the bot to use (defaults to self.bot_name)
+            context_name (str, optional): Name of the context to search in (defaults to self.context_name)
+            num_results (int, optional): Number of results to return, or None to use context default
+        
+        Returns:
+            List[SearchResult]: List of search results
+        """
+        # Use instance values if not provided
+        bot_name = bot_name or self.bot_name
+        context_name = context_name or self.context_name
+        
+        if num_results is None:
+            # Use the method to get default num_results
+            num_results = self.get_default_num_results(context_name)
+        
+        return self.search(query_text, num_results)
+
+def run_query(environment: str, bot_name: str, context_name: str, query: str, num_results: int = None, format: str = "text"):
     """
     Run a query against the vector store
     
     Args:
-        query_text (str): The text to search for
         environment (str): Environment to use (production or staging)
         bot_name (str): Name of the bot to use
         context_name (str): Name of the context to search in
-        num_results (int): Number of results to return
+        query (str): The search query text
+        num_results (int, optional): Number of results to return, or None to use context default
+        format (str, optional): Output format - "dict" or "text"
         
     Returns:
-        List[SearchResult]: List of search results
+        Union[List[Dict], str]: Search results in the requested format
     """
-    logger.info(f"Running run_query with query_text: {query_text}, num_results: {num_results}")
-    client = QueryClient(environment, bot_name, context_name)
-    
-    # Log the configuration used
-    logger.info(f"Using configuration: {client._load_config()}")
-    
-    results = client.search(query_text, num_results)
-    
-    # Log the results
-    logger.info(f"Search results: {results}")
-    
-    return results
+    try:
+        logger.info(f"Running vector search with query: {query}, bot: {bot_name}, context: {context_name}, num_results: {num_results}")
+        
+        client = QueryClient(environment, bot_name, context_name)
+        results = client.query(query_text=query, num_results=num_results)
+        
+        # Log the results
+        logger.info(f"Search results: {results}")
+        
+        # Format results if requested
+        if format == "text":
+            formatted_results = format_search_results(results)
+            logger.info(f"Formatted results: {formatted_results}")
+            return formatted_results
+        return results
+    except Exception as e:
+        logger.error(f"Error in run_query: {str(e)}")
+        # Return a meaningful error message instead of raising
+        return f"Error performing search: {str(e)}"
 
 def format_search_results(results: List[SearchResult], format_type: str = 'text') -> Union[str, List[Dict]]:
     """
@@ -232,44 +282,4 @@ def format_mapping(mapping: Dict, indent: int = 0) -> str:
             result.append(format_mapping(properties, indent + 1))
     
     return "\n".join(result)
-
-def elastic_vector_search_handler(environment: str, bot_name: str, context_name: str, query: str, num_results: int = None) -> str:
-    """
-    Handles Elasticsearch vector search requests from the assistant
-    
-    Args:
-        environment (str): Environment to use (production or staging)
-        bot_name (str): Name of the bot to use
-        context_name (str): Name of the context to search in
-        query (str): The search query text
-        num_results (int, optional): Number of results to return, or None to use context default
-        
-    Returns:
-        str: Formatted search results as a string
-    """
-    # If num_results is None, get the default from context config
-    if num_results is None:
-        # Load the bot's config to get context details
-        config_dir = SPECS / bot_name
-        config_path = config_dir / 'config.yaml'
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-        
-        # Find the specific context configuration
-        context_config = next(
-            (ctx for ctx in config.get('context', []) if ctx['name'] == context_name),
-            {}
-        )
-        
-        # Get default num_results from context config or use a reasonable default
-        num_results = context_config.get('default_num_results', 7)
-    
-    logger.info(f"Running elastic_vector_search_handler with query: {query}, num_results: {num_results}")
-    results = run_query(query, environment, bot_name, context_name, num_results)
-    
-    # Log the results
-    logger.info(f"Search results: {results}")
-    
-    # Format results for the assistant
-    return format_search_results(results)
 
