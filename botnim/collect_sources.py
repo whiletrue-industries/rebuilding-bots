@@ -1,47 +1,302 @@
 import io
-import pathlib
 import dataflows as DF
 import mimetypes
 import json
 from pathlib import Path
 import os
 import glob
-from .config import SPECS, get_logger
+from datetime import datetime, timezone
+from openai import OpenAI
+from .config import get_logger
+import dataflows as DF
+
 
 logger = get_logger(__name__)
+
+# Copy the necessary functions from dynamic_extraction.py
+def extract_structured_content(text: str, template: str = None, document_type: str = None) -> dict:
+    """
+    Extracts structured content from text using OpenAI API.
+    
+    Args:
+        text (str): The text to extract information from
+        template (str, optional): JSON template for extraction. If None, uses default template.
+        document_type (str, optional): Type of document being processed. Defaults to None.
+    
+    Returns:
+        dict: Extracted structured content
+    """
+    if template is None:
+        template = """{
+          "DocumentMetadata": {
+            "DocumentTitle": "",
+            "PublicationDate": "",
+            "OfficialSource": "",
+            "ReferenceLinks": [],
+            "Language": "עברית",
+            "Version": "",
+            "ClauseRepresentation": "",
+            "OfficialRoles": [
+              {
+                "Role": "",
+                "ClauseLocation": "",
+                "Quote": ""
+              }
+            ],
+            "OfficialOrganizations": [
+              {
+                "Organization": "",
+                "ClauseLocation": "",
+                "Quote": ""
+              }
+            ],
+            "Placenames": [
+              {
+                "Name": "",
+                "ClauseLocation": "",
+                "Quote": ""
+              }
+            ],
+            "Description": ""
+          },
+          "LegalReferences": [
+            {
+              "ReferenceTitle": "",
+              "ReferenceText": "",
+              "ReferenceQuote": ""
+            }
+          ],
+          "Amendments": [],
+          "AdditionalKeywords": [],
+          "Topics": []
+        }"""
+
+    try:
+        # Initialize the client
+        client = OpenAI()
+        logger.info(f"Extracting structured content for document type: {document_type}")
+
+        system_message = f"""You are a highly accurate legal text extraction engine. Your task is to extract all relevant metadata from the provided legal text according to the JSON template below. Follow these rules exactly:
+
+        1. Use only the information given in the text.
+        2. Output must be valid JSON that exactly follows the provided schema—do not add any extra keys or commentary.
+        3. At the document level (DocumentMetadata), extract:
+            - "DocumentTitle" from the heading.
+            - "OfficialSource" from any indicated section (e.g. "סעיף 137") and include any associated URL in "ReferenceLinks".
+            - "ClauseRepresentation" should indicate whether the metadata pertains to a main clause, sub-clause, or specific section.
+            - Extract any official roles/positions mentioned in the document and list them in "OfficialRoles".
+            - Extract any official organizations mentioned in the document and list them in "OfficialOrganizations".
+            - Extract any real-world locations or placenames mentioned in the document and list them in "Placenames".
+            - "Description" should be a one-line summary describing the entire document's clauses content.
+        4. At the document level, also extract:
+            - "LegalReferences": For each legal reference
+            - "Amendments": If any amendment information is present
+            - "AdditionalKeywords": Extract key legal terms, topics, and identifiers
+            - "Topics": Aggregate all one-line descriptions from sub-clauses
+        5. For any field where no data is provided, return an empty string or an empty array as appropriate.
+        6. Do not infer or generate data that is not explicitly provided.
+        7. Ensure all key names follow standard, consistent naming.
+        8. Output only the JSON.
+
+        Extraction Template:
+        {template}
+
+        Text:
+        {text}
+
+        Output (JSON only):"""
+
+        # Make the API call without streaming
+        logger.info("Calling OpenAI API for content extraction")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": system_message}],
+            temperature=0.0,
+            max_tokens=2000,
+            stream=False  
+        )
+
+        # Get the response content and parse as JSON
+        try:
+            extracted_data = json.loads(response.choices[0].message.content)
+            logger.info(f"Successfully extracted structured content: {json.dumps(extracted_data, ensure_ascii=False)[:100]}...")
+            return extracted_data
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse API response as JSON: {e}")
+            return {"error": "Failed to parse response as JSON"}
+    except Exception as e:
+        logger.error(f"Error in extract_structured_content: {str(e)}")
+        return {"error": str(e)}
+
+def determine_document_type(file_path: Path) -> str:
+    """
+    Determine the document type by extracting it from the file name.
+    The convention is that the document type appears before the underscore.
+    
+    Args:
+        file_path (Path): Path to the source file
+        
+    Returns:
+        str: Document type, defaults to empty string if pattern not found
+    """
+    try:
+        filename = file_path.stem  # Get filename without extension
+        if '_' in filename:
+            doc_type = filename.split('_')[0]
+            return doc_type.strip()
+    except Exception as e:
+        logger.error(f"Warning: Could not determine document type from filename {file_path}: {e}")
+    
+    return ""  # Default type if pattern not found
 
 def collect_sources_files(config_dir, context_name, source):
     files = list(config_dir.glob(source))
     file_streams = [(f.name, f.open('rb'), 'text/markdown') for f in files]
     return file_streams
 
-def collect_sources_split(config_dir, context_name, source):
-    filename = config_dir / source
-    content = filename.read_text()
-    content = content.split('\n---\n')
-    file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
-    file_streams = [(f'{context_name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
-    return file_streams
+def collect_sources_split(config_dir, context_name, source, extract_metadata=False):
+    """
+    Collect sources from a split file with enhanced metadata extraction.
+    """
+    try:
+        filename = Path(config_dir) / source
+        logger.info(f"Processing split file: {filename}")
+        
+        content = filename.read_text()
+        sections = content.split('\n---\n')
+        logger.info(f"Split file into {len(sections)} sections")
+        
+        sources = []
+        for idx, section in enumerate(sections):
+            if section.strip():
+                file_name = f'{context_name}_{idx}.md'
+                section_bytes = section.strip().encode('utf-8')
+                mime_type = 'text/markdown'
+                
+                metadata = None
+                if extract_metadata:
+                    # Basic metadata
+                    metadata = {
+                        'source_type': 'split',
+                        'original_file': str(filename),
+                        'section_index': idx,
+                        'section_size': len(section_bytes),
+                        'total_sections': len(sections),
+                        'mime_type': mime_type,
+                        'extracted_at': datetime.now(timezone.utc).isoformat(),
+                        'status': 'processed'
+                    }
+                    
+                    # Enhanced metadata using LLM extraction
+                    try:
+                        document_type = determine_document_type(filename)
+                        logger.info(f"Extracting structured content for split section {idx} with document type: {document_type}")
+                        extracted_data = extract_structured_content(section, document_type=document_type)
+                        
+                        # Add extracted data to metadata
+                        metadata['document_type'] = document_type
+                        metadata['extracted_data'] = extracted_data
+                        
+                        # Use document title from extraction if available
+                        if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
+                            metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
+                        else:
+                            metadata['title'] = f"{filename.stem} (Section {idx+1})"
+                            
+                        logger.info(f"Added enhanced metadata for section {idx}")
+                    except Exception as e:
+                        logger.error(f"Error extracting structured content from section {idx}: {str(e)}")
+                        metadata['status'] = 'extraction_error'
+                        metadata['error'] = str(e)
+                
+                sources.append((file_name, io.BytesIO(section_bytes), mime_type, metadata))
+                logger.info(f"Added split section {idx} as {file_name}")
+        
+        return sources
+    except Exception as e:
+        logger.error(f"Error processing split file {source}: {str(e)}")
+        return []
 
-def collect_sources_google_spreadsheet(context_name, source):
-    resources, dp, _ = DF.Flow(
-        DF.load(source, name='rows'),
-    ).results()
-    rows = resources[0]
-    headers = [f.name for f in dp.resources[0].schema.fields]
-    file_streams = []
-    for idx, row in enumerate(rows):
-        content = ''
-        if len(headers) > 1:
-            for i, header in enumerate(headers):
-                if row.get(header):
-                    if i > 0:
-                        content += f'{header}:\n{row[header]}\n\n'
-                    else:
-                        content += f'{row[header]}\n\n'
-        if content:
-            file_streams.append((f'{context_name}_{idx}.md', io.BytesIO(content.strip().encode('utf-8')), 'text/markdown'))
-    return file_streams
+def collect_sources_google_spreadsheet(context_name, source, extract_metadata=False):
+    """
+    Collect sources from a Google Spreadsheet with enhanced metadata extraction.
+    """
+    try:        
+        url = source
+        logger.info(f"Processing Google Spreadsheet with dataflows: {url}")
+        
+        resources, dp, _ = DF.Flow(
+            DF.load(url, name='rows'),
+        ).results()
+        
+        rows = resources[0]
+        headers = [f.name for f in dp.resources[0].schema.fields]
+        
+        logger.info(f"Loaded spreadsheet with {len(rows)} rows and headers: {headers}")
+        
+        sources = []
+        for idx, row in enumerate(rows):
+            content = ''
+            if len(headers) > 1:
+                for i, header in enumerate(headers):
+                    if row.get(header):
+                        if i > 0:
+                            content += f'{header}:\n{row[header]}\n\n'
+                        else:
+                            content += f'{row[header]}\n\n'
+            
+            if content:
+                file_name = f'{context_name}_{idx}.md'
+                content_bytes = content.strip().encode('utf-8')
+                mime_type = 'text/markdown'
+                
+                metadata = None
+                if extract_metadata:
+                    # Basic metadata
+                    metadata = {
+                        'source_type': 'google_spreadsheet',
+                        'url': url,
+                        'row_index': idx,
+                        'headers': headers,
+                        'row_data': {h: row.get(h) for h in headers if row.get(h)},
+                        'extracted_at': datetime.now(timezone.utc).isoformat(),
+                        'status': 'processed'
+                    }
+                    
+                    # Enhanced metadata using LLM extraction
+                    try:
+                        document_type = "spreadsheet_row"
+                        logger.info(f"Extracting structured content for spreadsheet row {idx}")
+                        extracted_data = extract_structured_content(content, document_type=document_type)
+                        
+                        # Add extracted data to metadata
+                        metadata['document_type'] = document_type
+                        metadata['extracted_data'] = extracted_data
+                        
+                        # Use document title from extraction if available
+                        if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
+                            metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
+                        else:
+                            # Use first column value as title if available
+                            first_header = headers[0] if headers else None
+                            metadata['title'] = row.get(first_header, f"Row {idx}")
+                            
+                        logger.info(f"Added enhanced metadata for spreadsheet row {idx}")
+                    except Exception as e:
+                        logger.error(f"Error extracting structured content from spreadsheet row {idx}: {str(e)}")
+                        metadata['status'] = 'extraction_error'
+                        metadata['error'] = str(e)
+                
+                sources.append((file_name, io.BytesIO(content_bytes), mime_type, metadata))
+                logger.info(f"Added spreadsheet row {idx} as {file_name}")
+        
+        return sources
+    except ImportError:
+        logger.error("dataflows library not available, cannot process Google Spreadsheet")
+        return []
+    except Exception as e:
+        logger.error(f"Error processing spreadsheet {url}: {str(e)}")
+        return []
 
 def collect_context_sources(context_config, config_dir, extract_metadata=False):
     """
@@ -97,13 +352,39 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
                             
                             metadata = None
                             if extract_metadata:
+                                # Basic metadata
                                 metadata = {
                                     'source_type': 'file',
                                     'filename': os.path.basename(file_path),
                                     'file_path': file_path,
                                     'file_size': len(content),
-                                    'mime_type': mime_type
+                                    'mime_type': mime_type,
+                                    'extracted_at': datetime.now(timezone.utc).isoformat(),
+                                    'status': 'processed'
                                 }
+                                
+                                # Enhanced metadata using LLM extraction
+                                try:
+                                    content_text = content.decode('utf-8')
+                                    document_type = determine_document_type(Path(file_path))
+                                    logger.info(f"Extracting structured content for file {file_path} with document type: {document_type}")
+                                    extracted_data = extract_structured_content(content_text, document_type=document_type)
+                                    
+                                    # Add extracted data to metadata
+                                    metadata['document_type'] = document_type
+                                    metadata['extracted_data'] = extracted_data
+                                    
+                                    # Use document title from extraction if available
+                                    if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
+                                        metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
+                                    else:
+                                        metadata['title'] = os.path.basename(file_path)
+                                        
+                                    logger.info(f"Added enhanced metadata for {file_path}")
+                                except Exception as e:
+                                    logger.error(f"Error extracting structured content from {file_path}: {str(e)}")
+                                    metadata['status'] = 'extraction_error'
+                                    metadata['error'] = str(e)
                             
                             sources.append((file_path, io.BytesIO(content), mime_type, metadata))
                             logger.info(f"Added file: {file_path}")
@@ -113,88 +394,12 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
                     logger.error(f"Extraction directory not found: {extraction_dir}")
             
             elif source_type == 'google-spreadsheet':
-                # Use the original implementation for Google Spreadsheets
-                try:
-                    # Import dataflows here to avoid dependency issues
-                    import dataflows as DF
-                    
-                    logger.info(f"Processing Google Spreadsheet with dataflows: {source_path}")
-                    
-                    resources, dp, _ = DF.Flow(
-                        DF.load(source_path, name='rows'),
-                    ).results()
-                    
-                    rows = resources[0]
-                    headers = [f.name for f in dp.resources[0].schema.fields]
-                    
-                    logger.info(f"Loaded spreadsheet with {len(rows)} rows and headers: {headers}")
-                    
-                    for idx, row in enumerate(rows):
-                        content = ''
-                        if len(headers) > 1:
-                            for i, header in enumerate(headers):
-                                if row.get(header):
-                                    if i > 0:
-                                        content += f'{header}:\n{row[header]}\n\n'
-                                    else:
-                                        content += f'{row[header]}\n\n'
-                        
-                        if content:
-                            file_name = f'{context_name}_{idx}.md'
-                            content_bytes = content.strip().encode('utf-8')
-                            mime_type = 'text/markdown'
-                            
-                            metadata = None
-                            if extract_metadata:
-                                metadata = {
-                                    'source_type': 'google_spreadsheet',
-                                    'url': source_path,
-                                    'row_index': idx,
-                                    'headers': headers,
-                                    'row_data': {h: row.get(h) for h in headers if row.get(h)}
-                                }
-                            
-                            sources.append((file_name, io.BytesIO(content_bytes), mime_type, metadata))
-                            logger.info(f"Added spreadsheet row {idx} as {file_name}")
-                except ImportError:
-                    logger.error("dataflows library not available, cannot process Google Spreadsheet")
-                except Exception as e:
-                    logger.error(f"Error processing Google Spreadsheet {source_path}: {str(e)}")
+                # Use enhanced spreadsheet collection
+                sources.extend(collect_sources_google_spreadsheet(context_name, source_path, extract_metadata))
             
             elif source_type == 'split':
-                # Handle split source type
-                try:
-                    file_path = os.path.join(config_dir, source_path)
-                    logger.info(f"Processing split file: {file_path}")
-                    
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                    
-                    # Split content by separator
-                    sections = content.split('\n---\n')
-                    logger.info(f"Split file into {len(sections)} sections")
-                    
-                    for idx, section in enumerate(sections):
-                        if section.strip():
-                            file_name = f'{context_name}_{idx}.md'
-                            section_bytes = section.strip().encode('utf-8')
-                            mime_type = 'text/markdown'
-                            
-                            metadata = None
-                            if extract_metadata:
-                                metadata = {
-                                    'source_type': 'split',
-                                    'original_file': file_path,
-                                    'section_index': idx,
-                                    'section_size': len(section_bytes),
-                                    'total_sections': len(sections),
-                                    'mime_type': mime_type
-                                }
-                            
-                            sources.append((file_name, io.BytesIO(section_bytes), mime_type, metadata))
-                            logger.info(f"Added split section {idx} as {file_name}")
-                except Exception as e:
-                    logger.error(f"Error processing split file {source_path}: {str(e)}")
+                # Use enhanced split collection
+                sources.extend(collect_sources_split(config_dir, context_name, source_path, extract_metadata))
             
             else:
                 logger.warning(f"Unsupported source type: {source_type}")
@@ -230,7 +435,7 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
 
 def collect_sources_file(source, config_dir, extract_metadata=False):
     """
-    Collect sources from a file.
+    Collect sources from a file with enhanced metadata extraction.
     """
     path = Path(config_dir) / source['path']
     logger.info(f"Collecting file source from path: {path}")
@@ -247,44 +452,49 @@ def collect_sources_file(source, config_dir, extract_metadata=False):
         
         metadata = None
         if extract_metadata:
+            # Basic metadata
             metadata = {
                 'source_type': 'file',
                 'filename': str(path.name),
                 'file_path': str(path),
                 'file_size': len(content),
-                'mime_type': mime_type
+                'mime_type': mime_type,
+                'extracted_at': datetime.now(timezone.utc).isoformat(),
+                'status': 'processed'
             }
+            
+            # Enhanced metadata using LLM extraction
+            if mime_type in ['text/markdown', 'text/plain', 'application/json']:
+                try:
+                    content_text = content.decode('utf-8')
+                    document_type = determine_document_type(path)
+                    logger.info(f"Extracting structured content for file {path} with document type: {document_type}")
+                    extracted_data = extract_structured_content(content_text, document_type=document_type)
+                    
+                    # Add extracted data to metadata
+                    metadata['document_type'] = document_type
+                    metadata['extracted_data'] = extracted_data
+                    
+                    # Use document title from extraction if available
+                    if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
+                        metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
+                    else:
+                        metadata['title'] = path.stem
+                        
+                    logger.info(f"Added enhanced metadata for {path}")
+                except Exception as e:
+                    logger.error(f"Error extracting structured content from {path}: {str(e)}")
+                    metadata['status'] = 'extraction_error'
+                    metadata['error'] = str(e)
+            else:
+                metadata['title'] = path.stem
+                metadata['status'] = 'unsupported_format'
+                
             logger.info(f"Created metadata for file {path}")
         
         return [(str(path), io.BytesIO(content), mime_type, metadata)]
     except Exception as e:
         logger.error(f"Error reading file {path}: {str(e)}")
-        return []
-
-def collect_sources_google_spreadsheet(source, extract_metadata=False):
-    """
-    Collect sources from a Google Spreadsheet.
-    """
-    url = source['url']
-    logger.info(f"Collecting Google Spreadsheet source from: {url}")
-    
-    try:
-        # For now, we're just storing the source configuration as JSON
-        source_json = json.dumps(source).encode('utf-8')
-        
-        metadata = None
-        if extract_metadata:
-            metadata = {
-                'source_type': 'google_spreadsheet',
-                'url': url,
-                'sheet_id': source.get('sheet_id'),
-                'title': source.get('title')
-            }
-            logger.info(f"Created metadata for spreadsheet {url}")
-        
-        return [(url, io.BytesIO(source_json), 'application/json', metadata)]
-    except Exception as e:
-        logger.error(f"Error processing spreadsheet {url}: {str(e)}")
         return []
 
 def collect_all_sources(context_list, config_dir):
