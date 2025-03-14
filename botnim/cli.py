@@ -64,12 +64,15 @@ def reverse_lines(text: str) -> str:
 def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool):
     """Search the vector store with the given query."""
     try:
-        search_results = run_query(query_text, environment, bot, context, num_results)
-        for result in search_results:
-            formatted_result = format_result(result, show_full=full)
-            if rtl:
-                formatted_result = reverse_lines(mirror_brackets(formatted_result))
-            click.echo(formatted_result)
+        # Get the formatted results as a string
+        formatted_results = run_query(environment, bot, context, query_text, num_results)
+        
+        # Apply RTL formatting if needed
+        if rtl:
+            formatted_results = reverse_lines(mirror_brackets(formatted_results))
+        
+        # Just output the string directly
+        click.echo(formatted_results)
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)
         raise click.Abort()

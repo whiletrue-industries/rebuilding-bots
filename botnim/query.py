@@ -30,7 +30,7 @@ class QueryClient:
         specs_dir = SPECS / self.bot_name / 'config.yaml'
         if not specs_dir.exists():
             logger.warning(f"No config found for {self.bot_name}, using default config")
-            return {"name": f"{self.bot_name}_assistant"}
+            return {"name": f"{self.bot_name}_assistant", "slug": self.bot_name}
             
         with open(specs_dir) as f:
             config = yaml.safe_load(f)
