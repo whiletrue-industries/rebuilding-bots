@@ -9,7 +9,7 @@ import logging
 from openai import OpenAI
 from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 
-from botnim.query import QueryClient, elastic_vector_search_handler
+from botnim.query import QueryClient, run_query
 from botnim.config import get_logger
 TEMP = 0
 
@@ -156,7 +156,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 # Log the tool call parameters
                 logger.info(f"Calling vector_search_handler with query: {arguments['query']}, num_results: {arguments.get('num_results', 7)}")
                 
-                output = elastic_vector_search_handler(
+                output = run_query(
                     environment=environment,
                     bot_name=bot_name,
                     context_name=context_name,
