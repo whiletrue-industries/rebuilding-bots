@@ -86,7 +86,8 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
         try:
             if source_type == 'files':
                 # Check if extraction is a directory
-                extraction_dir = os.path.join(config_dir, 'extraction')
+                extraction_dir_name = context_config.get('extraction_dir', 'extraction')
+                extraction_dir = os.path.join(config_dir, extraction_dir_name)
                 if os.path.isdir(extraction_dir):
                     logger.info(f"Found extraction directory: {extraction_dir}")
                     
