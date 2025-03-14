@@ -223,10 +223,20 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                         f.write(f"    {output}\n")
                     else:
                         # For dictionary/list outputs, format them nicely
-                        output_str = json.dumps(output, ensure_ascii=False, indent=4)
-                        # Add indentation to each line
-                        formatted_output = "\n".join(f"    {line}" for line in output_str.split("\n"))
-                        f.write(f"{formatted_output}\n")
+                        # Check if this is a search result with metadata
+                        if isinstance(output, list) and output and 'metadata' in output[0]:
+                            f.write("    Results with metadata:\n")
+                            for item in output:
+                                f.write(f"    --- Result ID: {item.get('id', 'unknown')} ---\n")
+                                f.write(f"    Content: {item.get('content', '')[:100]}...\n")
+                                f.write(f"    Score: {item.get('score', 'N/A')}\n")
+                                f.write(f"    Metadata: {json.dumps(item.get('metadata', {}), ensure_ascii=False, indent=6)}\n\n")
+                        else:
+                            # Standard formatting for other outputs
+                            output_str = json.dumps(output, ensure_ascii=False, indent=4)
+                            # Add indentation to each line
+                            formatted_output = "\n".join(f"    {line}" for line in output_str.split("\n"))
+                            f.write(f"{formatted_output}\n")
                 
                 tool_outputs.append(dict(
                     tool_call_id=tool.id,
