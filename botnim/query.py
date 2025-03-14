@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS
 import yaml
+import json
 
 logger = get_logger(__name__)
 
@@ -15,6 +16,7 @@ class SearchResult:
     id: str
     content: str
     full_content: str
+    metadata: Dict = None  
 
 class QueryClient:
     """Class to handle vector store queries"""
@@ -30,7 +32,7 @@ class QueryClient:
         specs_dir = SPECS / self.bot_name / 'config.yaml'
         if not specs_dir.exists():
             logger.warning(f"No config found for {self.bot_name}, using default config")
-            return {"name": f"{self.bot_name}_assistant", "slug": self.bot_name}
+            return {"name": f"{self.bot_name}_assistant"}
             
         with open(specs_dir) as f:
             config = yaml.safe_load(f)
@@ -80,7 +82,8 @@ class QueryClient:
                     score=hit['_score'],
                     id=hit['_id'],
                     content=hit['_source']['content'].strip().split('\n')[0],
-                    full_content=hit['_source']['content']
+                    full_content=hit['_source']['content'],
+                    metadata=hit['_source'].get('metadata', None)  # Extract metadata
                 )
                 for hit in results['hits']['hits']
             ]
@@ -206,7 +209,8 @@ def format_search_results(results: List[SearchResult], format_type: str = 'text'
             {
                 'score': result.score,
                 'id': result.id,
-                'content': result.full_content
+                'content': result.full_content,
+                'metadata': result.metadata
             }
             for result in results
         ]
@@ -214,10 +218,15 @@ def format_search_results(results: List[SearchResult], format_type: str = 'text'
         # Format results for human-readable text output
         formatted_results = []
         for result in results:
+            metadata_str = ""
+            if result.metadata:
+                metadata_str = f"\nMetadata:\n{json.dumps(result.metadata, indent=2, ensure_ascii=False)}"
+                
             formatted_results.append(
                 f"[Score: {result.score:.2f}]\n"
                 f"ID: {result.id}\n"
-                f"Content:\n{result.full_content}\n"
+                f"Content:\n{result.full_content}"
+                f"{metadata_str}\n"
                 f"{'-' * 40}"
             )
         return "\n\n".join(formatted_results)
@@ -249,8 +258,14 @@ def format_result(result: SearchResult, show_full: bool = True) -> str:
         show_full: Whether to include the full content in the output
     """
     summary = f"{result.score:5.2f}: {result.id:30s}   [{result.content}]"
+    
     if show_full:
-        return f"{summary}\n\nFull content:\n{result.full_content}\n{'-' * 80}\n"
+        metadata_str = ""
+        if result.metadata:
+            metadata_str = f"\nMetadata:\n{json.dumps(result.metadata, indent=2, ensure_ascii=False)}"
+            
+        return f"{summary}\n\nFull content:\n{result.full_content}{metadata_str}\n{'-' * 80}\n"
+    
     return summary
 
 def get_index_fields(environment: str, bot_name: str, context_name: str) -> Dict:
