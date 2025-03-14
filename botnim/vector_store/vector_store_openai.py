@@ -1,5 +1,10 @@
 from .vector_store_base import VectorStoreBase
 from .vector_store_es import get_index_name
+import json
+import io
+from ..config import get_logger
+
+logger = get_logger(__name__)
 
 
 class VectorStoreOpenAI(VectorStoreBase):
@@ -26,15 +31,58 @@ class VectorStoreOpenAI(VectorStoreBase):
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         count = 0
+        logger.info(f"Starting upload of {len(file_streams)} files to OpenAI vector store")
+        
+        # Process file streams to include metadata in content
+        processed_streams = []
+        for filename, content_file, file_type, metadata in file_streams:
+            try:
+                # Read the original content
+                content = content_file.read()
+                
+                # If metadata exists, append it to the content
+                if metadata:
+                    # Convert metadata to a formatted string
+                    metadata_str = json.dumps(metadata, indent=2, ensure_ascii=False)
+                    
+                    # Create a new content stream with metadata appended
+                    combined_content = content + f"\n\n-------\n# Metadata:\n\n{metadata_str}".encode('utf-8')
+                    
+                    # Create a new BytesIO object with the combined content
+                    new_content_file = io.BytesIO(combined_content)
+                    
+                    logger.info(f"Appended metadata to content for {filename}")
+                else:
+                    # If no metadata, just rewind the stream and use as is
+                    new_content_file = io.BytesIO(content)
+                
+                # Add the file to the processed streams
+                processed_streams.append((filename, new_content_file, file_type))
+                
+            except Exception as e:
+                logger.error(f"Failed to process file {filename}: {str(e)}")
+        
+        logger.info(f"Processed {len(processed_streams)} files for upload")
+        
+        # Continue with the original upload logic
+        file_streams = processed_streams
         while len(file_streams) > 0:
             current = file_streams[:32]
-            file_batch = self.openai_client.beta.vector_stores.file_batches.upload_and_poll(
-                vector_store_id=vector_store.id, files=current
-            )
+            try:
+                logger.info(f"Uploading batch of {len(current)} files")
+                file_batch = self.openai_client.beta.vector_stores.file_batches.upload_and_poll(
+                    vector_store_id=vector_store.id, files=current
+                )
+                logger.info(f"Batch upload completed: {file_batch.id}")
+            except Exception as e:
+                logger.error(f"Failed to upload batch: {str(e)}")
+            
             count += len(current)
             if callable(callback):
                 callback(count)
             file_streams = file_streams[32:]
+        
+        logger.info(f"Completed upload of {count} files to OpenAI vector store")
 
     def delete_existing_files(self, context_, vector_store, file_names):
         deleted = 0
