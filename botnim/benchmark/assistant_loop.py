@@ -9,7 +9,7 @@ import logging
 from openai import OpenAI
 from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 
-from botnim.query import run_query
+from botnim.query import QueryClient, run_query
 from botnim.config import get_logger, validate_environment, DEFAULT_ENVIRONMENT
 TEMP = 0
 
