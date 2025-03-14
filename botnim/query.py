@@ -6,6 +6,7 @@ from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, is_production
 import yaml
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class SearchResult:
     score: float
     content: str
     full_content: str
+    metadata: Dict = None  
 
 class QueryClient:
     """Class to handle vector store queries"""
@@ -90,7 +92,8 @@ class QueryClient:
                     score=hit['_score'],
                     id=hit['_id'],
                     content=hit['_source']['content'].strip().split('\n')[0],
-                    full_content=hit['_source']['content']
+                    full_content=hit['_source']['content'],
+                    metadata=hit['_source'].get('metadata', None)  # Extract metadata
                 )
                 for hit in results['hits']['hits']
             ]
@@ -155,32 +158,52 @@ def run_query(query: str, environment: str, bot_name: str, context_name: str, nu
             formatted_results = format_search_results(results)
             logger.info(f"Formatted results: {formatted_results}")
             return formatted_results
+        elif format == "dict":
+            return format_search_results(results, format_type="dict")
         return results
     except Exception as e:
         logger.error(f"Error in run_query: {str(e)}")
         # Return a meaningful error message instead of raising
         return f"Error performing search: {str(e)}"
 
-def format_search_results(results: List[SearchResult]) -> str:
+def format_search_results(results: List[SearchResult], format_type="text") -> str:
     """
     Format search results as a human-readable text string
     
     Args:
         results (List[SearchResult]): The search results to format
+        format_type (str): Output format type ("text" or "dict")
         
     Returns:
         str: Formatted search results as a text string
     """
-    # Format results for human-readable text output
-    formatted_results = []
-    for result in results:
-        formatted_results.append(
-            f"[Score: {result.score:.2f}]\n"
-            f"ID: {result.id}\n"
-            f"Content:\n{result.full_content}\n"
-            f"{'-' * 40}"
-        )
-    return "\n\n".join(formatted_results)
+    if format_type == 'dict':
+        # Return as list of dictionaries for programmatic use
+        return [
+            {
+                'score': result.score,
+                'id': result.id,
+                'content': result.full_content,
+                'metadata': result.metadata
+            }
+            for result in results
+        ]
+    else:  # Default to text format
+        # Format results for human-readable text output
+        formatted_results = []
+        for result in results:
+            metadata_str = ""
+            if result.metadata:
+                metadata_str = f"\nMetadata:\n{json.dumps(result.metadata, indent=2, ensure_ascii=False)}"
+                
+            formatted_results.append(
+                f"[Score: {result.score:.2f}]\n"
+                f"ID: {result.id}\n"
+                f"Content:\n{result.full_content}"
+                f"{metadata_str}\n"
+                f"{'-' * 40}"
+            )
+        return "\n\n".join(formatted_results)
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     """
@@ -209,8 +232,14 @@ def format_result(result: SearchResult, show_full: bool = True) -> str:
         show_full: Whether to include the full content in the output
     """
     summary = f"{result.score:5.2f}: {result.id:30s}   [{result.content}]"
+    
     if show_full:
-        return f"{summary}\n\nFull content:\n{result.full_content}\n{'-' * 80}\n"
+        metadata_str = ""
+        if result.metadata:
+            metadata_str = f"\nMetadata:\n{json.dumps(result.metadata, indent=2, ensure_ascii=False)}"
+            
+        return f"{summary}\n\nFull content:\n{result.full_content}{metadata_str}\n{'-' * 80}\n"
+    
     return summary
 
 def get_index_fields(environment: str, bot_name: str, context_name: str) -> Dict:
