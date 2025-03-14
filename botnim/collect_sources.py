@@ -69,7 +69,7 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
                 logger.info(f"Looking for files matching pattern: {full_pattern}")
                 matching_files = glob.glob(full_pattern)
                 logger.info(f"Files matching pattern: {matching_files}")
-        input("Press Enter to continue...")
+        input("Verify the files in the directory and press Enter to continue...")
     except Exception as e:
         logger.error(f"Error inspecting directory: {str(e)}")
     
