@@ -51,6 +51,28 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
     logger.info(f"Collecting context sources from {config_dir} with metadata extraction: {extract_metadata}")
     logger.info(f"Context config: {context_config}")
     
+    # Add detailed logging about the directory and files
+    try:
+        config_dir_path = Path(config_dir)
+        logger.info(f"Config directory exists: {config_dir_path.exists()}")
+        logger.info(f"Config directory is a directory: {config_dir_path.is_dir()}")
+        
+        if config_dir_path.exists() and config_dir_path.is_dir():
+            # List files in the directory
+            files = list(config_dir_path.glob("*"))
+            logger.info(f"Files in config directory: {[str(f) for f in files]}")
+            
+            # If there's a source path, check if it exists
+            if 'type' in context_config and context_config['type'] == 'files' and 'source' in context_config:
+                source_pattern = context_config['source']
+                full_pattern = os.path.join(config_dir, source_pattern)
+                logger.info(f"Looking for files matching pattern: {full_pattern}")
+                matching_files = glob.glob(full_pattern)
+                logger.info(f"Files matching pattern: {matching_files}")
+        input("Press Enter to continue...")
+    except Exception as e:
+        logger.error(f"Error inspecting directory: {str(e)}")
+    
     sources = []
     
     # Handle the case where the context has 'type' and 'source' directly
@@ -63,58 +85,89 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
         
         try:
             if source_type == 'files':
-                # Handle glob pattern for files
-                path_pattern = os.path.join(config_dir, source_path)
-                logger.info(f"Looking for files matching pattern: {path_pattern}")
-                
-                matching_files = glob.glob(path_pattern)
-                logger.info(f"Found {len(matching_files)} matching files")
-                
-                for file_path in matching_files:
-                    try:
-                        with open(file_path, 'rb') as f:
-                            content = f.read()
-                        mime_type, _ = mimetypes.guess_type(file_path)
-                        
-                        metadata = None
-                        if extract_metadata:
-                            metadata = {
-                                'source_type': 'file',
-                                'filename': os.path.basename(file_path),
-                                'file_path': file_path,
-                                'file_size': len(content),
-                                'mime_type': mime_type
-                            }
-                        
-                        sources.append((file_path, io.BytesIO(content), mime_type, metadata))
-                        logger.info(f"Added file: {file_path}")
-                    except Exception as e:
-                        logger.error(f"Error processing file {file_path}: {str(e)}")
+                # Check if extraction is a directory
+                extraction_dir = os.path.join(config_dir, 'extraction')
+                if os.path.isdir(extraction_dir):
+                    logger.info(f"Found extraction directory: {extraction_dir}")
+                    
+                    # Use the original pattern but with the correct path
+                    path_pattern = os.path.join(extraction_dir, '*.md')
+                    logger.info(f"Looking for files matching pattern: {path_pattern}")
+                    
+                    matching_files = glob.glob(path_pattern)
+                    logger.info(f"Found {len(matching_files)} matching files")
+                    
+                    for file_path in matching_files:
+                        try:
+                            with open(file_path, 'rb') as f:
+                                content = f.read()
+                            mime_type = 'text/markdown'
+                            
+                            metadata = None
+                            if extract_metadata:
+                                metadata = {
+                                    'source_type': 'file',
+                                    'filename': os.path.basename(file_path),
+                                    'file_path': file_path,
+                                    'file_size': len(content),
+                                    'mime_type': mime_type
+                                }
+                            
+                            sources.append((file_path, io.BytesIO(content), mime_type, metadata))
+                            logger.info(f"Added file: {file_path}")
+                        except Exception as e:
+                            logger.error(f"Error processing file {file_path}: {str(e)}")
+                else:
+                    logger.error(f"Extraction directory not found: {extraction_dir}")
             
             elif source_type == 'google-spreadsheet':
-                # Handle Google Spreadsheet
-                url = source_path
-                logger.info(f"Processing Google Spreadsheet: {url}")
-                
+                # Use the original implementation for Google Spreadsheets
                 try:
-                    # For now, we're just storing the source configuration as JSON
-                    source_json = json.dumps({
-                        'url': url,
-                        'context_name': context_name
-                    }).encode('utf-8')
+                    # Import dataflows here to avoid dependency issues
+                    import dataflows as DF
                     
-                    metadata = None
-                    if extract_metadata:
-                        metadata = {
-                            'source_type': 'google_spreadsheet',
-                            'url': url,
-                            'context_name': context_name
-                        }
+                    logger.info(f"Processing Google Spreadsheet with dataflows: {source_path}")
                     
-                    sources.append((f"{context_name}_spreadsheet.json", io.BytesIO(source_json), 'application/json', metadata))
-                    logger.info(f"Added spreadsheet: {url}")
+                    resources, dp, _ = DF.Flow(
+                        DF.load(source_path, name='rows'),
+                    ).results()
+                    
+                    rows = resources[0]
+                    headers = [f.name for f in dp.resources[0].schema.fields]
+                    
+                    logger.info(f"Loaded spreadsheet with {len(rows)} rows and headers: {headers}")
+                    
+                    for idx, row in enumerate(rows):
+                        content = ''
+                        if len(headers) > 1:
+                            for i, header in enumerate(headers):
+                                if row.get(header):
+                                    if i > 0:
+                                        content += f'{header}:\n{row[header]}\n\n'
+                                    else:
+                                        content += f'{row[header]}\n\n'
+                        
+                        if content:
+                            file_name = f'{context_name}_{idx}.md'
+                            content_bytes = content.strip().encode('utf-8')
+                            mime_type = 'text/markdown'
+                            
+                            metadata = None
+                            if extract_metadata:
+                                metadata = {
+                                    'source_type': 'google_spreadsheet',
+                                    'url': source_path,
+                                    'row_index': idx,
+                                    'headers': headers,
+                                    'row_data': {h: row.get(h) for h in headers if row.get(h)}
+                                }
+                            
+                            sources.append((file_name, io.BytesIO(content_bytes), mime_type, metadata))
+                            logger.info(f"Added spreadsheet row {idx} as {file_name}")
+                except ImportError:
+                    logger.error("dataflows library not available, cannot process Google Spreadsheet")
                 except Exception as e:
-                    logger.error(f"Error processing spreadsheet {url}: {str(e)}")
+                    logger.error(f"Error processing Google Spreadsheet {source_path}: {str(e)}")
             
             else:
                 logger.warning(f"Unsupported source type: {source_type}")
