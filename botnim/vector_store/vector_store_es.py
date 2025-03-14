@@ -172,7 +172,9 @@ class VectorStoreES(VectorStoreBase):
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         """Upload files to vector store"""
         count = 0
-        for filename, content_file, file_type in file_streams:
+        logger.info(f"Starting upload of {len(file_streams)} files to {vector_store}")
+        
+        for filename, content_file, file_type, metadata in file_streams:
             try:
                 # Skip metadata files to prevent recursion
                 if filename.endswith('.metadata.json'):
@@ -181,6 +183,7 @@ class VectorStoreES(VectorStoreBase):
 
                 # Read content
                 content = content_file.read().decode('utf-8')
+                logger.debug(f"Processing file {filename} with size {len(content)}")
                 
                 # Generate embedding
                 response = self.openai_client.embeddings.create(
@@ -195,48 +198,62 @@ class VectorStoreES(VectorStoreBase):
                     "vector": vector,
                 }
                 
-                # Try to load metadata from the metadata file
-                clean_filename = filename[1:] if filename.startswith('_') else filename
-                metadata_path = Path('specs/takanon/extraction/metadata') / f"{clean_filename}.metadata.json"
-                
-                try:
-                    if metadata_path.exists() and not metadata_path.name.endswith('.metadata.json.metadata.json'):
-                        logger.info(f"Found metadata file at {metadata_path}")
-                        with open(metadata_path, 'r', encoding='utf-8') as f:
-                            loaded_metadata = json.load(f)
-                            document["metadata"] = loaded_metadata
-                            logger.info(f"Loaded metadata from file for {filename}")
-                    else:
-                        logger.warning(f"No metadata file found at {metadata_path}")
-                        document["metadata"] = {
-                            "title": Path(filename).stem,
-                            "document_type": str(file_type),
-                            "extracted_at": datetime.now().isoformat(),
-                            "status": "no_metadata",
-                            "context_type": context.get("type", ""),
-                            "context_name": context_name,
-                            "extracted_data": {}
-                        }
-                except Exception as e:
-                    logger.warning(f"Failed to load metadata for {filename}: {str(e)}")
+                # Use extracted metadata if available
+                if metadata:
+                    logger.info(f"Using extracted metadata for {filename}")
                     document["metadata"] = {
                         "title": Path(filename).stem,
                         "document_type": str(file_type),
                         "extracted_at": datetime.now().isoformat(),
-                        "status": "error",
+                        "status": "extracted",
                         "context_type": context.get("type", ""),
                         "context_name": context_name,
-                        "extracted_data": {"error": str(e)}
+                        "extracted_data": metadata
                     }
+                else:
+                    # Try to load metadata from the metadata file
+                    clean_filename = filename[1:] if filename.startswith('_') else filename
+                    metadata_path = Path('specs/takanon/extraction/metadata') / f"{clean_filename}.metadata.json"
+                    
+                    try:
+                        if metadata_path.exists() and not metadata_path.name.endswith('.metadata.json.metadata.json'):
+                            logger.info(f"Found metadata file at {metadata_path}")
+                            with open(metadata_path, 'r', encoding='utf-8') as f:
+                                loaded_metadata = json.load(f)
+                                document["metadata"] = loaded_metadata
+                                logger.info(f"Loaded metadata from file for {filename}")
+                        else:
+                            logger.debug(f"No metadata file found at {metadata_path}")
+                            document["metadata"] = {
+                                "title": Path(filename).stem,
+                                "document_type": str(file_type),
+                                "extracted_at": datetime.now().isoformat(),
+                                "status": "no_metadata",
+                                "context_type": context.get("type", ""),
+                                "context_name": context_name,
+                                "extracted_data": {}
+                            }
+                    except Exception as e:
+                        logger.warning(f"Failed to load metadata for {filename}: {str(e)}")
+                        document["metadata"] = {
+                            "title": Path(filename).stem,
+                            "document_type": str(file_type),
+                            "extracted_at": datetime.now().isoformat(),
+                            "status": "error",
+                            "context_type": context.get("type", ""),
+                            "context_name": context_name,
+                            "extracted_data": {"error": str(e)}
+                        }
                 
-                logger.info(f"Final document metadata for {filename}: {document['metadata']}")
+                logger.info(f"Indexing document {filename} to {vector_store}")
                 
                 # Index document
-                self.es_client.index(
+                result = self.es_client.index(
                     index=vector_store,
                     id=filename,
                     document=document
                 )
+                logger.debug(f"Index result: {result}")
                 
             except Exception as e:
                 logger.error(f"Failed to process file {filename}: {str(e)}")
@@ -244,6 +261,12 @@ class VectorStoreES(VectorStoreBase):
             count += 1
             if count % 32 == 0 and callable(callback):
                 callback(count)
+        
+        # Final callback for remaining files
+        if count % 32 != 0 and callable(callback):
+            callback(count)
+        
+        logger.info(f"Completed upload of {count} files to {vector_store}")
 
     def delete_existing_files(self, context_, vector_store, file_names):
         try:

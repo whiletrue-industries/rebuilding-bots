@@ -49,7 +49,7 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(config, config_dir, production, backend, replace_context=False):
+def update_assistant(config, config_dir, production, backend, replace_context=False, with_metadata=False):
     tool_resources = None
     tools = None
     print(f'Updating assistant: {config["name"]}')
@@ -63,7 +63,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         elif backend == 'es':
             vs = VectorStoreES(config, config_dir, None, None, None, production=production)
         # Update the vector store with the context
-        tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
+        tools, tool_resources = vs.vector_store_update(config['context'], replace_context, with_metadata=with_metadata)
     
     # List all the assistants in the organization:
     assistants = client.beta.assistants.list()
@@ -117,7 +117,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         # ...
 
 
-def sync_agents(environment, bots, backend='openai', replace_context=False):
+def sync_agents(environment, bots, backend='openai', replace_context=False, with_metadata=False):
     production = environment == 'production'
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
@@ -128,4 +128,4 @@ def sync_agents(environment, bots, backend='openai', replace_context=False):
                 config['instructions'] = (config_dir / config['instructions']).read_text()
                 if production:
                     config['instructions'] = config['instructions'].replace('__dev', '')
-                update_assistant(config, config_dir, production, backend, replace_context=replace_context)
+                update_assistant(config, config_dir, production, backend, replace_context=replace_context, with_metadata=with_metadata)
