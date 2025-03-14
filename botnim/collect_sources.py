@@ -2,7 +2,6 @@ import io
 import pathlib
 import dataflows as DF
 import mimetypes
-import requests
 import json
 from pathlib import Path
 import os
@@ -61,15 +60,6 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
             # List files in the directory
             files = list(config_dir_path.glob("*"))
             logger.info(f"Files in config directory: {[str(f) for f in files]}")
-            
-            # If there's a source path, check if it exists
-            if 'type' in context_config and context_config['type'] == 'files' and 'source' in context_config:
-                source_pattern = context_config['source']
-                full_pattern = os.path.join(config_dir, source_pattern)
-                logger.info(f"Looking for files matching pattern: {full_pattern}")
-                matching_files = glob.glob(full_pattern)
-                logger.info(f"Files matching pattern: {matching_files}")
-        input("Verify the files in the directory and press Enter to continue...")
     except Exception as e:
         logger.error(f"Error inspecting directory: {str(e)}")
     
@@ -88,6 +78,7 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
                 # Check if extraction is a directory
                 extraction_dir_name = context_config.get('extraction_dir', 'extraction')
                 extraction_dir = os.path.join(config_dir, extraction_dir_name)
+                
                 if os.path.isdir(extraction_dir):
                     logger.info(f"Found extraction directory: {extraction_dir}")
                     
@@ -170,6 +161,41 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
                 except Exception as e:
                     logger.error(f"Error processing Google Spreadsheet {source_path}: {str(e)}")
             
+            elif source_type == 'split':
+                # Handle split source type
+                try:
+                    file_path = os.path.join(config_dir, source_path)
+                    logger.info(f"Processing split file: {file_path}")
+                    
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    # Split content by separator
+                    sections = content.split('\n---\n')
+                    logger.info(f"Split file into {len(sections)} sections")
+                    
+                    for idx, section in enumerate(sections):
+                        if section.strip():
+                            file_name = f'{context_name}_{idx}.md'
+                            section_bytes = section.strip().encode('utf-8')
+                            mime_type = 'text/markdown'
+                            
+                            metadata = None
+                            if extract_metadata:
+                                metadata = {
+                                    'source_type': 'split',
+                                    'original_file': file_path,
+                                    'section_index': idx,
+                                    'section_size': len(section_bytes),
+                                    'total_sections': len(sections),
+                                    'mime_type': mime_type
+                                }
+                            
+                            sources.append((file_name, io.BytesIO(section_bytes), mime_type, metadata))
+                            logger.info(f"Added split section {idx} as {file_name}")
+                except Exception as e:
+                    logger.error(f"Error processing split file {source_path}: {str(e)}")
+            
             else:
                 logger.warning(f"Unsupported source type: {source_type}")
         
@@ -186,14 +212,6 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
                 if source_type == 'file':
                     new_sources = collect_sources_file(source, config_dir, extract_metadata)
                     logger.info(f"Collected {len(new_sources)} file sources")
-                    sources.extend(new_sources)
-                elif source_type == 'directory':
-                    new_sources = collect_sources_directory(source, config_dir, extract_metadata)
-                    logger.info(f"Collected {len(new_sources)} directory sources")
-                    sources.extend(new_sources)
-                elif source_type == 'url':
-                    new_sources = collect_sources_url(source, extract_metadata)
-                    logger.info(f"Collected {len(new_sources)} URL sources")
                     sources.extend(new_sources)
                 elif source_type == 'google_spreadsheet':
                     new_sources = collect_sources_google_spreadsheet(source, extract_metadata)
@@ -241,83 +259,6 @@ def collect_sources_file(source, config_dir, extract_metadata=False):
         return [(str(path), io.BytesIO(content), mime_type, metadata)]
     except Exception as e:
         logger.error(f"Error reading file {path}: {str(e)}")
-        return []
-
-def collect_sources_directory(source, config_dir, extract_metadata=False):
-    """
-    Collect sources from a directory.
-    """
-    path = Path(config_dir) / source['path']
-    logger.info(f"Collecting directory sources from path: {path}")
-    
-    if not path.exists():
-        logger.error(f"Directory not found: {path}")
-        return []
-    
-    if not path.is_dir():
-        logger.error(f"Path is not a directory: {path}")
-        return []
-    
-    sources = []
-    try:
-        file_count = 0
-        for file_path in path.glob('**/*'):
-            if file_path.is_file():
-                file_count += 1
-                try:
-                    with open(file_path, 'rb') as f:
-                        content = f.read()
-                    mime_type, _ = mimetypes.guess_type(file_path)
-                    
-                    metadata = None
-                    if extract_metadata:
-                        metadata = {
-                            'source_type': 'directory',
-                            'filename': str(file_path.name),
-                            'file_path': str(file_path),
-                            'relative_path': str(file_path.relative_to(path)),
-                            'file_size': len(content),
-                            'mime_type': mime_type
-                        }
-                    
-                    sources.append((str(file_path), io.BytesIO(content), mime_type, metadata))
-                except Exception as e:
-                    logger.error(f"Error reading file {file_path}: {str(e)}")
-        
-        logger.info(f"Found {file_count} files in directory {path}, successfully processed {len(sources)}")
-        return sources
-    except Exception as e:
-        logger.error(f"Error processing directory {path}: {str(e)}")
-        return []
-
-def collect_sources_url(source, extract_metadata=False):
-    """
-    Collect sources from a URL.
-    """
-    url = source['url']
-    logger.info(f"Collecting URL source from: {url}")
-    
-    try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        
-        mime_type = response.headers.get('content-type')
-        logger.info(f"Retrieved URL {url} with size {len(response.content)} and mime type {mime_type}")
-        
-        metadata = None
-        if extract_metadata:
-            metadata = {
-                'source_type': 'url',
-                'url': url,
-                'content_length': len(response.content),
-                'mime_type': mime_type,
-                'headers': dict(response.headers)
-            }
-            logger.info(f"Created metadata for URL {url}")
-        
-        return [(url, io.BytesIO(response.content), mime_type, metadata)]
-    except Exception as e:
-        logger.error(f"Error retrieving URL {url}: {str(e)}")
         return []
 
 def collect_sources_google_spreadsheet(source, extract_metadata=False):
