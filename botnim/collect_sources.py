@@ -199,33 +199,29 @@ def collect_sources_split(config_dir, context_name, source, extract_metadata=Fal
                 
                 metadata = None
                 if extract_metadata:
-                    # Basic metadata
+                    # Create basic metadata structure
                     metadata = {
-                        'source_type': 'split',
-                        'original_file': str(filename),
-                        'section_index': idx,
-                        'section_size': len(section_bytes),
-                        'total_sections': len(sections),
-                        'mime_type': mime_type,
-                        'extracted_at': datetime.now(timezone.utc).isoformat(),
-                        'status': 'processed'
+                        "title": f"{filename.stem} (Section {idx+1})",
+                        "status": "processed"
                     }
                     
                     # Enhanced metadata using LLM extraction
                     try:
                         document_type = determine_document_type(filename)
                         logger.info(f"Extracting structured content for split section {idx} with document type: {document_type}")
+                        
+                        # Get the extracted data
                         extracted_data = extract_structured_content(section, document_type=document_type)
                         
-                        # Add extracted data to metadata
+                        # Add document type
                         metadata['document_type'] = document_type
-                        metadata['extracted_data'] = extracted_data
                         
                         # Use document title from extraction if available
                         if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
                             metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
-                        else:
-                            metadata['title'] = f"{filename.stem} (Section {idx+1})"
+                        
+                        # Add all extracted data directly to metadata (not nested)
+                        metadata.update(extracted_data)
                             
                         logger.info(f"Added enhanced metadata for section {idx}")
                     except Exception as e:
@@ -234,11 +230,11 @@ def collect_sources_split(config_dir, context_name, source, extract_metadata=Fal
                         metadata['error'] = str(e)
                 
                 sources.append((file_name, io.BytesIO(section_bytes), mime_type, metadata))
-                logger.info(f"Added split section {idx} as {file_name}")
+                logger.info(f"Added section {idx} as {file_name}")
         
         return sources
     except Exception as e:
-        logger.error(f"Error processing split file {source}: {str(e)}")
+        logger.error(f"Error processing split file {filename}: {str(e)}")
         return []
 
 def collect_sources_google_spreadsheet(context_name, source, extract_metadata=False):
@@ -276,34 +272,32 @@ def collect_sources_google_spreadsheet(context_name, source, extract_metadata=Fa
                 
                 metadata = None
                 if extract_metadata:
-                    # Basic metadata
+                    # Get first column value for title if available
+                    first_header = headers[0] if headers else None
+                    title = row.get(first_header, f"Row {idx}")
+                    
+                    # Create basic metadata structure
                     metadata = {
-                        'source_type': 'google_spreadsheet',
-                        'url': url,
-                        'row_index': idx,
-                        'headers': headers,
-                        'row_data': {h: row.get(h) for h in headers if row.get(h)},
-                        'extracted_at': datetime.now(timezone.utc).isoformat(),
-                        'status': 'processed'
+                        "title": title,
+                        "status": "processed"
                     }
                     
                     # Enhanced metadata using LLM extraction
                     try:
                         document_type = "spreadsheet_row"
                         logger.info(f"Extracting structured content for spreadsheet row {idx}")
+                        
+                        # Get the extracted data
                         extracted_data = extract_structured_content(content, document_type=document_type)
                         
-                        # Add extracted data to metadata
+                        # Add document type
                         metadata['document_type'] = document_type
-                        metadata['extracted_data'] = extracted_data
                         
                         # Use document title from extraction if available
                         if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
                             metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
-                        else:
-                            # Use first column value as title if available
-                            first_header = headers[0] if headers else None
-                            metadata['title'] = row.get(first_header, f"Row {idx}")
+                        
+                        metadata.update(extracted_data)
                             
                         logger.info(f"Added enhanced metadata for spreadsheet row {idx}")
                     except Exception as e:
@@ -376,15 +370,10 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
                             
                             metadata = None
                             if extract_metadata:
-                                # Basic metadata
+                                # Create basic metadata structure
                                 metadata = {
-                                    'source_type': 'file',
-                                    'filename': os.path.basename(file_path),
-                                    'file_path': file_path,
-                                    'file_size': len(content),
-                                    'mime_type': mime_type,
-                                    'extracted_at': datetime.now(timezone.utc).isoformat(),
-                                    'status': 'processed'
+                                    "title": os.path.basename(file_path),
+                                    "status": "processed"
                                 }
                                 
                                 # Enhanced metadata using LLM extraction
@@ -392,17 +381,18 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
                                     content_text = content.decode('utf-8')
                                     document_type = determine_document_type(Path(file_path))
                                     logger.info(f"Extracting structured content for file {file_path} with document type: {document_type}")
+                                    
+                                    # Get the extracted data
                                     extracted_data = extract_structured_content(content_text, document_type=document_type)
                                     
-                                    # Add extracted data to metadata
+                                    # Add document type
                                     metadata['document_type'] = document_type
-                                    metadata['extracted_data'] = extracted_data
                                     
                                     # Use document title from extraction if available
                                     if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
                                         metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
-                                    else:
-                                        metadata['title'] = os.path.basename(file_path)
+                                    
+                                    metadata.update(extracted_data)
                                         
                                     logger.info(f"Added enhanced metadata for {file_path}")
                                 except Exception as e:
@@ -461,30 +451,28 @@ def collect_sources_file(source, config_dir, extract_metadata=False):
     """
     Collect sources from a file with enhanced metadata extraction.
     """
-    path = Path(config_dir) / source['path']
-    logger.info(f"Collecting file source from path: {path}")
-    
-    if not path.exists():
-        logger.error(f"File not found: {path}")
-        return []
-    
     try:
+        path = Path(source)
+        if not path.exists():
+            path = Path(config_dir) / source
+            if not path.exists():
+                logger.error(f"File not found: {source}")
+                return []
+        
+        logger.info(f"Processing file: {path}")
+        
         with open(path, 'rb') as f:
             content = f.read()
-        mime_type, _ = mimetypes.guess_type(path)
-        logger.info(f"Read file {path} with size {len(content)} and mime type {mime_type}")
+        
+        mime_type = mimetypes.guess_type(path)[0] or 'application/octet-stream'
+        logger.info(f"Detected MIME type: {mime_type}")
         
         metadata = None
         if extract_metadata:
-            # Basic metadata
+            # Create basic metadata structure
             metadata = {
-                'source_type': 'file',
-                'filename': str(path.name),
-                'file_path': str(path),
-                'file_size': len(content),
-                'mime_type': mime_type,
-                'extracted_at': datetime.now(timezone.utc).isoformat(),
-                'status': 'processed'
+                "title": path.stem,
+                "status": "processed"
             }
             
             # Enhanced metadata using LLM extraction
@@ -493,17 +481,18 @@ def collect_sources_file(source, config_dir, extract_metadata=False):
                     content_text = content.decode('utf-8')
                     document_type = determine_document_type(path)
                     logger.info(f"Extracting structured content for file {path} with document type: {document_type}")
+                    
+                    # Get the extracted data
                     extracted_data = extract_structured_content(content_text, document_type=document_type)
                     
-                    # Add extracted data to metadata
+                    # Add document type
                     metadata['document_type'] = document_type
-                    metadata['extracted_data'] = extracted_data
                     
                     # Use document title from extraction if available
                     if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
                         metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
-                    else:
-                        metadata['title'] = path.stem
+                    
+                    metadata.update(extracted_data)
                         
                     logger.info(f"Added enhanced metadata for {path}")
                 except Exception as e:
@@ -511,7 +500,6 @@ def collect_sources_file(source, config_dir, extract_metadata=False):
                     metadata['status'] = 'extraction_error'
                     metadata['error'] = str(e)
             else:
-                metadata['title'] = path.stem
                 metadata['status'] = 'unsupported_format'
                 
             logger.info(f"Created metadata for file {path}")
