@@ -356,12 +356,3 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
     
     logger.info(f"Collected {len(sources)} total sources")
     return sources
-
-def collect_all_sources(context_list, config_dir):
-    all_sources = []
-    for context in context_list:
-        all_sources.append(dict(
-            **context,
-            file_streams=collect_context_sources(context, config_dir)
-        ))
-    return all_sources
