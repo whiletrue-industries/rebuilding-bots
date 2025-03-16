@@ -10,10 +10,114 @@ from openai import OpenAI
 from .config import get_logger
 import dataflows as DF
 import re
-from typing import Tuple, BinaryIO, Dict, Optional
+from typing import Tuple, BinaryIO, Dict, Optional, List, Union
 from .dynamic_extraction import extract_structured_content, determine_document_type
 
 logger = get_logger(__name__)
+
+def process_file(
+    file_path: Union[str, Path],
+    context_name: str,
+    extract_metadata: bool = False,
+    section_idx: Optional[int] = None,
+    title: Optional[str] = None
+) -> Optional[Tuple[str, BinaryIO, str, Optional[Dict]]]:
+    """
+    Process a single file or section and create a source tuple.
+    
+    Args:
+        file_path (Union[str, Path]): Path to the file to process
+        context_name (str): Name of the context (used for file naming)
+        extract_metadata (bool): Whether to extract metadata
+        section_idx (int, optional): If this is a section of a larger file, its index
+        title (str, optional): Override title for the content
+        
+    Returns:
+        Optional[Tuple]: A source tuple if successful, None if processing failed
+    """
+    try:
+        file_path = Path(file_path)
+        
+        # Read the file content
+        try:
+            content = file_path.read_text(encoding='utf-8')
+        except Exception as e:
+            logger.error(f"Error reading file {file_path}: {str(e)}")
+            return None
+            
+        # Skip empty content
+        if not content.strip():
+            return None
+            
+        # Generate file name based on whether this is a section or full file
+        if section_idx is not None:
+            file_name = f'{context_name}_{section_idx}.md'
+        else:
+            file_name = str(file_path)
+            
+        # Extract metadata if requested
+        metadata = None
+        if extract_metadata:
+            metadata = get_metadata_for_content(
+                content=content,
+                file_path=file_path,
+                title=title,
+                section_idx=section_idx
+            )
+            
+        # Create and return the source tuple
+        return create_source_tuple(
+            content=content,
+            file_name=file_name,
+            metadata=metadata
+        )
+        
+    except Exception as e:
+        logger.error(f"Error processing file {file_path}: {str(e)}")
+        return None
+
+def process_directory(
+    directory: Union[str, Path],
+    context_name: str,
+    pattern: str = "*.md",
+    extract_metadata: bool = False
+) -> List[Tuple[str, BinaryIO, str, Optional[Dict]]]:
+    """
+    Process all matching files in a directory.
+    
+    Args:
+        directory (Union[str, Path]): Directory to process
+        context_name (str): Name of the context
+        pattern (str): Glob pattern to match files
+        extract_metadata (bool): Whether to extract metadata
+        
+    Returns:
+        List[Tuple]: List of source tuples
+    """
+    directory = Path(directory)
+    if not directory.is_dir():
+        logger.error(f"Directory not found: {directory}")
+        return []
+        
+    logger.info(f"Processing directory: {directory}")
+    sources = []
+    
+    # Find all matching files
+    matching_files = glob.glob(os.path.join(directory, pattern))
+    logger.info(f"Found {len(matching_files)} matching files")
+    
+    # Process each file
+    for file_path in matching_files:
+        source_tuple = process_file(
+            file_path=file_path,
+            context_name=context_name,
+            extract_metadata=extract_metadata
+        )
+        if source_tuple:
+            sources.append(source_tuple)
+            logger.info(f"Added file: {file_path}")
+            
+    return sources
 
 def create_source_tuple(
     content: str,
@@ -106,18 +210,16 @@ def collect_sources_split(config_dir, context_name, source, extract_metadata=Fal
         
         sources = []
         for idx, section in enumerate(sections):
-            if section.strip():
-                file_name = f'{context_name}_{idx}.md'
-                metadata = None
-                if extract_metadata:
-                    metadata = get_metadata_for_content(section, filename, section_idx=idx)
-                
-                sources.append(create_source_tuple(
-                    content=section,
-                    file_name=file_name,
-                    metadata=metadata
-                ))
-                logger.info(f"Added section {idx} as {file_name}")
+            source_tuple = process_file(
+                file_path=filename,
+                context_name=context_name,
+                extract_metadata=extract_metadata,
+                section_idx=idx,
+                title=f"Section {idx+1}"
+            )
+            if source_tuple:
+                sources.append(source_tuple)
+                logger.info(f"Added section {idx}")
         
         return sources
     except Exception as e:
@@ -230,35 +332,13 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
             extraction_dir_name = context_config.get('extraction_dir', 'extraction')
             extraction_dir = os.path.join(config_dir, extraction_dir_name)
             
-            if os.path.isdir(extraction_dir):
-                logger.info(f"Found extraction directory: {extraction_dir}")
-                
-                # Use the original pattern but with the correct path
-                path_pattern = os.path.join(extraction_dir, '*.md')
-                logger.info(f"Looking for files matching pattern: {path_pattern}")
-                
-                matching_files = glob.glob(path_pattern)
-                logger.info(f"Found {len(matching_files)} matching files")
-                
-                for file_path in matching_files:
-                    try:
-                        with open(file_path, 'rb') as f:
-                            content = f.read().decode('utf-8')
-                        
-                        metadata = None
-                        if extract_metadata:
-                            metadata = get_metadata_for_content(content, Path(file_path))
-                        
-                        sources.append(create_source_tuple(
-                            content=content,
-                            file_name=file_path,
-                            metadata=metadata
-                        ))
-                        logger.info(f"Added file: {file_path}")
-                    except Exception as e:
-                        logger.error(f"Error processing file {file_path}: {str(e)}")
-            else:
-                logger.error(f"Extraction directory not found: {extraction_dir}")
+            # Process all files in the directory
+            sources.extend(process_directory(
+                directory=extraction_dir,
+                context_name=context_name,
+                pattern="*.md",
+                extract_metadata=extract_metadata
+            ))
         
         elif source_type == 'google-spreadsheet':
             # Use enhanced spreadsheet collection
