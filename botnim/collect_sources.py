@@ -10,9 +10,37 @@ from openai import OpenAI
 from .config import get_logger
 import dataflows as DF
 import re
+from typing import Tuple, BinaryIO, Dict, Optional
 from .dynamic_extraction import extract_structured_content, determine_document_type
 
 logger = get_logger(__name__)
+
+def create_source_tuple(
+    content: str,
+    file_name: str,
+    mime_type: str = 'text/markdown',
+    metadata: Optional[Dict] = None
+) -> Tuple[str, BinaryIO, str, Optional[Dict]]:
+    """
+    Create a standardized source tuple from content and metadata.
+    
+    Args:
+        content (str): The text content to include in the source
+        file_name (str): Name to use for the file
+        mime_type (str, optional): MIME type of the content. Defaults to 'text/markdown'
+        metadata (dict, optional): Metadata to attach to the source
+        
+    Returns:
+        tuple: A tuple of (file_name, binary_content, mime_type, metadata)
+    """
+    # Ensure content is stripped of extra whitespace
+    content = content.strip()
+    
+    # Convert content to bytes and wrap in BytesIO
+    content_bytes = content.encode('utf-8')
+    binary_content = io.BytesIO(content_bytes)
+    
+    return (file_name, binary_content, mime_type, metadata)
 
 def get_metadata_for_content(content: str, file_path: Path, title: str = None, section_idx: int = None) -> dict:
     """
@@ -80,14 +108,15 @@ def collect_sources_split(config_dir, context_name, source, extract_metadata=Fal
         for idx, section in enumerate(sections):
             if section.strip():
                 file_name = f'{context_name}_{idx}.md'
-                section_bytes = section.strip().encode('utf-8')
-                mime_type = 'text/markdown'
-                
                 metadata = None
                 if extract_metadata:
                     metadata = get_metadata_for_content(section, filename, section_idx=idx)
                 
-                sources.append((file_name, io.BytesIO(section_bytes), mime_type, metadata))
+                sources.append(create_source_tuple(
+                    content=section,
+                    file_name=file_name,
+                    metadata=metadata
+                ))
                 logger.info(f"Added section {idx} as {file_name}")
         
         return sources
@@ -132,9 +161,6 @@ def collect_sources_google_spreadsheet(context_name: str, url: str, extract_meta
             
             if content:
                 file_name = f'{context_name}_{idx}.md'
-                content_bytes = content.strip().encode('utf-8')
-                mime_type = 'text/markdown'
-                
                 metadata = None
                 if extract_metadata:
                     # Get first column value for title if available
@@ -142,7 +168,11 @@ def collect_sources_google_spreadsheet(context_name: str, url: str, extract_meta
                     title = row.get(first_header, f"Row {idx}")
                     metadata = get_metadata_for_content(content, Path(file_name), title=title)
                 
-                sources.append((file_name, io.BytesIO(content_bytes), mime_type, metadata))
+                sources.append(create_source_tuple(
+                    content=content,
+                    file_name=file_name,
+                    metadata=metadata
+                ))
                 logger.info(f"Added spreadsheet row {idx} as {file_name}")
         
         return sources
@@ -213,14 +243,17 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
                 for file_path in matching_files:
                     try:
                         with open(file_path, 'rb') as f:
-                            content = f.read()
-                        mime_type = 'text/markdown'
+                            content = f.read().decode('utf-8')
                         
                         metadata = None
                         if extract_metadata:
-                            metadata = get_metadata_for_content(content.decode('utf-8'), Path(file_path))
+                            metadata = get_metadata_for_content(content, Path(file_path))
                         
-                        sources.append((file_path, io.BytesIO(content), mime_type, metadata))
+                        sources.append(create_source_tuple(
+                            content=content,
+                            file_name=file_path,
+                            metadata=metadata
+                        ))
                         logger.info(f"Added file: {file_path}")
                     except Exception as e:
                         logger.error(f"Error processing file {file_path}: {str(e)}")
