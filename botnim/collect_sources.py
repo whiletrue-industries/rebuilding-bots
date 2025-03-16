@@ -14,6 +14,51 @@ from .dynamic_extraction import extract_structured_content, determine_document_t
 
 logger = get_logger(__name__)
 
+def get_metadata_for_content(content: str, file_path: Path, title: str = None, section_idx: int = None) -> dict:
+    """
+    Extract metadata for a given content using LLM extraction.
+    
+    Args:
+        content (str): The content to extract metadata from
+        file_path (Path): Path to the source file (used for document type detection)
+        title (str, optional): Default title to use if none extracted
+        section_idx (int, optional): Section index if content is part of a larger file
+    
+    Returns:
+        dict: Metadata dictionary containing extracted information and status
+    """
+    # Create basic metadata structure
+    metadata = {
+        "title": title or (f"{file_path.stem}" + (f" (Section {section_idx+1})" if section_idx is not None else "")),
+        "status": "processed"
+    }
+    
+    # Enhanced metadata using LLM extraction
+    try:
+        document_type = determine_document_type(file_path)
+        logger.info(f"Extracting structured content for {file_path}{' section '+str(section_idx) if section_idx is not None else ''} with document type: {document_type}")
+        
+        # Get the extracted data
+        extracted_data = extract_structured_content(content, document_type=document_type)
+        
+        # Add document type
+        metadata['document_type'] = document_type
+        
+        # Use document title from extraction if available
+        if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
+            metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
+        
+        # Add all extracted data directly to metadata (not nested)
+        metadata.update(extracted_data)
+            
+        logger.info(f"Added enhanced metadata for {file_path}{' section '+str(section_idx) if section_idx is not None else ''}")
+    except Exception as e:
+        logger.error(f"Error extracting structured content from {file_path}{' section '+str(section_idx) if section_idx is not None else ''}: {str(e)}")
+        metadata['status'] = 'extraction_error'
+        metadata['error'] = str(e)
+    
+    return metadata
+
 def collect_sources_files(config_dir, context_name, source):
     files = list(config_dir.glob(source))
     file_streams = [(f.name, f.open('rb'), 'text/markdown') for f in files]
@@ -40,35 +85,7 @@ def collect_sources_split(config_dir, context_name, source, extract_metadata=Fal
                 
                 metadata = None
                 if extract_metadata:
-                    # Create basic metadata structure
-                    metadata = {
-                        "title": f"{filename.stem} (Section {idx+1})",
-                        "status": "processed"
-                    }
-                    
-                    # Enhanced metadata using LLM extraction
-                    try:
-                        document_type = determine_document_type(filename)
-                        logger.info(f"Extracting structured content for split section {idx} with document type: {document_type}")
-                        
-                        # Get the extracted data
-                        extracted_data = extract_structured_content(section, document_type=document_type)
-                        
-                        # Add document type
-                        metadata['document_type'] = document_type
-                        
-                        # Use document title from extraction if available
-                        if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
-                            metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
-                        
-                        # Add all extracted data directly to metadata (not nested)
-                        metadata.update(extracted_data)
-                            
-                        logger.info(f"Added enhanced metadata for section {idx}")
-                    except Exception as e:
-                        logger.error(f"Error extracting structured content from section {idx}: {str(e)}")
-                        metadata['status'] = 'extraction_error'
-                        metadata['error'] = str(e)
+                    metadata = get_metadata_for_content(section, filename, section_idx=idx)
                 
                 sources.append((file_name, io.BytesIO(section_bytes), mime_type, metadata))
                 logger.info(f"Added section {idx} as {file_name}")
@@ -116,35 +133,7 @@ def collect_sources_google_spreadsheet(context_name, source, extract_metadata=Fa
                     # Get first column value for title if available
                     first_header = headers[0] if headers else None
                     title = row.get(first_header, f"Row {idx}")
-                    
-                    # Create basic metadata structure
-                    metadata = {
-                        "title": title,
-                        "status": "processed"
-                    }
-                    
-                    # Enhanced metadata using LLM extraction
-                    try:
-                        document_type = "spreadsheet_row"
-                        logger.info(f"Extracting structured content for spreadsheet row {idx}")
-                        
-                        # Get the extracted data
-                        extracted_data = extract_structured_content(content, document_type=document_type)
-                        
-                        # Add document type
-                        metadata['document_type'] = document_type
-                        
-                        # Use document title from extraction if available
-                        if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
-                            metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
-                        
-                        metadata.update(extracted_data)
-                            
-                        logger.info(f"Added enhanced metadata for spreadsheet row {idx}")
-                    except Exception as e:
-                        logger.error(f"Error extracting structured content from spreadsheet row {idx}: {str(e)}")
-                        metadata['status'] = 'extraction_error'
-                        metadata['error'] = str(e)
+                    metadata = get_metadata_for_content(content, Path(file_name), title=title)
                 
                 sources.append((file_name, io.BytesIO(content_bytes), mime_type, metadata))
                 logger.info(f"Added spreadsheet row {idx} as {file_name}")
@@ -211,35 +200,7 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
                             
                             metadata = None
                             if extract_metadata:
-                                # Create basic metadata structure
-                                metadata = {
-                                    "title": os.path.basename(file_path),
-                                    "status": "processed"
-                                }
-                                
-                                # Enhanced metadata using LLM extraction
-                                try:
-                                    content_text = content.decode('utf-8')
-                                    document_type = determine_document_type(Path(file_path))
-                                    logger.info(f"Extracting structured content for file {file_path} with document type: {document_type}")
-                                    
-                                    # Get the extracted data
-                                    extracted_data = extract_structured_content(content_text, document_type=document_type)
-                                    
-                                    # Add document type
-                                    metadata['document_type'] = document_type
-                                    
-                                    # Use document title from extraction if available
-                                    if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
-                                        metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
-                                    
-                                    metadata.update(extracted_data)
-                                        
-                                    logger.info(f"Added enhanced metadata for {file_path}")
-                                except Exception as e:
-                                    logger.error(f"Error extracting structured content from {file_path}: {str(e)}")
-                                    metadata['status'] = 'extraction_error'
-                                    metadata['error'] = str(e)
+                                metadata = get_metadata_for_content(content.decode('utf-8'), Path(file_path))
                             
                             sources.append((file_path, io.BytesIO(content), mime_type, metadata))
                             logger.info(f"Added file: {file_path}")
@@ -310,38 +271,14 @@ def collect_sources_file(source, config_dir, extract_metadata=False):
         
         metadata = None
         if extract_metadata:
-            # Create basic metadata structure
-            metadata = {
-                "title": path.stem,
-                "status": "processed"
-            }
-            
-            # Enhanced metadata using LLM extraction
             if mime_type in ['text/markdown', 'text/plain', 'application/json']:
-                try:
-                    content_text = content.decode('utf-8')
-                    document_type = determine_document_type(path)
-                    logger.info(f"Extracting structured content for file {path} with document type: {document_type}")
-                    
-                    # Get the extracted data
-                    extracted_data = extract_structured_content(content_text, document_type=document_type)
-                    
-                    # Add document type
-                    metadata['document_type'] = document_type
-                    
-                    # Use document title from extraction if available
-                    if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
-                        metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
-                    
-                    metadata.update(extracted_data)
-                        
-                    logger.info(f"Added enhanced metadata for {path}")
-                except Exception as e:
-                    logger.error(f"Error extracting structured content from {path}: {str(e)}")
-                    metadata['status'] = 'extraction_error'
-                    metadata['error'] = str(e)
+                content_text = content.decode('utf-8')
+                metadata = get_metadata_for_content(content_text, path)
             else:
-                metadata['status'] = 'unsupported_format'
+                metadata = {
+                    "title": path.stem,
+                    "status": "unsupported_format"
+                }
                 
             logger.info(f"Created metadata for file {path}")
         
