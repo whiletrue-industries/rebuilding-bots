@@ -20,13 +20,10 @@ def extract_structured_content(text: str, template: str = None, document_type: s
     """
     if template is None:
         template = """{
-          "DocumentMetadata": {
             "DocumentTitle": "",
             "PublicationDate": "",
             "OfficialSource": "",
             "ReferenceLinks": [],
-            "Language": "עברית",
-            "Version": "",
             "ClauseRepresentation": "",
             "OfficialRoles": [
               {
@@ -49,9 +46,8 @@ def extract_structured_content(text: str, template: str = None, document_type: s
                 "Quote": ""
               }
             ],
-            "Description": ""
-          },
-          "LegalReferences": [
+            "Description": "",
+            "LegalReferences": [
             {
               "ReferenceTitle": "",
               "ReferenceText": "",
