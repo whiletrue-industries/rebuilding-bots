@@ -95,12 +95,19 @@ def collect_sources_split(config_dir, context_name, source, extract_metadata=Fal
         logger.error(f"Error processing split file {filename}: {str(e)}")
         return []
 
-def collect_sources_google_spreadsheet(context_name, source, extract_metadata=False):
+def collect_sources_google_spreadsheet(context_name: str, url: str, extract_metadata: bool = False):
     """
-    Collect sources from a Google Spreadsheet with enhanced metadata extraction.
+    Collect sources from a Google Spreadsheet.
+    
+    Args:
+        context_name (str): Name of the context (used for file naming)
+        url (str): URL of the Google Spreadsheet
+        extract_metadata (bool): Whether to extract metadata from content
+        
+    Returns:
+        list: List of tuples containing (file_name, file_content, mime_type, metadata)
     """
     try:        
-        url = source
         logger.info(f"Processing Google Spreadsheet with dataflows: {url}")
         
         resources, dp, _ = DF.Flow(
@@ -149,6 +156,14 @@ def collect_sources_google_spreadsheet(context_name, source, extract_metadata=Fa
 def collect_context_sources(context_config, config_dir, extract_metadata=False):
     """
     Collect context sources from the config directory.
+    
+    Args:
+        context_config (dict): Configuration dictionary that must contain 'type', 'source', and 'slug'
+        config_dir (str): Directory containing the configuration and source files
+        extract_metadata (bool): Whether to extract metadata from sources
+        
+    Returns:
+        list: List of tuples containing (file_name, file_content, mime_type, metadata)
     """
     logger.info(f"Collecting context sources from {config_dir} with metadata extraction: {extract_metadata}")
     logger.info(f"Context config: {context_config}")
@@ -168,124 +183,66 @@ def collect_context_sources(context_config, config_dir, extract_metadata=False):
     
     sources = []
     
-    # Handle the case where the context has 'type' and 'source' directly
-    if 'type' in context_config and 'source' in context_config:
-        source_type = context_config['type']
-        source_path = context_config['source']
-        context_name = context_config['slug']
-        
-        logger.info(f"Processing source of type: {source_type}, path: {source_path}")
-        
-        try:
-            if source_type == 'files':
-                # Check if extraction is a directory
-                extraction_dir_name = context_config.get('extraction_dir', 'extraction')
-                extraction_dir = os.path.join(config_dir, extraction_dir_name)
+    # Validate required config fields
+    if not all(key in context_config for key in ['type', 'source', 'slug']):
+        logger.error(f"Missing required fields in context config. Required: type, source, slug. Got: {context_config.keys()}")
+        return sources
+    
+    source_type = context_config['type']
+    source_path = context_config['source']
+    context_name = context_config['slug']
+    
+    logger.info(f"Processing source of type: {source_type}, path: {source_path}")
+    
+    try:
+        if source_type == 'files':
+            # Check if extraction is a directory
+            extraction_dir_name = context_config.get('extraction_dir', 'extraction')
+            extraction_dir = os.path.join(config_dir, extraction_dir_name)
+            
+            if os.path.isdir(extraction_dir):
+                logger.info(f"Found extraction directory: {extraction_dir}")
                 
-                if os.path.isdir(extraction_dir):
-                    logger.info(f"Found extraction directory: {extraction_dir}")
-                    
-                    # Use the original pattern but with the correct path
-                    path_pattern = os.path.join(extraction_dir, '*.md')
-                    logger.info(f"Looking for files matching pattern: {path_pattern}")
-                    
-                    matching_files = glob.glob(path_pattern)
-                    logger.info(f"Found {len(matching_files)} matching files")
-                    
-                    for file_path in matching_files:
-                        try:
-                            with open(file_path, 'rb') as f:
-                                content = f.read()
-                            mime_type = 'text/markdown'
-                            
-                            metadata = None
-                            if extract_metadata:
-                                metadata = get_metadata_for_content(content.decode('utf-8'), Path(file_path))
-                            
-                            sources.append((file_path, io.BytesIO(content), mime_type, metadata))
-                            logger.info(f"Added file: {file_path}")
-                        except Exception as e:
-                            logger.error(f"Error processing file {file_path}: {str(e)}")
-                else:
-                    logger.error(f"Extraction directory not found: {extraction_dir}")
-            
-            elif source_type == 'google-spreadsheet':
-                # Use enhanced spreadsheet collection
-                sources.extend(collect_sources_google_spreadsheet(context_name, source_path, extract_metadata))
-            
-            elif source_type == 'split':
-                # Use enhanced split collection
-                sources.extend(collect_sources_split(config_dir, context_name, source_path, extract_metadata))
-            
+                # Use the original pattern but with the correct path
+                path_pattern = os.path.join(extraction_dir, '*.md')
+                logger.info(f"Looking for files matching pattern: {path_pattern}")
+                
+                matching_files = glob.glob(path_pattern)
+                logger.info(f"Found {len(matching_files)} matching files")
+                
+                for file_path in matching_files:
+                    try:
+                        with open(file_path, 'rb') as f:
+                            content = f.read()
+                        mime_type = 'text/markdown'
+                        
+                        metadata = None
+                        if extract_metadata:
+                            metadata = get_metadata_for_content(content.decode('utf-8'), Path(file_path))
+                        
+                        sources.append((file_path, io.BytesIO(content), mime_type, metadata))
+                        logger.info(f"Added file: {file_path}")
+                    except Exception as e:
+                        logger.error(f"Error processing file {file_path}: {str(e)}")
             else:
-                logger.warning(f"Unsupported source type: {source_type}")
+                logger.error(f"Extraction directory not found: {extraction_dir}")
         
-        except Exception as e:
-            logger.error(f"Error processing source of type {source_type}: {str(e)}")
+        elif source_type == 'google-spreadsheet':
+            # Use enhanced spreadsheet collection
+            sources.extend(collect_sources_google_spreadsheet(context_name, source_path, extract_metadata))
+        
+        elif source_type == 'split':
+            # Use enhanced split collection
+            sources.extend(collect_sources_split(config_dir, context_name, source_path, extract_metadata))
+        
+        else:
+            logger.warning(f"Unsupported source type: {source_type}")
     
-    # Handle the case where the context has a 'sources' list
-    elif 'sources' in context_config:
-        for source in context_config.get('sources', []):
-            source_type = source.get('type')
-            logger.info(f"Processing source of type: {source_type}, config: {source}")
-            
-            try:
-                if source_type == 'file':
-                    new_sources = collect_sources_file(source, config_dir, extract_metadata)
-                    logger.info(f"Collected {len(new_sources)} file sources")
-                    sources.extend(new_sources)
-                elif source_type == 'google_spreadsheet':
-                    new_sources = collect_sources_google_spreadsheet(source, extract_metadata)
-                    logger.info(f"Collected {len(new_sources)} spreadsheet sources")
-                    sources.extend(new_sources)
-                else:
-                    logger.warning(f"Unknown source type: {source_type}")
-            except Exception as e:
-                logger.error(f"Error collecting sources of type {source_type}: {str(e)}")
-    
-    else:
-        logger.warning(f"Context config does not have 'type'+'source' or 'sources' field: {context_config}")
+    except Exception as e:
+        logger.error(f"Error processing source of type {source_type}: {str(e)}")
     
     logger.info(f"Collected {len(sources)} total sources")
     return sources
-
-def collect_sources_file(source, config_dir, extract_metadata=False):
-    """
-    Collect sources from a file with enhanced metadata extraction.
-    """
-    try:
-        path = Path(source)
-        if not path.exists():
-            path = Path(config_dir) / source
-            if not path.exists():
-                logger.error(f"File not found: {source}")
-                return []
-        
-        logger.info(f"Processing file: {path}")
-        
-        with open(path, 'rb') as f:
-            content = f.read()
-        
-        mime_type = mimetypes.guess_type(path)[0] or 'application/octet-stream'
-        logger.info(f"Detected MIME type: {mime_type}")
-        
-        metadata = None
-        if extract_metadata:
-            if mime_type in ['text/markdown', 'text/plain', 'application/json']:
-                content_text = content.decode('utf-8')
-                metadata = get_metadata_for_content(content_text, path)
-            else:
-                metadata = {
-                    "title": path.stem,
-                    "status": "unsupported_format"
-                }
-                
-            logger.info(f"Created metadata for file {path}")
-        
-        return [(str(path), io.BytesIO(content), mime_type, metadata)]
-    except Exception as e:
-        logger.error(f"Error reading file {path}: {str(e)}")
-        return []
 
 def collect_all_sources(context_list, config_dir):
     all_sources = []
