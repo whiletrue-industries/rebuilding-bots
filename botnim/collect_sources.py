@@ -191,11 +191,6 @@ def get_metadata_for_content(content: str, file_path: Path, title: str = None, s
     
     return metadata
 
-def collect_sources_files(config_dir, context_name, source):
-    files = list(config_dir.glob(source))
-    file_streams = [(f.name, f.open('rb'), 'text/markdown') for f in files]
-    return file_streams
-
 def collect_sources_split(config_dir, context_name, source, extract_metadata=False):
     """
     Collect sources from a split file with enhanced metadata extraction.
