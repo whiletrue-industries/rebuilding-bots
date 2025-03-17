@@ -24,7 +24,7 @@ async def search_datasets_handler(bot: str, context: str, query: str, num_result
         context = context[:-5]
         environment = 'staging'
     results = run_query(query, environment, bot, context, num_results)
-    return [result.full_content for result in results]
+    return dict(results=[result.full_content for result in results])
 
 # Run the server with:
 # uvicorn server:app --reload
