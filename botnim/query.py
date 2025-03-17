@@ -112,19 +112,16 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-    def get_default_num_results(self, context_name: str) -> int:
+    def get_default_num_results(self) -> int:
         """
-        Get the default number of results for a context
+        Get the default number of results for the current context
         
-        Args:
-            context_name (str): Name of the context
-            
         Returns:
             int: Default number of results
         """
         # Find the specific context configuration
         context_config = next(
-            (ctx for ctx in self.config.get('context', []) if ctx['name'] == context_name),
+            (ctx for ctx in self.config.get('context', []) if ctx['name'] == self.context_name),
             {}
         )
         
@@ -144,7 +141,7 @@ class QueryClient:
         """
         if num_results is None:
             # Use the method to get default num_results
-            num_results = self.get_default_num_results(self.context_name)
+            num_results = self.get_default_num_results()
         
         return self.search(query_text, num_results)
 
