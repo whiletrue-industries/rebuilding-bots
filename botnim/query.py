@@ -131,26 +131,20 @@ class QueryClient:
         # Get default num_results from context config or use a reasonable default
         return context_config.get('default_num_results', 7)
 
-    def query(self, query_text: str, bot_name: str = None, context_name: str = None, num_results: int = None) -> List[SearchResult]:
+    def query(self, query_text: str, num_results: int = None) -> List[SearchResult]:
         """
         Query the vector store with the given text
         
         Args:
             query_text (str): The text to search for
-            bot_name (str, optional): Name of the bot to use (defaults to self.bot_name)
-            context_name (str, optional): Name of the context to search in (defaults to self.context_name)
             num_results (int, optional): Number of results to return, or None to use context default
         
         Returns:
             List[SearchResult]: List of search results
         """
-        # Use instance values if not provided
-        bot_name = bot_name or self.bot_name
-        context_name = context_name or self.context_name
-        
         if num_results is None:
             # Use the method to get default num_results
-            num_results = self.get_default_num_results(context_name)
+            num_results = self.get_default_num_results(self.context_name)
         
         return self.search(query_text, num_results)
 
