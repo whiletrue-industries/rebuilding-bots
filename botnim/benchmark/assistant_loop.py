@@ -161,7 +161,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                                          context_config.get('max_num_results', 3))
                 
                 # Log the tool call parameters
-                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {num_results}")
+                logger.info(f"Calling run_query with query: {arguments['query']}, num_results: {num_results}")
                 
                 output = run_query(
                     environment=environment,
@@ -199,9 +199,9 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                                          context_config.get('max_num_results', 3))
                 
                 # Log the tool call parameters
-                logger.info(f"Calling elastic_vector_search_handler with query: {arguments['query']}, num_results: {num_results}")
+                logger.info(f"Calling run_query with query: {arguments['query']}, num_results: {num_results}")
                 
-                output = elastic_vector_search_handler(
+                output = run_query(
                     environment=environment,
                     bot_name=bot_name,
                     context_name=context_name,
