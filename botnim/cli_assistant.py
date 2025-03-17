@@ -57,7 +57,7 @@ def start_conversation(assistant_id, openapi_spec = None, rtl=False, environment
     # get the assistant name
     assistant_name = get_assistant_name(assistant_id)
 
-    if not openapi_spec.endswith(".yaml"):
+    if openapi_spec is not None and not openapi_spec.endswith(".yaml"):
         openapi_spec += ".yaml"
 
     # Create a new thread (a new conversation session)

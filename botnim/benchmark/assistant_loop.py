@@ -10,7 +10,7 @@ from openai import OpenAI
 from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 
 from botnim.query import QueryClient, run_query
-from botnim.config import get_logger
+from botnim.config import get_logger, validate_environment, DEFAULT_ENVIRONMENT
 TEMP = 0
 
 logger = get_logger(__name__)
@@ -30,7 +30,10 @@ def get_dataset_info_cache(arguments, output):
             print('USED CACHED', dataset)
     return output
 
-def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, notes=[], openapi_spec=None, environment='staging'):
+def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, notes=[], openapi_spec=None, environment=DEFAULT_ENVIRONMENT):
+    # Validate environment
+    environment = validate_environment(environment)
+    
     # Initialize or append to log file in the same directory as the script
     log_file = Path(__file__).parent / 'log.txt'
     with open(log_file, 'w', encoding='utf-8') as f:  # open for writing, truncate the file
@@ -223,11 +226,14 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 
                 # Call get_openapi_output for all non-search tools
                 try:
-                    output = get_openapi_output(openapi_spec, tool.function.name, arguments)
-                    
-                    if tool.function.name == 'DatasetInfo':
-                        # Special case for DatasetInfo
-                        output = get_dataset_info_cache(arguments, output)
+                    if openapi_spec is not None:
+                        output = get_openapi_output(openapi_spec, tool.function.name, arguments)
+                        
+                        if tool.function.name == 'DatasetInfo':
+                            # Special case for DatasetInfo
+                            output = get_dataset_info_cache(arguments, output)
+                    else:
+                        output = f"Error: OpenAPI spec not provided for tool {tool.function.name}"
                 except Exception as e:
                     logger.error(f"Error calling {tool.function.name}: {e}")
                     output = f"Error: {str(e)}"
