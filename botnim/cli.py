@@ -63,7 +63,7 @@ def reverse_lines(text: str) -> str:
 def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool):
     """Search the vector store with the given query."""
     try:
-        search_results = run_query(query_text, environment, bot, context, num_results)
+        search_results = run_query(environment, bot, context, query_text, num_results, format="dict")
         for result in search_results:
             formatted_result = format_result(result, show_full=full)
             if rtl:

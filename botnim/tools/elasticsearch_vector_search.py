@@ -57,7 +57,7 @@ def create_elastic_search_tool(bot_name: str, context_name: str, environment: st
 def elastic_vector_search_handler(environment: str, bot_name: str, context_name: str, query: str, num_results: int = 3) -> str:
     """Handles Elasticsearch vector search requests from the assistant"""
     logger.info(f"Running elastic_vector_search_handler with query: {query}, num_results: {num_results}")
-    results = run_query(query, environment, bot_name, context_name, num_results)
+    results = run_query(query, environment, bot_name, context_name, num_results, format="dict")
     
     # Log the results
     logger.info(f"Search results: {results}")
