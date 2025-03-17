@@ -200,7 +200,7 @@
 יש להשוות את סך התקציב (TOTAL) במאגר budget_items_data לסך ההכנסות.
 את הגירעון יש להציג באחוזים מסך התקציב.
 
-חישוב סך ההכנסות נעשה על ידי ביצוע שאילתה דומה לזו:
+חישוב סך ההכנסות נעשה על ידי ביצוע *זהה* לזו:
 
 `select sum(amount_allocated) as amount_allocated from income_items_data where year=<year> and level=2  and functional_class!='הכנסות למימון גירעון'
 

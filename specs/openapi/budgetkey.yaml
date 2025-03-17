@@ -83,7 +83,7 @@
           {
             "name": "page_size",
             "in": "query",
-            "description": "Number of rows to return",
+            "description": "Number of rows to return, has to be 30",
             "example": 20,
             "required": true,
             "schema": {
