@@ -7,7 +7,7 @@ import yaml
 
 from elasticsearch import Elasticsearch
 from openai import OpenAI
-from ..config import get_logger
+from ..config import get_logger, is_production, get_index_name
 from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
@@ -51,9 +51,8 @@ class VectorStoreES(VectorStoreBase):
 
     def _index_name_for_context(self, context_name: str) -> str:
         """Standardize index name construction"""
-        base_name = f"{self.config['slug']}__{context_name}"
-        # add __dev suffix if in development mode, don't add environment name
-        return self.env_name_slug(base_name.lower().replace(' ', '_'))
+        environment = 'production' if self.production else 'staging'
+        return get_index_name(self.config['slug'], context_name, environment)
 
     def _build_search_query(self, query_text: str, embedding: List[float], 
                           num_results: int = 7) -> Dict[str, Any]:

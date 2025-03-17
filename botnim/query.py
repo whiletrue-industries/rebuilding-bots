@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Dict, Union
 from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
-from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS
+from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, validate_environment, is_production
 import yaml
 
 logger = get_logger(__name__)
@@ -19,7 +19,7 @@ class SearchResult:
 class QueryClient:
     """Class to handle vector store queries"""
     def __init__(self, environment: str, bot_name: str, context_name: str):
-        self.environment = environment
+        self.environment = validate_environment(environment)
         self.bot_name = bot_name
         self.context_name = context_name
         self.config = self._load_config()
@@ -45,7 +45,7 @@ class QueryClient:
             es_username=None,
             es_password=None,
             es_timeout=30,
-            production=self.environment == 'production'
+            production=is_production(self.environment)
         )
 
     def search(self, query_text: str, num_results: int = 7) -> List[SearchResult]:
@@ -161,6 +161,9 @@ def run_query(environment: str, bot_name: str, context_name: str, query: str, nu
         Union[List[Dict], str]: Search results in the requested format
     """
     try:
+        # Validate environment
+        environment = validate_environment(environment)
+        
         logger.info(f"Running vector search with query: {query}, bot: {bot_name}, context: {context_name}, num_results: {num_results}")
         
         client = QueryClient(environment, bot_name, context_name)

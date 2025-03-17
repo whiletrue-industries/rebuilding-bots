@@ -4,8 +4,9 @@ import io
 from pathlib import Path
 import yaml
 from openai import OpenAI
-from .config import SPECS
+from .config import SPECS, validate_environment, is_production
 from .vector_store import VectorStoreOpenAI, VectorStoreES
+from botnim.tools.elasticsearch_vector_search import create_elastic_search_tool
 
 api_key = os.environ['OPENAI_API_KEY']
 es_username = os.environ['ES_USERNAME']
@@ -52,7 +53,7 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(config, config_dir, production, backend, replace_context=False):
+def update_assistant(config, config_dir, production, backend, replace_context=False, es_host=None, es_username=None, es_password=None):
     tool_resources = None
     tools = []  # Initialize tools as empty list
     print(f'Updating assistant: {config["name"]}')
@@ -139,8 +140,11 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         # ...
 
 
-def sync_agents(environment, bots, backend='openai', replace_context=False):
-    production = environment == 'production'
+def sync_agents(environment, bots, backend='openai', replace_context=False, es_host=None, es_username=None, es_password=None):
+    # Validate environment
+    environment = validate_environment(environment)
+    production = is_production(environment)
+    
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
         bot_id = config_dir.name
@@ -150,4 +154,8 @@ def sync_agents(environment, bots, backend='openai', replace_context=False):
                 config['instructions'] = (config_dir / config['instructions']).read_text()
                 if production:
                     config['instructions'] = config['instructions'].replace('__dev', '')
-                update_assistant(config, config_dir, production, backend, replace_context=replace_context)
+                update_assistant(config, config_dir, production, backend, 
+                              replace_context=replace_context,
+                              es_host=es_host,
+                              es_username=es_username,
+                              es_password=es_password)
