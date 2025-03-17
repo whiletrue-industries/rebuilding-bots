@@ -180,38 +180,26 @@ def run_query(environment: str, bot_name: str, context_name: str, query: str, nu
         # Return a meaningful error message instead of raising
         return f"Error performing search: {str(e)}"
 
-def format_search_results(results: List[SearchResult], format_type: str = 'text') -> Union[str, List[Dict]]:
+def format_search_results(results: List[SearchResult]) -> str:
     """
-    Format search results in different output formats
+    Format search results as a human-readable text string
     
     Args:
         results (List[SearchResult]): The search results to format
-        format_type (str): The output format type ('text' or 'dict')
         
     Returns:
-        Union[str, List[Dict]]: Formatted search results in the requested format
+        str: Formatted search results as a text string
     """
-    if format_type == 'dict':
-        # Return as list of dictionaries for programmatic use
-        return [
-            {
-                'score': result.score,
-                'id': result.id,
-                'content': result.full_content
-            }
-            for result in results
-        ]
-    else:  # Default to text format
-        # Format results for human-readable text output
-        formatted_results = []
-        for result in results:
-            formatted_results.append(
-                f"[Score: {result.score:.2f}]\n"
-                f"ID: {result.id}\n"
-                f"Content:\n{result.full_content}\n"
-                f"{'-' * 40}"
-            )
-        return "\n\n".join(formatted_results)
+    # Format results for human-readable text output
+    formatted_results = []
+    for result in results:
+        formatted_results.append(
+            f"[Score: {result.score:.2f}]\n"
+            f"ID: {result.id}\n"
+            f"Content:\n{result.full_content}\n"
+            f"{'-' * 40}"
+        )
+    return "\n\n".join(formatted_results)
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     """
