@@ -145,7 +145,7 @@ class QueryClient:
         
         return self.search(query_text, num_results)
 
-def run_query(environment: str, bot_name: str, context_name: str, query: str, num_results: int = None, format: str = "text"):
+def run_query(environment: str, bot_name: str, context_name: str, query: str, num_results: int = None, format: str = "dict"):
     """
     Run a query against the vector store
     
