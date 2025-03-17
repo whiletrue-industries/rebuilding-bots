@@ -168,7 +168,8 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                     bot_name=bot_name,
                     context_name=context_name,
                     query=arguments['query'],
-                    num_results=num_results
+                    num_results=num_results,
+                    format="text"
                 )
                 
                 # Log the output
@@ -206,7 +207,8 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                     bot_name=bot_name,
                     context_name=context_name,
                     query=arguments['query'],
-                    num_results=num_results
+                    num_results=num_results,
+                    format="text"
                 )
                 
                 # Log the output
@@ -254,7 +256,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 run_id=run.id,
                 tool_outputs=tool_outputs
             )
-            run = client.beta.threads.runs.wait_for_run(
+            run = client.beta.threads.runs.poll(
                 thread_id=thread.id,
                 run_id=run.id,
             )
