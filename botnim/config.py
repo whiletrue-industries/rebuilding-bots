@@ -62,21 +62,3 @@ def is_production(environment: str) -> bool:
     """
     validate_environment(environment)
     return environment == 'production'
-
-def get_index_name(bot_slug: str, context_name: str, environment: str) -> str:
-    """
-    Get the standardized index name for Elasticsearch.
-    
-    Args:
-        bot_slug (str): The bot slug
-        context_name (str): The context name
-        environment (str): The environment
-        
-    Returns:
-        str: The standardized index name
-    """
-    validate_environment(environment)
-    base_name = f"{bot_slug}__{context_name}".lower().replace(' ', '_')
-    if not is_production(environment):
-        base_name += '__dev'
-    return base_name

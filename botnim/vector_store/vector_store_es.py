@@ -7,14 +7,31 @@ import yaml
 
 from elasticsearch import Elasticsearch
 from openai import OpenAI
-from ..config import get_logger, is_production, get_index_name
+from ..config import get_logger, is_production, validate_environment
 from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
 
 
-
 logger = get_logger(__name__)
+
+def get_index_name(bot_slug: str, context_name: str, environment: str) -> str:
+    """
+    Get the standardized index name for Elasticsearch.
+    
+    Args:
+        bot_slug (str): The bot slug
+        context_name (str): The context name
+        environment (str): The environment
+        
+    Returns:
+        str: The standardized index name
+    """
+    validate_environment(environment)
+    base_name = f"{bot_slug}__{context_name}".lower().replace(' ', '_')
+    if not is_production(environment):
+        base_name += '__dev'
+    return base_name
 
 class VectorStoreES(VectorStoreBase):
     """
