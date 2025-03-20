@@ -56,18 +56,22 @@ class QueryClient:
             production=is_production(self.environment)
         )
 
-    def search(self, query_text: str, num_results: int = 7) -> List[SearchResult]:
+    def search(self, query_text: str, num_results: int = None) -> List[SearchResult]:
         """
         Search the vector store with the given text
         
         Args:
             query_text (str): The text to search for
-            num_results (int): Number of results to return
+            num_results (int, optional): Number of results to return, or None to use context default
         
         Returns:
             List[SearchResult]: List of search results
         """
         try:
+            # Use default num_results from context config if not provided
+            if num_results is None:
+                num_results = self.context_config.get('default_num_results', 7)
+                
             # Get embedding using the vector store's OpenAI client
             response = self.vector_store.openai_client.embeddings.create(
                 input=query_text,
@@ -120,33 +124,6 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-    def get_default_num_results(self) -> int:
-        """
-        Get the default number of results for the current context
-        
-        Returns:
-            int: Default number of results
-        """
-        # Use the context_config property that was already loaded in _load_config()
-        return self.context_config.get('default_num_results', 7)
-
-    def query(self, query_text: str, num_results: int = None) -> List[SearchResult]:
-        """
-        Query the vector store with the given text
-        
-        Args:
-            query_text (str): The text to search for
-            num_results (int, optional): Number of results to return, or None to use context default
-        
-        Returns:
-            List[SearchResult]: List of search results
-        """
-        if num_results is None:
-            # Use the method to get default num_results
-            num_results = self.get_default_num_results()
-        
-        return self.search(query_text, num_results)
-
 def run_query(environment: str, bot_name: str, context_name: str, query: str, num_results: int = None, format: str = "dict"):
     """
     Run a query against the vector store
@@ -169,7 +146,7 @@ def run_query(environment: str, bot_name: str, context_name: str, query: str, nu
         logger.info(f"Running vector search with query: {query}, bot: {bot_name}, context: {context_name}, num_results: {num_results}")
         
         client = QueryClient(environment, bot_name, context_name)
-        results = client.query(query_text=query, num_results=num_results)
+        results = client.search(query_text=query, num_results=num_results)
         
         # Log the results
         logger.info(f"Search results: {results}")
