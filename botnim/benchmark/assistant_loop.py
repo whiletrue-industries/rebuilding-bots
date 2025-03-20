@@ -188,45 +188,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 # Log the output
                 logger.info(f"Tool output: {output}")
             
-            # For backward compatibility, also handle ElasticVectorSearch prefix
-            elif tool.function.name.startswith('ElasticVectorSearch'):
-                # Extract bot and context names from tool name
-                tool_name = tool.function.name[len('ElasticVectorSearch_'):]
-                parts = tool_name.split('_', 1)
-                bot_name = parts[0]
-                context_name = parts[1] if len(parts) > 1 else ''
-                
-                # Load config to get context settings
-                config_path = Path('specs') / bot_name / 'config.yaml'
-                with open(config_path) as f:
-                    config = yaml.safe_load(f)
-                    
-                # Find matching context config by slug
-                context_config = next(
-                    (ctx for ctx in config.get('context', []) 
-                     if ctx.get('slug') == context_name),
-                    {}
-                )
-                
-                # Use context-specific settings if available
-                num_results = arguments.get('num_results', 
-                                         context_config.get('max_num_results', 3))
-                
-                # Log the tool call parameters
-                logger.info(f"Calling run_query with query: {arguments['query']}, num_results: {num_results}")
-                
-                output = run_query(
-                    environment=environment,
-                    bot_name=bot_name,
-                    context_name=context_name,
-                    query=arguments['query'],
-                    num_results=num_results,
-                    format="text"
-                )
-                
-                # Log the output
-                logger.info(f"Tool output: {output}")
-            
             # Handle all non-search tools with OpenAPI
             else:
                 # For non-search tools, use OpenAPI
