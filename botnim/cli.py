@@ -110,7 +110,7 @@ def show_fields(environment: str, bot: str, context: str, rtl: bool):
 @click.option('--environment', type=click.Choice(VALID_ENVIRONMENTS), default=DEFAULT_ENVIRONMENT,
               help='Environment to use for vector search')
 def assistant(assistant_id, openapi_spec, rtl, environment):
-    """Run the assistant."""
+    """Start an interactive chat with an OpenAI assistant."""
     assistant_main(assistant_id, openapi_spec, rtl, environment)
 
 
