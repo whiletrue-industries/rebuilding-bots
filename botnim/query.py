@@ -30,10 +30,18 @@ class QueryClient:
         specs_dir = SPECS / self.bot_name / 'config.yaml'
         if not specs_dir.exists():
             logger.warning(f"No config found for {self.bot_name}, using default config")
+            self.context_config = {}
             return {"name": f"{self.bot_name}_assistant"}
             
         with open(specs_dir) as f:
             config = yaml.safe_load(f)
+            
+            # Find the specific context configuration and store it as an instance property
+            self.context_config = next(
+                (ctx for ctx in config.get('context', []) if ctx['name'] == self.context_name),
+                {}
+            )
+            
             return config
 
     def _initialize_vector_store(self, config) -> VectorStoreES:
@@ -119,14 +127,8 @@ class QueryClient:
         Returns:
             int: Default number of results
         """
-        # Find the specific context configuration
-        context_config = next(
-            (ctx for ctx in self.config.get('context', []) if ctx['name'] == self.context_name),
-            {}
-        )
-        
-        # Get default num_results from context config or use a reasonable default
-        return context_config.get('default_num_results', 7)
+        # Use the context_config property that was already loaded in _load_config()
+        return self.context_config.get('default_num_results', 7)
 
     def query(self, query_text: str, num_results: int = None) -> List[SearchResult]:
         """
