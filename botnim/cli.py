@@ -80,6 +80,7 @@ def list_indexes(environment: str, bot: str, rtl: bool):
     """List all available indexes in the vector store."""
     try:
         indexes = get_available_indexes(environment, bot)
+        click.echo("Available indexes:")
         for index in indexes:
             if rtl:
                 index = index[::-1]
@@ -104,7 +105,7 @@ def show_fields(environment: str, bot: str, context: str, rtl: bool):
         click.echo(f"Error: {str(e)}", err=True)
 
 @cli.command(name='assistant')
-@click.option('--assistant-id', type=click.STRING, help='Assistant ID to use')
+@click.option('--assistant-id', type=click.STRING, help='ID of the assistant to chat with')
 @click.option('--openapi-spec', type=click.STRING, default=None, help='OpenAPI spec to use')
 @click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
 @click.option('--environment', type=click.Choice(VALID_ENVIRONMENTS), default=DEFAULT_ENVIRONMENT,
