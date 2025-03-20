@@ -7,6 +7,7 @@ import argparse
 from typing import TypedDict
 
 from .benchmark.assistant_loop import assistant_loop
+from .config import DEFAULT_ENVIRONMENT
 
 load_dotenv()
 
@@ -44,7 +45,7 @@ def get_assistant_name(assistant_id):
     """
     return client.beta.assistants.retrieve(assistant_id).name
 
-def start_conversation(assistant_id, openapi_spec = None, rtl=False, environment='staging'):
+def start_conversation(assistant_id, openapi_spec = None, rtl=False, environment=DEFAULT_ENVIRONMENT):
     """
     Creates a new conversation thread for the given assistant and
     continuously processes user inputs until '/stop' is typed.
@@ -110,7 +111,7 @@ def start_conversation(assistant_id, openapi_spec = None, rtl=False, environment
             no_msg = "No messages found."
             print(no_msg[::-1] if rtl else no_msg)
 
-def assistant_main(assistant_id=None, openapi_spec=None, rtl=False, environment='staging'):
+def assistant_main(assistant_id=None, openapi_spec=None, rtl=False, environment=DEFAULT_ENVIRONMENT):
     """
     Main function to start the assistant conversation
     
@@ -168,6 +169,6 @@ if __name__ == "__main__":
     parser.add_argument('--assistant-id', type=str, help='ID of the assistant to chat with')
     parser.add_argument('--openapi-spec', type=str, default='budgetkey', help='either "budgetkey" or "takanon"')
     parser.add_argument('--rtl', action='store_true', help='Enable RTL support for Hebrew/Arabic')
-    parser.add_argument('--environment', type=str, default='staging', help='Environment to use for vector search')
+    parser.add_argument('--environment', type=str, default=DEFAULT_ENVIRONMENT, help='Environment to use for vector search')
     args = parser.parse_args()
     assistant_main(args.assistant_id, args.openapi_spec + ".yaml", args.rtl, args.environment)
