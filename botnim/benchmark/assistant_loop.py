@@ -18,7 +18,17 @@ logger = get_logger(__name__)
 def get_openapi_output(openapi_spec, tool_name, parameters):
     client = requests_openapi.Client(req_opts={"timeout": 30})
     client.load_spec_from_file(Path('specs/openapi') / openapi_spec)
-    return client.call_endpoint(tool_name, parameters)
+    resp = getattr(client, tool_name)(**parameters)
+    print('RESP URL', resp.url)
+    # print('OUTPUT', resp.text[:200])
+    if resp.status_code != 200:
+        print(f'ERROR: {resp.status_code} {resp.text}')
+        return {'error': resp.text}
+    try:
+        return resp.json()
+    except Exception as e:
+        print(f'ERROR: {e} {resp.text}')
+        return {'error': resp.text}
 
 def get_dataset_info_cache(arguments, output):
     dataset = arguments.get('dataset')
