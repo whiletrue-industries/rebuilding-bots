@@ -54,7 +54,7 @@ def reverse_lines(text: str) -> str:
 
 @query_group.command(name='search')
 @click.argument('environment', type=click.Choice(VALID_ENVIRONMENTS))
-@click.argument('bot', type=click.STRING)
+@click.argument('bot', type=click.Choice(AVAILABLE_BOTS))
 @click.argument('context', type=click.STRING)
 @click.argument('query_text', type=click.STRING)
 @click.option('--num-results', type=int, default=7, help='Number of results to return')
@@ -74,7 +74,7 @@ def search(environment: str, bot: str, context: str, query_text: str, num_result
 
 @query_group.command(name='list-indexes')
 @click.argument('environment', type=click.Choice(VALID_ENVIRONMENTS))
-@click.option('--bot', type=click.STRING, default=None, help='Filter indexes by bot name')
+@click.option('--bot', type=click.Choice(AVAILABLE_BOTS), help='Filter indexes by bot name')
 @click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
 def list_indexes(environment: str, bot: str, rtl: bool):
     """List all available indexes in the vector store."""
@@ -90,7 +90,7 @@ def list_indexes(environment: str, bot: str, rtl: bool):
 
 @query_group.command(name='show-fields')
 @click.argument('environment', type=click.Choice(VALID_ENVIRONMENTS))
-@click.argument('bot', type=click.STRING)
+@click.argument('bot', type=click.Choice(AVAILABLE_BOTS))
 @click.argument('context', type=click.STRING)
 @click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
 def show_fields(environment: str, bot: str, context: str, rtl: bool):
