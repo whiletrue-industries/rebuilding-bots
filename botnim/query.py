@@ -49,11 +49,8 @@ class QueryClient:
         return VectorStoreES(
             config=config,
             config_dir=Path('.'),
-            es_host=None,
-            es_username=None,
-            es_password=None,
-            es_timeout=30,
-            production=is_production(self.environment)
+            production=is_production(self.environment),
+            es_timeout=30
         )
 
     def search(self, query_text: str, num_results: int = None) -> List[SearchResult]:

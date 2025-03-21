@@ -9,9 +9,6 @@ from .vector_store import VectorStoreOpenAI, VectorStoreES
 from botnim.tools.elasticsearch_vector_search import create_elastic_search_tool
 
 api_key = os.environ['OPENAI_API_KEY']
-es_username = os.environ['ES_USERNAME']
-es_password = os.environ['ES_PASSWORD']
-es_host = os.environ['ES_HOST']
 
 # Create openai client and get completion for prompt with the 'gpt4-o' model:
 client = OpenAI(api_key=api_key)
@@ -53,7 +50,7 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(config, config_dir, production, backend, replace_context=False, es_host=None, es_username=None, es_password=None):
+def update_assistant(config, config_dir, production, backend, replace_context=False):
     tool_resources = None
     tools = []  # Initialize tools as empty list
     print(f'Updating assistant: {config["name"]}')
@@ -69,7 +66,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
                 tools.extend(base_tools)
         ## Elasticsearch
         elif backend == 'es':
-            vs = VectorStoreES(config, config_dir, es_host, es_username, es_password, production=production)
+            vs = VectorStoreES(config, config_dir, production=production)
             
             # Add explicit Elasticsearch vector search tools for each context
             for context in config['context']:
@@ -140,7 +137,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         # ...
 
 
-def sync_agents(environment, bots, backend='openai', replace_context=False, es_host=None, es_username=None, es_password=None):
+def sync_agents(environment, bots, backend='openai', replace_context=False):
     # Validate environment
     environment = validate_environment(environment)
     production = is_production(environment)
@@ -155,7 +152,4 @@ def sync_agents(environment, bots, backend='openai', replace_context=False, es_h
                 if production:
                     config['instructions'] = config['instructions'].replace('__dev', '')
                 update_assistant(config, config_dir, production, backend, 
-                              replace_context=replace_context,
-                              es_host=es_host,
-                              es_username=es_username,
-                              es_password=es_password)
+                               replace_context=replace_context)

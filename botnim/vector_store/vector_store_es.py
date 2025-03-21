@@ -37,20 +37,23 @@ class VectorStoreES(VectorStoreBase):
     """
     Vector store for Elasticsearch
     """	
-    def __init__(self, config, config_dir, es_host, es_username, es_password, 
-                 es_timeout=30, production=False):
+    def __init__(self, config, config_dir, production=False, es_timeout=30):
         super().__init__(config, config_dir, production=production)
         
         # Initialize Elasticsearch client
+        es_host = os.getenv('ES_HOST', 'https://localhost:9200')
+        es_username = os.getenv('ES_USERNAME')
+        es_password = os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')
+        
         es_kwargs = {
-            'hosts': [es_host or os.getenv('ES_HOST', 'https://localhost:9200')],
-            'basic_auth': (es_username or os.getenv('ES_USERNAME'), es_password or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')),
+            'hosts': [es_host],
+            'basic_auth': (es_username, es_password),
             'request_timeout': es_timeout,
             'verify_certs': False,
             'ca_certs': os.getenv('ES_CA_CERT'),
             'ssl_show_warn': production
         }
-        print(es_kwargs)
+        logger.info(f"Connecting to Elasticsearch at {es_host}")
 
         self.es_client = Elasticsearch(**es_kwargs)
         self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
