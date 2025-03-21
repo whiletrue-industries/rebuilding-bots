@@ -49,7 +49,7 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(config, config_dir, production, backend, replace_context=False):
+def update_assistant(config, config_dir, production, backend, replace_context=False, with_metadata=False):
     tool_resources = None
     tools = []  # Initialize tools as empty list
     print(f'Updating assistant: {config["name"]}')
@@ -60,7 +60,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         if backend == 'openai':
             vs = VectorStoreOpenAI(config, config_dir, production, client)
             # Update the vector store with the context
-            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
+            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context, with_metadata=with_metadata)
             if base_tools:
                 tools.extend(base_tools)
         ## Elasticsearch
@@ -68,7 +68,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
             vs = VectorStoreES(config, config_dir, production=production)
             
             # update the vector store and use the tools it returns
-            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context=replace_context)
+            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context=replace_context, with_metadata=with_metadata)
             if base_tools:
                 tools.extend(base_tools)
 
@@ -124,7 +124,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         # ...
 
 
-def sync_agents(environment, bots, backend='openai', replace_context=False):
+def sync_agents(environment, bots, backend='openai', replace_context=False, with_metadata=False):
     # Validate environment
     environment = validate_environment(environment)
     production = is_production(environment)
@@ -139,4 +139,4 @@ def sync_agents(environment, bots, backend='openai', replace_context=False):
                 if production:
                     config['instructions'] = config['instructions'].replace('__dev', '')
                 update_assistant(config, config_dir, production, backend, 
-                               replace_context=replace_context)
+                               replace_context=replace_context, with_metadata=with_metadata)

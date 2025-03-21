@@ -43,6 +43,7 @@ def get_dataset_info_cache(arguments, output):
             print('USED CACHED', dataset)
     return output
 
+
 def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, notes=[], openapi_spec=None, environment=DEFAULT_ENVIRONMENT):
     # Validate environment
     environment = validate_environment(environment)
@@ -97,7 +98,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                         # Log function calls
                         with open(log_file, 'a', encoding='utf-8') as f:
                             f.write(f"\nTool Call:\n  Type: function\n  Name: {tool_call.function.name}\n  Arguments: {tool_call.function.arguments}\n")
-                        # Restore notes functionality
                         print('TOOL', tool_call.id, tool_call.function.name, tool_call.function.arguments)
                         notes.append(f'{tool_call.function.name}({tool_call.function.arguments})')
                     elif tool_call.type == 'file_search':
@@ -108,7 +108,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                                 text = result.content[0].text if result.content else None
                                 if text:
                                     f.write(f"  Result:\n{text}\n")
-                        # Restore notes functionality
                         print('FILE-SEARCH', tool_call.id, tool_call.file_search)
                         notes.append(f'file-search:')
                         for result in (tool_call.file_search.results or []):
@@ -145,7 +144,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
             
             # Handle different tool types
             if tool.function.name.startswith('search_'):
-                # Handle the search_takanon__context__dev pattern
                 # Remove 'search_' prefix and '__dev' suffix if present
                 tool_name = tool.function.name[len('search_'):]
                 if tool_name.endswith('__dev'):
@@ -172,7 +170,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 )
                 
                 # Log the output
-                logger.info(f"Tool output: {output}")
+                logger.info(f"Tool output: {output[:200]}...")
             
             # Handle all non-search tools with OpenAPI
             else:
@@ -202,10 +200,20 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                         f.write(f"    {output}\n")
                     else:
                         # For dictionary/list outputs, format them nicely
-                        output_str = json.dumps(output, ensure_ascii=False, indent=4)
-                        # Add indentation to each line
-                        formatted_output = "\n".join(f"    {line}" for line in output_str.split("\n"))
-                        f.write(f"{formatted_output}\n")
+                        # Check if this is a search result with metadata
+                        if isinstance(output, list) and output and 'metadata' in output[0]:
+                            f.write("    Results with metadata:\n")
+                            for item in output:
+                                f.write(f"    --- Result ID: {item.get('id', 'unknown')} ---\n")
+                                f.write(f"    Content: {item.get('content', '')[:100]}...\n")
+                                f.write(f"    Score: {item.get('score', 'N/A')}\n")
+                                f.write(f"    Metadata: {json.dumps(item.get('metadata', {}), ensure_ascii=False, indent=6)}\n\n")
+                        else:
+                            # Standard formatting for other outputs
+                            output_str = json.dumps(output, ensure_ascii=False, indent=4)
+                            # Add indentation to each line
+                            formatted_output = "\n".join(f"    {line}" for line in output_str.split("\n"))
+                            f.write(f"{formatted_output}\n")
                 
                 tool_outputs.append(dict(
                     tool_call_id=tool.id,
