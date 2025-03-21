@@ -68,22 +68,10 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         elif backend == 'es':
             vs = VectorStoreES(config, config_dir, production=production)
             
-            # Add explicit Elasticsearch vector search tools for each context
-            for context in config['context']:
-                context_name = context['name']
-                bot_name = config_dir.name
-                elastic_tool = create_elastic_search_tool(
-                    bot_name=bot_name,
-                    context_name=context_name,
-                    environment='production' if production else 'staging'
-                )
-                tools.append(elastic_tool)
-            
-            # Only update the vector store if replace_context is True
-            if replace_context:
-                base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context=True)
-                if base_tools:
-                    tools.extend(base_tools)
+            # update the vector store and use the tools it returns
+            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context=replace_context)
+            if base_tools:
+                tools.extend(base_tools)
 
     # List all the assistants in the organization:
     assistants = client.beta.assistants.list()
