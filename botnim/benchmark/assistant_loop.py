@@ -212,15 +212,10 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                     output=json.dumps(output, ensure_ascii=False, indent=2)
                 ))
 
-        if tool_outputs:
-            run = client.beta.threads.runs.submit_tool_outputs(
-                thread_id=thread.id,
-                run_id=run.id,
-                tool_outputs=tool_outputs
-            )
-            run = client.beta.threads.runs.poll(
-                thread_id=thread.id,
-                run_id=run.id,
-            )
-            assert run.status in ['completed', 'requires_action']
+        run = client.beta.threads.runs.submit_tool_outputs_and_poll(
+            thread_id=thread.id,
+            run_id=run.id,
+            tool_outputs=tool_outputs
+        )
+        assert run.status in ['completed', 'requires_action'], f'RUN STATUS: {run.status}'
     return thread
