@@ -4,9 +4,8 @@ import io
 from pathlib import Path
 import yaml
 from openai import OpenAI
-from .config import SPECS
+from .config import SPECS, validate_environment, is_production
 from .vector_store import VectorStoreOpenAI, VectorStoreES
-
 
 api_key = os.environ['OPENAI_API_KEY']
 
@@ -52,19 +51,27 @@ def openapi_to_tools(openapi_spec):
 
 def update_assistant(config, config_dir, production, backend, replace_context=False):
     tool_resources = None
-    tools = None
+    tools = []  # Initialize tools as empty list
     print(f'Updating assistant: {config["name"]}')
+    
     # Load context, if necessary
     if config.get('context'):  
         ## create vector store based on backend parameter
         if backend == 'openai':
             vs = VectorStoreOpenAI(config, config_dir, production, client)
+            # Update the vector store with the context
+            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
+            if base_tools:
+                tools.extend(base_tools)
         ## Elasticsearch
         elif backend == 'es':
-            vs = VectorStoreES(config, config_dir, None, None, None, production=production)
-        # Update the vector store with the context
-        tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
-    
+            vs = VectorStoreES(config, config_dir, production=production)
+            
+            # update the vector store and use the tools it returns
+            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context=replace_context)
+            if base_tools:
+                tools.extend(base_tools)
+
     # List all the assistants in the organization:
     assistants = client.beta.assistants.list()
     assistant_id = None
@@ -118,7 +125,10 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
 
 
 def sync_agents(environment, bots, backend='openai', replace_context=False):
-    production = environment == 'production'
+    # Validate environment
+    environment = validate_environment(environment)
+    production = is_production(environment)
+    
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
         bot_id = config_dir.name
@@ -128,4 +138,5 @@ def sync_agents(environment, bots, backend='openai', replace_context=False):
                 config['instructions'] = (config_dir / config['instructions']).read_text()
                 if production:
                     config['instructions'] = config['instructions'].replace('__dev', '')
-                update_assistant(config, config_dir, production, backend, replace_context=replace_context)
+                update_assistant(config, config_dir, production, backend, 
+                               replace_context=replace_context)

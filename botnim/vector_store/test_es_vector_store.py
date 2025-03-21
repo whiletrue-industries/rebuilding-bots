@@ -9,7 +9,7 @@ from unittest.mock import patch
 import builtins
 from datetime import datetime
 
-from botnim.vector_store.vector_store_es import VectorStoreES
+from botnim.vector_store.vector_store_es import VectorStoreES, get_index_name
 from botnim.config import get_logger
 from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
@@ -56,7 +56,7 @@ def cleanup(vector_store):
     """Cleanup test indices after each test"""
     yield
     try:
-        test_index = f"{vector_store.env_name('test_assistant')}_test_context".lower().replace(' ', '_')
+        test_index = get_index_name(vector_store.config['slug'], "test_context", vector_store.production)
         if vector_store.es_client.indices.exists(index=test_index):
             vector_store.es_client.indices.delete(index=test_index)
             logger.info(f"Cleaned up test index: {test_index}")

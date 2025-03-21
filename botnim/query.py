@@ -1,9 +1,9 @@
 import os
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Union
 from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
-from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS
+from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, validate_environment, is_production
 import yaml
 
 logger = get_logger(__name__)
@@ -19,20 +19,29 @@ class SearchResult:
 class QueryClient:
     """Class to handle vector store queries"""
     def __init__(self, environment: str, bot_name: str, context_name: str):
-        self.environment = environment
+        self.environment = validate_environment(environment)
         self.bot_name = bot_name
         self.context_name = context_name
-        self.vector_store = self._initialize_vector_store(self._load_config())
+        self.config = self._load_config()
+        self.vector_store = self._initialize_vector_store(self.config)
 
     def _load_config(self) -> dict:
         """Load configuration from the specs directory"""
         specs_dir = SPECS / self.bot_name / 'config.yaml'
         if not specs_dir.exists():
             logger.warning(f"No config found for {self.bot_name}, using default config")
+            self.context_config = {}
             return {"name": f"{self.bot_name}_assistant"}
             
         with open(specs_dir) as f:
             config = yaml.safe_load(f)
+            
+            # Find the specific context configuration and store it as an instance property
+            self.context_config = next(
+                (ctx for ctx in config.get('context', []) if ctx['name'] == self.context_name),
+                {}
+            )
+            
             return config
 
     def _initialize_vector_store(self, config) -> VectorStoreES:
@@ -40,25 +49,26 @@ class QueryClient:
         return VectorStoreES(
             config=config,
             config_dir=Path('.'),
-            es_host=None,
-            es_username=None,
-            es_password=None,
-            es_timeout=30,
-            production=self.environment == 'production'
+            production=is_production(self.environment),
+            es_timeout=30
         )
 
-    def search(self, query_text: str, num_results: int = 7) -> List[SearchResult]:
+    def search(self, query_text: str, num_results: int = None) -> List[SearchResult]:
         """
         Search the vector store with the given text
         
         Args:
             query_text (str): The text to search for
-            num_results (int): Number of results to return
+            num_results (int, optional): Number of results to return, or None to use context default
         
         Returns:
             List[SearchResult]: List of search results
         """
         try:
+            # Use default num_results from context config if not provided
+            if num_results is None:
+                num_results = self.context_config.get('default_num_results', 7)
+                
             # Get embedding using the vector store's OpenAI client
             response = self.vector_store.openai_client.embeddings.create(
                 input=query_text,
@@ -111,20 +121,64 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def run_query(query_text: str, environment: str, bot_name: str, context_name: str, num_results: int = 7) -> List[SearchResult]:
+def run_query(query: str, environment: str, bot_name: str, context_name: str, num_results: int = None, format: str = "dict"):
     """
     Run a query against the vector store
     
     Args:
-        query_text (str): The text to search for
+        query (str): The search query text
+        environment (str): Environment to use (production or staging)
         bot_name (str): Name of the bot to use
-        num_results (int): Number of results to return
+        context_name (str): Name of the context to search in
+        num_results (int, optional): Number of results to return, or None to use context default
+        format (str, optional): Output format - "dict" or "text"
         
     Returns:
-        List[SearchResult]: List of search results
+        Union[List[Dict], str]: Search results in the requested format
     """
-    client = QueryClient(environment, bot_name, context_name)
-    return client.search(query_text, num_results)
+    try:
+        # Validate environment
+        environment = validate_environment(environment)
+        
+        logger.info(f"Running vector search with query: {query}, bot: {bot_name}, context: {context_name}, num_results: {num_results}")
+        
+        client = QueryClient(environment, bot_name, context_name)
+        results = client.search(query_text=query, num_results=num_results)
+        
+        # Log the results
+        logger.info(f"Search results: {results}")
+        
+        # Format results if requested
+        if format == "text":
+            formatted_results = format_search_results(results)
+            logger.info(f"Formatted results: {formatted_results}")
+            return formatted_results
+        return results
+    except Exception as e:
+        logger.error(f"Error in run_query: {str(e)}")
+        # Return a meaningful error message instead of raising
+        return f"Error performing search: {str(e)}"
+
+def format_search_results(results: List[SearchResult]) -> str:
+    """
+    Format search results as a human-readable text string
+    
+    Args:
+        results (List[SearchResult]): The search results to format
+        
+    Returns:
+        str: Formatted search results as a text string
+    """
+    # Format results for human-readable text output
+    formatted_results = []
+    for result in results:
+        formatted_results.append(
+            f"[Score: {result.score:.2f}]\n"
+            f"ID: {result.id}\n"
+            f"Content:\n{result.full_content}\n"
+            f"{'-' * 40}"
+        )
+    return "\n\n".join(formatted_results)
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     """

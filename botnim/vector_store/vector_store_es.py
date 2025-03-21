@@ -3,34 +3,54 @@ from pathlib import Path
 from typing import List, Dict, Any
 import json
 from datetime import datetime
+import yaml
 
 from elasticsearch import Elasticsearch
 from openai import OpenAI
-from ..config import get_logger
+from ..config import get_logger, is_production, validate_environment
 from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
 
+
 logger = get_logger(__name__)
+
+def get_index_name(bot_slug: str, context_name: str, production: bool) -> str:
+    """
+    Get the standardized index name for Elasticsearch.
+    
+    Args:
+        bot_slug (str): The bot slug
+        context_name (str): The context name
+        production (bool): Whether this is for production (True) or non-production (False)
+        
+    Returns:
+        str: The standardized index name
+    """
+    base_name = f"{bot_slug}__{context_name}".lower().replace(' ', '_')
+    if not production:
+        base_name += '__dev'
+    return base_name
 
 class VectorStoreES(VectorStoreBase):
     """
     Vector store for Elasticsearch
     """	
-    def __init__(self, config, config_dir, es_host, es_username, es_password, 
-                 es_timeout=30, production=False):
+    def __init__(self, config, config_dir, production=False, es_timeout=30, 
+                 es_host=None, es_username=None, es_password=None):
         super().__init__(config, config_dir, production=production)
         
         # Initialize Elasticsearch client
         es_kwargs = {
             'hosts': [es_host or os.getenv('ES_HOST', 'https://localhost:9200')],
-            'basic_auth': (es_username or os.getenv('ES_USERNAME'), es_password or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')),
+            'basic_auth': (es_username or os.getenv('ES_USERNAME'), 
+                          es_password or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')),
             'request_timeout': es_timeout,
             'verify_certs': False,
             'ca_certs': os.getenv('ES_CA_CERT'),
             'ssl_show_warn': production
         }
-        print(es_kwargs)
+        logger.info(f"Connecting to Elasticsearch at {es_kwargs['hosts'][0]}")
 
         self.es_client = Elasticsearch(**es_kwargs)
         self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
@@ -48,8 +68,7 @@ class VectorStoreES(VectorStoreBase):
 
     def _index_name_for_context(self, context_name: str) -> str:
         """Standardize index name construction"""
-        base_name = f"{self.config['slug']}__{context_name}"
-        return self.env_name_slug(base_name.lower().replace(' ', '_'))
+        return get_index_name(self.config['slug'], context_name, self.production)
 
     def _build_search_query(self, query_text: str, embedding: List[float], 
                           num_results: int = 7) -> Dict[str, Any]:
@@ -261,28 +280,16 @@ class VectorStoreES(VectorStoreBase):
             return 0
 
     def update_tools(self, context_, vector_store):
-        # vector_store is now just the index name string
-        if len(self.tools) == 0:
-            self.tools.append({
-                "type": "function",
-                "function": {
-                    "name": f"search_{vector_store}",
-                    "description": f"Semantic search the '{vector_store}' vector store",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "The query string to use for searching"
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                }
-            })
+        """Create a search tool for this context and add it to self.tools"""
+        tool = self.create_search_tool(
+            bot_name=self.config['slug'],
+            context_name=context_['name'],
+            environment='production' if self.production else 'staging'
+        )
+        self.tools.append(tool)
 
     def update_tool_resources(self, context_, vector_store):
-        # For Elasticsearch, we don't need to set tool_resources - which is OpenAI's vector store
+        # For Elasticsearch, we don't need to set tool_resources
         self.tool_resources = None
 
     def verify_document_metadata(self, index_name: str, document_id: str) -> Dict:
@@ -297,3 +304,52 @@ class VectorStoreES(VectorStoreBase):
         except Exception as e:
             logger.error(f"Failed to verify metadata for document {document_id}: {str(e)}")
             return {}
+
+    def create_search_tool(self, bot_name: str, context_name: str, environment: str) -> Dict:
+        """Creates a search tool configuration for a specific context"""
+        
+        # Load the bot's config to get context details
+        config_path = Path(self.config_dir) / 'config.yaml'
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        
+        # Find the specific context configuration to get its slug
+        context_config = next(
+            (ctx for ctx in config.get('context', []) if ctx['name'] == context_name),
+            {'slug': context_name.lower().replace(' ', '_')}  # fallback to sanitized name
+        )
+        
+        # Use the search_ prefix for the tool name
+        # Format: search_botname__contextslug
+        # Don't add environment to the tool name - it's handled by the index name construction
+        tool_name = f"search_{bot_name}__{context_config['slug']}"
+        
+        # Add __dev suffix only in development mode (non-production)
+        # This matches how the index names are actually created
+        if environment != "production":
+            tool_name += "__dev"
+        
+        return {
+            "type": "function",
+            "function": {
+                "name": tool_name,
+                "description": context_config.get('description', 
+                    f"Search the {config['name']}'s {context_name} knowledge base using semantic search"),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": context_config.get('search_description', 
+                                "The search query text")
+                        },
+                        "num_results": {
+                            "type": "integer",
+                            "description": "Number of results to return",
+                            "default": 7
+                        }
+                    },
+                    "required": ["query"]
+                }
+            }
+        }
