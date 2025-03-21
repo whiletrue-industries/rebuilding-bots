@@ -143,10 +143,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 for key, value in arguments.items():
                     f.write(f"    {key}: {value}\n")
             
-            # Set default page_size for DatasetDBQuery
-            if tool.function.name == 'DatasetDBQuery':
-                arguments['page_size'] = 30
-                
             # Handle different tool types
             if tool.function.name.startswith('search_'):
                 # Handle the search_takanon__context__dev pattern
@@ -180,10 +176,9 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
             
             # Handle all non-search tools with OpenAPI
             else:
-                # For non-search tools, use OpenAPI
+                # Set default page_size for DatasetDBQuery
                 if tool.function.name == 'DatasetDBQuery':
-                    # Special case for DatasetDBQuery - already set page_size earlier
-                    pass
+                    arguments['page_size'] = 30
                 
                 # Call get_openapi_output for all non-search tools
                 try:
