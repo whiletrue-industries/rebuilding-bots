@@ -15,21 +15,20 @@ from .vector_store_base import VectorStoreBase
 
 logger = get_logger(__name__)
 
-def get_index_name(bot_slug: str, context_name: str, environment: str) -> str:
+def get_index_name(bot_slug: str, context_name: str, production: bool) -> str:
     """
     Get the standardized index name for Elasticsearch.
     
     Args:
         bot_slug (str): The bot slug
         context_name (str): The context name
-        environment (str): The environment
+        production (bool): Whether this is for production (True) or non-production (False)
         
     Returns:
         str: The standardized index name
     """
-    validate_environment(environment)
     base_name = f"{bot_slug}__{context_name}".lower().replace(' ', '_')
-    if not is_production(environment):
+    if not production:
         base_name += '__dev'
     return base_name
 
@@ -37,23 +36,21 @@ class VectorStoreES(VectorStoreBase):
     """
     Vector store for Elasticsearch
     """	
-    def __init__(self, config, config_dir, production=False, es_timeout=30):
+    def __init__(self, config, config_dir, production=False, es_timeout=30, 
+                 es_host=None, es_username=None, es_password=None):
         super().__init__(config, config_dir, production=production)
         
         # Initialize Elasticsearch client
-        es_host = os.getenv('ES_HOST', 'https://localhost:9200')
-        es_username = os.getenv('ES_USERNAME')
-        es_password = os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')
-        
         es_kwargs = {
-            'hosts': [es_host],
-            'basic_auth': (es_username, es_password),
+            'hosts': [es_host or os.getenv('ES_HOST', 'https://localhost:9200')],
+            'basic_auth': (es_username or os.getenv('ES_USERNAME'), 
+                          es_password or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')),
             'request_timeout': es_timeout,
             'verify_certs': False,
             'ca_certs': os.getenv('ES_CA_CERT'),
             'ssl_show_warn': production
         }
-        logger.info(f"Connecting to Elasticsearch at {es_host}")
+        logger.info(f"Connecting to Elasticsearch at {es_kwargs['hosts'][0]}")
 
         self.es_client = Elasticsearch(**es_kwargs)
         self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
@@ -71,8 +68,7 @@ class VectorStoreES(VectorStoreBase):
 
     def _index_name_for_context(self, context_name: str) -> str:
         """Standardize index name construction"""
-        environment = 'production' if self.production else 'staging'
-        return get_index_name(self.config['slug'], context_name, environment)
+        return get_index_name(self.config['slug'], context_name, self.production)
 
     def _build_search_query(self, query_text: str, embedding: List[float], 
                           num_results: int = 7) -> Dict[str, Any]:

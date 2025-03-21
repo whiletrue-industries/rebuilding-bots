@@ -23,6 +23,10 @@ class VectorStoreBase(ABC):
 
     def vector_store_update(self, context, replace_context):
         for context_ in context:
+            # Reset initialization state if the method exists
+            if hasattr(self, 'reset_init'):
+                self.reset_init()
+                
             context_name = context_['slug']
             vector_store = self.get_or_create_vector_store(context_, context_name, replace_context)
             file_streams = collect_context_sources(context_, self.config_dir)

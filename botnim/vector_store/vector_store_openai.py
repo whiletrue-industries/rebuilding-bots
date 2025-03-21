@@ -1,4 +1,5 @@
 from .vector_store_base import VectorStoreBase
+from .vector_store_es import get_index_name
 
 
 class VectorStoreOpenAI(VectorStoreBase):
@@ -10,7 +11,7 @@ class VectorStoreOpenAI(VectorStoreBase):
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
         ret = None
-        vs_name = self.env_name(self.config['name'])
+        vs_name = get_index_name(self.config['slug'], context_name, self.production)
         vector_store = self.openai_client.beta.vector_stores.list()
         for vs in vector_store:
             if vs.name == vs_name:
@@ -25,6 +26,10 @@ class VectorStoreOpenAI(VectorStoreBase):
             ret = vector_store
         self.init = True
         return ret
+
+    def reset_init(self):
+        """Reset the initialization state to allow creating new vector stores."""
+        self.init = False
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         count = 0
