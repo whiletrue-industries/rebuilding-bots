@@ -60,7 +60,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         if backend == 'openai':
             vs = VectorStoreOpenAI(config, config_dir, production, client)
             # Update the vector store with the context
-            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
+            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context, with_metadata=with_metadata)
             if base_tools:
                 tools.extend(base_tools)
         ## Elasticsearch
@@ -68,7 +68,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
             vs = VectorStoreES(config, config_dir, production=production)
             
             # update the vector store and use the tools it returns
-            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context=replace_context)
+            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context=replace_context, with_metadata=with_metadata)
             if base_tools:
                 tools.extend(base_tools)
 
