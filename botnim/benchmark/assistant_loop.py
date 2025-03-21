@@ -31,12 +31,15 @@ def get_openapi_output(openapi_spec, tool_name, parameters):
         return {'error': resp.text}
 
 def get_dataset_info_cache(arguments, output):
-    dataset = arguments.get('dataset')
-    if dataset:
-        cache_file = Path('cache') / f'{dataset}.json'
-        if cache_file.exists():
-            with open(cache_file) as f:
-                output = json.load(f)
+    dataset = arguments['dataset']
+    path = Path('specs') / 'budgetkey' / 'dataset-info-cache' / f'{dataset}.yaml'
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'w') as f:
+            yaml.dump(output, f, allow_unicode=True, default_style='|')
+    else:
+        with open(path) as f:
+            output = yaml.safe_load(f)
             print('USED CACHED', dataset)
     return output
 
