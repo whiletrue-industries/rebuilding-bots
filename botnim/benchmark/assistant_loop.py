@@ -160,21 +160,8 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 bot_name = parts[0]
                 context_name = parts[1] if len(parts) > 1 else ''
                 
-                # Load config to get context settings
-                config_path = Path('specs') / bot_name / 'config.yaml'
-                with open(config_path) as f:
-                    config = yaml.safe_load(f)
-                    
-                # Find matching context config by slug
-                context_config = next(
-                    (ctx for ctx in config.get('context', []) 
-                     if ctx.get('slug') == context_name),
-                    {}
-                )
-                
-                # Use context-specific settings if available
-                num_results = arguments.get('num_results', 
-                                         context_config.get('max_num_results', 3))
+                # Get num_results from arguments or use default
+                num_results = arguments.get('num_results', 7)
                 
                 # Log the tool call parameters
                 logger.info(f"Calling run_query with query: {arguments['query']}, num_results: {num_results}")
