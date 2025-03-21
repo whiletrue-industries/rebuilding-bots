@@ -189,7 +189,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                             # Special case for DatasetInfo
                             output = get_dataset_info_cache(arguments, output)
                     else:
-                        output = f"Error: OpenAPI spec not provided for tool {tool.function.name}"
+                        output = f"Error: No OpenAPI spec provided for bot. Cannot execute tool '{tool.function.name}'"
                 except Exception as e:
                     logger.error(f"Error calling {tool.function.name}: {e}")
                     output = f"Error: {str(e)}"
