@@ -10,7 +10,7 @@ from openai import OpenAI
 from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 
 from botnim.query import QueryClient, run_query
-from botnim.config import get_logger, validate_environment, DEFAULT_ENVIRONMENT, SPECS
+from botnim.config import get_logger, DEFAULT_ENVIRONMENT, SPECS
 TEMP = 0
 
 logger = get_logger(__name__)
@@ -44,9 +44,6 @@ def get_dataset_info_cache(arguments, output):
     return output
 
 def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, notes=[], openapi_spec=None, environment=DEFAULT_ENVIRONMENT):
-    # Validate environment
-    environment = validate_environment(environment)
-    
     # Initialize or append to log file in the same directory as the script
     log_file = Path(__file__).parent / 'log.txt'
     with open(log_file, 'w', encoding='utf-8') as f:  # open for writing, truncate the file

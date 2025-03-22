@@ -60,5 +60,4 @@ def is_production(environment: str) -> bool:
     Returns:
         bool: True if the environment is production, False otherwise
     """
-    validate_environment(environment)
     return environment == 'production'

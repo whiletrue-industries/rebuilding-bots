@@ -4,7 +4,7 @@ import io
 from pathlib import Path
 import yaml
 from openai import OpenAI
-from .config import SPECS, validate_environment, is_production
+from .config import SPECS, is_production
 from .vector_store import VectorStoreOpenAI, VectorStoreES
 
 api_key = os.environ['OPENAI_API_KEY']
@@ -122,7 +122,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
 
 def sync_agents(environment, bots, backend='openai', replace_context=False):
     # Validate environment
-    environment = validate_environment(environment)
+    environment = environment
     production = is_production(environment)
     
     for config_fn in SPECS.glob('*/config.yaml'):

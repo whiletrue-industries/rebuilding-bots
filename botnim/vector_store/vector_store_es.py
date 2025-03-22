@@ -7,7 +7,7 @@ import yaml
 
 from elasticsearch import Elasticsearch
 from openai import OpenAI
-from ..config import get_logger, is_production, validate_environment
+from ..config import get_logger, is_production
 from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
