@@ -293,6 +293,11 @@ class VectorStoreES(VectorStoreBase):
                             "query": {
                                 "type": "string",
                                 "description": "The query string to use for searching"
+                            },
+                            "num_results": {
+                                "type": "integer",
+                                "description": "Number of results to return",
+                                "default": 7
                             }
                         },
                         "required": ["query"]
@@ -316,52 +321,3 @@ class VectorStoreES(VectorStoreBase):
         except Exception as e:
             logger.error(f"Failed to verify metadata for document {document_id}: {str(e)}")
             return {}
-
-    def create_search_tool(self, bot_name: str, context_name: str, environment: str) -> Dict:
-        """Creates a search tool configuration for a specific context"""
-        
-        # Load the bot's config to get context details
-        config_path = Path(self.config_dir) / 'config.yaml'
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-        
-        # Find the specific context configuration to get its slug
-        context_config = next(
-            (ctx for ctx in config.get('context', []) if ctx['name'] == context_name),
-            {'slug': context_name.lower().replace(' ', '_')}  # fallback to sanitized name
-        )
-        
-        # Use the search_ prefix for the tool name
-        # Format: search_botname__contextslug
-        # Don't add environment to the tool name - it's handled by the index name construction
-        tool_name = f"search_{bot_name}__{context_config['slug']}"
-        
-        # Add __dev suffix only in development mode (non-production)
-        # This matches how the index names are actually created
-        if environment != "production":
-            tool_name += "__dev"
-        
-        return {
-            "type": "function",
-            "function": {
-                "name": tool_name,
-                "description": context_config.get('description', 
-                    f"Search the {config['name']}'s {context_name} knowledge base using semantic search"),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": context_config.get('search_description', 
-                                "The search query text")
-                        },
-                        "num_results": {
-                            "type": "integer",
-                            "description": "Number of results to return",
-                            "default": 7
-                        }
-                    },
-                    "required": ["query"]
-                }
-            }
-        }
