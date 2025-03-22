@@ -121,7 +121,7 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def run_query(query: str, environment: str, bot_name: str, context_name: str, num_results: int = None, format: str = "dict"):
+def run_query(query: str, environment: str, bot_name: str, context_name: str, num_results: int = None, format: str = "dict") -> List[SearchResult]:
     """
     Run a query against the vector store
     
