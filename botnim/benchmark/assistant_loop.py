@@ -156,28 +156,8 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                 bot_name = parts[0]
                 context_name = parts[1] if len(parts) > 1 else ''
                 
-                # Get default num_results from the bot's config instead of hardcoding
-                default_num_results = 7  # Fallback default
-                try:
-                    # Load the bot's config file
-                    config_path = SPECS / bot_name / 'config.yaml'
-                    if config_path.exists():
-                        with open(config_path, 'r') as f:
-                            bot_config = yaml.safe_load(f)
-                        
-                        # Find the matching context configuration
-                        if 'context' in bot_config:
-                            for context in bot_config['context']:
-                                if context.get('slug') == context_name:
-                                    # Use the max_num_results from config if available
-                                    if 'max_num_results' in context:
-                                        default_num_results = context['max_num_results']
-                                        break
-                except Exception as e:
-                    logger.error(f"Error loading config for {bot_name}: {e}")
-                
-                # Get num_results from arguments or use the config default
-                num_results = arguments.get('num_results', default_num_results)
+                # Get num_results from arguments if provided, otherwise pass None to use context default
+                num_results = arguments.get('num_results')
                 
                 # Log the tool call parameters
                 logger.info(f"Calling run_query with query: {arguments['query']}, num_results: {num_results}")
