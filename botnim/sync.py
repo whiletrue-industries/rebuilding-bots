@@ -59,18 +59,14 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         ## create vector store based on backend parameter
         if backend == 'openai':
             vs = VectorStoreOpenAI(config, config_dir, production, client)
-            # Update the vector store with the context
-            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
-            if base_tools:
-                tools.extend(base_tools)
-        ## Elasticsearch
         elif backend == 'es':
             vs = VectorStoreES(config, config_dir, production=production)
-            
-            # update the vector store and use the tools it returns
-            base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context=replace_context)
-            if base_tools:
-                tools.extend(base_tools)
+        else:
+            raise ValueError(f"Unsupported backend: {backend}")
+        
+        base_tools, tool_resources = vs.vector_store_update(config['context'], replace_context=replace_context)
+        if base_tools:
+            tools.extend(base_tools)
 
     # List all the assistants in the organization:
     assistants = client.beta.assistants.list()
