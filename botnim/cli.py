@@ -106,7 +106,7 @@ def show_fields(environment: str, bot: str, context: str, rtl: bool):
 
 @cli.command(name='assistant')
 @click.option('--assistant-id', type=click.STRING, help='ID of the assistant to chat with')
-@click.option('--openapi-spec', type=click.STRING, default=None, help='OpenAPI spec to use')
+@click.option('--openapi-spec', type=click.STRING, default=None, help='either "budgetkey" or "takanon"')
 @click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
 @click.option('--environment', type=click.Choice(VALID_ENVIRONMENTS), default=DEFAULT_ENVIRONMENT,
               help='Environment to use for vector search')
