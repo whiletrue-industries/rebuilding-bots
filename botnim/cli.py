@@ -1,11 +1,12 @@
 import click
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
-from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT
+from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT, get_logger, SPECS
 from .query import run_query, get_available_indexes, format_result, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
-from .config import SPECS
 
+# Setup logging
+logger = get_logger(__name__)
 
 @click.group()
 def cli():
@@ -21,8 +22,13 @@ def cli():
 @click.option('--with-metadata', is_flag=True, help='Extract and store metadata from context sources')
 def sync(environment, bots, replace_context, backend, with_metadata):
     """Sync bots to Airtable."""
-    click.echo(f"Syncing {bots} to {environment}")
-    sync_agents(environment, bots, backend=backend, replace_context=replace_context, with_metadata=with_metadata)
+    logger.info(f"Starting sync for {bots} to {environment} (backend: {backend}, replace_context: {replace_context}, with_metadata: {with_metadata})")
+    try:
+        sync_agents(environment, bots, backend=backend, replace_context=replace_context, with_metadata=with_metadata)
+        logger.info(f"Successfully completed sync for {bots} to {environment}")
+    except Exception as e:
+        logger.error(f"Error during sync: {e}", exc_info=True)
+        raise
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command(name='benchmarks')
@@ -34,8 +40,13 @@ def sync(environment, bots, replace_context, backend, with_metadata):
 @click.option('--concurrency', type=click.INT, default=None)
 def benchmarks(environment, bots, local, reuse_answers, select, concurrency):
     """Run benchmarks on bots."""
-    click.echo(f"Running benchmarks on {bots} in {environment} (save results locally: {local}, reuse answers: {reuse_answers}, select: {select})")
-    run_benchmarks(environment, bots, local, reuse_answers, select, concurrency)
+    logger.info(f"Starting benchmarks for {bots} in {environment} (local: {local}, reuse_answers: {reuse_answers}, select: {select}, concurrency: {concurrency})")
+    try:
+        run_benchmarks(environment, bots, local, reuse_answers, select, concurrency)
+        logger.info(f"Successfully completed benchmarks for {bots} in {environment}")
+    except Exception as e:
+        logger.error(f"Error during benchmarks: {e}", exc_info=True)
+        raise
 
 @cli.group(name='query')
 def query_group():
@@ -63,14 +74,17 @@ def reverse_lines(text: str) -> str:
 @click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
 def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool):
     """Search the vector store with the given query."""
+    logger.info(f"Searching {bot}/{context} in {environment} with query: '{query_text}', num_results: {num_results}")
     try:
         search_results = run_query(query_text, environment, bot, context, num_results, format="dict")
+        logger.info(f"Found {len(search_results)} results")
         for result in search_results:
             formatted_result = format_result(result, show_full=full)
             if rtl:
                 formatted_result = reverse_lines(mirror_brackets(formatted_result))
             click.echo(formatted_result)
     except Exception as e:
+        logger.error(f"Error during search: {e}", exc_info=True)
         click.echo(f"Error: {str(e)}", err=True)
 
 @query_group.command(name='list-indexes')
@@ -113,7 +127,12 @@ def show_fields(environment: str, bot: str, context: str, rtl: bool):
               help='Environment to use for vector search')
 def assistant(assistant_id, openapi_spec, rtl, environment):
     """Start an interactive chat with an OpenAI assistant."""
-    assistant_main(assistant_id, openapi_spec, rtl, environment)
+    logger.info(f"Starting assistant chat with assistant_id={assistant_id}, openapi_spec={openapi_spec}, environment={environment}")
+    try:
+        assistant_main(assistant_id, openapi_spec, rtl, environment)
+    except Exception as e:
+        logger.error(f"Error in assistant chat: {e}", exc_info=True)
+        raise
 
 
 def main():
