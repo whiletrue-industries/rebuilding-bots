@@ -7,7 +7,6 @@ class VectorStoreOpenAI(VectorStoreBase):
     def __init__(self, config, config_dir, production, openai_client):
         super().__init__(config, config_dir, production)
         self.openai_client = openai_client
-        self.init = False
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
         ret = None
@@ -15,21 +14,15 @@ class VectorStoreOpenAI(VectorStoreBase):
         vector_store = self.openai_client.beta.vector_stores.list()
         for vs in vector_store:
             if vs.name == vs_name:
-                if replace_context and not self.init:
+                if replace_context:
                     self.openai_client.beta.vector_stores.delete(vs.id)
                 else:
                     ret = vs
                 break
         if not ret:
-            assert not self.init, 'Attempt to create a new vector store after initialization'
             vector_store = self.openai_client.beta.vector_stores.create(name=vs_name)
             ret = vector_store
-        self.init = True
         return ret
-
-    def reset_init(self):
-        """Reset the initialization state to allow creating new vector stores."""
-        self.init = False
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         count = 0

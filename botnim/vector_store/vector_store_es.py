@@ -54,7 +54,6 @@ class VectorStoreES(VectorStoreBase):
 
         self.es_client = Elasticsearch(**es_kwargs)
         self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        self.init = False
         
         # Verify connection
         try:
@@ -124,12 +123,7 @@ class VectorStoreES(VectorStoreBase):
         )
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
-        """Get or create a vector store for the given context.
-        Resets initialization state for each new context to allow multiple contexts.
-        """
-        # Reset init state for each new context
-        self.init = False
-        
+        """Get or create a vector store for the given context."""
         index_name = self._index_name_for_context(context_name)
         
         # Delete existing index if replace_context is True
@@ -181,7 +175,6 @@ class VectorStoreES(VectorStoreBase):
             self.es_client.indices.create(index=index_name, body=mapping)
             logger.info(f"Created new index: {index_name}")
         
-        self.init = True
         return index_name
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
