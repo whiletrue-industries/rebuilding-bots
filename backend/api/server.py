@@ -1,5 +1,5 @@
 import dataclasses
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -22,7 +22,8 @@ app.add_middleware(
 async def search_datasets_handler(bot: str, context: str, query: str, num_results: int=10) -> str:
     store_id = f"{bot}__{context}"
     results = run_query(store_id=store_id, query_text=query, num_results=num_results, format="text")
-    return results
+    return Response(content=results, media_type="text/plain")
+    # return results
 
 # Run the server with:
 # uvicorn server:app --reload
