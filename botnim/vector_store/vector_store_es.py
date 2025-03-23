@@ -17,7 +17,8 @@ class VectorStoreES(VectorStoreBase):
     """
     Vector store for Elasticsearch
     """	
-    def __init__(self, config, config_dir, es_host, es_username, es_password, 
+    def __init__(self, config, config_dir,
+                 es_host=None, es_username=None, es_password=None, 
                  es_timeout=30, production=False):
         super().__init__(config, config_dir, production=production)
         
@@ -51,14 +52,14 @@ class VectorStoreES(VectorStoreBase):
         return self.encode_index_name(
             bot_name=self.config['slug'],
             context_name=context_name,
-            environment=self.environment
+            production=self.production
         )
 
     @staticmethod
-    def encode_index_name(bot_name: str, context_name: str, environment: str) -> str:
+    def encode_index_name(bot_name: str, context_name: str, production: bool) -> str:
         """Encode index name to get context name"""
         parts = [bot_name, context_name]
-        if environment != 'production':
+        if not production:
             parts.append('dev')
         return '__'.join(parts)
 
@@ -187,8 +188,8 @@ class VectorStoreES(VectorStoreBase):
         for filename, content_file, file_type in file_streams:
             try:
                 # Skip metadata files to prevent recursion
-                if filename.endswith('.metadata.json'):
-                    logger.debug(f"Skipping metadata file: {filename}")
+                if not filename.endswith('.md'):
+                    logger.debug(f"Skipping non-markdown file: {filename}")
                     continue
 
                 # Read content
@@ -207,41 +208,42 @@ class VectorStoreES(VectorStoreBase):
                     "vector": vector,
                 }
                 
-                # Try to load metadata from the metadata file
-                clean_filename = filename[1:] if filename.startswith('_') else filename
-                metadata_path = Path('specs/takanon/extraction/metadata') / f"{clean_filename}.metadata.json"
+                #TODO: REMOVED FOR NOW
+                # # Try to load metadata from the metadata file
+                # clean_filename = filename[1:] if filename.startswith('_') else filename
+                # metadata_path = Path('specs/takanon/extraction/metadata') / f"{clean_filename}.metadata.json"
                 
-                try:
-                    if metadata_path.exists() and not metadata_path.name.endswith('.metadata.json.metadata.json'):
-                        logger.info(f"Found metadata file at {metadata_path}")
-                        with open(metadata_path, 'r', encoding='utf-8') as f:
-                            loaded_metadata = json.load(f)
-                            document["metadata"] = loaded_metadata
-                            logger.info(f"Loaded metadata from file for {filename}")
-                    else:
-                        logger.warning(f"No metadata file found at {metadata_path}")
-                        document["metadata"] = {
-                            "title": Path(filename).stem,
-                            "document_type": str(file_type),
-                            "extracted_at": datetime.now().isoformat(),
-                            "status": "no_metadata",
-                            "context_type": context.get("type", ""),
-                            "context_name": context_name,
-                            "extracted_data": {}
-                        }
-                except Exception as e:
-                    logger.warning(f"Failed to load metadata for {filename}: {str(e)}")
-                    document["metadata"] = {
-                        "title": Path(filename).stem,
-                        "document_type": str(file_type),
-                        "extracted_at": datetime.now().isoformat(),
-                        "status": "error",
-                        "context_type": context.get("type", ""),
-                        "context_name": context_name,
-                        "extracted_data": {"error": str(e)}
-                    }
+                # try:
+                #     if metadata_path.exists() and not metadata_path.name.endswith('.metadata.json.metadata.json'):
+                #         logger.info(f"Found metadata file at {metadata_path}")
+                #         with open(metadata_path, 'r', encoding='utf-8') as f:
+                #             loaded_metadata = json.load(f)
+                #             document["metadata"] = loaded_metadata
+                #             logger.info(f"Loaded metadata from file for {filename}")
+                #     else:
+                #         logger.warning(f"No metadata file found at {metadata_path}")
+                #         document["metadata"] = {
+                #             "title": Path(filename).stem,
+                #             "document_type": str(file_type),
+                #             "extracted_at": datetime.now().isoformat(),
+                #             "status": "no_metadata",
+                #             "context_type": context.get("type", ""),
+                #             "context_name": context_name,
+                #             "extracted_data": {}
+                #         }
+                # except Exception as e:
+                #     logger.warning(f"Failed to load metadata for {filename}: {str(e)}")
+                #     document["metadata"] = {
+                #         "title": Path(filename).stem,
+                #         "document_type": str(file_type),
+                #         "extracted_at": datetime.now().isoformat(),
+                #         "status": "error",
+                #         "context_type": context.get("type", ""),
+                #         "context_name": context_name,
+                #         "extracted_data": {"error": str(e)}
+                #     }
                 
-                logger.info(f"Final document metadata for {filename}: {document['metadata']}")
+                # logger.info(f"Final document metadata for {filename}: {document['metadata']}")
                 
                 # Index document
                 self.es_client.index(

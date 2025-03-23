@@ -3,7 +3,7 @@ import click
 from botnim.vector_store.vector_store_es import VectorStoreES
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
-from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT
+from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT, is_production
 from .query import run_query, get_available_indexes, format_result, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
 from .config import SPECS
@@ -65,7 +65,7 @@ def reverse_lines(text: str) -> str:
 def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool):
     """Search the vector store with the given query."""
     try:
-        vector_store_id = VectorStoreES.encode_index_name(bot, context, environment)
+        vector_store_id = VectorStoreES.encode_index_name(bot, context, is_production(environment))
         search_results = run_query(store_id=vector_store_id, query_text=query_text, num_results=num_results, format="dict")
         for result in search_results:
             formatted_result = format_result(result, show_full=full)
