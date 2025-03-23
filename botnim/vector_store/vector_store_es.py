@@ -24,17 +24,17 @@ class VectorStoreES(VectorStoreBase):
         # Initialize Elasticsearch client
         es_kwargs = {
             'hosts': [es_host or os.getenv('ES_HOST', 'https://localhost:9200')],
-            'basic_auth': (es_username or os.getenv('ES_USERNAME'), es_password or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')),
+            'basic_auth': (es_username or os.getenv('ES_USERNAME'),
+                           es_password or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')),
             'request_timeout': es_timeout,
             'verify_certs': False,
             'ca_certs': os.getenv('ES_CA_CERT'),
             'ssl_show_warn': production
         }
-        print(es_kwargs)
+        logger.info(f"Connecting to Elasticsearch at {es_kwargs['hosts'][0]}")
 
         self.es_client = Elasticsearch(**es_kwargs)
         self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        self.init = False
         
         # Verify connection
         try:
@@ -48,8 +48,28 @@ class VectorStoreES(VectorStoreBase):
 
     def _index_name_for_context(self, context_name: str) -> str:
         """Standardize index name construction"""
-        base_name = f"{self.config['slug']}__{context_name}"
-        return self.env_name_slug(base_name.lower().replace(' ', '_'))
+        return self.encode_index_name(
+            bot_name=self.config['slug'],
+            context_name=context_name,
+            environment=self.environment
+        )
+
+    @staticmethod
+    def encode_index_name(bot_name: str, context_name: str, environment: str) -> str:
+        """Encode index name to get context name"""
+        parts = [bot_name, context_name]
+        if environment != 'production':
+            parts.append('dev')
+        return '__'.join(parts)
+
+    @staticmethod
+    def parse_index_name(index_name: str) -> str:
+        """Parse index name to get context name"""
+        parts = index_name.split('__')
+        bot_name = parts[0]
+        context_name = parts[1]
+        environment = 'staging' if len(parts) == 3 and parts[2] == 'dev' else 'production'
+        return bot_name, context_name, environment
 
     def _build_search_query(self, query_text: str, embedding: List[float], 
                           num_results: int = 7) -> Dict[str, Any]:
@@ -106,10 +126,7 @@ class VectorStoreES(VectorStoreBase):
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
         """Get or create a vector store for the given context.
-        Resets initialization state for each new context to allow multiple contexts.
         """
-        # Reset init state for each new context
-        self.init = False
         
         index_name = self._index_name_for_context(context_name)
         
@@ -162,7 +179,6 @@ class VectorStoreES(VectorStoreBase):
             self.es_client.indices.create(index=index_name, body=mapping)
             logger.info(f"Created new index: {index_name}")
         
-        self.init = True
         return index_name
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
@@ -262,24 +278,28 @@ class VectorStoreES(VectorStoreBase):
 
     def update_tools(self, context_, vector_store):
         # vector_store is now just the index name string
-        if len(self.tools) == 0:
-            self.tools.append({
-                "type": "function",
-                "function": {
-                    "name": f"search_{vector_store}",
-                    "description": f"Semantic search the '{vector_store}' vector store",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "The query string to use for searching"
-                            }
+        self.tools.append({
+            "type": "function",
+            "function": {
+                "name": f"search_{vector_store}",
+                "description": f"Semantic search the '{vector_store}' vector store",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The query string to use for searching"
                         },
-                        "required": ["query"]
-                    }
+                        "num_results": {
+                            "type": "integer",
+                            "description": "Number of results to return",
+                            "default": 7
+                        }
+                    },
+                    "required": ["query"]
                 }
-            })
+            }
+        })
 
     def update_tool_resources(self, context_, vector_store):
         # For Elasticsearch, we don't need to set tool_resources - which is OpenAI's vector store
