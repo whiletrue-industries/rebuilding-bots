@@ -19,12 +19,10 @@ app.add_middleware(
 )
 
 @app.get("/retrieve/{bot}/{context}")
-async def search_datasets_handler(bot: str, context: str, query: str, num_results: int=10, environment: str='production') -> List[str]:
-    if context.endswith('__dev'):
-        context = context[:-5]
-        environment = 'staging'
-    results = run_query(query, environment, bot, context, num_results)
-    return [result.full_content for result in results]
+async def search_datasets_handler(bot: str, context: str, query: str, num_results: int=10) -> str:
+    store_id = f"{bot}__{context}"
+    results = run_query(store_id=store_id, query_text=query, num_results=num_results, format="text")
+    return results
 
 # Run the server with:
 # uvicorn server:app --reload

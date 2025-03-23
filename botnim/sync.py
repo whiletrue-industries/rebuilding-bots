@@ -4,7 +4,7 @@ import io
 from pathlib import Path
 import yaml
 from openai import OpenAI
-from .config import SPECS
+from .config import SPECS, is_production
 from .vector_store import VectorStoreOpenAI, VectorStoreES
 
 
@@ -61,7 +61,9 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
             vs = VectorStoreOpenAI(config, config_dir, production, client)
         ## Elasticsearch
         elif backend == 'es':
-            vs = VectorStoreES(config, config_dir, None, None, None, production=production)
+            vs = VectorStoreES(config, config_dir, production=production)
+        else:
+            raise ValueError(f"Unsupported backend: {backend}")
         # Update the vector store with the context
         tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
     
@@ -118,7 +120,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
 
 
 def sync_agents(environment, bots, backend='openai', replace_context=False):
-    production = environment == 'production'
+    production = is_production(environment)
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
         bot_id = config_dir.name
@@ -128,4 +130,5 @@ def sync_agents(environment, bots, backend='openai', replace_context=False):
                 config['instructions'] = (config_dir / config['instructions']).read_text()
                 if production:
                     config['instructions'] = config['instructions'].replace('__dev', '')
-                update_assistant(config, config_dir, production, backend, replace_context=replace_context)
+                update_assistant(config, config_dir, production, backend,
+                                 replace_context=replace_context)
