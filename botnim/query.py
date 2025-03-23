@@ -140,8 +140,8 @@ def run_query(*, store_id: str, query_text: str, num_results: int = 7, format: s
         logger.info(f"Search results: {results}")
 
         # Format results if requested
-        if format == "text":
-            formatted_results = format_search_results(results)
+        if format.startswith('text'):
+            formatted_results = format_search_results(results, short=format=='text-short')
             logger.info(f"Formatted results: {formatted_results}")
             return formatted_results
         return results
@@ -150,7 +150,7 @@ def run_query(*, store_id: str, query_text: str, num_results: int = 7, format: s
         # Return a meaningful error message instead of raising
         return f"Error performing search: {str(e)}"
 
-def format_search_results(results: List[SearchResult]) -> str:
+def format_search_results(results: List[SearchResult],short=False) -> str:
     """
     Format search results as a human-readable text string
 
@@ -163,13 +163,19 @@ def format_search_results(results: List[SearchResult]) -> str:
     # Format results for human-readable text output
     formatted_results = []
     for result in results:
-        formatted_results.append(
-            f"[Score: {result.score:.2f}]\n"
-            f"ID: {result.id}\n"
-            f"Content:\n{result.full_content}\n"
-            f"{'-' * 40}"
-        )
-    return "\n\n".join(formatted_results)
+        if short:
+            formatted_results.append(
+                f"{result.full_content}\n"
+                f"{'-' * 40}"
+            )
+        else:
+            formatted_results.append(
+                f"[Score: {result.score:.2f}]\n"
+                f"ID: {result.id}\n"
+                f"Content:\n{result.full_content}\n"
+                f"{'-' * 40}"
+            )
+    return "\n".join(formatted_results)
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     """

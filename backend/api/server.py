@@ -21,7 +21,7 @@ app.add_middleware(
 @app.get("/retrieve/{bot}/{context}")
 async def search_datasets_handler(bot: str, context: str, query: str, num_results: int=10) -> str:
     store_id = f"{bot}__{context}"
-    results = run_query(store_id=store_id, query_text=query, num_results=num_results, format="text")
+    results = run_query(store_id=store_id, query_text=query, num_results=num_results, format='text-short')
     return Response(content=results, media_type="text/plain")
     # return results
 
