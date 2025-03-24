@@ -46,6 +46,78 @@
         ],
         "deprecated": false      
       }
+    },
+    "/botnim/retrieve/takanon/common_knowledge__dev": {
+      "get": {
+        "description": "Full text search on the takanon common knowledge",
+        "operationId": "search_takanon__common_knowledge__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false      
+      }
+    },
+    "/botnim/retrieve/takanon/common_knowledge": {
+      "get": {
+        "description": "Full text search on the takanon common knowledge",
+        "operationId": "search_takanon__common_knowledge",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false      
+      }
+    },
+    "/botnim/retrieve/takanon/legal_text__dev": {
+      "get": {
+        "description": "Full text search on the takanon legal text",
+        "operationId": "search_takanon__legal_text__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false      
+      }
+    },
+    "/botnim/retrieve/takanon/legal_text": {
+      "get": {
+        "description": "Full text search on the takanon legal text",
+        "operationId": "search_takanon__legal_text",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false      
+      }
     }
   },
   "components": {

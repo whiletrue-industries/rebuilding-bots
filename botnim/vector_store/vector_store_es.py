@@ -185,7 +185,7 @@ class VectorStoreES(VectorStoreBase):
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         """Upload files to vector store"""
         count = 0
-        for filename, content_file, file_type in file_streams:
+        for filename, content_file, file_type, metadata in file_streams:
             try:
                 # Skip metadata files to prevent recursion
                 if not filename.endswith('.md'):
@@ -208,6 +208,19 @@ class VectorStoreES(VectorStoreBase):
                     "vector": vector,
                 }
                 
+                # Add metadata to document
+                if metadata:
+                    logger.info(f"Using extracted metadata for {filename}")
+                    document['metadata'] = {
+                        'title': Path(filename).stem,
+                        'document_type': str(file_type),
+                        'extracted_at': datetime.now().isoformat(),
+                        'status': 'extracted',
+                        'context_type': context.get("type", ""),
+                        'context_name': context_name,
+                        'extracted_data': metadata
+                    }                
+
                 #TODO: REMOVED FOR NOW
                 # # Try to load metadata from the metadata file
                 # clean_filename = filename[1:] if filename.startswith('_') else filename
@@ -246,11 +259,12 @@ class VectorStoreES(VectorStoreBase):
                 # logger.info(f"Final document metadata for {filename}: {document['metadata']}")
                 
                 # Index document
-                self.es_client.index(
+                result = self.es_client.index(
                     index=vector_store,
                     id=filename,
                     document=document
                 )
+                logger.debug(f"Index result: {result}")
                 
             except Exception as e:
                 logger.error(f"Failed to process file {filename}: {str(e)}")
@@ -259,6 +273,12 @@ class VectorStoreES(VectorStoreBase):
             if count % 32 == 0 and callable(callback):
                 callback(count)
 
+        # Final callback for remaining files
+        if count % 32 != 0 and callable(callback):
+            callback(count)
+
+        logger.info(f"Completed upload of {count} files to {vector_store}")
+        
     def delete_existing_files(self, context_, vector_store, file_names):
         try:
             # Delete documents by their IDs (filenames)

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, is_production
 import yaml
+import json
 
 logger = get_logger(__name__)
 
@@ -15,6 +16,7 @@ class SearchResult:
     id: str
     content: str
     full_content: str
+    metadata: dict = None
 
 class QueryClient:
     """Class to handle vector store queries"""
@@ -30,7 +32,7 @@ class QueryClient:
         if not specs_dir.exists():
             logger.warning(f"No config found for {self.bot_name}, using default config")
             self.context_config = {}
-            return {"name": f"{self.bot_name}_assistant"}
+            return {"name": f"{self.bot_name}_assistant", "slug": self.bot_name}
             
         with open(specs_dir) as f:
             config = yaml.safe_load(f)
@@ -86,7 +88,8 @@ class QueryClient:
                     score=hit['_score'],
                     id=hit['_id'],
                     content=hit['_source']['content'].strip().split('\n')[0],
-                    full_content=hit['_source']['content']
+                    full_content=hit['_source']['content'],
+                    metadata=hit['_source'].get('metadata', None) # Extract metadata
                 )
                 for hit in results['hits']['hits']
             ]
@@ -118,7 +121,7 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def run_query(*, store_id: str, query_text: str, num_results: int = 7, format: str = "dict") -> Union[List[Dict], str]:
+def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str='dict') -> Union[List[Dict], str]:
     """
     Run a query against the vector store
     
@@ -126,12 +129,13 @@ def run_query(*, store_id: str, query_text: str, num_results: int = 7, format: s
         store_id (str): The ID of the vector store
         query_text (str): The text to search for
         num_results (int): Number of results to return
+        format (str): Format of the results ('dict', 'text', 'text-short')
         
     Returns:
         Union[List[Dict], str]: Search results in the requested format
     """
     try:
-        logger.info(f"Running vector search with query: {query_text}, store_id: {store_id}, num_results: {num_results}")
+        logger.info(f"Running vector search with query: {query_text}, store_id: {store_id}, num_results: {num_results}, format: {format}")
 
         client = QueryClient(store_id)
         results = client.search(query_text=query_text, num_results=num_results)
@@ -140,17 +144,16 @@ def run_query(*, store_id: str, query_text: str, num_results: int = 7, format: s
         logger.info(f"Search results: {results}")
 
         # Format results if requested
+        formatted_results = format_search_results(results, format)
         if format.startswith('text'):
-            formatted_results = format_search_results(results, short=format=='text-short')
             logger.info(f"Formatted results: {formatted_results}")
-            return formatted_results
-        return results
+        return formatted_results
     except Exception as e:
         logger.error(f"Error in run_query: {str(e)}")
         # Return a meaningful error message instead of raising
         return f"Error performing search: {str(e)}"
 
-def format_search_results(results: List[SearchResult],short=False) -> str:
+def format_search_results(results: List[SearchResult], format: str) -> str:
     """
     Format search results as a human-readable text string
 
@@ -162,20 +165,36 @@ def format_search_results(results: List[SearchResult],short=False) -> str:
     """
     # Format results for human-readable text output
     formatted_results = []
+    join = False
     for result in results:
-        if short:
+        if format == 'text-short':
+            join = True
             formatted_results.append(
                 f"{result.full_content}\n"
-                f"{'-' * 40}"
+                f"{'-' * 10}"
             )
-        else:
+        elif format == 'text':
+            join = True
+            metadata_str = ''
+            if result.metadata:
+                metadata_str = f"Metadata:\n{json.dumps(result.metadata, indent=2, ensure_ascii=False)}\n"
             formatted_results.append(
                 f"[Score: {result.score:.2f}]\n"
                 f"ID: {result.id}\n"
                 f"Content:\n{result.full_content}\n"
+                f"{metadata_str}"
                 f"{'-' * 40}"
             )
-    return "\n".join(formatted_results)
+        elif format == 'dict':
+            formatted_results.append(dict(
+                id=result.id,
+                score=result.score,
+                content=result.full_content,
+                metadata=result.metadata
+            ))
+    if join:
+        formatted_results = '\n'.join(formatted_results)
+    return formatted_results
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     """
@@ -194,19 +213,6 @@ def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     if environment != 'production':
         indexes = [index for index in indexes if index.endswith('__dev')]
     return indexes
-
-def format_result(result: SearchResult, show_full: bool = True) -> str:
-    """
-    Format a single search result for display
-    
-    Args:
-        result: SearchResult object to format
-        show_full: Whether to include the full content in the output
-    """
-    summary = f"{result.score:5.2f}: {result.id:30s}   [{result.content}]"
-    if show_full:
-        return f"{summary}\n\nFull content:\n{result.full_content}\n{'-' * 80}\n"
-    return summary
 
 def get_index_fields(environment: str, bot_name: str, context_name: str) -> Dict:
     """

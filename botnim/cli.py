@@ -4,10 +4,11 @@ from botnim.vector_store.vector_store_es import VectorStoreES
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
 from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT, is_production
-from .query import run_query, get_available_indexes, format_result, get_index_fields, format_mapping
+from .query import run_query, get_available_indexes, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
-from .config import SPECS
+from .config import SPECS, get_logger
 
+logger = get_logger(__name__)
 
 @click.group()
 def cli():
@@ -64,14 +65,13 @@ def reverse_lines(text: str) -> str:
 @click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
 def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool):
     """Search the vector store with the given query."""
+    logger.info(f"Searching {bot}/{context} in {environment} with query: '{query_text}', num_results: {num_results}")
     try:
         vector_store_id = VectorStoreES.encode_index_name(bot, context, is_production(environment))
-        search_results = run_query(store_id=vector_store_id, query_text=query_text, num_results=num_results, format="dict")
-        for result in search_results:
-            formatted_result = format_result(result, show_full=full)
-            if rtl:
-                formatted_result = reverse_lines(mirror_brackets(formatted_result))
-            click.echo(formatted_result)
+        search_results = run_query(store_id=vector_store_id, query_text=query_text, num_results=num_results, format="text")
+        if rtl:
+            search_results = reverse_lines(mirror_brackets(search_results))
+        click.echo(search_results)
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)
 
@@ -115,8 +115,12 @@ def show_fields(environment: str, bot: str, context: str, rtl: bool):
               help='Environment to use for vector search')
 def assistant(assistant_id, openapi_spec, rtl, environment):
     """Start an interactive chat with an OpenAI assistant."""
-    assistant_main(assistant_id, openapi_spec, rtl, environment)
-
+    logger.info(f"Starting assistant chat with assistant_id={assistant_id}, openapi_spec={openapi_spec}, environment={environment}")
+    try:
+        assistant_main(assistant_id, openapi_spec, rtl, environment)
+    except Exception as e:
+        logger.error(f"Error in assistant chat: {e}", exc_info=True)
+        raise
 
 def main():
     cli()

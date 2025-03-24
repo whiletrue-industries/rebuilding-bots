@@ -29,8 +29,8 @@ class VectorStoreBase(ABC):
             vector_store = self.get_or_create_vector_store(context_, context_name, replace_context)
             if replace_context:
                 file_streams = collect_context_sources(context_, self.config_dir)
-                file_streams = [((fname if self.production else '_' + fname), f, t) for fname, f, t in file_streams]
-                file_names = [fname for fname, _, _ in file_streams]
+                file_streams = [((fname if self.production else '_' + fname), f, t, m) for fname, f, t, m in file_streams]
+                file_names = [fname for fname, _, _, _ in file_streams]
                 deleted = self.delete_existing_files(context_, vector_store, file_names)
                 print(f'VECTOR STORE {context_name} deleted {deleted}')
                 total = len(file_streams)
