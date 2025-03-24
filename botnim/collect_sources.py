@@ -1,19 +1,97 @@
 import io
-import pathlib
+from pathlib import Path
+from typing import Union
 import dataflows as DF
+from kvfile.kvfile_sqlite import CachedKVFileSQLite as KVFile
 
+from .config import get_logger
+from .dynamic_extraction import extract_structured_content
 
-def collect_sources_files(config_dir, context_name, source):
+logger = get_logger(__name__)
+cache: KVFile = None
+
+def get_metadata_for_content(content: str, file_path: str, document_type: str) -> dict:
+    """
+    Extract metadata for a given content using LLM extraction.
+    
+    Args:
+        content (str): The content to extract metadata from
+        file_path (Path): Path to the source file (used for document type detection)
+        title (str, optional): Default title to use if none extracted
+        section_idx (int, optional): Section index if content is part of a larger file
+    
+    Returns:
+        dict: Metadata dictionary containing extracted information and status
+    """
+
+    # Check if metadata is already cached
+    cache_key = str(file_path)
+    item = cache.get(cache_key, default=None)
+    if item:
+        logger.info(f'Cache hit for {cache_key}, cached content: {item.get("content")[:100]!r}')
+        if item.get('content') == content:
+            return item['metadata']
+
+    # Create basic metadata structure
+    metadata = {
+        "title": file_path,
+        "status": "processed"
+    }
+
+    # Enhanced metadata using LLM extraction
+    try:
+        logger.info(f"Extracting structured content for {file_path} with document type: {document_type}")
+
+        # Get the extracted data
+        extracted_data = extract_structured_content(content, document_type=document_type)
+
+        # Add document type
+        metadata['document_type'] = document_type
+
+        # Use document title from extraction if available
+        if extracted_data.get('DocumentMetadata', {}).get('DocumentTitle'):
+            metadata['title'] = extracted_data['DocumentMetadata']['DocumentTitle']
+
+        # Add all extracted data directly to metadata (not nested)
+        metadata.update(extracted_data)
+
+        logger.info(f"Added enhanced metadata for {file_path}")
+    except Exception as e:
+        logger.error(f"Error extracting structured content from {file_path}")
+        metadata['status'] = 'extraction_error'
+        metadata['error'] = str(e)
+
+    # Cache the metadata
+    cache.set(cache_key, {
+        'content': content,
+        'metadata': metadata
+    })
+
+    return metadata
+
+def process_file_stream(filename: str, content: Union[str, io.BufferedReader], content_type) -> dict:
+    if not isinstance(content, str):
+        content = content.read().decode('utf-8')
+    content = content.strip()
+    metadata = get_metadata_for_content(content, filename, content_type)
+    return (filename, io.BytesIO(content.encode('utf-8')), content_type, metadata)
+    
+def collect_sources_files(config_dir: Path, context_name, source):
     files = list(config_dir.glob(source))
-    file_streams = [(f.name, f.open('rb'), 'text/markdown') for f in files]
+    file_streams = [
+        process_file_stream(f.name, f.open('rb'), 'text/markdown')
+        for f in files
+    ]
     return file_streams
 
 def collect_sources_split(config_dir, context_name, source):
     filename = config_dir / source
     content = filename.read_text()
     content = content.split('\n---\n')
-    file_streams = [io.BytesIO(c.strip().encode('utf-8')) for c in content]
-    file_streams = [(f'{context_name}_{i}.md', f, 'text/markdown') for i, f in enumerate(file_streams)]
+    file_streams = [
+        process_file_stream(f'{context_name}_{i}.md', c, 'text/markdown')
+        for i, c in enumerate(content)
+    ]
     return file_streams
 
 def collect_sources_google_spreadsheet(context_name, source):
@@ -33,10 +111,14 @@ def collect_sources_google_spreadsheet(context_name, source):
                     else:
                         content += f'{row[header]}\n\n'
         if content:
-            file_streams.append((f'{context_name}_{idx}.md', io.BytesIO(content.strip().encode('utf-8')), 'text/markdown'))
+            file_streams.append(
+                process_file_stream(f'{context_name}_{idx}.md', content, 'text/markdown')
+            )
     return file_streams
 
-def collect_context_sources(context_, config_dir: pathlib.Path):
+def collect_context_sources(context_, config_dir: Path):
+    global cache
+    cache = KVFile(location=str(Path(__file__).parent.parent / 'cache' / 'metadata'))
     context_name = context_['name']
     context_type = context_['type']
     if context_type == 'files':
@@ -47,6 +129,7 @@ def collect_context_sources(context_, config_dir: pathlib.Path):
         file_streams = collect_sources_google_spreadsheet(context_name, context_['source'])
     else:
         raise ValueError(f'Unknown context type: {context_type}')
+    cache.close()
     return file_streams
 
 def collect_all_sources(context_list, config_dir):

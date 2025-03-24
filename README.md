@@ -148,3 +148,7 @@ botnim assistant --assistant-id <assistant-id>
 ```bash
 botnim assistant --rtl
 ```
+# Choose environment for vector search
+```bash
+botnim assistant --environment production  # or staging (default)
+```
