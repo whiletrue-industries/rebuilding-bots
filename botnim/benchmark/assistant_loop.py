@@ -147,9 +147,9 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
 
                     output = run_query(
                         store_id=store_id,
-                        query=query,
+                        query_text=query,
                         num_results=num_results,
-                        format="text"
+                        format="text-short"
                     )
 
                     # Log the output
@@ -165,7 +165,6 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                     try:
                         if openapi_spec is not None:
                             output = get_openapi_output(openapi_spec, tool.function.name, arguments)
-
                             if tool.function.name == 'DatasetInfo':
                                 # Special case for DatasetInfo
                                 output = get_dataset_info_cache(arguments, output)

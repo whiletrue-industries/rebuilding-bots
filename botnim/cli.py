@@ -90,6 +90,7 @@ def list_indexes(environment: str, bot: str, rtl: bool):
             click.echo(index)
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)
+        raise
 
 @query_group.command(name='show-fields')
 @click.argument('environment', type=click.Choice(VALID_ENVIRONMENTS))

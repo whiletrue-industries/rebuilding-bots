@@ -6,6 +6,8 @@ import os
 import argparse
 from typing import TypedDict
 
+from .config import DEFAULT_ENVIRONMENT
+
 from .benchmark.assistant_loop import assistant_loop
 
 load_dotenv()
@@ -44,7 +46,7 @@ def get_assistant_name(assistant_id):
     """
     return client.beta.assistants.retrieve(assistant_id).name
 
-def start_conversation(assistant_id, openapi_spec = None, rtl=False):
+def start_conversation(assistant_id, openapi_spec = None, rtl=False, environment=DEFAULT_ENVIRONMENT):
     """
     Creates a new conversation thread for the given assistant and
     continuously processes user inputs until '/stop' is typed.
@@ -57,7 +59,7 @@ def start_conversation(assistant_id, openapi_spec = None, rtl=False):
     # get the assistant name
     assistant_name = get_assistant_name(assistant_id)
 
-    if not openapi_spec.endswith(".yaml"):
+    if openapi_spec is not None and not openapi_spec.endswith(".yaml"):
         openapi_spec += ".yaml"
 
     # Create a new thread (a new conversation session)
@@ -85,7 +87,7 @@ def start_conversation(assistant_id, openapi_spec = None, rtl=False):
         sent_msg = "User message sent." if not rtl else "User message sent."[::-1]
         print(sent_msg[::-1] if rtl else sent_msg)
 
-        assistant_loop(client, assistant_id, thread=thread, openapi_spec=openapi_spec)
+        assistant_loop(client, assistant_id, thread=thread, openapi_spec=openapi_spec, environment=environment)
 
         # Once the run is complete, retrieve only the latest message
         messages_response = client.beta.threads.messages.list(
@@ -110,7 +112,7 @@ def start_conversation(assistant_id, openapi_spec = None, rtl=False):
             no_msg = "No messages found."
             print(no_msg[::-1] if rtl else no_msg)
 
-def assistant_main(assistant_id=None, openapi_spec=None, rtl=False):
+def assistant_main(assistant_id=None, openapi_spec=None, rtl=False, environment=DEFAULT_ENVIRONMENT):
     """
     Main function to start the assistant conversation
     
@@ -119,7 +121,7 @@ def assistant_main(assistant_id=None, openapi_spec=None, rtl=False):
         rtl (bool): Enable RTL support for Hebrew/Arabic
     """
     if assistant_id:
-        start_conversation(assistant_id, openapi_spec=openapi_spec, rtl=rtl)
+        start_conversation(assistant_id, openapi_spec=openapi_spec, rtl=rtl, environment=environment)
     else:
         assistants = get_assistants()
         
@@ -159,7 +161,7 @@ def assistant_main(assistant_id=None, openapi_spec=None, rtl=False):
                 error_msg = "Please enter a valid number or press Enter for direct ID input."
                 print(error_msg[::-1] if rtl else error_msg)
         
-        start_conversation(assistant_id, openapi_spec=openapi_spec, rtl=rtl)
+        start_conversation(assistant_id, openapi_spec=openapi_spec, rtl=rtl, environment=environment)
 
 
 
@@ -168,5 +170,6 @@ if __name__ == "__main__":
     parser.add_argument('--assistant-id', type=str, help='ID of the assistant to chat with')
     parser.add_argument('--openapi-spec', type=str, default='budgetkey', help='either "budgetkey" or "takanon"')
     parser.add_argument('--rtl', action='store_true', help='Enable RTL support for Hebrew/Arabic')
+    parser.add_argument('--environment', type=str, default=DEFAULT_ENVIRONMENT, help='Specify the environment')
     args = parser.parse_args()
-    assistant_main(args.assistant_id, args.openapi_spec + ".yaml", args.rtl)
+    assistant_main(args.assistant_id, args.openapi_spec + ".yaml", args.rtl, environment=args.environment)

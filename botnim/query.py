@@ -98,19 +98,6 @@ class QueryClient:
             logger.error(f"Search failed: {str(e)}")
             raise
 
-    def list_indexes(self) -> List[str]:
-        """List all available indexes in the Elasticsearch database"""
-        try:
-            # Use the standardized pattern for index name search
-            search_pattern = f"{self.bot_name}__*"
-            if not self.environment == 'production':
-                search_pattern += '__dev'
-            indices = self.vector_store.es_client.indices.get_alias(index=search_pattern)
-            return list(indices.keys())
-        except Exception as e:
-            logger.error(f"Failed to list indexes: {str(e)}")
-            raise
-
     def get_index_mapping(self) -> Dict:
         """Get the mapping (fields) for the current index"""
         try:
@@ -206,13 +193,20 @@ def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     Returns:
         List[str]: List of available index names
     """
-    client = QueryClient(environment, bot_name, '')
-    indexes = client.list_indexes()
+    client = VectorStoreES('', '.')
+    search_pattern = f"*"
+    if not is_production(environment):
+        search_pattern += '__dev'
+    indices = client.es_client.indices.get_alias(index=search_pattern)
+    indices =list(indices.keys())
+    indices = [index for index in indices if '__' in index]
     if bot_name:
-        indexes = [index for index in indexes if index.startswith(bot_name)]
-    if environment != 'production':
-        indexes = [index for index in indexes if index.endswith('__dev')]
-    return indexes
+        indices = [index for index in indices if index.startswith(bot_name)]
+    if is_production(environment):
+        indices = [index for index in indices if not index.endswith('__dev')]
+    else:
+        indices = [index for index in indices if index.endswith('__dev')]
+    return indices
 
 def get_index_fields(environment: str, bot_name: str, context_name: str) -> Dict:
     """
@@ -224,7 +218,8 @@ def get_index_fields(environment: str, bot_name: str, context_name: str) -> Dict
     Returns:
         Dict: Index mapping showing all fields and their types
     """
-    client = QueryClient(environment, bot_name, context_name)
+    store_id = VectorStoreES.encode_index_name(bot_name, context_name, is_production(environment))
+    client = QueryClient(store_id)
     return client.get_index_mapping()
 
 def format_mapping(mapping: Dict, indent: int = 0) -> str:

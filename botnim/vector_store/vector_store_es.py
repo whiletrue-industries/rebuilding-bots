@@ -6,7 +6,7 @@ from datetime import datetime
 
 from elasticsearch import Elasticsearch
 from openai import OpenAI
-from ..config import get_logger
+from ..config import DEFAULT_ENVIRONMENT, get_logger
 from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
@@ -67,10 +67,14 @@ class VectorStoreES(VectorStoreBase):
     def parse_index_name(index_name: str) -> str:
         """Parse index name to get context name"""
         parts = index_name.split('__')
-        bot_name = parts[0]
-        context_name = parts[1]
-        environment = 'staging' if len(parts) == 3 and parts[2] == 'dev' else 'production'
-        return bot_name, context_name, environment
+        if len(parts) > 1:
+            bot_name = parts[0]
+            context_name = parts[1]
+            environment = 'staging' if len(parts) == 3 and parts[2] == 'dev' else 'production'
+            return bot_name, context_name, environment
+        else:
+            return '', '', DEFAULT_ENVIRONMENT
+        
 
     def _build_search_query(self, query_text: str, embedding: List[float], 
                           num_results: int = 7) -> Dict[str, Any]:
