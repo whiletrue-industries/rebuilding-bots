@@ -29,6 +29,7 @@ class QuestionMetrics:
     recall_ratio: float
     precision_ratio: float
     f1_score: float
+    adjusted_f1_score: float
 
 def normalize_path(path: str) -> str:
     """Extract and normalize just the document name from a path."""
@@ -72,12 +73,22 @@ def calculate_metrics(
     total_expected: int,
     retrieved_count: int,
     total_retrieved: int,
-    last_expected_rank: int
+    last_expected_rank: int,
+    retrieved_docs: List[str],
+    expected_docs: List[str],
+    adjusted_f1_limit: int = 7
 ) -> QuestionMetrics:
     """Calculate all metrics for a question."""
+    # Calculate regular metrics
     recall_ratio = (retrieved_count / total_expected * 100) if total_expected > 0 else 0
     precision_ratio = (retrieved_count / total_retrieved * 100) if total_retrieved > 0 else 0
     f1_score = 2 * (precision_ratio * recall_ratio) / (precision_ratio + recall_ratio) if (precision_ratio + recall_ratio) > 0 else 0
+    
+    # Calculate adjusted metrics
+    # Count how many expected documents were retrieved within the adjusted limit
+    adjusted_retrieved_count = sum(1 for doc in retrieved_docs[:adjusted_f1_limit] if doc in expected_docs)
+    adjusted_precision_ratio = (adjusted_retrieved_count / adjusted_f1_limit * 100) if adjusted_f1_limit > 0 else 0
+    adjusted_f1_score = 2 * (adjusted_precision_ratio * recall_ratio) / (adjusted_precision_ratio + recall_ratio) if (adjusted_precision_ratio + recall_ratio) > 0 else 0
     
     return QuestionMetrics(
         total_expected=total_expected,
@@ -85,7 +96,8 @@ def calculate_metrics(
         last_expected_rank=last_expected_rank,
         recall_ratio=recall_ratio,
         precision_ratio=precision_ratio,
-        f1_score=f1_score
+        f1_score=f1_score,
+        adjusted_f1_score=adjusted_f1_score
     )
 
 def create_row_dict(
@@ -106,14 +118,17 @@ def create_row_dict(
         'total_expected_not_retrieved': metrics.total_expected - metrics.retrieved_count,
         'ratio_expected_retrieved': metrics.recall_ratio,
         'ratio_correct_retrieved': metrics.precision_ratio,
-        'f1_score': metrics.f1_score
+        'f1_score': metrics.f1_score,
+        'adjusted_f1_score': metrics.adjusted_f1_score
     })
     return row
 
 def process_question(
     question_id: str,
     group: pd.DataFrame,
-    store_id: str
+    store_id: str,
+    adjusted_f1_limit: int = 7,
+    max_results: int = MAX_RESULTS
 ) -> List[Dict]:
     """Process a single question and its expected documents."""
     question_text = group['question_text'].iloc[0]
@@ -126,7 +141,7 @@ def process_question(
         results = run_query(
             store_id=store_id,
             query_text=question_text,
-            num_results=MAX_RESULTS
+            num_results=max_results
         )
         
         if not results:
@@ -140,7 +155,8 @@ def process_question(
                         last_expected_rank=0,
                         recall_ratio=0,
                         precision_ratio=0,
-                        f1_score=0
+                        f1_score=0,
+                        adjusted_f1_score=0
                     ),
                     was_retrieved=False
                 )
@@ -149,6 +165,8 @@ def process_question(
         
         retrieved_docs, doc_scores = process_query_results(results)
         logger.info(f"Retrieved {len(retrieved_docs)} documents for question {question_id}")
+        logger.info(f"Retrieved documents: {retrieved_docs}")
+        logger.info(f"Expected documents: {group['doc_filename'].tolist()}")
         
         retrieved_count = sum(1 for doc in group['doc_filename'] if doc in retrieved_docs)
         logger.info(f"Found {retrieved_count} out of {total_expected} expected documents for question {question_id}")
@@ -159,7 +177,18 @@ def process_question(
         )
         logger.info(f"Last expected document found at rank {last_expected_rank}")
         
-        metrics = calculate_metrics(total_expected, retrieved_count, len(retrieved_docs), last_expected_rank)
+        metrics = calculate_metrics(
+            total_expected=total_expected,
+            retrieved_count=retrieved_count,
+            total_retrieved=len(retrieved_docs),
+            last_expected_rank=last_expected_rank,
+            retrieved_docs=retrieved_docs,
+            expected_docs=group['doc_filename'].tolist(),
+            adjusted_f1_limit=adjusted_f1_limit
+        )
+        
+        # Log both F1 scores for comparison
+        logger.info(f"Question {question_id} F1 scores - Regular: {metrics.f1_score:.2f}%, Adjusted: {metrics.adjusted_f1_score:.2f}%")
         
         # Process expected documents
         rows = []
@@ -226,20 +255,28 @@ def process_question(
                     last_expected_rank=0,
                     recall_ratio=0,
                     precision_ratio=0,
-                    f1_score=0
+                    f1_score=0,
+                    adjusted_f1_score=0
                 ),
                 was_retrieved=False
             )
             for idx in group.index
         ]
 
-def evaluate_queries(csv_path: str, store_id: str) -> pd.DataFrame:
+def evaluate_queries(
+    csv_path: str,
+    store_id: str,
+    adjusted_f1_limit: int = 7,
+    max_results: int = MAX_RESULTS
+) -> pd.DataFrame:
     """
     Evaluate queries from CSV file and mark which expected documents were retrieved
     
     Args:
         csv_path (str): Path to the CSV file containing questions and expected documents
         store_id (str): The vector store ID to query against
+        adjusted_f1_limit (int): Number of documents to consider for adjusted F1 score calculation
+        max_results (int): Maximum number of results to retrieve per query
         
     Returns:
         pd.DataFrame: Updated DataFrame with retrieval information
@@ -253,7 +290,7 @@ def evaluate_queries(csv_path: str, store_id: str) -> pd.DataFrame:
     # Process each unique question
     all_rows = []
     for question_id, group in df.groupby('question_id'):
-        all_rows.extend(process_question(question_id, group, store_id))
+        all_rows.extend(process_question(question_id, group, store_id, adjusted_f1_limit, max_results))
     
     # Convert all rows to DataFrame
     result_df = pd.DataFrame(all_rows)
@@ -264,7 +301,7 @@ def evaluate_queries(csv_path: str, store_id: str) -> pd.DataFrame:
         'comments/questions', 'is_expected', 'total_expected', 'was_retrieved',
         'retrieved_rank', 'retrieved_score', 'total_expected_retrieved',
         'last_expected_rank', 'total_expected_not_retrieved', 'ratio_expected_retrieved',
-        'ratio_correct_retrieved', 'f1_score'
+        'ratio_correct_retrieved', 'f1_score', 'adjusted_f1_score'
     ]
     result_df = result_df[columns]
     
