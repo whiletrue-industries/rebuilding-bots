@@ -325,25 +325,4 @@ def print_summary_statistics(df: pd.DataFrame) -> None:
         expected = group[group['is_expected']]
         expected_count = len(expected)
         retrieved_count = expected['was_retrieved'].sum()
-        logger.info(f"Question {question_id}: {retrieved_count}/{expected_count} documents retrieved ({retrieved_count/expected_count*100:.1f}%)")
-
-def main():
-    """Main function to run the evaluation"""
-    # Get the path to the CSV file relative to the script location
-    current_dir = Path(__file__).parent
-    csv_path = current_dir / 'query_evaluations.csv'
-    store_id = "takanon__legal_text__dev"  # Updated to use staging environment format
-    
-    # Run evaluation
-    df = evaluate_queries(csv_path, store_id)
-    
-    # Save results back to CSV with UTF-8 encoding
-    output_path = current_dir / 'query_evaluations_results.csv'
-    df.to_csv(output_path, index=False, encoding='utf-8-sig')  # Using utf-8-sig to include BOM for Excel compatibility
-    logger.info(f"Evaluation complete. Results saved to {output_path}")
-    
-    # Print summary statistics
-    print_summary_statistics(df)
-
-if __name__ == "__main__":
-    main() 
+        logger.info(f"Question {question_id}: {retrieved_count}/{expected_count} documents retrieved ({retrieved_count/expected_count*100:.1f}%)") 
