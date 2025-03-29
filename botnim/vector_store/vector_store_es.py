@@ -82,9 +82,18 @@ class VectorStoreES(VectorStoreBase):
         text_match = {
             "multi_match": {            # fields to search in
                 "query": query_text,
-                "fields": ["content"],
-                "boost": 0.2,           # boost for text match vs vector match
-                "type": 'best_fields',  # type of search: cross_fields, bool, simple, phrase, phrase_prefix
+                "fields": [
+                    "content",
+                    "metadata.title",
+                    "metadata.extracted_data.DocumentTitle",
+                    "metadata.extracted_data.OfficialSource",
+                    "metadata.extracted_data.OfficialRoles.Role",
+                    "metadata.extracted_data.Description",
+                    "metadata.extracted_data.AdditionalKeywords",
+                    "metadata.extracted_data.Topics",
+                ],
+                "boost": 0.4,           # boost for text match vs vector match
+                "type": 'cross_fields',  # type of search: cross_fields, bool, simple, phrase, phrase_prefix
                 "operator": 'or',       # operator: or, and 
             }
         }
