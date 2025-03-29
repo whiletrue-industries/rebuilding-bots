@@ -3,6 +3,7 @@ import click
 from botnim.vector_store.vector_store_es import VectorStoreES
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
+from .benchmark.evaluate_metrics_cli import evaluate
 from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT, is_production
 from .query import run_query, get_available_indexes, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
@@ -122,6 +123,9 @@ def assistant(assistant_id, openapi_spec, rtl, environment):
     except Exception as e:
         logger.error(f"Error in assistant chat: {e}", exc_info=True)
         raise
+
+# Add evaluate command to main CLI
+cli.add_command(evaluate)
 
 def main():
     cli()
