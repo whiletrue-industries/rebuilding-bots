@@ -94,6 +94,39 @@ Available query commands:
   - Options:
     - `--rtl`: Display fields in right-to-left order
 
+### Evaluating Query Performance
+
+The `botnim evaluate` command allows you to evaluate the performance of queries against a vector store:
+
+```bash
+# Basic usage
+botnim evaluate takanon legal_text staging path/to/query_evaluations.csv
+
+# With custom parameters
+botnim evaluate takanon legal_text staging path/to/query_evaluations.csv --max-results 30 --adjusted-f1-limit 10
+```
+
+Required CSV columns:
+- `question_id`: Unique identifier for each question
+- `question_text`: The actual question text
+- `doc_filename`: The filename of the expected document
+
+Options:
+- `--max-results`: Maximum number of results to retrieve per query (default: 20)
+- `--adjusted-f1-limit`: Number of documents to consider for adjusted F1 score calculation (default: 7)
+
+The command will:
+1. Run each query against the vector store
+2. Compare retrieved documents with expected documents
+3. Calculate regular and adjusted F1 scores
+4. Save results to a new CSV file with the suffix '_results'
+5. Print summary statistics
+
+To find available contexts for a bot, use:
+```bash
+botnim query list-indexes staging --bot takanon
+```
+
 ### Updating the Specifications
 
 1. Edit the specifications in the `specs/` directory.
