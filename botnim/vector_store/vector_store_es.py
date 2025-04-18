@@ -226,7 +226,10 @@ class VectorStoreES(VectorStoreBase):
                 # Prepare base document
                 document = {
                     "content": content,
-                    "vector": vector,
+                    "vectors": [{
+                        "vector": vector,
+                        "source": "content"
+                    }]
                 }
                 
                 # Add metadata to document
