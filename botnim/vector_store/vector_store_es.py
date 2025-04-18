@@ -156,11 +156,19 @@ class VectorStoreES(VectorStoreBase):
                 "mappings": {
                     "properties": {
                         "content": {"type": "text"},
-                        "vector": {
-                            "type": "dense_vector",
-                            "dims": DEFAULT_EMBEDDING_SIZE,
-                            "index": True,
-                            "similarity": "cosine"
+                        "vectors": {
+                            "type": "nested",
+                            "properties": {
+                                "vector": {
+                                    "type": "dense_vector",
+                                    "dims": DEFAULT_EMBEDDING_SIZE,
+                                    "index": True,
+                                    "similarity": "cosine"
+                                },
+                                "source": {
+                                    "type": "keyword"
+                                }
+                            }
                         },
                         "metadata": {
                             "type": "object",
