@@ -99,12 +99,51 @@ class VectorStoreES(VectorStoreBase):
         }
         
         vector_match = {
-            "knn": {
-                "field": "vector",      # field to search in
-                "query_vector": embedding,  # embedding to search for
-                "k": num_results,       # number of results to get
-                "num_candidates": 20,   # number of candidates to consider
-                "boost": 0.5           # boost for vector match
+            "bool": {
+                "should": [
+                    {
+                        "nested": {
+                            "path": "vectors",
+                            "query": {
+                                "bool": {
+                                    "must": [
+                                        {"term": {"vectors.source": "content"}},
+                                        {
+                                            "knn": {
+                                                "field": "vectors.vector",
+                                                "query_vector": embedding,
+                                                "k": num_results,
+                                                "num_candidates": 20
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "boost": 1.0
+                        }
+                    },
+                    {
+                        "nested": {
+                            "path": "vectors",
+                            "query": {
+                                "bool": {
+                                    "must": [
+                                        {"term": {"vectors.source": "description"}},
+                                        {
+                                            "knn": {
+                                                "field": "vectors.vector",
+                                                "query_vector": embedding,
+                                                "k": num_results,
+                                                "num_candidates": 20
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "boost": 0.8
+                        }
+                    }
+                ]
             }
         }
         
@@ -156,11 +195,19 @@ class VectorStoreES(VectorStoreBase):
                 "mappings": {
                     "properties": {
                         "content": {"type": "text"},
-                        "vector": {
-                            "type": "dense_vector",
-                            "dims": DEFAULT_EMBEDDING_SIZE,
-                            "index": True,
-                            "similarity": "cosine"
+                        "vectors": {
+                            "type": "nested",
+                            "properties": {
+                                "vector": {
+                                    "type": "dense_vector",
+                                    "dims": DEFAULT_EMBEDDING_SIZE,
+                                    "index": True,
+                                    "similarity": "cosine"
+                                },
+                                "source": {
+                                    "type": "keyword"
+                                }
+                            }
                         },
                         "metadata": {
                             "type": "object",
@@ -208,17 +255,20 @@ class VectorStoreES(VectorStoreBase):
                 # Read content
                 content = content_file.read().decode('utf-8')
                 
-                # Generate embedding
+                # Generate content embedding
                 response = self.openai_client.embeddings.create(
                     input=content,
                     model=DEFAULT_EMBEDDING_MODEL,
                 )
                 vector = response.data[0].embedding
                 
-                # Prepare base document
+                # Prepare base document with content vector
                 document = {
                     "content": content,
-                    "vector": vector,
+                    "vectors": [{
+                        "vector": vector,
+                        "source": "content"
+                    }]
                 }
                 
                 # Add metadata to document
@@ -232,8 +282,27 @@ class VectorStoreES(VectorStoreBase):
                         'context_type': context.get("type", ""),
                         'context_name': context_name,
                         'extracted_data': metadata
-                    }                
+                    }
 
+                    # Generate description embedding if available
+                    description = metadata.get('extracted_data', {}).get('Description')
+                    if description:
+                        try:
+                            logger.debug(f"Generating description embedding for {filename}")
+                            description_response = self.openai_client.embeddings.create(
+                                input=description,
+                                model=DEFAULT_EMBEDDING_MODEL,
+                            )
+                            description_vector = description_response.data[0].embedding
+                            
+                            document['vectors'].append({
+                                "vector": description_vector,
+                                "source": "description"
+                            })
+                            logger.debug(f"Added description vector for {filename}")
+                        except Exception as e:
+                            logger.warning(f"Failed to generate description embedding for {filename}: {str(e)}")
+                
                 #TODO: REMOVED FOR NOW
                 # # Try to load metadata from the metadata file
                 # clean_filename = filename[1:] if filename.startswith('_') else filename
