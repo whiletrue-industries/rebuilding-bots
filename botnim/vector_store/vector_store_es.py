@@ -99,12 +99,17 @@ class VectorStoreES(VectorStoreBase):
         }
         
         vector_match = {
-            "knn": {
-                "field": "vector",      # field to search in
-                "query_vector": embedding,  # embedding to search for
-                "k": num_results,       # number of results to get
-                "num_candidates": 20,   # number of candidates to consider
-                "boost": 0.5           # boost for vector match
+            "nested": {
+                "path": "vectors",
+                "query": {
+                    "knn": {
+                        "field": "vectors.vector",
+                        "query_vector": embedding,
+                        "k": num_results,
+                        "num_candidates": 20,
+                        "boost": 0.5
+                    }
+                }
             }
         }
         
