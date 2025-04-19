@@ -303,17 +303,38 @@ def evaluate_queries(
 
 def print_summary_statistics(df: pd.DataFrame) -> None:
     """Print summary statistics about the evaluation results."""
-    # Print summary statistics - only count expected documents
+    # Print overall statistics
     expected_docs = df[df['is_expected']]
     total_expected = len(expected_docs)
     total_retrieved = expected_docs['was_retrieved'].sum()
+    
+    # Calculate average scores
+    avg_total_score = df['total_score'].mean()
+    avg_correct_score = expected_docs['correct_score'].mean()
+    avg_query_score = df['query_score'].mean()
+    
+    # Print summary
+    logger.info("\n=== Summary Statistics ===")
     logger.info(f"Total expected documents: {total_expected}")
     logger.info(f"Total retrieved expected documents: {total_retrieved}")
     logger.info(f"Retrieval rate: {(total_retrieved/total_expected)*100:.2f}%")
+    logger.info(f"\nAverage scores:")
+    logger.info(f"Total score: {avg_total_score:.2f}")
+    logger.info(f"Correct score: {avg_correct_score:.2f}")
+    logger.info(f"Query score: {avg_query_score:.2f}")
     
-    # Print per-question statistics - only count expected documents
+    # Print per-question statistics
+    logger.info("\n=== Per-Question Statistics ===")
     for question_id, group in df.groupby('question_id'):
         expected = group[group['is_expected']]
         expected_count = len(expected)
         retrieved_count = expected['was_retrieved'].sum()
-        logger.info(f"Question {question_id}: {retrieved_count}/{expected_count} documents retrieved ({retrieved_count/expected_count*100:.1f}%)") 
+        
+        # Calculate question-specific scores
+        total_score = group['total_score'].iloc[0]
+        correct_score = group['correct_score'].iloc[0]
+        query_score = group['query_score'].iloc[0]
+        
+        logger.info(f"\nQuestion {question_id}:")
+        logger.info(f"  Documents: {retrieved_count}/{expected_count} retrieved ({retrieved_count/expected_count*100:.1f}%)")
+        logger.info(f"  Scores - Total: {total_score:.2f}, Correct: {correct_score:.2f}, Query: {query_score:.2f}") 
