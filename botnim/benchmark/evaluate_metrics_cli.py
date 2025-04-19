@@ -56,10 +56,14 @@ def validate_csv(df: pd.DataFrame) -> None:
 @click.argument('environment', type=click.Choice(VALID_ENVIRONMENTS))
 @click.argument('csv_path', type=click.Path(exists=True))
 @click.option('--max-results', type=int, default=20, help='Maximum number of results to retrieve per query (default: 20)')
-@click.option('--adjusted-f1-limit', type=int, default=7, help='Number of documents to consider for adjusted F1 score calculation (default: 7)')
-def evaluate(bot: str, context: str, environment: str, csv_path: str, max_results: int, adjusted_f1_limit: int):
+def evaluate(bot: str, context: str, environment: str, csv_path: str, max_results: int):
     """
-    Evaluate queries from a CSV file against a vector store.
+    Evaluate queries from a CSV file against a vector store using score-based metrics.
+    
+    The evaluation uses Elasticsearch scores to measure query performance:
+    - total_score: Sum of all document scores
+    - correct_score: Sum of scores for expected documents
+    - query_score: Ratio of correct_score to total_score
     
     To find available contexts for a bot, use:
         python -m botnim query list-indexes <environment> --bot <bot_name>
@@ -89,7 +93,6 @@ def evaluate(bot: str, context: str, environment: str, csv_path: str, max_result
         df = evaluate_queries(
             csv_path=csv_path,
             store_id=store_id,
-            adjusted_f1_limit=adjusted_f1_limit,
             max_results=max_results
         )
         
