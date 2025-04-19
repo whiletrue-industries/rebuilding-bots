@@ -48,7 +48,16 @@ def parse_store_id(store_id: str) -> Tuple[str, str, str]:
     return bot_name, context_name, environment
 
 def process_query_results(results: List[Union[dict, object]]) -> Tuple[List[str], Dict[str, float]]:
-    """Process query results into document names and scores."""
+    """Process query results into document names and scores.
+    
+    Args:
+        results: List of query results from Elasticsearch
+        
+    Returns:
+        Tuple containing:
+        - List of document names in order of retrieval
+        - Dictionary mapping document names to their original scores
+    """
     retrieved_docs = []
     doc_scores = {}
     
@@ -73,7 +82,16 @@ def calculate_metrics(
     expected_docs: List[str],
     doc_scores: Dict[str, float]
 ) -> QueryEvaluation:
-    """Calculate query evaluation metrics based on Elasticsearch scores."""
+    """Calculate query evaluation metrics based on Elasticsearch scores.
+    
+    Args:
+        retrieved_docs: List of retrieved document names
+        expected_docs: List of expected document names
+        doc_scores: Dictionary mapping document names to their scores
+        
+    Returns:
+        QueryEvaluation object containing aggregated metrics
+    """
     # Calculate total score and correct score
     total_score = sum(doc_scores.values())
     correct_score = sum(score for doc, score in doc_scores.items() if doc in expected_docs)
@@ -86,7 +104,7 @@ def calculate_metrics(
         QueryResult(
             doc_name=doc,
             score=score,
-            rank=idx + 1
+            rank=idx + 1  # Keep rank for reference but not used in scoring, for now
         )
         for idx, (doc, score) in enumerate(doc_scores.items())
     ]
@@ -111,7 +129,7 @@ def create_row_dict(
     row = base_row.copy()
     row.update({
         'was_retrieved': was_retrieved,
-        'retrieved_rank': retrieved_rank,
+        'retrieved_rank': retrieved_rank,  # Keep for reference but not used in scoring, for now
         'retrieved_score': retrieved_score,
         'total_score': evaluation.total_score,
         'correct_score': evaluation.correct_score,
@@ -178,13 +196,13 @@ def process_question(
             expected_doc = group.loc[idx, 'doc_filename']
             logger.info(f"Checking for expected document: {expected_doc}")
             
-            if expected_doc in retrieved_docs:
+            if expected_doc in doc_scores:  # Check in doc_scores instead of retrieved_docs
                 logger.info(f"MATCH FOUND - {expected_doc}")
                 rows.append(create_row_dict(
                     group.loc[idx].to_dict(),
                     evaluation,
                     was_retrieved=True,
-                    retrieved_rank=retrieved_docs.index(expected_doc) + 1,
+                    retrieved_rank=retrieved_docs.index(expected_doc) + 1,  # Keep for reference
                     retrieved_score=doc_scores[expected_doc]
                 ))
             else:
