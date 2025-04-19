@@ -246,7 +246,11 @@ def evaluate_queries(
         max_results (int): Maximum number of results to retrieve per query
         
     Returns:
-        pd.DataFrame: Updated DataFrame with retrieval information
+        pd.DataFrame: DataFrame with evaluation results containing:
+        - Basic info: question_id, question_text
+        - Core metrics: total_score, correct_score, query_score
+        - Result counts: num_results, num_correct
+        - Per-result details: was_retrieved, retrieved_score
     """
     # Read the CSV file
     df = pd.read_csv(csv_path)
@@ -262,13 +266,34 @@ def evaluate_queries(
     # Convert all rows to DataFrame
     result_df = pd.DataFrame(all_rows)
     
-    # Ensure all columns are in the correct order
     columns = [
-        'question_id', 'question_text', 'question_type', 'doc_path', 'doc_filename',
-        'comments/questions', 'is_expected', 'total_expected', 'was_retrieved',
-        'retrieved_rank', 'retrieved_score', 'total_score', 'correct_score', 'query_score',
-        'num_results', 'num_correct'
+        # Basic info
+        'question_id',
+        'question_text',
+        'question_type',
+        'doc_filename',
+        'is_expected',
+        
+        # Core metrics
+        'total_score',
+        'correct_score',
+        'query_score',
+        
+        # Result counts
+        'num_results',
+        'num_correct',
+        
+        # Per-result details
+        'was_retrieved',
+        'retrieved_score',
+        
+        # Additional info (kept for reference)
+        'doc_path',
+        'comments/questions',
+        'retrieved_rank'
     ]
+    
+    # Reorder columns and return
     result_df = result_df[columns]
     
     # Sort by question_id and retrieved_score (descending)
