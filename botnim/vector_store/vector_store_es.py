@@ -10,6 +10,7 @@ from ..config import DEFAULT_ENVIRONMENT, get_logger
 from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
+from .vector_score_explainer import explain_vector_scores, combine_text_and_vector_scores
 
 logger = get_logger(__name__)
 
@@ -155,7 +156,7 @@ class VectorStoreES(VectorStoreBase):
         }
 
     def search(self, context_name: str, query_text: str, embedding: List[float], 
-               num_results: int = 7) -> Dict[str, Any]:
+               num_results: int = 7, explain: bool = False) -> Dict[str, Any]:
         """
         Search the vector store with the given text and embedding
         
@@ -163,6 +164,7 @@ class VectorStoreES(VectorStoreBase):
             query_text (str): The text to search for
             embedding (List[float]): The embedding vector to search with
             num_results (int): Number of results to return
+            explain (bool): Whether to include scoring explanation in results
             
         Returns:
             Dict[str, Any]: Elasticsearch search results
@@ -170,12 +172,53 @@ class VectorStoreES(VectorStoreBase):
         query = self._build_search_query(query_text, embedding, num_results)
         index_name = self._index_name_for_context(context_name)
         
-        return self.es_client.search(
+        logger.info(f"Executing search on index: {index_name}")
+        logger.debug(f"Query structure: {json.dumps(query, indent=2)}")
+        
+        # Get search results with explanation if requested
+        results = self.es_client.search(
             index=index_name,
             query=query,
             size=num_results,
-            _source=['content', 'metadata']
+            _source=['content', 'metadata', 'vectors'],
+            explain=explain
         )
+        
+        logger.info(f"Retrieved {len(results['hits']['hits'])} results")
+        
+        # Add vector similarity explanations if explain=True
+        if explain:
+            for hit in results['hits']['hits']:
+                logger.info(f"Processing hit: {hit['_id']}")
+                if 'vectors' in hit['_source']:
+                    logger.info(f"Found {len(hit['_source']['vectors'])} vectors in document")
+                    logger.debug(f"Vector sources: {[vec.get('source', 'unknown') for vec in hit['_source']['vectors']]}")
+                    
+                    # Calculate vector similarity scores
+                    vector_score = explain_vector_scores(
+                        embedding,
+                        hit['_source']['vectors']
+                    )
+                    
+                    # Get text similarity explanation
+                    text_score = hit.get('_explanation', {})
+                    
+                    # Combine scores
+                    hit['_explanation'] = combine_text_and_vector_scores(
+                        text_score=text_score,
+                        vector_score=vector_score
+                    )
+                    
+                    logger.info(f"Final explanation for {hit['_id']}: {json.dumps(hit['_explanation'], indent=2)}")
+                    
+                else:
+                    logger.warning(f"No vectors found in document: {hit['_id']}")
+                
+                # Remove vectors from source to avoid returning large embeddings
+                if 'vectors' in hit['_source']:
+                    del hit['_source']['vectors']
+        
+        return results
 
     def get_or_create_vector_store(self, context, context_name, replace_context):
         """Get or create a vector store for the given context.
@@ -288,6 +331,7 @@ class VectorStoreES(VectorStoreBase):
                     description = metadata.get('extracted_data', {}).get('Description')
                     if description:
                         try:
+                            logger.info(f"Found description for {filename}: {description[:100]}...")  # Log description
                             logger.debug(f"Generating description embedding for {filename}")
                             description_response = self.openai_client.embeddings.create(
                                 input=description,
@@ -299,9 +343,11 @@ class VectorStoreES(VectorStoreBase):
                                 "vector": description_vector,
                                 "source": "description"
                             })
-                            logger.debug(f"Added description vector for {filename}")
+                            logger.info(f"Successfully added description vector for {filename}")  # Log success
                         except Exception as e:
-                            logger.warning(f"Failed to generate description embedding for {filename}: {str(e)}")
+                            logger.error(f"Failed to generate description embedding for {filename}: {str(e)}")  # Change to error level
+                    else:
+                        logger.warning(f"No description found in metadata for {filename}")  # Log missing description
                 
                 #TODO: REMOVED FOR NOW
                 # # Try to load metadata from the metadata file

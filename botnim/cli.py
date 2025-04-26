@@ -64,12 +64,19 @@ def reverse_lines(text: str) -> str:
 @click.option('--num-results', type=int, default=7, help='Number of results to return')
 @click.option('--full', '-f', is_flag=True, help='Show full content of results')
 @click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
-def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool):
+@click.option('--explain', is_flag=True, help='Show detailed scoring explanation for results')
+def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool, explain: bool):
     """Search the vector store with the given query."""
     logger.info(f"Searching {bot}/{context} in {environment} with query: '{query_text}', num_results: {num_results}")
     try:
         vector_store_id = VectorStoreES.encode_index_name(bot, context, is_production(environment))
-        search_results = run_query(store_id=vector_store_id, query_text=query_text, num_results=num_results, format="text")
+        search_results = run_query(
+            store_id=vector_store_id, 
+            query_text=query_text, 
+            num_results=num_results, 
+            format="text",
+            explain=explain
+        )
         if rtl:
             search_results = reverse_lines(mirror_brackets(search_results))
         click.echo(search_results)

@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional, Any
 from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, is_production
@@ -17,6 +17,25 @@ class SearchResult:
     content: str
     full_content: str
     metadata: dict = None
+    _explanation: dict = None  # Elasticsearch explanation
+    text_score: float = None  # Text similarity score
+    vector_score: float = None  # Vector similarity score
+    
+    @property
+    def explanation(self) -> Optional[Dict[str, Any]]:
+        """Get formatted explanation including both text and vector scores"""
+        if not self._explanation:
+            return None
+            
+        # Extract individual scores from combined explanation
+        details = self._explanation.get('details', [])
+        text_details = next((d for d in details if d['description'] == 'Text similarity score (BM25)'), {})
+        vector_details = next((d for d in details if d['description'] == 'Vector similarity score'), {})
+        
+        self.text_score = text_details.get('value', 0)
+        self.vector_score = vector_details.get('value', 0)
+        
+        return self._explanation
 
 class QueryClient:
     """Class to handle vector store queries"""
@@ -52,16 +71,17 @@ class QueryClient:
             production=is_production(self.environment),
         )
 
-    def search(self, query_text: str, num_results: int=None) -> List[SearchResult]:
+    def search(self, query_text: str, num_results: int=None, explain: bool=False) -> List[SearchResult]:
         """
         Search the vector store with the given text
         
         Args:
             query_text (str): The text to search for
             num_results (int, optional): Number of results to return, or None to use context default
+            explain (bool): Whether to include scoring explanation in results
         
         Returns:
-            List[SearchResult]: List of search results
+            List[SearchResult]: List of search results with enhanced explanations
         """
         try:
             # Use default num_results from context config if not provided
@@ -75,21 +95,23 @@ class QueryClient:
             )
             embedding = response.data[0].embedding
 
-            # Execute search directly with elasticsearch client
+            # Execute search with explanations
             results = self.vector_store.search(
                 self.context_name,
                 query_text, embedding,
-                num_results=num_results
+                num_results=num_results,
+                explain=explain
             )
             
-            # Format results
+            # Format results with enhanced explanations
             return [
                 SearchResult(
                     score=hit['_score'],
                     id=hit['_id'],
                     content=hit['_source']['content'].strip().split('\n')[0],
                     full_content=hit['_source']['content'],
-                    metadata=hit['_source'].get('metadata', None) # Extract metadata
+                    metadata=hit['_source'].get('metadata', None),
+                    _explanation=hit.get('_explanation', None) if explain else None
                 )
                 for hit in results['hits']['hits']
             ]
@@ -108,7 +130,7 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str='dict') -> Union[List[Dict], str]:
+def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str='dict', explain: bool=False) -> Union[List[Dict], str]:
     """
     Run a query against the vector store
     
@@ -117,6 +139,7 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         query_text (str): The text to search for
         num_results (int): Number of results to return
         format (str): Format of the results ('dict', 'text', 'text-short')
+        explain (bool): Whether to include scoring explanation in results
         
     Returns:
         Union[List[Dict], str]: Search results in the requested format
@@ -125,13 +148,13 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         logger.info(f"Running vector search with query: {query_text}, store_id: {store_id}, num_results: {num_results}, format: {format}")
 
         client = QueryClient(store_id)
-        results = client.search(query_text=query_text, num_results=num_results)
+        results = client.search(query_text=query_text, num_results=num_results, explain=explain)
 
         # Log the results
         logger.info(f"Search results: {results}")
 
         # Format results if requested
-        formatted_results = format_search_results(results, format)
+        formatted_results = format_search_results(results, format, explain)
         if format.startswith('text'):
             logger.info(f"Formatted results: {formatted_results}")
         return formatted_results
@@ -140,12 +163,14 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         # Return a meaningful error message instead of raising
         return f"Error performing search: {str(e)}"
 
-def format_search_results(results: List[SearchResult], format: str) -> str:
+def format_search_results(results: List[SearchResult], format: str, explain: bool) -> str:
     """
     Format search results as a human-readable text string
 
     Args:
         results (List[SearchResult]): The search results to format
+        format (str): Format of the results ('dict', 'text', 'text-short')
+        explain (bool): Whether to include scoring explanation in results
 
     Returns:
         str: Formatted search results as a text string
@@ -165,20 +190,30 @@ def format_search_results(results: List[SearchResult], format: str) -> str:
             metadata_str = ''
             if result.metadata:
                 metadata_str = f"Metadata:\n{json.dumps(result.metadata, indent=2, ensure_ascii=False)}\n"
+            
+            explanation_str = ''
+            if explain and hasattr(result, '_explanation'):
+                explanation_str = f"\nScoring Explanation:\n{json.dumps(result._explanation, indent=2, ensure_ascii=False)}\n"
+            
             formatted_results.append(
                 f"[Score: {result.score:.2f}]\n"
                 f"ID: {result.id}\n"
                 f"Content:\n{result.full_content}\n"
                 f"{metadata_str}"
+                f"{explanation_str}"
                 f"{'-' * 40}"
             )
         elif format == 'dict':
-            formatted_results.append(dict(
+            result_dict = dict(
                 id=result.id,
                 score=result.score,
                 content=result.full_content,
                 metadata=result.metadata
-            ))
+            )
+            if explain and hasattr(result, '_explanation'):
+                result_dict['_explanation'] = result._explanation
+            formatted_results.append(result_dict)
+    
     if join:
         formatted_results = '\n'.join(formatted_results)
     return formatted_results
