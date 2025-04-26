@@ -155,6 +155,22 @@ class VectorStoreES(VectorStoreBase):
             }
         }
 
+    def verify_document_vectors(self, index_name: str, document_id: str) -> Dict:
+        """Verify vectors stored for a specific document"""
+        try:
+            result = self.es_client.get(
+                index=index_name,
+                id=document_id,
+                _source=['vectors']
+            )
+            vectors = result['_source'].get('vectors', [])
+            logger.info(f"Found {len(vectors)} vectors for document {document_id}")
+            logger.info(f"Vector sources: {[vec.get('source', 'unknown') for vec in vectors]}")
+            return vectors
+        except Exception as e:
+            logger.error(f"Failed to verify vectors for document {document_id}: {str(e)}")
+            return []
+
     def search(self, context_name: str, query_text: str, embedding: List[float], 
                num_results: int = 7, explain: bool = False) -> Dict[str, Any]:
         """
@@ -190,6 +206,11 @@ class VectorStoreES(VectorStoreBase):
         if explain:
             for hit in results['hits']['hits']:
                 logger.info(f"Processing hit: {hit['_id']}")
+                
+                # Verify stored vectors
+                stored_vectors = self.verify_document_vectors(index_name, hit['_id'])
+                logger.info(f"Stored vectors: {[vec.get('source', 'unknown') for vec in stored_vectors]}")
+                
                 if 'vectors' in hit['_source']:
                     logger.info(f"Found {len(hit['_source']['vectors'])} vectors in document")
                     logger.debug(f"Vector sources: {[vec.get('source', 'unknown') for vec in hit['_source']['vectors']]}")
@@ -328,26 +349,38 @@ class VectorStoreES(VectorStoreBase):
                     }
 
                     # Generate description embedding if available
-                    description = metadata.get('extracted_data', {}).get('Description')
+                    description = metadata.get('Description')  # Direct access to Description field
                     if description:
                         try:
-                            logger.info(f"Found description for {filename}: {description[:100]}...")  # Log description
+                            logger.info(f"Found description for {filename}: {description[:100]}...")
                             logger.debug(f"Generating description embedding for {filename}")
-                            description_response = self.openai_client.embeddings.create(
-                                input=description,
-                                model=DEFAULT_EMBEDDING_MODEL,
-                            )
-                            description_vector = description_response.data[0].embedding
-                            
-                            document['vectors'].append({
-                                "vector": description_vector,
-                                "source": "description"
-                            })
-                            logger.info(f"Successfully added description vector for {filename}")  # Log success
+                            try:
+                                description_response = self.openai_client.embeddings.create(
+                                    input=description,
+                                    model=DEFAULT_EMBEDDING_MODEL,
+                                )
+                                description_vector = description_response.data[0].embedding
+                                logger.debug(f"Generated description vector of length {len(description_vector)}")
+                                
+                                document['vectors'].append({
+                                    "vector": description_vector,
+                                    "source": "description"
+                                })
+                                logger.info(f"Successfully added description vector for {filename}")
+                                
+                                # Verify the vector was added
+                                if not any(v.get('source') == 'description' for v in document['vectors']):
+                                    logger.error(f"Description vector was not properly added to document vectors for {filename}")
+                            except Exception as e:
+                                logger.error(f"Failed to generate description embedding for {filename}: {str(e)}")
+                                logger.error(f"Description text: {description[:200]}...")
+                                raise
                         except Exception as e:
-                            logger.error(f"Failed to generate description embedding for {filename}: {str(e)}")  # Change to error level
+                            logger.error(f"Error processing description for {filename}: {str(e)}")
+                            logger.error(f"Full error details: {str(e)}")
                     else:
-                        logger.warning(f"No description found in metadata for {filename}")  # Log missing description
+                        logger.warning(f"No description found in metadata for {filename}")
+                        logger.debug(f"Available metadata fields: {list(metadata.keys())}")
                 
                 #TODO: REMOVED FOR NOW
                 # # Try to load metadata from the metadata file
