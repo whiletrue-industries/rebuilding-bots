@@ -32,7 +32,11 @@ class QueryEvaluation:
 
 def normalize_path(path: str) -> str:
     """Extract and normalize just the document name from a path."""
-    return os.path.basename(str(path).strip())
+    filename = os.path.basename(str(path).strip())
+    # Remove leading underscore if present
+    if filename.startswith('_'):
+        filename = filename[1:]
+    return filename
 
 def parse_store_id(store_id: str) -> Tuple[str, str, str]:
     """Parse store_id into bot name, context, and environment."""
