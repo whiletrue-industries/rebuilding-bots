@@ -16,7 +16,9 @@ def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
 
 def explain_vector_scores(query_vector: List[float], doc_vectors: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Calculate and explain vector similarity scores for document vectors
+    Calculate and explain vector similarity scores for document vectors.
+    Uses max similarity to maximize recall - a document is considered relevant if ANY of its vectors
+    match well with the query, rather than requiring all vectors to match well on average.
     
     Args:
         query_vector: Query embedding vector
@@ -41,13 +43,14 @@ def explain_vector_scores(query_vector: List[float], doc_vectors: List[Dict[str,
         })
         logger.debug(f"Vector score for {source}: {score:.4f}")
     
-    # Calculate combined score
-    combined_score = np.mean([s["similarity"] for s in vector_scores])
-    logger.info(f"Combined vector score: {combined_score:.4f}")
+    # Calculate combined score using max to maximize recall
+    # This ensures a document is considered relevant if ANY of its vectors match well
+    combined_score = np.max([s["similarity"] for s in vector_scores])
+    logger.info(f"Combined vector score (max similarity): {combined_score:.4f}")
     
     return {
         "value": combined_score,
-        "description": "Combined vector similarity score",
+        "description": "Combined vector similarity score (max)",
         "details": vector_scores
     }
 
