@@ -24,7 +24,7 @@ class TextToMarkdownConverter:
         """Initialize the converter with the specified LLM model."""
         self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
         self.model = model
-        self.temperature = 0.3
+        self.temperature = 0.1
 
     def convert_text_to_markdown(self, text: str) -> str:
         """Convert text to markdown using LLM."""
@@ -371,6 +371,31 @@ class TextToMarkdownConverter:
         logger.info(f"Parsed {len(sections)} sections from field marker format")
         return sections
 
+    def _sanitize_for_filename(self, text: str) -> str:
+        """Convert text to a filesystem-safe filename component.
+        
+        Args:
+            text: The text to sanitize
+            
+        Returns:
+            A filesystem-safe version of the text
+        """
+        if not text or not text.strip():
+            return ""
+            
+        # Replace problematic characters with underscores
+        safe_text = text.strip()
+        for char in [':', '/', '\\', '*', '?', '"', '<', '>', '|', ' ']:
+            safe_text = safe_text.replace(char, '_')
+            
+        # Keep only letters (including Hebrew), numbers, and underscores
+        safe_text = ''.join(c for c in safe_text if c.isalnum() or c == '_')
+            
+        # Avoid leading/trailing underscores and multiple consecutive underscores
+        safe_text = '_'.join(filter(None, safe_text.split('_')))
+            
+        return safe_text
+
     def save_split_sections(self, sections: List[Dict[str, str]], output_dir: Union[str, Path]) -> None:
         """Save split sections to individual files.
         
@@ -386,32 +411,22 @@ class TextToMarkdownConverter:
         source_url = getattr(self, 'source_url', '')
         
         # Generate a safe version of the document name for filenames
-        safe_doc_name = document_name
-        # Replace problematic characters with underscores
-        for char in [':', '/', '\\', '*', '?', '"', '<', '>', '|', ' ']:
-            safe_doc_name = safe_doc_name.replace(char, '_')
-        # Remove extra underscores
-        safe_doc_name = '_'.join(filter(None, safe_doc_name.split('_')))
+        safe_doc_name = self._sanitize_for_filename(document_name)
         
         for i, section in enumerate(sections):
             # Generate a safe filename from section number or index
             if 'section_number' in section and section['section_number'].strip():
-                # Clean the section number for filenames: replace problematic chars, keep nums/letters
+                # Clean the section number for filenames
                 raw_num = section['section_number'].strip()
-                # Replace common problematic chars with underscore
-                safe_num = raw_num.replace(':', '_').replace('/', '_').replace(' ', '_').replace('(', '_').replace(')', '_').replace('[', '_').replace(']', '_')
-                # Keep only letters (including Hebrew), numbers, and underscores
-                safe_num = ''.join(c for c in safe_num if c.isalnum() or c == '_')
-                # Avoid leading/trailing underscores and multiple consecutive underscores
-                safe_num = '_'.join(filter(None, safe_num.split('_')))
+                safe_num = self._sanitize_for_filename(raw_num)
                 
                 if safe_num: # Ensure we have a non-empty filename component
-                    filename = f"{safe_doc_name}_{safe_num}.md"
+                    filename = f"{safe_doc_name}_{safe_num}.md" if safe_doc_name else f"{safe_num}.md"
                 else:
                     logger.warning(f"Could not generate safe filename from section number '{raw_num}', using index.")
-                    filename = f"{safe_doc_name}_{i+1:02d}.md"
+                    filename = f"{safe_doc_name}_{i+1:02d}.md" if safe_doc_name else f"section_{i+1:02d}.md"
             else:
-                filename = f"{safe_doc_name}_{i+1:02d}.md"
+                filename = f"{safe_doc_name}_{i+1:02d}.md" if safe_doc_name else f"section_{i+1:02d}.md"
             
             # Format document content in the desired structure
             content_lines = []
@@ -549,7 +564,7 @@ def main():
     parser.add_argument('--source-url', required=True, 
                        help='Source URL to be embedded in the output files')
     parser.add_argument('--model', default='gpt-4o', help='LLM model to use')
-    parser.add_argument('--temperature', type=float, default=0.3, help='Temperature for LLM generation')
+    parser.add_argument('--temperature', type=float, default=0.1, help='Temperature for LLM generation')
     parser.add_argument('--split', action='store_true', help='Split content into sections')
     
     args = parser.parse_args()
