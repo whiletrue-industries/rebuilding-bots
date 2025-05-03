@@ -131,4 +131,4 @@ def sync_agents(environment, bots, backend='openai', replace_context=False, rein
                 if production:
                     config['instructions'] = config['instructions'].replace('__dev', '')
                 update_assistant(config, config_dir, production, backend,
-                               replace_context=replace_context, reindex=reindex)
+                                 replace_context=replace_context, reindex=reindex)
