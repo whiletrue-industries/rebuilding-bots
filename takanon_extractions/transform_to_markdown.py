@@ -417,7 +417,7 @@ class TextToMarkdownConverter:
             content_lines = []
             
             # 1. Add the full document name with section title
-            doc_title = f"*{document_name}*"
+            doc_title = f"**{document_name}**"
             content_lines.append(doc_title)
             content_lines.append("")  # Empty line after title
             
