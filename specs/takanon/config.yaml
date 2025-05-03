@@ -12,3 +12,8 @@ context:
     name: Knesset Bylaws (תקנון הכנסת) and related laws
     type: files
     source: extraction/*.md
+  - slug: ethics_rules
+    name: כללי אתיקה לחברי הכנסת
+    type: files
+    source: extraction/ethics/*.md
+    max_num_results: 7
