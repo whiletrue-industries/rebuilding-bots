@@ -2,12 +2,15 @@
 import argparse
 import logging
 import os
-from pathlib import Path
-from typing import Optional, Union, List, Dict
-import dotenv
+import json
+import re
 import time
+from pathlib import Path
+from typing import Optional, Union, List, Dict, Any, Match
+import dotenv
 
 from openai import OpenAI
+from openai.types.chat import ChatCompletion
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -19,26 +22,47 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Types
+PathLike = Union[str, Path]
+SectionData = Dict[str, str]
+
 class TextToMarkdownConverter:
-    def __init__(self, model: str = "gpt-4o"):
-        """Initialize the converter with the specified LLM model."""
-        self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        self.model = model
-        self.temperature = 0.1
+    def __init__(self, model: str = "gpt-4o") -> None:
+        """Initialize the converter with the specified LLM model.
+        
+        Args:
+            model: The name of the LLM model to use
+        """
+        self.client: OpenAI = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        self.model: str = model
+        self.temperature: float = 0.1
+        self.document_name: str = ""
+        self.source_url: str = ""
 
     def convert_text_to_markdown(self, text: str) -> str:
-        """Convert text to markdown using LLM."""
+        """Convert text to markdown using LLM.
+        
+        Args:
+            text: The text to convert to markdown
+            
+        Returns:
+            The converted markdown text
+            
+        Raises:
+            ValueError: If the response is empty or invalid
+            Exception: For other API errors
+        """
         try:
             logger.info("Starting markdown conversion...")
             logger.info(f"Using model: {self.model}")
             
             # Retry logic with exponential backoff
-            max_retries = 3
-            base_delay = 1  # seconds
+            max_retries: int = 3
+            base_delay: int = 1  # seconds
             
             for attempt in range(max_retries):
                 try:
-                    response = self.client.chat.completions.create(
+                    response: ChatCompletion = self.client.chat.completions.create(
                         model=self.model,
                         messages=[
                             {"role": "system", "content": "You are a helpful assistant that converts text to well-structured markdown. Follow these rules strictly:\n1. Preserve ALL original content - do not omit, summarize, or change any text\n2. Use appropriate markdown headings (h1, h2, etc.) to maintain structure\n3. Format lists and tables properly while keeping their exact content\n4. Maintain any special formatting, emphasis, or styling from the original text\n5. Ensure proper spacing and line breaks\n6. If the text contains code blocks, preserve them exactly as they appear\n7. Do not add any new content or commentary - only convert the existing text to markdown format\n8. Do NOT wrap the output in markdown code blocks (```markdown or ```)"},
@@ -52,7 +76,7 @@ class TextToMarkdownConverter:
                         raise ValueError("Empty response from OpenAI API")
                     
                     # Get the content from the first choice
-                    content = response.choices[0].message.content
+                    content: str = response.choices[0].message.content
                     if not content:
                         raise ValueError("Empty content in response")
                     
@@ -69,16 +93,16 @@ class TextToMarkdownConverter:
                     return content
                     
                 except Exception as e:
-                    error_msg = str(e)
+                    error_msg: str = str(e)
                     if attempt < max_retries - 1:  # Don't retry on the last attempt
-                        delay = base_delay * (2 ** attempt)  # Exponential backoff
+                        delay: int = base_delay * (2 ** attempt)  # Exponential backoff
                         logger.warning(f"Attempt {attempt + 1} failed: {error_msg}. Retrying in {delay} seconds...")
                         time.sleep(delay)
                     else:
                         raise  # Re-raise the last exception
                         
         except Exception as e:
-            error_msg = str(e)
+            error_msg: str = str(e)
             logger.error(f"Error converting text to markdown: {error_msg}")
             
             if "authentication" in error_msg.lower():
@@ -93,16 +117,24 @@ class TextToMarkdownConverter:
             raise
 
     def split_text(self, text: str, max_chunk_size: int = 4000) -> List[str]:
-        """Split text into chunks of approximately equal size, trying to break at natural boundaries."""
-        chunks = []
-        current_chunk = []
-        current_size = 0
+        """Split text into chunks of approximately equal size, trying to break at natural boundaries.
+        
+        Args:
+            text: The text to split
+            max_chunk_size: Maximum size of each chunk in characters
+            
+        Returns:
+            List of text chunks
+        """
+        chunks: List[str] = []
+        current_chunk: List[str] = []
+        current_size: int = 0
         
         # Split text into paragraphs
-        paragraphs = text.split('\n\n')
+        paragraphs: List[str] = text.split('\n\n')
         
         for para in paragraphs:
-            para_size = len(para)
+            para_size: int = len(para)
             
             # If adding this paragraph would exceed the chunk size, start a new chunk
             if current_size + para_size > max_chunk_size and current_chunk:
@@ -120,14 +152,21 @@ class TextToMarkdownConverter:
         return chunks
 
     def process_large_text(self, text: str) -> str:
-        """Process large text by splitting into chunks and combining results."""
-        chunks = self.split_text(text)
+        """Process large text by splitting into chunks and combining results.
+        
+        Args:
+            text: The large text to process
+            
+        Returns:
+            The processed markdown text
+        """
+        chunks: List[str] = self.split_text(text)
         logger.info(f"Split text into {len(chunks)} chunks for processing")
         
-        combined_markdown = []
+        combined_markdown: List[str] = []
         for i, chunk in enumerate(chunks, 1):
             logger.info(f"Processing chunk {i}/{len(chunks)}")
-            chunk_markdown = self.convert_text_to_markdown(chunk)
+            chunk_markdown: str = self.convert_text_to_markdown(chunk)
             combined_markdown.append(chunk_markdown)
         
         # Combine all chunks with proper spacing
@@ -141,11 +180,15 @@ class TextToMarkdownConverter:
             
         Returns:
             The extracted document name
+            
+        Raises:
+            ValueError: If the response is empty or invalid
+            Exception: For other API errors
         """
         try:
             logger.info("Extracting document name with LLM...")
             
-            response = self.client.chat.completions.create(
+            response: ChatCompletion = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": """You are a helpful assistant that extracts document names. Follow these rules:
@@ -162,7 +205,7 @@ class TextToMarkdownConverter:
             if not response or not response.choices:
                 raise ValueError("Empty response from OpenAI API")
             
-            name = response.choices[0].message.content.strip()
+            name: str = response.choices[0].message.content.strip()
             if not name:
                 raise ValueError("Empty name in response")
             
@@ -173,7 +216,7 @@ class TextToMarkdownConverter:
             logger.error(f"Error extracting document name: {str(e)}")
             raise
 
-    def split_into_sections(self, markdown_content: str) -> List[Dict[str, str]]:
+    def split_into_sections(self, markdown_content: str) -> List[SectionData]:
         """Split markdown content into logical sections using LLM.
         
         Args:
@@ -185,7 +228,7 @@ class TextToMarkdownConverter:
         try:
             logger.info("Starting markdown section splitting...")
             
-            response = self.client.chat.completions.create(
+            response: ChatCompletion = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": """You are a helpful assistant that splits markdown content into logical sections based on Hebrew document structure. Follow these rules:
@@ -220,11 +263,11 @@ class TextToMarkdownConverter:
                 raise ValueError("Empty response from OpenAI API")
             
             # Process the response
-            response_text = response.choices[0].message.content
+            response_text: str = response.choices[0].message.content
             logger.debug(f"LLM response: {response_text}")
             
             # First try to parse as JSON
-            sections = self._parse_json_sections(response_text)
+            sections: List[SectionData] = self._parse_json_sections(response_text)
             
             # If JSON parsing failed, try the field marker format
             if not sections:
@@ -251,16 +294,20 @@ class TextToMarkdownConverter:
                 'section_number': '1'
             }]
     
-    def _parse_json_sections(self, response_text: str) -> List[Dict[str, str]]:
-        """Parse sections from JSON format response."""
-        import json
-        import re
+    def _parse_json_sections(self, response_text: str) -> List[SectionData]:
+        """Parse sections from JSON format response.
         
+        Args:
+            response_text: The text response from the LLM
+            
+        Returns:
+            List of section dictionaries
+        """
         # Try to extract JSON content using regex to handle cases where the LLM
         # might include explanatory text before or after the JSON
-        json_match = re.search(r'```(?:json)?\s*(\[[\s\S]*?\])```', response_text)
+        json_match: Optional[Match[str]] = re.search(r'```(?:json)?\s*(\[[\s\S]*?\])```', response_text)
         if json_match:
-            json_str = json_match.group(1)
+            json_str: str = json_match.group(1)
         else:
             # If no code block, try to find array directly
             json_match = re.search(r'\[\s*{[\s\S]*}\s*\]', response_text)
@@ -271,10 +318,10 @@ class TextToMarkdownConverter:
                 return []
         
         try:
-            sections_data = json.loads(json_str)
+            sections_data: List[Dict[str, Any]] = json.loads(json_str)
             
             # Validate and process each section
-            valid_sections = []
+            valid_sections: List[SectionData] = []
             for i, section in enumerate(sections_data):
                 if not isinstance(section, dict):
                     logger.warning(f"Skipping non-dictionary section at index {i}")
@@ -290,7 +337,7 @@ class TextToMarkdownConverter:
                     # Try to get section number from title
                     if 'title' in section and section['title']:
                         # Extract potential section number from title
-                        num_match = re.search(r'^(\d+\w?)\.', section['title'])
+                        num_match: Optional[Match[str]] = re.search(r'^(\d+\w?)\.', section['title'])
                         if num_match:
                             section['section_number'] = num_match.group(1)
                         else:
@@ -302,7 +349,18 @@ class TextToMarkdownConverter:
                 if 'title' not in section or not section.get('title', '').strip():
                     section['title'] = f"Section {section['section_number']}"
                 
-                valid_sections.append(section)
+                # Cast to make type checker happy
+                valid_section: SectionData = {
+                    'title': str(section.get('title', '')),
+                    'section_number': str(section.get('section_number', '')),
+                    'content': str(section.get('content', ''))
+                }
+                
+                # Add source if present
+                if 'source' in section:
+                    valid_section['source'] = str(section['source'])
+                    
+                valid_sections.append(valid_section)
             
             logger.info(f"Successfully parsed {len(valid_sections)} sections from JSON")
             return valid_sections
@@ -314,24 +372,31 @@ class TextToMarkdownConverter:
             logger.warning(f"Error processing JSON sections: {e}")
             return []
     
-    def _parse_field_marker_sections(self, response_text: str) -> List[Dict[str, str]]:
-        """Parse sections from field marker format response."""
+    def _parse_field_marker_sections(self, response_text: str) -> List[SectionData]:
+        """Parse sections from field marker format response.
+        
+        Args:
+            response_text: The text response from the LLM
+            
+        Returns:
+            List of section dictionaries
+        """
         # Split into sections using the separator
-        section_blocks = response_text.split('---')
-        sections = []
+        section_blocks: List[str] = response_text.split('---')
+        sections: List[SectionData] = []
         
         for block in section_blocks:
             block = block.strip()
             if not block:
                 continue
                 
-            current_section = {}
-            lines = block.split('\n')
-            content_lines = []
-            is_content_section = False # Flag to know when we start reading content
+            current_section: Dict[str, str] = {}
+            lines: List[str] = block.split('\n')
+            content_lines: List[str] = []
+            is_content_section: bool = False # Flag to know when we start reading content
             
             for line in lines:
-                stripped_line = line.strip()
+                stripped_line: str = line.strip()
                 if not stripped_line:
                     if is_content_section: # Preserve empty lines within content
                         content_lines.append("")
@@ -341,7 +406,7 @@ class TextToMarkdownConverter:
                     current_section['title'] = stripped_line[6:].strip()
                 elif not is_content_section and stripped_line.startswith('content:'):
                     # Content starts here. Add the first line of content.
-                    remaining = stripped_line[8:].strip()
+                    remaining: str = stripped_line[8:].strip()
                     if remaining:
                         content_lines.append(remaining)
                     is_content_section = True
@@ -384,7 +449,7 @@ class TextToMarkdownConverter:
             return ""
             
         # Replace problematic characters with underscores
-        safe_text = text.strip()
+        safe_text: str = text.strip()
         for char in [':', '/', '\\', '*', '?', '"', '<', '>', '|', ' ']:
             safe_text = safe_text.replace(char, '_')
             
@@ -396,7 +461,34 @@ class TextToMarkdownConverter:
             
         return safe_text
 
-    def save_split_sections(self, sections: List[Dict[str, str]], output_dir: Union[str, Path]) -> None:
+    def _format_content(self, content_text: str) -> str:
+        """Format content text with proper bullet points and structure.
+        
+        Args:
+            content_text: The raw content text to format
+            
+        Returns:
+            Formatted content text
+        """
+        formatted_content: List[str] = []
+        
+        # Format the content to ensure it appears as bullet points if needed
+        for para in content_text.split('\n'):
+            para = para.strip()
+            if not para:
+                formatted_content.append("")  # Keep empty lines
+            elif para.startswith(('- ', '* ', '• ')):
+                formatted_content.append(para)  # Keep existing bullet points
+            elif para.startswith(('(', '1.', '2.', '3.')):
+                # For numbered items or parenthesized items, add as bullets
+                formatted_content.append(f"- {para}")
+            else:
+                # For regular paragraphs
+                formatted_content.append(para)
+        
+        return '\n'.join(formatted_content)
+
+    def save_split_sections(self, sections: List[SectionData], output_dir: PathLike) -> None:
         """Save split sections to individual files.
         
         Args:
@@ -407,85 +499,21 @@ class TextToMarkdownConverter:
         output_dir.mkdir(parents=True, exist_ok=True)
         
         # Get the document name from the process_file method
-        document_name = getattr(self, 'document_name', '')
-        source_url = getattr(self, 'source_url', '')
+        document_name: str = getattr(self, 'document_name', '')
+        source_url: str = getattr(self, 'source_url', '')
         
         # Generate a safe version of the document name for filenames
-        safe_doc_name = self._sanitize_for_filename(document_name)
+        safe_doc_name: str = self._sanitize_for_filename(document_name)
         
         for i, section in enumerate(sections):
             # Generate a safe filename from section number or index
-            if 'section_number' in section and section['section_number'].strip():
-                # Clean the section number for filenames
-                raw_num = section['section_number'].strip()
-                safe_num = self._sanitize_for_filename(raw_num)
-                
-                if safe_num: # Ensure we have a non-empty filename component
-                    filename = f"{safe_doc_name}_{safe_num}.md" if safe_doc_name else f"{safe_num}.md"
-                else:
-                    logger.warning(f"Could not generate safe filename from section number '{raw_num}', using index.")
-                    filename = f"{safe_doc_name}_{i+1:02d}.md" if safe_doc_name else f"section_{i+1:02d}.md"
-            else:
-                filename = f"{safe_doc_name}_{i+1:02d}.md" if safe_doc_name else f"section_{i+1:02d}.md"
+            filename: str = self._generate_filename(section, i, safe_doc_name)
             
             # Format document content in the desired structure
-            content_lines = []
-            
-            # 1. Add the full document name with section title
-            doc_title = f"**{document_name}**"
-            content_lines.append(doc_title)
-            content_lines.append("")  # Empty line after title
-            
-            # 2. Add the source reference with proper URL
-            section_ref = f"מקור: סעיף {section.get('section_number', '')}"
-            
-            # Create section anchor for the URL based on the section number
-            section_number = section.get('section_number', '').strip()
-            if section_number and source_url:
-                # Handle different section number formats - regular numbers, and Hebrew letters
-                if section_number.isdigit() or any(c.isalpha() for c in section_number):
-                    # Format might be "1", "1א", etc.
-                    section_anchor = f"#סעיף_{section_number}"
-                    full_url = f"{source_url}{section_anchor}"
-                else:
-                    # Use the base URL if we can't determine a valid anchor
-                    full_url = source_url
-            else:
-                full_url = source_url
-            
-            content_lines.append(f"[{section_ref}]({full_url})")
-            
-            # 3. Add section title if different from document name
-            if 'title' in section and section['title'] and section['title'] != document_name:
-                content_lines.append(f"{section['title']}")
-                content_lines.append("")  # Empty line after section title
-            
-            # 4. Add the content, properly formatted
-            if 'content' in section and section['content'].strip():
-                # Process the content to improve formatting
-                content_text = section['content'].strip()
-                
-                # Format the content to ensure it appears as bullet points if needed
-                # This preserves existing bullet points and adds bullets to regular paragraphs
-                formatted_content = []
-                for para in content_text.split('\n'):
-                    para = para.strip()
-                    if not para:
-                        formatted_content.append("")  # Keep empty lines
-                    elif para.startswith(('- ', '* ', '• ')):
-                        formatted_content.append(para)  # Keep existing bullet points
-                    elif para.startswith(('(', '1.', '2.', '3.')):
-                        # For numbered items or parenthesized items, add as bullets
-                        formatted_content.append(f"- {para}")
-                    else:
-                        # For regular paragraphs
-                        formatted_content.append(para)
-                
-                # Add the formatted content
-                content_lines.append('\n'.join(formatted_content))
+            content_lines: List[str] = self._prepare_section_content(section, document_name, source_url)
             
             # Write file
-            file_path = output_dir / filename
+            file_path: Path = output_dir / filename
             try:
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write('\n'.join(content_lines))
@@ -493,8 +521,95 @@ class TextToMarkdownConverter:
             except OSError as e:
                 logger.error(f"Error writing file {file_path}: {e}")
 
-    def process_file(self, input_path: Union[str, Path], output_path: Optional[Union[str, Path]] = None, 
-                    source_url: str = None, split: bool = False) -> None:
+    def _generate_filename(self, section: SectionData, index: int, safe_doc_name: str) -> str:
+        """Generate a safe filename for a section.
+        
+        Args:
+            section: The section data
+            index: The section index (for fallback)
+            safe_doc_name: The sanitized document name
+            
+        Returns:
+            A safe filename for the section
+        """
+        if 'section_number' in section and section['section_number'].strip():
+            # Clean the section number for filenames
+            raw_num: str = section['section_number'].strip()
+            safe_num: str = self._sanitize_for_filename(raw_num)
+            
+            if safe_num: # Ensure we have a non-empty filename component
+                filename: str = f"{safe_doc_name}_{safe_num}.md" if safe_doc_name else f"{safe_num}.md"
+            else:
+                logger.warning(f"Could not generate safe filename from section number '{raw_num}', using index.")
+                filename = f"{safe_doc_name}_{index+1:02d}.md" if safe_doc_name else f"section_{index+1:02d}.md"
+        else:
+            filename = f"{safe_doc_name}_{index+1:02d}.md" if safe_doc_name else f"section_{index+1:02d}.md"
+            
+        return filename
+
+    def _prepare_section_content(self, section: SectionData, document_name: str, source_url: str) -> List[str]:
+        """Prepare the content for a section file.
+        
+        Args:
+            section: The section data
+            document_name: The document name
+            source_url: The source URL
+            
+        Returns:
+            List of lines for the section content
+        """
+        content_lines: List[str] = []
+        
+        # 1. Add the full document name with section title
+        doc_title: str = f"**{document_name}**"
+        content_lines.append(doc_title)
+        content_lines.append("")  # Empty line after title
+        
+        # 2. Add the source reference with proper URL
+        section_ref: str = f"מקור: סעיף {section.get('section_number', '')}"
+        full_url: str = self._generate_section_url(section.get('section_number', ''), source_url)
+        content_lines.append(f"[{section_ref}]({full_url})")
+        
+        # 3. Add section title if different from document name
+        if 'title' in section and section['title'] and section['title'] != document_name:
+            content_lines.append(f"{section['title']}")
+            content_lines.append("")  # Empty line after section title
+        
+        # 4. Add the content, properly formatted
+        if 'content' in section and section['content'].strip():
+            # Format the content
+            formatted_content: str = self._format_content(section['content'].strip())
+            content_lines.append(formatted_content)
+        
+        return content_lines
+
+    def _generate_section_url(self, section_number: str, source_url: str) -> str:
+        """Generate a URL for a section.
+        
+        Args:
+            section_number: The section number
+            source_url: The base source URL
+            
+        Returns:
+            The complete URL for the section
+        """
+        section_number = section_number.strip()
+        if section_number and source_url:
+            # Handle different section number formats - regular numbers, and Hebrew letters
+            if section_number.isdigit() or any(c.isalpha() for c in section_number):
+                # Format might be "1", "1א", etc.
+                section_anchor: str = f"#סעיף_{section_number}"
+                full_url: str = f"{source_url}{section_anchor}"
+            else:
+                # Use the base URL if we can't determine a valid anchor
+                full_url = source_url
+        else:
+            full_url = source_url
+            
+        return full_url
+
+    def process_file(self, input_path: PathLike, output_path: Optional[PathLike] = None, 
+                    source_url: Optional[str] = None, split: bool = False) -> None:
         """Process input file and generate markdown output.
     
         Args:
@@ -502,6 +617,10 @@ class TextToMarkdownConverter:
             output_path: Optional path for output file
             source_url: The source URL to be embedded in the output files
             split: Whether to split the content into sections
+            
+        Raises:
+            ValueError: If source_url is not provided
+            FileNotFoundError: If the input file is not found
         """
         if not source_url:
             raise ValueError("source_url is required")
@@ -513,13 +632,13 @@ class TextToMarkdownConverter:
         # Read input file
         logger.info(f"Reading input file: {input_path}")
         with open(input_path, 'r', encoding='utf-8') as f:
-            text = f.read()
+            text: str = f.read()
         
-        file_size = len(text)
+        file_size: int = len(text)
         logger.info(f"Input file size: {file_size} characters")
 
         # Extract document name
-        document_name = self.extract_document_name(text)
+        document_name: str = self.extract_document_name(text)
         logger.info(f"Using document name: {document_name}")
         
         # Store document name and source URL as instance variables
@@ -527,6 +646,7 @@ class TextToMarkdownConverter:
         self.source_url = source_url
 
         # Process the text (automatically handles large files)
+        markdown: str
         if file_size > 100000:
             logger.info("File is large, processing in chunks")
             markdown = self.process_large_text(text)
@@ -536,8 +656,12 @@ class TextToMarkdownConverter:
 
         if split:
             # Split into sections and save individually
-            sections = self.split_into_sections(markdown)
-            output_dir = output_path if output_path else input_path.parent / f"{input_path.stem}_sections"
+            sections: List[SectionData] = self.split_into_sections(markdown)
+            output_dir: Path
+            if output_path:
+                output_dir = Path(output_path)
+            else:
+                output_dir = input_path.parent / f"{input_path.stem}_sections"
             self.save_split_sections(sections, output_dir)
         else:
             # Write single output file
@@ -547,7 +671,7 @@ class TextToMarkdownConverter:
                 output_path = Path(output_path)
             
             # Format the content for single file output
-            content = []
+            content: List[str] = []
             content.append(f"**{document_name}**\n")
             content.append(f"[מקור: ]({source_url})\n")
             content.append(markdown)
@@ -557,7 +681,8 @@ class TextToMarkdownConverter:
                 f.write('\n'.join(content))
             logger.info(f"Markdown file created: {output_path}")
 
-def main():
+def main() -> None:
+    """Entry point for the script."""
     parser = argparse.ArgumentParser(description='Convert text files to markdown using LLM')
     parser.add_argument('--input', required=True, help='Path to input text file')
     parser.add_argument('--output', help='Path to output markdown file (optional)')
