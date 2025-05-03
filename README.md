@@ -94,6 +94,21 @@ Available query commands:
   - Options:
     - `--rtl`: Display fields in right-to-left order
 
+### Updating Vector Store Content
+
+To update or add content to the vector store:
+
+```bash
+# Update all contexts for the takanon bot (complete rebuild)
+botnim sync staging takanon --backend es --replace-context
+
+# Update only a specific context without rebuilding others
+botnim sync staging takanon --backend es --context-to-update <contxt name>
+
+# Check the content after updating
+botnim query search staging takanon ethics_rules "<query>" --num-results 3
+```
+
 ### Evaluating Query Performance
 
 The `botnim evaluate` command allows you to evaluate the performance of queries against a vector store:
@@ -136,6 +151,7 @@ botnim query list-indexes staging --bot takanon
 Either:
 3. `botnim sync {staging/production} {budgetkey/takanon} --backend {openai/es}` to sync the specifications with the OpenAI account.
    - Use `--replace-context` flag to force a complete rebuild of the vector store (useful when context files have been modified)
+   - Use `--context-to-update` option to update only a specific context (e.g., `--context-to-update ethics_rules`) without replacing all contexts
 Or
 3. Commit the changes to the repository
 4. Run the 'Sync' action from the GitHub Actions tab.
