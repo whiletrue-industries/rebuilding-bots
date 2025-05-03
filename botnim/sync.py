@@ -50,7 +50,7 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(config, config_dir, production, backend, replace_context=False):
+def update_assistant(config, config_dir, production, backend, replace_context=False, context_to_update=None):
     tool_resources = None
     tools = None
     print(f'Updating assistant: {config["name"]}')
@@ -65,7 +65,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         else:
             raise ValueError(f"Unsupported backend: {backend}")
         # Update the vector store with the context
-        tools, tool_resources = vs.vector_store_update(config['context'], replace_context)
+        tools, tool_resources = vs.vector_store_update(config['context'], replace_context, context_to_update)
     
     # List all the assistants in the organization:
     assistants = client.beta.assistants.list()
@@ -119,7 +119,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
         # ...
 
 
-def sync_agents(environment, bots, backend='openai', replace_context=False):
+def sync_agents(environment, bots, backend='openai', replace_context=False, context_to_update=None):
     production = is_production(environment)
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
@@ -131,4 +131,4 @@ def sync_agents(environment, bots, backend='openai', replace_context=False):
                 if production:
                     config['instructions'] = config['instructions'].replace('__dev', '')
                 update_assistant(config, config_dir, production, backend,
-                                 replace_context=replace_context)
+                               replace_context=replace_context, context_to_update=context_to_update)
