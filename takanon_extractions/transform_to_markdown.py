@@ -385,6 +385,14 @@ class TextToMarkdownConverter:
         document_name = getattr(self, 'document_name', '')
         source_url = getattr(self, 'source_url', '')
         
+        # Generate a safe version of the document name for filenames
+        safe_doc_name = document_name
+        # Replace problematic characters with underscores
+        for char in [':', '/', '\\', '*', '?', '"', '<', '>', '|', ' ']:
+            safe_doc_name = safe_doc_name.replace(char, '_')
+        # Remove extra underscores
+        safe_doc_name = '_'.join(filter(None, safe_doc_name.split('_')))
+        
         for i, section in enumerate(sections):
             # Generate a safe filename from section number or index
             if 'section_number' in section and section['section_number'].strip():
@@ -398,12 +406,12 @@ class TextToMarkdownConverter:
                 safe_num = '_'.join(filter(None, safe_num.split('_')))
                 
                 if safe_num: # Ensure we have a non-empty filename component
-                    filename = f"{safe_num}.md"
+                    filename = f"{safe_doc_name}_{safe_num}.md"
                 else:
                     logger.warning(f"Could not generate safe filename from section number '{raw_num}', using index.")
-                    filename = f"section_{i+1:02d}.md"
+                    filename = f"{safe_doc_name}_{i+1:02d}.md"
             else:
-                filename = f"section_{i+1:02d}.md"
+                filename = f"{safe_doc_name}_{i+1:02d}.md"
             
             # Format document content in the desired structure
             content_lines = []
