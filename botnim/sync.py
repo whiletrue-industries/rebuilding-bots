@@ -85,7 +85,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
     asst_params = dict(
         name=assistant_name,
         description=config['description'],
-        model='gpt-4o',
+        model='gpt-4.1',
         instructions=config['instructions'],
         temperature=0.00001,
     )
