@@ -9,9 +9,11 @@ context:
     sources:
     - type: google-spreadsheet
       source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/
-    - type: files
-      source: extraction/ethics/*.md
   - slug: legal_text
     name: Knesset Bylaws (תקנון הכנסת) and related laws
     type: files
-    source: extraction/*.md
+    sources:
+    - type: files
+      source: extraction/*.md
+    - type: files
+      source: extraction/ethics/*.md
