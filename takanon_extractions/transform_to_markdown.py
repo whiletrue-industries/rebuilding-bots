@@ -80,6 +80,17 @@ class TextToMarkdownConverter:
                     if not content:
                         raise ValueError("Empty content in response")
                     
+                    # Save the raw response to the debug log if enabled
+                    if hasattr(self, 'debug') and self.debug and hasattr(self, 'debug_log_path') and self.debug_log_path:
+                        try:
+                            with open(self.debug_log_path, 'a', encoding='utf-8') as debug_log_file:
+                                debug_log_file.write(f"\n--- MARKDOWN CONVERSION RESPONSE at {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n\n")
+                                debug_log_file.write(content)
+                                debug_log_file.write("\n\n--- END OF RESPONSE ---\n\n")
+                            logger.info(f"Saved raw LLM response to {self.debug_log_path}")
+                        except Exception as e:
+                            logger.error(f"Failed to write to debug log: {e}")
+                    
                     # Remove markdown code block markers if present
                     content = content.strip()
                     if content.startswith("```markdown"):
@@ -104,16 +115,7 @@ class TextToMarkdownConverter:
         except Exception as e:
             error_msg: str = str(e)
             logger.error(f"Error converting text to markdown: {error_msg}")
-            
-            if "authentication" in error_msg.lower():
-                logger.error("Authentication error. Please check your OPENAI_API_KEY environment variable.")
-            elif "rate limit" in error_msg.lower():
-                logger.error("Rate limit exceeded. Please try again later or check your API quota.")
-            elif "model not found" in error_msg.lower():
-                logger.error(f"Model {self.model} not found. Please check if the model name is correct.")
-            else:
-                logger.error("Unknown error occurred. Please check your internet connection and API key.")
-            
+
             raise
 
     def split_text(self, text: str, max_chunk_size: int = 4000) -> List[str]:
@@ -264,7 +266,17 @@ class TextToMarkdownConverter:
             
             # Process the response
             response_text: str = response.choices[0].message.content
-            logger.debug(f"LLM response: {response_text}")
+            
+            # Save the raw response to the debug log if enabled
+            if hasattr(self, 'debug') and self.debug and hasattr(self, 'debug_log_path') and self.debug_log_path:
+                try:
+                    with open(self.debug_log_path, 'a', encoding='utf-8') as debug_log_file:
+                        debug_log_file.write(f"\n--- SECTION SPLITTING RESPONSE at {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n\n")
+                        debug_log_file.write(response_text)
+                        debug_log_file.write("\n\n--- END OF RESPONSE ---\n\n")
+                    logger.info(f"Saved raw LLM response to {self.debug_log_path}")
+                except Exception as e:
+                    logger.error(f"Failed to write to debug log: {e}")
             
             # First try to parse as JSON
             sections: List[SectionData] = self._parse_json_sections(response_text)
@@ -609,7 +621,7 @@ class TextToMarkdownConverter:
         return full_url
 
     def process_file(self, input_path: PathLike, output_path: Optional[PathLike] = None, 
-                    source_url: Optional[str] = None, split: bool = False) -> None:
+                    source_url: Optional[str] = None, split: bool = False, debug: bool = False) -> None:
         """Process input file and generate markdown output.
     
         Args:
@@ -617,6 +629,7 @@ class TextToMarkdownConverter:
             output_path: Optional path for output file
             source_url: The source URL to be embedded in the output files
             split: Whether to split the content into sections
+            debug: Whether to save raw LLM responses to a log file
             
         Raises:
             ValueError: If source_url is not provided
@@ -628,6 +641,16 @@ class TextToMarkdownConverter:
         input_path = Path(input_path)
         if not input_path.exists():
             raise FileNotFoundError(f"Input file not found: {input_path}")
+
+        # Create debug log file if debug mode is enabled
+        self.debug = debug
+        self.debug_log_path = None
+        if debug:
+            self.debug_log_path = input_path.with_suffix('.log')
+            logger.info(f"Debug mode enabled. Raw LLM responses will be saved to: {self.debug_log_path}")
+            # Initialize the log file
+            with open(self.debug_log_path, 'w', encoding='utf-8') as f:
+                f.write(f"Debug log for {input_path.name} created at {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
 
         # Read input file
         logger.info(f"Reading input file: {input_path}")
@@ -691,12 +714,13 @@ def main() -> None:
     parser.add_argument('--model', default='gpt-4o', help='LLM model to use')
     parser.add_argument('--temperature', type=float, default=0.1, help='Temperature for LLM generation')
     parser.add_argument('--split', action='store_true', help='Split content into sections')
+    parser.add_argument('--debug', action='store_true', help='Enable debug mode to save raw LLM responses')
     
     args = parser.parse_args()
     
     converter = TextToMarkdownConverter(model=args.model)
     converter.temperature = args.temperature
-    converter.process_file(args.input, args.output, args.source_url, args.split)
+    converter.process_file(args.input, args.output, args.source_url, args.split, args.debug)
 
 if __name__ == '__main__':
     main() 
