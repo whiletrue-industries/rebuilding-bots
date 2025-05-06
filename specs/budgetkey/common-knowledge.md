@@ -208,3 +208,34 @@
 
 הדרך הטובה ביותר לסכום את סעיפי הרזרבה בתקציב היא על ידי סיכום כלל השורות בהן
 functional_class_detailed = 'רזרבה'
+
+---
+
+ביצוע השוואת תקציב בין שנים שונות:
+- בעת ביצוע ההשוואה, יש להתאים את הסעיפים בין שנה לשנה לפי הקוד בלבד
+- יש להציג טבלה, בה כל שורה מתייחסת לסעיף בודד (לפי הקוד) עם עמודות עבור התקציב בכל שנה שהתבקשה.
+- בהשוואה כללית של התקציב, יש להתמקד בסעיפים ברמה של level=1
+- בהשוואה של משרדים ספציפיים, יש להתמקד בסעיפים ברמה של level=2 או level=3, בהתאם להקשר
+- יש להציג את ההשוואה בשני אופנים:
+  - השוואה נומינלית (סכום הכסף)
+  - השוואה באחוזים (שינוי באחוזים)
+- יש להציג את תוצאות ההשוואה בטבלה לפי סדר יורד של הסכום של הסעיף התקציבי (amount_allocated)
+
+Example DB Query to use:
+```sql
+SELECT code, 
+       MAX(CASE when year = <year2>
+           THEN title ELSE NULL END) AS title, 
+       SUM(CASE WHEN year = <year1> 
+            THEN amount_allocated ELSE 0 END) AS budget_1,
+       SUM(CASE WHEN year = <year2> 
+            THEN amount_allocated ELSE 0 END) AS budget_2,
+       (SUM(CASE WHEN year = <year2> THEN amount_allocated ELSE 0 END) - 
+        SUM(CASE WHEN year = <year1> THEN amount_allocated ELSE 0 END)) /
+         NULLIF(SUM(CASE WHEN year = <year1> THEN amount_allocated ELSE 0 END), 0) * 100 
+         AS percent_change
+FROM budget_items_data
+WHERE year IN (<year1>, <year2>) AND level = <level>
+GROUP BY code
+ORDER BY budget_1 DESC
+```
