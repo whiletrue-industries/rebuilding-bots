@@ -253,7 +253,7 @@ class TextToMarkdownConverter:
    ]
    ```
 5. Ensure the 'content' field contains the complete text for that specific section number/identifier ONLY, and does not bleed into the next numbered section.
-6. Capture ALL distinct sections/subsections present in the original document. There should be approximately 28 sections based on the numbering.
+6. Capture ALL distinct sections/subsections present in the original document.
 7. Maintain the original hierarchy implicitly through the section numbers.
 8. Do NOT combine multiple numbered sections into one output section."""},
                     {"role": "user", "content": f"Split this markdown content into logical sections based on its structure (פרקים, numbered items like 1., 1א., 2.). Ensure ALL content is preserved within its correct section, and capture ALL distinct numbered sections/subsections. Return the results in JSON format as described:\n\n{markdown_content}"}
