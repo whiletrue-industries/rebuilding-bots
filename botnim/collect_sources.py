@@ -116,19 +116,30 @@ def collect_sources_google_spreadsheet(context_name, source):
             )
     return file_streams
 
+def file_streams_for_context(config_dir, context_name, context_):
+    context_type = context_['type']
+    source = context_['source']
+    if context_type == 'files':
+        file_streams = collect_sources_files(config_dir, context_name, source)
+    elif context_type == 'split':
+        file_streams = collect_sources_split(config_dir, context_name, source)
+    elif context_type == 'google-spreadsheet':
+        file_streams = collect_sources_google_spreadsheet(context_name, source)
+    else:
+        raise ValueError(f'Unknown context type: {context_type}')
+    return file_streams
+
+
 def collect_context_sources(context_, config_dir: Path):
     global cache
     cache = KVFile(location=str(Path(__file__).parent.parent / 'cache' / 'metadata'))
     context_name = context_['name']
-    context_type = context_['type']
-    if context_type == 'files':
-        file_streams = collect_sources_files(config_dir, context_name, context_['source'])
-    elif context_type == 'split':
-        file_streams = collect_sources_split(config_dir, context_name, context_['source'])
-    elif context_type == 'google-spreadsheet':
-        file_streams = collect_sources_google_spreadsheet(context_name, context_['source'])
+    if 'sources' in context_:
+        file_streams = []
+        for source in context_['sources']:
+            file_streams.extend(file_streams_for_context(config_dir, context_name, source))
     else:
-        raise ValueError(f'Unknown context type: {context_type}')
+        file_streams = file_streams_for_context(config_dir, context_name, context_)
     cache.close()
     return file_streams
 

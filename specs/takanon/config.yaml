@@ -5,15 +5,13 @@ instructions: agent.txt
 context: 
   - slug: common_knowledge
     name: ידע רלוונטי על התקנון
-    type: google-spreadsheet
-    source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/
     max_num_results: 7
+    sources:
+    - type: google-spreadsheet
+      source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/
+    - type: files
+      source: extraction/ethics/*.md
   - slug: legal_text
     name: Knesset Bylaws (תקנון הכנסת) and related laws
     type: files
     source: extraction/*.md
-  - slug: ethics_rules
-    name: כללי אתיקה לחברי הכנסת
-    type: files
-    source: extraction/ethics/*.md
-    max_num_results: 7
