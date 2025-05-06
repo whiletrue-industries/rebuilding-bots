@@ -100,10 +100,10 @@ To update or add content to the vector store:
 
 ```bash
 # Update all contexts for the takanon bot (complete rebuild)
-botnim sync staging takanon --backend es --replace-context
+botnim sync staging takanon --backend es --replace-context all
 
 # Update only a specific context without rebuilding others
-botnim sync staging takanon --backend es --context-to-update <contxt name>
+botnim sync staging takanon --backend es --replace-context <context name>
 
 # Check the content after updating
 botnim query search staging takanon ethics_rules "<query>" --num-results 3

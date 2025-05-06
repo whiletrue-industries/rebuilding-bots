@@ -20,13 +20,12 @@ def cli():
 @cli.command(name='sync')
 @click.argument('environment', type=click.Choice(VALID_ENVIRONMENTS))
 @click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
-@click.option('--replace-context', is_flag=True, help='Replace existing context')
+@click.option('--replace-context', type=str, help='Replace existing context with a specific context name or use "all" to replace all contexts')
 @click.option('--backend', type=click.Choice(['es', 'openai']), default='openai', help='Vector store backend')
-@click.option('--context-to-update', type=str, help='Update only the specified context')
-def sync(environment, bots, replace_context, backend, context_to_update):
+def sync(environment, bots, replace_context, backend):
     """Sync bots to Airtable."""
     click.echo(f"Syncing {bots} to {environment}")
-    sync_agents(environment, bots, backend=backend, replace_context=replace_context, context_to_update=context_to_update)
+    sync_agents(environment, bots, backend=backend, replace_context=replace_context)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command(name='benchmarks')
