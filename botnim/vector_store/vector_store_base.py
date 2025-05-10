@@ -27,14 +27,24 @@ class VectorStoreBase(ABC):
         for context_ in context:
             context_name = context_['slug']
             vector_store = self.get_or_create_vector_store(context_, context_name, replace_context)
-            if replace_context:
+            
+            # Determine if we should process this context
+            should_process = replace_context in ('all', context_name)
+            
+            if should_process:
+                print(f'Processing context: {context_name}')
                 file_streams = collect_context_sources(context_, self.config_dir)
                 file_streams = [((fname if self.production else '_' + fname), f, t, m) for fname, f, t, m in file_streams]
                 file_names = [fname for fname, _, _, _ in file_streams]
+                
+                # Delete existing files since we're replacing the context
                 deleted = self.delete_existing_files(context_, vector_store, file_names)
                 print(f'VECTOR STORE {context_name} deleted {deleted}')
+                
                 total = len(file_streams)
-                self.upload_files(context_, context_name, vector_store, file_streams, lambda x: print(f'VECTOR STORE {context_name} uploaded {x}/{total}'))
+                self.upload_files(context_, context_name, vector_store, file_streams, 
+                                  lambda x: print(f'VECTOR STORE {context_name} uploaded {x}/{total}'))
+                
             self.update_tool_resources(context_, vector_store)
             self.update_tools(context_, vector_store)
         return self.tools, self.tool_resources

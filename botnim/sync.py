@@ -55,7 +55,7 @@ def update_assistant(config, config_dir, production, backend, replace_context=Fa
     tools = None
     print(f'Updating assistant: {config["name"]}')
     # Load context, if necessary
-    if config.get('context'):  
+    if config.get('context'):
         ## create vector store based on backend parameter
         if backend == 'openai':
             vs = VectorStoreOpenAI(config, config_dir, production, client)
@@ -131,4 +131,4 @@ def sync_agents(environment, bots, backend='openai', replace_context=False):
                 if production:
                     config['instructions'] = config['instructions'].replace('__dev', '')
                 update_assistant(config, config_dir, production, backend,
-                                 replace_context=replace_context)
+                               replace_context=replace_context)
