@@ -21,12 +21,12 @@ class VectorStoreBase(ABC):
             name += '__dev'
         return name
 
-    def vector_store_update(self, context, replace_context):
+    def vector_store_update(self, context, replace_context, reindex=False):
         self.tool_resources = None
         self.tools = []
         for context_ in context:
             context_name = context_['slug']
-            vector_store = self.get_or_create_vector_store(context_, context_name, replace_context)
+            vector_store = self.get_or_create_vector_store(context_, context_name, replace_context or reindex)
             
             # Determine if we should process this context
             should_process = replace_context in ('all', context_name)

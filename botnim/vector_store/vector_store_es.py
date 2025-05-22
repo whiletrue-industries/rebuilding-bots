@@ -87,6 +87,7 @@ class VectorStoreES(VectorStoreBase):
                     "content",
                     "metadata.title",
                     "metadata.extracted_data.DocumentTitle",
+                    "metadata.extracted_data.DocumentTitle.keyword",
                     "metadata.extracted_data.OfficialSource",
                     "metadata.extracted_data.OfficialRoles.Role",
                     "metadata.extracted_data.Description",
@@ -96,6 +97,16 @@ class VectorStoreES(VectorStoreBase):
                 "boost": 0.4,           # boost for text match vs vector match
                 "type": 'cross_fields',  # type of search: cross_fields, bool, simple, phrase, phrase_prefix
                 "operator": 'or',       # operator: or, and 
+            }
+        }
+        
+        # Add specific term query for exact match on DocumentTitle.keyword with higher boost
+        title_exact_match = {
+            "term": {
+                "metadata.extracted_data.DocumentTitle.keyword": {
+                    "value": query_text,
+                    "boost": 2.0  # Higher boost for exact matches
+                }
             }
         }
         
@@ -150,7 +161,7 @@ class VectorStoreES(VectorStoreBase):
         
         return {
             "bool": {
-                "should": [text_match, vector_match],
+                "should": [text_match, title_exact_match, vector_match],
                 "minimum_should_match": 1,
             }
         }
@@ -249,11 +260,13 @@ class VectorStoreES(VectorStoreBase):
         
         # Delete existing index if replace_context is True
         if replace_context and self.es_client.indices.exists(index=index_name):
+            logger.info(f"Deleting existing index due to replace_context flag: {index_name}")
             self.es_client.indices.delete(index=index_name)
             logger.info(f"Deleted existing index: {index_name}")
         
         # Create new index if it doesn't exist
         if not self.es_client.indices.exists(index=index_name):
+            logger.info(f"Creating new index with updated mapping: {index_name}")
             # Create index with proper mappings
             mapping = {
                 "mappings": {
@@ -285,7 +298,18 @@ class VectorStoreES(VectorStoreBase):
                                 "context_name": {"type": "keyword"},
                                 "extracted_data": {
                                     "type": "object",
-                                    "dynamic": True  # Allow dynamic fields in extracted_data
+                                    "dynamic": True,  # Allow dynamic fields in extracted_data
+                                    "properties": {
+                                        "DocumentTitle": {
+                                            "type": "text",
+                                            "fields": {
+                                                "keyword": {
+                                                    "type": "keyword",
+                                                    "ignore_above": 256
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
