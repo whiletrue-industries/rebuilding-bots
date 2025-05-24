@@ -1,6 +1,7 @@
 import io
 from pathlib import Path
 from typing import Union
+import hashlib
 import dataflows as DF
 from kvfile.kvfile_sqlite import CachedKVFileSQLite as KVFile
 
@@ -25,7 +26,7 @@ def get_metadata_for_content(content: str, file_path: str, document_type: str) -
     """
 
     # Check if metadata is already cached
-    cache_key = str(file_path)
+    cache_key = hashlib.sha256(content.strip().encode('utf-8')).hexdigest()[:16]
     item = cache.get(cache_key, default=None)
     if item:
         logger.info(f'Cache hit for {cache_key}, cached content: {item.get("content")[:100]!r}')
@@ -84,17 +85,17 @@ def collect_sources_files(config_dir: Path, context_name, source):
     ]
     return file_streams
 
-def collect_sources_split(config_dir, context_name, source):
+def collect_sources_split(config_dir, context_name, source, offset=0):
     filename = config_dir / source
     content = filename.read_text()
     content = content.split('\n---\n')
     file_streams = [
-        process_file_stream(f'{context_name}_{i}.md', c, 'text/markdown')
+        process_file_stream(f'{context_name}_{i+offset}.md', c, 'text/markdown')
         for i, c in enumerate(content)
     ]
     return file_streams
 
-def collect_sources_google_spreadsheet(context_name, source):
+def collect_sources_google_spreadsheet(context_name, source, offset=0):
     resources, dp, _ = DF.Flow(
         DF.load(source, name='rows'),
     ).results()
@@ -112,11 +113,11 @@ def collect_sources_google_spreadsheet(context_name, source):
                         content += f'{row[header]}\n\n'
         if content:
             file_streams.append(
-                process_file_stream(f'{context_name}_{idx}.md', content, 'text/markdown')
+                process_file_stream(f'{context_name}_{idx+offset}.md', content, 'text/markdown')
             )
     return file_streams
 
-def collect_context_sources(context_, config_dir: Path):
+def collect_context_sources(context_, config_dir: Path, offset=0):
     global cache
     cache = KVFile(location=str(Path(__file__).parent.parent / 'cache' / 'metadata'))
     context_name = context_['name']
@@ -124,9 +125,9 @@ def collect_context_sources(context_, config_dir: Path):
     if context_type == 'files':
         file_streams = collect_sources_files(config_dir, context_name, context_['source'])
     elif context_type == 'split':
-        file_streams = collect_sources_split(config_dir, context_name, context_['source'])
+        file_streams = collect_sources_split(config_dir, context_name, context_['source'], offset=offset)
     elif context_type == 'google-spreadsheet':
-        file_streams = collect_sources_google_spreadsheet(context_name, context_['source'])
+        file_streams = collect_sources_google_spreadsheet(context_name, context_['source'], offset=offset)
     else:
         raise ValueError(f'Unknown context type: {context_type}')
     cache.close()
@@ -134,9 +135,11 @@ def collect_context_sources(context_, config_dir: Path):
 
 def collect_all_sources(context_list, config_dir):
     all_sources = []
+    total = 0
     for context in context_list:
         all_sources.append(dict(
             **context,
-            file_streams=collect_context_sources(context, config_dir)
+            file_streams=collect_context_sources(context, config_dir, offset=total)
         ))
+        total += len(all_sources[-1]['file_streams'])
     return all_sources
