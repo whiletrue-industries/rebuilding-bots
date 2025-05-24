@@ -87,6 +87,7 @@ class VectorStoreES(VectorStoreBase):
                     "content",
                     "metadata.title",
                     "metadata.extracted_data.DocumentTitle",
+                    "metadata.extracted_data.DocumentTitle.keyword^3",  # Boost keyword matches
                     "metadata.extracted_data.OfficialSource",
                     "metadata.extracted_data.OfficialRoles.Role",
                     "metadata.extracted_data.Description",
@@ -98,6 +99,54 @@ class VectorStoreES(VectorStoreBase):
                 "operator": 'or',       # operator: or, and 
             }
         }
+        
+        # Enhanced priority for document title matches
+        # This creates several potential exact title matches by taking the first 1-3 words of the query
+        title_matches = []
+        words = query_text.split()
+        
+        # Try exact match with full query
+        title_matches.append({
+            "term": {
+                "metadata.extracted_data.DocumentTitle.keyword": {
+                    "value": query_text,
+                    "boost": 10.0
+                }
+            }
+        })
+        
+        # Try with first 1-3 words (to match document titles like "חוק הכנסת")
+        if len(words) >= 2:
+            potential_title = " ".join(words[0:2])
+            title_matches.append({
+                "term": {
+                    "metadata.extracted_data.DocumentTitle.keyword": {
+                        "value": potential_title,
+                        "boost": 20.0  # Higher boost for shorter, exact title matches
+                    }
+                }
+            })
+            
+        if len(words) >= 3:
+            potential_title = " ".join(words[0:3])
+            title_matches.append({
+                "term": {
+                    "metadata.extracted_data.DocumentTitle.keyword": {
+                        "value": potential_title,
+                        "boost": 15.0
+                    }
+                }
+            })
+        
+        # Add a prefix match as fallback
+        title_matches.append({
+            "prefix": {
+                "metadata.extracted_data.DocumentTitle.keyword": {
+                    "value": words[0] if words else "",
+                    "boost": 5.0
+                }
+            }
+        })
         
         vector_match = {
             "bool": {
@@ -148,12 +197,15 @@ class VectorStoreES(VectorStoreBase):
             }
         }
         
-        return {
+        # Build final query with all components
+        query = {
             "bool": {
-                "should": [text_match, vector_match],
+                "should": [text_match, vector_match] + title_matches,
                 "minimum_should_match": 1,
             }
         }
+        
+        return query
 
     def verify_document_vectors(self, index_name: str, document_id: str) -> Dict:
         """Verify vectors stored for a specific document"""
@@ -249,11 +301,13 @@ class VectorStoreES(VectorStoreBase):
         
         # Delete existing index if replace_context is True
         if replace_context and self.es_client.indices.exists(index=index_name):
+            logger.info(f"Deleting existing index due to replace_context flag: {index_name}")
             self.es_client.indices.delete(index=index_name)
             logger.info(f"Deleted existing index: {index_name}")
         
         # Create new index if it doesn't exist
         if not self.es_client.indices.exists(index=index_name):
+            logger.info(f"Creating new index with updated mapping: {index_name}")
             # Create index with proper mappings
             mapping = {
                 "mappings": {
@@ -285,7 +339,18 @@ class VectorStoreES(VectorStoreBase):
                                 "context_name": {"type": "keyword"},
                                 "extracted_data": {
                                     "type": "object",
-                                    "dynamic": True  # Allow dynamic fields in extracted_data
+                                    "dynamic": True,  # Allow dynamic fields in extracted_data
+                                    "properties": {
+                                        "DocumentTitle": {
+                                            "type": "text",
+                                            "fields": {
+                                                "keyword": {
+                                                    "type": "keyword",
+                                                    "ignore_above": 256
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

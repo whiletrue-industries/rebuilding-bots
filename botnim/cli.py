@@ -22,10 +22,11 @@ def cli():
 @click.argument('bots', type=click.Choice(['budgetkey', 'takanon', 'all']))
 @click.option('--replace-context', type=str, help='Replace existing context with a specific context name or use "all" to replace all contexts')
 @click.option('--backend', type=click.Choice(['es', 'openai']), default='openai', help='Vector store backend')
-def sync(environment, bots, replace_context, backend):
+@click.option('--reindex', is_flag=True, default=False, help='Force reindexing to update mapping changes')
+def sync(environment, bots, replace_context, backend, reindex):
     """Sync bots to Airtable."""
     click.echo(f"Syncing {bots} to {environment}")
-    sync_agents(environment, bots, backend=backend, replace_context=replace_context)
+    sync_agents(environment, bots, backend=backend, replace_context=replace_context, reindex=reindex)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command(name='benchmarks')
