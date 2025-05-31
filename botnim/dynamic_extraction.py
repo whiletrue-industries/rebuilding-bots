@@ -68,9 +68,11 @@ def extract_structured_content(text: str, template: str = None, document_type: s
 
         1. Use only the information given in the text.
         2. Output must be valid JSON that exactly follows the provided schema—do not add any extra keys or commentary.
-        3. Ensure all special characters, especially quotes within text, are properly escaped.
-        4. When including Hebrew text with quotation marks, ensure they are properly escaped with backslashes.
-        5. At the document level (DocumentMetadata), extract:
+        3. IMPORTANT: All quotes within text must be escaped with a backslash. For example:
+           - "ח"כ" should be written as "ח\"כ"
+           - "יו"ר" should be written as "יו\"ר"
+           - Any text in quotes should have its quotes escaped: "text" becomes \"text\"
+        4. At the document level (DocumentMetadata), extract:
             - "DocumentTitle" from the heading.
             - "OfficialSource" from any indicated section (e.g. "סעיף 137") and include any associated URL in "ReferenceLinks".
             - "ClauseRepresentation" should indicate whether the metadata pertains to a main clause, sub-clause, or specific section.
@@ -78,15 +80,15 @@ def extract_structured_content(text: str, template: str = None, document_type: s
             - Extract any official organizations mentioned in the document and list them in "OfficialOrganizations".
             - Extract any real-world locations or placenames mentioned in the document and list them in "Placenames".
             - "Description" should be a one-line summary describing the entire document's clauses content.
-        6. At the document level, also extract:
+        5. At the document level, also extract:
             - "LegalReferences": For each legal reference
             - "Amendments": If any amendment information is present
             - "AdditionalKeywords": Extract key legal terms, topics, and identifiers
             - "Topics": Aggregate all one-line descriptions from sub-clauses
-        7. For any field where no data is provided, return an empty string or an empty array as appropriate.
-        8. Do not infer or generate data that is not explicitly provided.
-        9. Ensure all key names follow standard, consistent naming.
-        10. Output only the JSON.
+        6. For any field where no data is provided, return an empty string or an empty array as appropriate.
+        7. Do not infer or generate data that is not explicitly provided.
+        8. Ensure all key names follow standard, consistent naming.
+        9. Output only the JSON.
 
         Extraction Template:
         {template}
@@ -115,26 +117,15 @@ def extract_structured_content(text: str, template: str = None, document_type: s
             logger.error(f"Failed to parse API response as JSON: {e} -->")
             logger.error(f"Response content: {response.choices[0].message.content}")
             
-            # try to fix common JSON parsing issues
-            try:
-                # Try to parse with more lenient JSON parsing
-                content = response.choices[0].message.content
-                # Replace problematic quotes in Hebrew text
-                content = re.sub(r'(["]\w+)["]([\w\s]+["]\w+)', r'\1\"\2', content)
-                extracted_data = json.loads(content)
-                logger.info(f"Successfully parsed JSON after fixing: {json.dumps(extracted_data, ensure_ascii=False)}")
-                return extracted_data
-            except Exception as recovery_error:
-                logger.error(f"Recovery attempt failed: {str(recovery_error)}")
-                # Return a minimal valid structure instead of error
-                return {
-                    "DocumentMetadata": {
-                        "DocumentTitle": "Parsing Error",
-                        "Description": "Failed to parse API response"
-                    },
-                    "error": str(e),
-                    "raw_content": response.choices[0].message.content
-                }
+            # If parsing fails, return a minimal valid structure
+            return {
+                "DocumentMetadata": {
+                    "DocumentTitle": "Parsing Error",
+                    "Description": "Failed to parse API response"
+                },
+                "error": str(e),
+                "raw_content": response.choices[0].message.content
+            }
     except Exception as e:
         logger.error(f"Error in extract_structured_content: {str(e)}")
         return {"error": str(e)}
