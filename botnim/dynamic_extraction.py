@@ -88,13 +88,7 @@ def extract_structured_content(text: str, template: str = None, document_type: s
 
         1. Use only the information given in the text.
         2. Output must be valid JSON that exactly follows the provided schema—do not add any extra keys or commentary.
-        3. IMPORTANT: All quotes within text must be escaped with a backslash. For example:
-           - "ח"כ" should be written as "ח\\"כ"
-           - "יו"ר" should be written as "יו\\"ר"
-           - Any text in quotes should have its quotes escaped: "text" becomes \\"text\\"
-        3a. IMPORTANT: Do not include literal newlines inside JSON string values; replace any line breaks or line feeds with spaces or the literal '\\n'.
-        3b. IMPORTANT: Do not repeat any keys in the JSON; each field must appear only once.
-        3c. CRITICAL: When a Hebrew word contains quotes, ALWAYS escape those quotes with a backslash, especially in terms like "יו"ר" or "ח"כ".
+        3. Ensure all special characters, especially quotes within text, are properly escaped.
         4. At the document level (DocumentMetadata), extract:
             - "DocumentTitle" from the heading.
             - "OfficialSource" from any indicated section (e.g. "סעיף 137") and include any associated URL in "ReferenceLinks".
@@ -128,7 +122,8 @@ def extract_structured_content(text: str, template: str = None, document_type: s
             messages=[{"role": "system", "content": system_message}],
             temperature=0.0,
             max_tokens=2000,
-            stream=False  
+            stream=False,
+            response_format={"type": "json_object"}
         )
 
         # Get the response content and parse as JSON
