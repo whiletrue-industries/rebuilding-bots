@@ -6,26 +6,6 @@ from .config import get_logger
 
 logger = get_logger(__name__)
 
-def clean_json_string(content: str) -> str:
-    """
-    Clean and fix JSON string content, particularly handling Hebrew quotes and special characters.
-    
-    Args:
-        content (str): The JSON string to clean
-        
-    Returns:
-        str: Cleaned JSON string
-    """
-    # Strip hidden characters and normalize whitespace
-    content = content.strip()
-    # Escape quotes between Hebrew letters
-    content = re.sub(r'(?<=[\u05D0-\u05EA])"(?=[\u05D0-\u05EA])', r'\\"', content)
-    # Escape quotes where a Hebrew letter precedes and space or comma follows
-    content = re.sub(r'(?<=[\u05D0-\u05EA])"(?=[\s,])', r'\\"', content)
-    # Escape quotes where space or comma precedes and Hebrew letter follows
-    content = re.sub(r'(?<=[\s,])"(?=[\u05D0-\u05EA])', r'\\"', content)
-    return content
-
 def extract_structured_content(text: str, template: str = None, document_type: str = None) -> dict:
     """
     Extracts structured content from text using OpenAI API.
@@ -127,104 +107,34 @@ def extract_structured_content(text: str, template: str = None, document_type: s
         )
 
         # Get the response content and parse as JSON
-        # First approach: Try to parse the raw response directly
-        raw_content = response.choices[0].message.content
         try:
-            extracted_data = json.loads(raw_content)
+            extracted_data = json.loads(response.choices[0].message.content)
             logger.info(f"Successfully extracted structured content: {json.dumps(extracted_data, ensure_ascii=False)}...\n")
             return extracted_data
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse API response as JSON: {e} -->")
-            logger.error(f"Response content: {raw_content}")
+            logger.error(f"Response content: {response.choices[0].message.content}")
             
-            # Second approach: Fix Hebrew quotes directly in the raw content
-            fixed_content = raw_content
-            
-            # Replace Hebrew quotes in the most common patterns
-            # 1. Fix quotes between Hebrew letters (like יו"ר)
-            fixed_content = re.sub(r'(?<=[\u05D0-\u05EA])"(?=[\u05D0-\u05EA])', r'\\"', fixed_content)
-            
-            # 2. Fix quotes in the description field with complex Hebrew text
-            if '"Description":' in fixed_content:
-                parts = fixed_content.split('"Description":', 1)
-                if len(parts) > 1:
-                    before = parts[0]
-                    desc_and_after = parts[1]
-                    # Find the end of the description value (next field or end of object)
-                    match = re.search(r',\s*"[A-Za-z]+":|\n\s*\}', desc_and_after)
-                    if match:
-                        desc_end_pos = match.start()
-                        desc_value = desc_and_after[:desc_end_pos]
-                        after = desc_and_after[desc_end_pos:]
-                        # Fix quotes in the description
-                        desc_value = re.sub(r'(?<=[\u05D0-\u05EA\s])"(?=[\u05D0-\u05EA\s])', r'\\"', desc_value)
-                        fixed_content = before + '"Description":' + desc_value + after
-            
-            # 3. Fix quotes in role names, organizations, keywords, etc.
-            for field in ['"DocumentTitle":', '"Role":', '"Organization":', '"Quote":', '"AdditionalKeywords":']:
-                if field in fixed_content:
-                    parts = fixed_content.split(field, 1)
-                    if len(parts) > 1:
-                        before = parts[0]
-                        value_and_after = parts[1].strip()
-                        # Check if it's an array or simple value
-                        if value_and_after.startswith('['):
-                            # It's an array, more complex handling needed
-                            # We'll use a simple approach first
-                            value_and_after = re.sub(r'(?<=[\u05D0-\u05EA\s])"(?=[\u05D0-\u05EA\s])', r'\\"', value_and_after)
-                        else:
-                            # Simple value, find the end of the value
-                            match = re.search(r',\s*"[A-Za-z]+":|\n\s*\}', value_and_after)
-                            if match:
-                                value_end_pos = match.start()
-                                value = value_and_after[:value_end_pos]
-                                after = value_and_after[value_end_pos:]
-                                # More aggressive handling for DocumentTitle field
-                                if field == '"DocumentTitle":':
-                                    # For DocumentTitle, catch all Hebrew quotes 
-                                    value = re.sub(r'(?<=[\u05D0-\u05EA])"(?=[\u05D0-\u05EA])', r'\\"', value)
-                                    value = re.sub(r'(?<=[\u05D0-\u05EA])"(?=[\s])', r'\\"', value)
-                                    value = re.sub(r'(?<=[\s])"(?=[\u05D0-\u05EA])', r'\\"', value)
-                                else:
-                                    value = re.sub(r'(?<=[\u05D0-\u05EA\s])"(?=[\u05D0-\u05EA\s])', r'\\"', value)
-                                value_and_after = value + after
-                        fixed_content = before + field + value_and_after
-            
-            # Last resort: Try to parse the fixed content
+            # try to fix common JSON parsing issues
             try:
-                extracted_data = json.loads(fixed_content)
-                logger.info(f"Successfully parsed JSON after fixing Hebrew quotes: {json.dumps(extracted_data, ensure_ascii=False)}")
+                # Try to parse with more lenient JSON parsing
+                content = response.choices[0].message.content
+                # Replace problematic quotes in Hebrew text
+                content = re.sub(r'(["]\w+)["]([\w\s]+["]\w+)', r'\1\"\2', content)
+                extracted_data = json.loads(content)
+                logger.info(f"Successfully parsed JSON after fixing: {json.dumps(extracted_data, ensure_ascii=False)}")
                 return extracted_data
-            except json.JSONDecodeError:
-                # Final approach: Try to manually reconstruct the JSON
-                try:
-                    # Create a minimal valid JSON structure
-                    minimal_json = {
+            except Exception as recovery_error:
+                logger.error(f"Recovery attempt failed: {str(recovery_error)}")
+                # Return a minimal valid structure instead of error
+                return {
+                    "DocumentMetadata": {
                         "DocumentTitle": "Parsing Error",
-                        "Description": "Failed to parse API response",
-                        "error": str(e),
-                        "raw_content": raw_content
-                    }
-                    
-                    # Try to extract some key information
-                    title_match = re.search(r'"DocumentTitle":\s*"([^"]+)"', raw_content)
-                    if title_match:
-                        minimal_json["DocumentTitle"] = title_match.group(1).replace('"', '\\"')
-                        
-                    desc_match = re.search(r'"Description":\s*"([^"]+)"', raw_content)
-                    if desc_match:
-                        minimal_json["Description"] = desc_match.group(1).replace('"', '\\"')
-                        
-                    logger.info(f"Created minimal JSON with extracted information")
-                    return minimal_json
-                except Exception as ex:
-                    logger.error(f"Failed to create minimal JSON: {ex}")
-                    return {
-                        "DocumentTitle": "Parsing Error",
-                        "Description": "Failed to parse API response",
-                        "error": str(e),
-                        "raw_content": raw_content
-                    }
+                        "Description": "Failed to parse API response"
+                    },
+                    "error": str(e),
+                    "raw_content": response.choices[0].message.content
+                }
     except Exception as e:
         logger.error(f"Error in extract_structured_content: {str(e)}")
         return {"error": str(e)}
