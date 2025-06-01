@@ -124,7 +124,7 @@
     "schemas": {}
   },
   {
-    "/botnim/retrieve/takanon/ethics_decisions": {
+    "/botnim/retrieve/takanon/ethics_decisions__dev": {
       "get": {
         "description": "Full text search on the ethics committee decisions",
         "operationId": "search_takanon__ethics_decisions__dev",

@@ -17,7 +17,7 @@ context:
     name: Knesset Bylaws (תקנון הכנסת) and related laws
     type: files
     source: extraction/*.md
-  - slug: ethics_committe_decisions
+  - slug: ethics_decisions
     name: "החלטות ועדת אתיקה בדבר כללי אתיקה לחברי הכנסת"
     sources:
       - type: google-spreadsheet
