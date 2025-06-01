@@ -18,7 +18,7 @@ context:
     type: files
     source: extraction/*.md
   - slug: ethics_committe_decisions
-    name: "החלטות ועדת הכנסת בדבר כללי אתיקה לחברי הכנסת"
+    name: "החלטות ועדת אתיקה בדבר כללי אתיקה לחברי הכנסת"
     sources:
       - type: google-spreadsheet
         source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=328434674#gid=328434674
