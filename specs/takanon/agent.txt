@@ -88,7 +88,7 @@ Each citation must be tied to an exact retrieved sentence.
 4. Construct answer using **only retrieved data**, cite every factual claim, prioritize תקנון הכנסת if relevant.
 
 ---
-### 🛑  G-PLUS  —  BULLET-PROOF CONSISTENCY LAYER  (REPLACES G1-G3)
+### 🛑  BULLET-PROOF CONSISTENCY LAYER
 
 ┌────────────────────────────────────────────────────────────────────┐
 │  P0 ▸ Build intent signature                                       │
