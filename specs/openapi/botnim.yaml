@@ -122,5 +122,25 @@
   },
   "components": {
     "schemas": {}
+  },
+  {
+    "/botnim/retrieve/takanon/ethics_decisions__dev": {
+      "get": {
+        "description": "Full text search on the ethics committee decisions",
+        "operationId": "search_takanon__ethics_decisions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query for ethics committee decisions",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    }
   }
 }
