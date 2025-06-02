@@ -69,8 +69,7 @@ def extract_structured_content(text: str, template: str = None, document_type: s
         1. Use only the information given in the text.
         2. Output must be valid JSON that exactly follows the provided schema—do not add any extra keys or commentary.
         3. Ensure all special characters, especially quotes within text, are properly escaped.
-        4. When including Hebrew text with quotation marks, ensure they are properly escaped with backslashes.
-        5. At the document level (DocumentMetadata), extract:
+        4. At the document level (DocumentMetadata), extract:
             - "DocumentTitle" from the heading.
             - "OfficialSource" from any indicated section (e.g. "סעיף 137") and include any associated URL in "ReferenceLinks".
             - "ClauseRepresentation" should indicate whether the metadata pertains to a main clause, sub-clause, or specific section.
@@ -78,15 +77,15 @@ def extract_structured_content(text: str, template: str = None, document_type: s
             - Extract any official organizations mentioned in the document and list them in "OfficialOrganizations".
             - Extract any real-world locations or placenames mentioned in the document and list them in "Placenames".
             - "Description" should be a one-line summary describing the entire document's clauses content.
-        6. At the document level, also extract:
+        5. At the document level, also extract:
             - "LegalReferences": For each legal reference
             - "Amendments": If any amendment information is present
             - "AdditionalKeywords": Extract key legal terms, topics, and identifiers
             - "Topics": Aggregate all one-line descriptions from sub-clauses
-        7. For any field where no data is provided, return an empty string or an empty array as appropriate.
-        8. Do not infer or generate data that is not explicitly provided.
-        9. Ensure all key names follow standard, consistent naming.
-        10. Output only the JSON.
+        6. For any field where no data is provided, return an empty string or an empty array as appropriate.
+        7. Do not infer or generate data that is not explicitly provided.
+        8. Ensure all key names follow standard, consistent naming.
+        9. Output only the JSON.
 
         Extraction Template:
         {template}
@@ -103,7 +102,8 @@ def extract_structured_content(text: str, template: str = None, document_type: s
             messages=[{"role": "system", "content": system_message}],
             temperature=0.0,
             max_tokens=2000,
-            stream=False  
+            stream=False,
+            response_format={"type": "json_object"}
         )
 
         # Get the response content and parse as JSON
@@ -138,3 +138,5 @@ def extract_structured_content(text: str, template: str = None, document_type: s
     except Exception as e:
         logger.error(f"Error in extract_structured_content: {str(e)}")
         return {"error": str(e)}
+
+
