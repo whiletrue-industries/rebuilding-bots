@@ -214,7 +214,7 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
     
     if join:
         formatted_results = '\n'.join(formatted_results)
-    return formatted_results
+    return formatted_results or 'No results found.'
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     """
