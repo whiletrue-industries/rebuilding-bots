@@ -39,7 +39,6 @@ class VectorStoreES(VectorStoreBase):
 
         self.es_client = Elasticsearch(**es_kwargs)
         self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        self.embedding_cache = KVFile(location=str(Path(__file__).parent.parent / 'cache' / 'metadata'))
 
         # Verify connection
         try:
@@ -377,6 +376,7 @@ class VectorStoreES(VectorStoreBase):
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
         """Upload files to vector store"""
         count = 0
+        embedding_cache = KVFile(location=str(Path(__file__).parent.parent.parent / 'cache' / 'embedding'))
         for filename, content_file, file_type, metadata in file_streams:
             try:
                 # Skip metadata files to prevent recursion
@@ -387,7 +387,7 @@ class VectorStoreES(VectorStoreBase):
                 # Read content
                 content = content_file.read().decode('utf-8')
                 cache_key = hashlib.sha256(content.strip().encode('utf-8')).hexdigest()[:16]
-                vector = self.embedding_cache.get(cache_key, default=None)
+                vector = embedding_cache.get(cache_key, default=None)
                 if not vector:                                
                     # Generate content embedding
                     response = self.openai_client.embeddings.create(
@@ -396,7 +396,7 @@ class VectorStoreES(VectorStoreBase):
                     )
                     vector = response.data[0].embedding
                     # Cache the vector
-                    self.embedding_cache.set(cache_key, vector)
+                    embedding_cache.set(cache_key, vector)
                 
                 # Prepare base document with content vector
                 document = {
@@ -510,6 +510,7 @@ class VectorStoreES(VectorStoreBase):
         if count % 32 != 0 and callable(callback):
             callback(count)
 
+        embedding_cache.close()
         logger.info(f"Completed upload of {count} files to {vector_store}")
         
     def delete_existing_files(self, context_, vector_store, file_names):
