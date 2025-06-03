@@ -3,7 +3,9 @@ from pathlib import Path
 from typing import List, Dict, Any
 import json
 from datetime import datetime
+import hashlib
 
+from kvfile.kvfile_sqlite import CachedKVFileSQLite as KVFile
 from elasticsearch import Elasticsearch
 from openai import OpenAI
 from ..config import DEFAULT_ENVIRONMENT, get_logger
@@ -37,7 +39,8 @@ class VectorStoreES(VectorStoreBase):
 
         self.es_client = Elasticsearch(**es_kwargs)
         self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        
+        self.embedding_cache = KVFile(location=str(Path(__file__).parent.parent / 'cache' / 'metadata'))
+
         # Verify connection
         try:
             if not self.es_client.ping():
@@ -383,13 +386,17 @@ class VectorStoreES(VectorStoreBase):
 
                 # Read content
                 content = content_file.read().decode('utf-8')
-                
-                # Generate content embedding
-                response = self.openai_client.embeddings.create(
-                    input=content,
-                    model=DEFAULT_EMBEDDING_MODEL,
-                )
-                vector = response.data[0].embedding
+                cache_key = hashlib.sha256(content.strip().encode('utf-8')).hexdigest()[:16]
+                vector = self.embedding_cache.get(cache_key, default=None)
+                if not vector:                                
+                    # Generate content embedding
+                    response = self.openai_client.embeddings.create(
+                        input=content,
+                        model=DEFAULT_EMBEDDING_MODEL,
+                    )
+                    vector = response.data[0].embedding
+                    # Cache the vector
+                    self.embedding_cache.set(cache_key, vector)
                 
                 # Prepare base document with content vector
                 document = {
