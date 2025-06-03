@@ -26,7 +26,7 @@
             }
           }
         ],
-        "deprecated": false      
+        "deprecated": false
       }
     },
     "/botnim/retrieve/budgetkey/common_knowledge__dev": {
@@ -44,7 +44,7 @@
             }
           }
         ],
-        "deprecated": false      
+        "deprecated": false
       }
     },
     "/botnim/retrieve/takanon/common_knowledge__dev": {
@@ -62,7 +62,7 @@
             }
           }
         ],
-        "deprecated": false      
+        "deprecated": false
       }
     },
     "/botnim/retrieve/takanon/common_knowledge": {
@@ -80,7 +80,7 @@
             }
           }
         ],
-        "deprecated": false      
+        "deprecated": false
       }
     },
     "/botnim/retrieve/takanon/legal_text__dev": {
@@ -98,7 +98,7 @@
             }
           }
         ],
-        "deprecated": false      
+        "deprecated": false
       }
     },
     "/botnim/retrieve/takanon/legal_text": {
@@ -116,31 +116,29 @@
             }
           }
         ],
-        "deprecated": false      
+        "deprecated": false
       }
     },
-    {
-      "/botnim/retrieve/takanon/ethics_decisions__dev": {
-        "get": {
-          "description": "Full text search on the ethics committee decisions",
-          "operationId": "search_takanon__ethics_decisions__dev",
-          "parameters": [
-            {
-              "name": "query",
-              "in": "query",
-              "description": "Free text search query for ethics committee decisions",
-              "required": true,
-              "schema": {
-                "type": "string"
-              }
+    "/botnim/retrieve/takanon/ethics_decisions__dev": {
+      "get": {
+        "description": "Full text search on the ethics committee decisions",
+        "operationId": "search_takanon__ethics_decisions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query for ethics committee decisions",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
-          ],
-          "deprecated": false
-        }
+          }
+        ],
+        "deprecated": false
       }
-    }    
+    }
   },
   "components": {
     "schemas": {}
-  },
+  }
 }
