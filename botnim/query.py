@@ -177,16 +177,14 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
     """
     # Format results for human-readable text output
     formatted_results = []
-    join = False
+    join = format.startswith('text')
     for result in results:
         if format == 'text-short':
-            join = True
             formatted_results.append(
                 f"{result.full_content}\n"
                 f"{'-' * 10}"
             )
         elif format == 'text':
-            join = True
             metadata_str = ''
             if result.metadata:
                 metadata_str = f"Metadata:\n{json.dumps(result.metadata, indent=2, ensure_ascii=False)}\n"
