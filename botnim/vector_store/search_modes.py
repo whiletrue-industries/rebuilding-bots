@@ -3,37 +3,45 @@ from .search_config import SearchModeConfig, SearchFieldConfig, FieldWeight
 
 def create_takanon_section_number_mode() -> SearchModeConfig:
     """
-    Creates a search mode optimized for finding sections in the Takanon `legal text` context.
+    Creates a search mode configuration for finding Takanon bot relate documents sections by their number.
+    This mode is specialized for the Takanon legal text context and expects queries
+    in the format 'סעיף X' where X is the section number.
     
-    This mode is specifically designed for the Takanon bot 'legal text' context and heavily weights exact matches
-    in the OfficialSource field where section numbers are typically found in the format:
-    "סעיף XX" or similar variations.
-    
-    The mode prioritizes:
-    1. Exact matches of section numbers in the OfficialSource field
-    2. Partial matches in the OfficialSource field
-    3. Content matches as a fallback
-    
-    This mode is not suitable for other legal contexts that might have different section numbering formats.
+    The search prioritizes exact matches in the OfficialSource field and includes
+    fuzzy matching for the resource name to handle slight variations in naming.
     """
     return SearchModeConfig(
         name="TAKANON_SECTION_NUMBER",
-        description="Search mode optimized for finding sections by their number in Takanon (תקנון הכנסת) legal text",
-        field_configs={
-            "official_source": SearchFieldConfig(
-                field_path="metadata.extracted_data.OfficialSource",
-                exact_match_weight=FieldWeight.EXACT.value * 2,  # Double weight for exact matches
-                partial_match_weight=FieldWeight.PARTIAL.value,
-                semantic_match_weight=0.0,  # Disable semantic matching for section numbers
-                boost_factor=2.0  # Boost this field's importance
+        description="Specialized search mode for finding Takanon sections by their number (e.g. 'סעיף 12'). "
+                   "Requires both section number and resource name. The resource name can be provided in a "
+                   "flexible format (e.g. 'חוק הכנסת' or 'חוק-הכנסת').",
+        min_score=0.5,
+        fields=[
+            SearchFieldConfig(
+                name="official_source",
+                weight=FieldWeight(
+                    exact_match=2.2,  # High boost for exact matches in OfficialSource
+                    partial_match=0.8  # Lower boost for partial matches
+                ),
+                boost_factor=1.5
             ),
-            "content": SearchFieldConfig(
-                field_path="content",
-                exact_match_weight=FieldWeight.EXACT.value,
-                partial_match_weight=FieldWeight.PARTIAL.value,
-                semantic_match_weight=FieldWeight.SEMANTIC.value,
-                boost_factor=1.0
+            SearchFieldConfig(
+                name="content",
+                weight=FieldWeight(
+                    exact_match=1.0,
+                    partial_match=0.4
+                ),
+                boost_factor=0.8
+            ),
+            SearchFieldConfig(
+                name="document_title",
+                weight=FieldWeight(
+                    exact_match=1.8,  # High boost for exact matches in document title
+                    partial_match=0.9  # Good boost for partial matches
+                ),
+                boost_factor=1.2,
+                fuzzy_matching=True  # Enable fuzzy matching for resource names
             )
-        },
-        min_score=0.7  # Higher minimum score to ensure relevance
+        ],
+        num_results=3  # Always return up to 3 results
     ) 
