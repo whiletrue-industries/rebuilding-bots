@@ -15,6 +15,7 @@ class SearchFieldConfig:
     weight: FieldWeight = field(default_factory=FieldWeight)
     boost_factor: float = 1.0
     fuzzy_matching: bool = False
+    field_path: Optional[str] = None
 
 @dataclass
 class SearchModeConfig:
@@ -23,8 +24,6 @@ class SearchModeConfig:
     description: str
     fields: List[SearchFieldConfig]
     min_score: float = 0.5
-    minimum_should_match: int = 1
-    num_results: int = 3
 
 @dataclass
 class SearchResult:
