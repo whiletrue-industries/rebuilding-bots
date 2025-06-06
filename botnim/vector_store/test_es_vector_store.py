@@ -12,6 +12,7 @@ from datetime import datetime
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import get_logger
 from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
+from botnim.vector_store.search_modes import create_takanon_section_number_mode
 
 logger = get_logger(__name__)
 load_dotenv()
@@ -331,3 +332,90 @@ def test_metadata_handling(vector_store):
         doc_metadata = vector_store.verify_document_metadata(index_name, "doc1.txt")
         # Now the metadata title should be "Legal Procedures" as expected
         assert doc_metadata.get("title") == "Legal Procedures"
+
+def test_search_with_mode(vector_store):
+    """Test search functionality with search mode"""
+    # First create and populate vector store
+    index_name = vector_store.get_or_create_vector_store({}, "test_context", True)
+    
+    # Upload test documents with section numbers in metadata
+    test_docs = [
+        ("doc1.txt", "Content about section 77", {
+            "extracted_data": {
+                "OfficialSource": "סעיף 77",
+                "DocumentTitle": "Test Document 1"
+            }
+        }),
+        ("doc2.txt", "Content about section 78", {
+            "extracted_data": {
+                "OfficialSource": "סעיף 78",
+                "DocumentTitle": "Test Document 2"
+            }
+        }),
+        ("doc3.txt", "General content", {
+            "extracted_data": {
+                "OfficialSource": "General",
+                "DocumentTitle": "Test Document 3"
+            }
+        })
+    ]
+    
+    docs_to_upload = [
+        (filename, BytesIO(content.encode('utf-8')), 'text/plain')
+        for filename, content, _ in test_docs
+    ]
+
+    metadata_files = {
+        f"{doc[0]}.metadata.json": doc[2]
+        for doc in test_docs
+    }
+
+    real_open = builtins.open
+
+    def mock_exists(self, *args, **kwargs):
+        filename = str(self).split('/')[-1]
+        return filename in metadata_files
+
+    def mock_open(file_path, *args, **kwargs):
+        if isinstance(file_path, Path):
+            file_path = str(file_path)
+        filename = file_path.split('/')[-1]
+        
+        if filename in metadata_files:
+            return BytesIO(json.dumps(metadata_files[filename]).encode('utf-8'))
+        return real_open(file_path, *args, **kwargs)
+
+    with patch('pathlib.Path.exists', new=mock_exists), \
+         patch('builtins.open', side_effect=mock_open):
+        vector_store.upload_files({}, "test_context", index_name, docs_to_upload, None)
+        vector_store.es_client.indices.refresh(index=index_name)
+        
+        # Create search mode
+        search_mode = create_takanon_section_number_mode()
+        
+        # Test search with section number mode
+        query = "סעיף 77"
+        response = vector_store.openai_client.embeddings.create(
+            input=query,
+            model=DEFAULT_EMBEDDING_MODEL
+        )
+        query_vector = response.data[0].embedding
+        
+        results = vector_store.search(
+            "test_context",
+            query,
+            query_vector,
+            search_mode=search_mode
+        )
+        
+        # Verify results
+        assert len(results['hits']['hits']) > 0
+        
+        # The document with exact section number match should be first
+        first_hit = results['hits']['hits'][0]
+        assert first_hit['_source']['metadata']['extracted_data']['OfficialSource'] == "סעיף 77"
+        
+        # Verify scoring
+        if '_explanation' in first_hit:
+            # Check that the score is above the minimum threshold
+            assert first_hit['_score'] >= search_mode.min_score
