@@ -91,7 +91,7 @@ class VectorStoreES(VectorStoreBase):
             config.semantic_match_weight > 0 
             for config in search_mode.field_configs.values()
         ):
-        vector_match = {
+            vector_match = {
             "bool": {
                 "should": [
                     {
