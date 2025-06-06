@@ -117,11 +117,12 @@ class VectorStoreES(VectorStoreBase):
         field_queries = []
         
         for field in search_mode.fields:
+            field_es_path = field.field_path if field.field_path else f"metadata.extracted_data.{field.name.capitalize()}"
             # Handle exact matches with match_phrase
             if field.weight.exact_match > 0:
                 field_queries.append({
                     "match_phrase": {
-                        f"metadata.extracted_data.{field.name.capitalize()}": {
+                        field_es_path: {
                             "query": query_text,
                             "boost": field.weight.exact_match * field.boost_factor
                         }
@@ -132,7 +133,7 @@ class VectorStoreES(VectorStoreBase):
             if field.weight.partial_match > 0:
                 match_query = {
                     "match": {
-                        f"metadata.extracted_data.{field.name.capitalize()}": {
+                        field_es_path: {
                             "query": query_text,
                             "boost": field.weight.partial_match * field.boost_factor
                         }
@@ -141,7 +142,7 @@ class VectorStoreES(VectorStoreBase):
                 
                 # Add fuzzy matching for document title if enabled
                 if field.name == "document_title" and field.fuzzy_matching:
-                    match_query["match"][f"metadata.extracted_data.{field.name.capitalize()}"]["fuzziness"] = "AUTO"
+                    match_query["match"][field_es_path]["fuzziness"] = "AUTO"
                 
                 field_queries.append(match_query)
         
