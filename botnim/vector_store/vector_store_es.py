@@ -91,29 +91,29 @@ class VectorStoreES(VectorStoreBase):
             config.semantic_match_weight > 0 
             for config in search_mode.field_configs.values()
         ):
-            vector_match = {
-                "bool": {
-                    "should": [
-                        {
-                            "nested": {
-                                "path": "vectors",
-                                "query": {
-                                    "bool": {
-                                        "must": [
-                                            {"term": {"vectors.source": "content"}},
-                                            {
-                                                "knn": {
-                                                    "field": "vectors.vector",
-                                                    "query_vector": embedding,
-                                                    "k": num_results,
-                                                    "num_candidates": 20
-                                                }
+        vector_match = {
+            "bool": {
+                "should": [
+                    {
+                        "nested": {
+                            "path": "vectors",
+                            "query": {
+                                "bool": {
+                                    "must": [
+                                        {"term": {"vectors.source": "content"}},
+                                        {
+                                            "knn": {
+                                                "field": "vectors.vector",
+                                                "query_vector": embedding,
+                                                "k": num_results,
+                                                "num_candidates": 20
                                             }
-                                        ]
-                                    }
-                                },
-                                "boost": 1.0
-                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "boost": 1.0
+                        }
                         }
                     ]
                 }
@@ -186,30 +186,30 @@ class VectorStoreES(VectorStoreBase):
             vector_match = {
                 "bool": {
                     "should": [
-                        {
-                            "nested": {
-                                "path": "vectors",
-                                "query": {
-                                    "bool": {
-                                        "must": [
+                    {
+                        "nested": {
+                            "path": "vectors",
+                            "query": {
+                                "bool": {
+                                    "must": [
                                             {"term": {"vectors.source": "content"}},
-                                            {
-                                                "knn": {
-                                                    "field": "vectors.vector",
-                                                    "query_vector": embedding,
-                                                    "k": num_results,
-                                                    "num_candidates": 20
-                                                }
+                                        {
+                                            "knn": {
+                                                "field": "vectors.vector",
+                                                "query_vector": embedding,
+                                                "k": num_results,
+                                                "num_candidates": 20
                                             }
-                                        ]
-                                    }
-                                },
+                                        }
+                                    ]
+                                }
+                            },
                                 "boost": 1.0
                             }
-                        }
-                    ]
-                }
+                    }
+                ]
             }
+        }
             should_clauses.append(vector_match)
         
         # Build final query with all components
