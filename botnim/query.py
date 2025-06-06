@@ -4,6 +4,7 @@ from typing import List, Dict, Union, Optional, Any
 from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, is_production
+from botnim.vector_store.search_config import SearchModeConfig
 import yaml
 import json
 
@@ -71,7 +72,7 @@ class QueryClient:
             production=is_production(self.environment),
         )
 
-    def search(self, query_text: str, num_results: int=None, explain: bool=False) -> List[SearchResult]:
+    def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: Optional[SearchModeConfig] = None) -> List[SearchResult]:
         """
         Search the vector store with the given text
         
@@ -79,6 +80,7 @@ class QueryClient:
             query_text (str): The text to search for
             num_results (int, optional): Number of results to return, or None to use context default
             explain (bool): Whether to include scoring explanation in results
+            search_mode (Optional[SearchModeConfig]): Optional search mode configuration
         
         Returns:
             List[SearchResult]: List of search results with enhanced explanations
@@ -100,7 +102,8 @@ class QueryClient:
                 self.context_name,
                 query_text, embedding,
                 num_results=num_results,
-                explain=explain
+                explain=explain,
+                search_mode=search_mode
             )
             
             # Format results with enhanced explanations
@@ -130,7 +133,7 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str='dict', explain: bool=False) -> Union[List[Dict], str]:
+def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str='dict', explain: bool=False, search_mode: Optional[SearchModeConfig] = None) -> Union[List[Dict], str]:
     """
     Run a query against the vector store
     
@@ -140,15 +143,16 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         num_results (int): Number of results to return
         format (str): Format of the results ('dict', 'text', 'text-short')
         explain (bool): Whether to include scoring explanation in results
+        search_mode (Optional[SearchModeConfig]): Optional search mode configuration
         
     Returns:
         Union[List[Dict], str]: Search results in the requested format
     """
     try:
-        logger.info(f"Running vector search with query: {query_text}, store_id: {store_id}, num_results: {num_results}, format: {format}")
+        logger.info(f"Running vector search with query: {query_text}, store_id: {store_id}, num_results: {num_results}, format: {format}, search_mode: {search_mode.name if search_mode else None}")
 
         client = QueryClient(store_id)
-        results = client.search(query_text=query_text, num_results=num_results, explain=explain)
+        results = client.search(query_text=query_text, num_results=num_results, explain=explain, search_mode=search_mode)
 
         # Log the results
         logger.info(f"Search results: {results}")
