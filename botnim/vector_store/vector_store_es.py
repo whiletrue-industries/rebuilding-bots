@@ -81,146 +81,77 @@ class VectorStoreES(VectorStoreBase):
             return '', '', DEFAULT_ENVIRONMENT
         
 
-    def _build_search_query(self, query_text: str, embedding: List[float], 
-                          num_results: int = 7, search_mode: Optional[SearchModeConfig] = None) -> Dict[str, Any]:
-        """Build the hybrid search query with optional search mode support"""
-        should_clauses = []
+    def _build_search_query(
+        self,
+        query_text: str,
+        search_mode: Optional[SearchModeConfig] = None
+    ) -> Dict[str, Any]:
+        """
+        Builds an Elasticsearch query based on the search mode configuration.
         
-        # Add vector search if semantic matching is enabled for any field
-        if search_mode and any(
-            config.semantic_match_weight > 0 
-            for config in search_mode.field_configs.values()
-        ):
-            vector_match = {
-            "bool": {
-                "should": [
-                    {
-                        "nested": {
-                            "path": "vectors",
-                            "query": {
-                                "bool": {
-                                    "must": [
-                                        {"term": {"vectors.source": "content"}},
-                                        {
-                                            "knn": {
-                                                "field": "vectors.vector",
-                                                "query_vector": embedding,
-                                                "k": num_results,
-                                                "num_candidates": 20
-                                            }
-                                        }
-                                    ]
+        Args:
+            query_text: The search query string
+            search_mode: Optional search mode configuration
+            
+        Returns:
+            Dict containing the Elasticsearch query
+        """
+        if not search_mode:
+            # Default to semantic search if no mode specified
+            return {
+                "bool": {
+                    "should": [
+                        {
+                            "match": {
+                                "content": {
+                                    "query": query_text,
+                                    "boost": 1.0
                                 }
-                            },
-                            "boost": 1.0
-                        }
+                            }
                         }
                     ]
                 }
             }
-            should_clauses.append(vector_match)
-        
-        # Add text-based search for each configured field
-        if search_mode:
-            for field_name, config in search_mode.field_configs.items():
-                if config.exact_match_weight > 0 or config.partial_match_weight > 0:
-                    # Create separate queries for exact and partial matches
-                    field_queries = []
-                    
-                    # Add exact match query if configured
-                    if config.exact_match_weight > 0:
-                        exact_match = {
-                            "match_phrase": {
-                                config.field_path: {
-                                    "query": query_text,
-                                    "boost": config.exact_match_weight * config.boost_factor
-                                }
-                            }
-                        }
-                        field_queries.append(exact_match)
-                    
-                    # Add partial match query if configured
-                    if config.partial_match_weight > 0:
-                        partial_match = {
-                            "match": {
-                                config.field_path: {
-                                    "query": query_text,
-                                    "boost": config.partial_match_weight * config.boost_factor
-                                }
-                            }
-                        }
-                        field_queries.append(partial_match)
-                    
-                    # Combine field queries with a bool query
-                    if field_queries:
-                        should_clauses.append({
-                            "bool": {
-                                "should": field_queries,
-                                "minimum_should_match": 1
-                            }
-                        })
-        else:
-            # Default search behavior
-            text_match = {
-                "multi_match": {
-                    "query": query_text,
-                    "fields": [
-                        "content",
-                        "metadata.title",
-                        "metadata.extracted_data.DocumentTitle",
-                        "metadata.extracted_data.DocumentTitle.keyword^3",
-                        "metadata.extracted_data.OfficialSource",
-                        "metadata.extracted_data.OfficialRoles.Role",
-                        "metadata.extracted_data.Description",
-                        "metadata.extracted_data.AdditionalKeywords",
-                        "metadata.extracted_data.Topics",
-                    ],
-                    "boost": 0.4,
-                    "type": 'cross_fields',
-                    "operator": 'or',
-                }
-            }
-            should_clauses.append(text_match)
             
-            # Add vector search for default mode
-            vector_match = {
-                "bool": {
-                    "should": [
-                    {
-                        "nested": {
-                            "path": "vectors",
-                            "query": {
-                                "bool": {
-                                    "must": [
-                                            {"term": {"vectors.source": "content"}},
-                                        {
-                                            "knn": {
-                                                "field": "vectors.vector",
-                                                "query_vector": embedding,
-                                                "k": num_results,
-                                                "num_candidates": 20
-                                            }
-                                        }
-                                    ]
-                                }
-                            },
-                                "boost": 1.0
-                            }
+        # Build field queries based on search mode configuration
+        field_queries = []
+        
+        for field in search_mode.fields:
+            # Handle exact matches with match_phrase
+            if field.weight.exact_match > 0:
+                field_queries.append({
+                    "match_phrase": {
+                        f"metadata.extracted_data.{field.name.capitalize()}": {
+                            "query": query_text,
+                            "boost": field.weight.exact_match * field.boost_factor
+                        }
                     }
-                ]
-            }
-        }
-            should_clauses.append(vector_match)
+                })
+            
+            # Handle partial matches with match
+            if field.weight.partial_match > 0:
+                match_query = {
+                    "match": {
+                        f"metadata.extracted_data.{field.name.capitalize()}": {
+                            "query": query_text,
+                            "boost": field.weight.partial_match * field.boost_factor
+                        }
+                    }
+                }
+                
+                # Add fuzzy matching for document title if enabled
+                if field.name == "document_title" and field.fuzzy_matching:
+                    match_query["match"][f"metadata.extracted_data.{field.name.capitalize()}"]["fuzziness"] = "AUTO"
+                
+                field_queries.append(match_query)
         
-        # Build final query with all components
-        query = {
+        # Combine all field queries with should clause
+        return {
             "bool": {
-                "should": should_clauses,
-                "minimum_should_match": 1,
+                "should": field_queries,
+                "minimum_should_match": 1
             }
         }
-        
-        return query
 
     def verify_document_vectors(self, index_name: str, document_id: str) -> Dict:
         """Verify vectors stored for a specific document"""
@@ -256,8 +187,6 @@ class VectorStoreES(VectorStoreBase):
         """
         query = self._build_search_query(
             query_text=query_text,
-            embedding=embedding,
-            num_results=num_results,
             search_mode=search_mode
         )
 
