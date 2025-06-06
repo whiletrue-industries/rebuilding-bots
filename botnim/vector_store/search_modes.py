@@ -23,7 +23,8 @@ def create_takanon_section_number_mode() -> SearchModeConfig:
                     exact_match=2.2,  # High boost for exact matches in OfficialSource
                     partial_match=0.8  # Lower boost for partial matches
                 ),
-                boost_factor=1.5
+                boost_factor=1.5,
+                field_path="metadata.extracted_data.OfficialSource"  # Use correct ES field path
             ),
             SearchFieldConfig(
                 name="content",
@@ -40,8 +41,8 @@ def create_takanon_section_number_mode() -> SearchModeConfig:
                     partial_match=0.9  # Good boost for partial matches
                 ),
                 boost_factor=1.2,
-                fuzzy_matching=True  # Enable fuzzy matching for resource names
+                fuzzy_matching=True,  # Enable fuzzy matching for resource names
+                field_path="metadata.extracted_data.DocumentTitle"  # Use correct ES field path
             )
-        ],
-        num_results=3  # Always return up to 3 results
+        ]
     ) 
