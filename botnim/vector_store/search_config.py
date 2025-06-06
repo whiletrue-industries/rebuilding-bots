@@ -1,29 +1,30 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
-from enum import Enum
 
-class FieldWeight(Enum):
-    """Standard weights for different types of matches"""
-    EXACT = 3.0
-    PARTIAL = 2.0
-    SEMANTIC = 1.0
+@dataclass
+class FieldWeight:
+    """Configuration for field weights"""
+    exact_match: float = 3.0
+    partial_match: float = 2.0
+    semantic_match: float = 1.0
 
 @dataclass
 class SearchFieldConfig:
     """Configuration for how a field should be searched"""
-    field_path: str  # Path to the field in the document (e.g., "extracted_data.OfficialSource")
-    exact_match_weight: float = FieldWeight.EXACT.value
-    partial_match_weight: float = FieldWeight.PARTIAL.value
-    semantic_match_weight: float = FieldWeight.SEMANTIC.value
+    name: str  # Name of the field (e.g., "official_source")
+    weight: FieldWeight = field(default_factory=FieldWeight)
     boost_factor: float = 1.0
+    fuzzy_matching: bool = False
 
 @dataclass
 class SearchModeConfig:
     """Base configuration for a search mode"""
     name: str
     description: str
-    field_configs: Dict[str, SearchFieldConfig]
+    fields: List[SearchFieldConfig]
     min_score: float = 0.5
+    minimum_should_match: int = 1
+    num_results: int = 3
 
 @dataclass
 class SearchResult:
