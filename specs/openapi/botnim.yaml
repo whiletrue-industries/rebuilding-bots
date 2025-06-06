@@ -96,6 +96,17 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Specialized search mode for the Takanon legal text context. TAKANON_SECTION_NUMBER: Optimized for finding specific sections by their number (e.g., 'סעיף 12'). This mode prioritizes exact matches in the OfficialSource field and is specifically designed for the Takanon legal text format.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["TAKANON_SECTION_NUMBER"],
+              "default": null
+            }
           }
         ],
         "deprecated": false
@@ -113,6 +124,17 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Specialized search mode for the Takanon legal text context. TAKANON_SECTION_NUMBER: Optimized for finding specific sections by their number (e.g., 'סעיף 12'). This mode prioritizes exact matches in the OfficialSource field and is specifically designed for the Takanon legal text format.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["TAKANON_SECTION_NUMBER"],
+              "default": null
             }
           }
         ],
