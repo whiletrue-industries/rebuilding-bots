@@ -1,6 +1,7 @@
 import click
 
 from botnim.vector_store.vector_store_es import VectorStoreES
+from botnim.vector_store.search_modes import create_takanon_section_number_mode
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
 from .benchmark.evaluate_metrics_cli import evaluate
@@ -66,17 +67,25 @@ def reverse_lines(text: str) -> str:
 @click.option('--full', '-f', is_flag=True, help='Show full content of results')
 @click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
 @click.option('--explain', is_flag=True, help='Show detailed scoring explanation for results')
-def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool, explain: bool):
+@click.option('--search-mode', type=click.Choice(['TAKANON_SECTION_NUMBER']), help='Use a specific search mode')
+def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool, explain: bool, search_mode: str):
     """Search the vector store with the given query."""
-    logger.info(f"Searching {bot}/{context} in {environment} with query: '{query_text}', num_results: {num_results}")
+    logger.info(f"Searching {bot}/{context} in {environment} with query: '{query_text}', num_results: {num_results}, search_mode: {search_mode}")
     try:
         vector_store_id = VectorStoreES.encode_index_name(bot, context, is_production(environment))
+        
+        # Create search mode if specified
+        mode = None
+        if search_mode == 'TAKANON_SECTION_NUMBER':
+            mode = create_takanon_section_number_mode()
+            
         search_results = run_query(
             store_id=vector_store_id, 
             query_text=query_text, 
             num_results=num_results, 
             format="text",
-            explain=explain
+            explain=explain,
+            search_mode=mode
         )
         if rtl:
             search_results = reverse_lines(mirror_brackets(search_results))
