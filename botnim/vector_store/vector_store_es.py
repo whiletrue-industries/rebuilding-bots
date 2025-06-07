@@ -90,7 +90,7 @@ class VectorStoreES(VectorStoreBase):
                     "metadata.title",
                     "metadata.extracted_data.DocumentTitle",
                     "metadata.extracted_data.DocumentTitle.keyword^3",  # Boost keyword matches
-                    "metadata.extracted_data.OfficialSource",
+                    "metadata.extracted_data.OfficialSource^10",
                     "metadata.extracted_data.OfficialRoles.Role",
                     "metadata.extracted_data.Description",
                     "metadata.extracted_data.AdditionalKeywords",
