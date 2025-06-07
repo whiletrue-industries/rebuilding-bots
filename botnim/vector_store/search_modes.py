@@ -45,4 +45,69 @@ def create_takanon_section_number_mode() -> SearchModeConfig:
                 field_path="metadata.extracted_data.DocumentTitle"  # Use correct ES field path
             )
         ]
+    )
+
+def create_regular_search_mode() -> SearchModeConfig:
+    """
+    Creates the default 'regular' search mode configuration, matching the previous hybrid search logic.
+    """
+    return SearchModeConfig(
+        name="REGULAR",
+        description="Standard semantic search across all main fields.",
+        fields=[
+            SearchFieldConfig(
+                name="content",
+                weight=FieldWeight(exact_match=0.4, partial_match=0.4, semantic_match=1.0),
+                boost_factor=1.0,
+                field_path="content"
+            ),
+            SearchFieldConfig(
+                name="title",
+                weight=FieldWeight(exact_match=0.4, partial_match=0.4, semantic_match=1.0),
+                boost_factor=1.0,
+                field_path="metadata.title"
+            ),
+            SearchFieldConfig(
+                name="document_title",
+                weight=FieldWeight(exact_match=10.0, partial_match=0.4, semantic_match=1.0),
+                boost_factor=1.0,
+                field_path="metadata.extracted_data.DocumentTitle"
+            ),
+            SearchFieldConfig(
+                name="document_title_keyword",
+                weight=FieldWeight(exact_match=15.0, partial_match=0.0, semantic_match=0.0),
+                boost_factor=1.0,
+                field_path="metadata.extracted_data.DocumentTitle.keyword"
+            ),
+            SearchFieldConfig(
+                name="official_source",
+                weight=FieldWeight(exact_match=0.4, partial_match=0.4, semantic_match=1.0),
+                boost_factor=1.0,
+                field_path="metadata.extracted_data.OfficialSource"
+            ),
+            SearchFieldConfig(
+                name="official_roles_role",
+                weight=FieldWeight(exact_match=0.4, partial_match=0.4, semantic_match=1.0),
+                boost_factor=1.0,
+                field_path="metadata.extracted_data.OfficialRoles.Role"
+            ),
+            SearchFieldConfig(
+                name="description",
+                weight=FieldWeight(exact_match=0.4, partial_match=0.4, semantic_match=1.0),
+                boost_factor=1.0,
+                field_path="metadata.extracted_data.Description"
+            ),
+            SearchFieldConfig(
+                name="additional_keywords",
+                weight=FieldWeight(exact_match=0.4, partial_match=0.4, semantic_match=1.0),
+                boost_factor=1.0,
+                field_path="metadata.extracted_data.AdditionalKeywords"
+            ),
+            SearchFieldConfig(
+                name="topics",
+                weight=FieldWeight(exact_match=0.4, partial_match=0.4, semantic_match=1.0),
+                boost_factor=1.0,
+                field_path="metadata.extracted_data.Topics"
+            ),
+        ]
     ) 

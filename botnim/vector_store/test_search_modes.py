@@ -1,5 +1,5 @@
 import pytest
-from .search_modes import create_takanon_section_number_mode
+from .search_modes import create_takanon_section_number_mode, create_regular_search_mode
 from .search_config import FieldWeight, SearchModeConfig
 from botnim.query import SearchResult
 from .vector_store_es import VectorStoreES
@@ -325,4 +325,28 @@ def test_takanon_section_number_weight_effects(mock_es):
     
     # Teardown: Delete the test index
     mock_es_instance.indices.delete.return_value = {"acknowledged": True}
-    mock_es_instance.indices.delete(index=test_index) 
+    mock_es_instance.indices.delete(index=test_index)
+
+def test_regular_mode_query_structure():
+    """Test that the default REGULAR mode is used when search_mode is None and produces the expected query structure."""
+    vector_store = MockVectorStoreES(config={}, config_dir="", production=False)
+    query_text = "example query"
+
+    # Build the query with search_mode=None
+    query_none = vector_store._build_search_query(query_text=query_text, search_mode=None)
+
+    # Build the query with explicit REGULAR mode
+    regular_mode = create_regular_search_mode()
+    query_regular = vector_store._build_search_query(query_text=query_text, search_mode=regular_mode)
+
+    # The two queries should be structurally identical
+    assert query_none == query_regular
+
+    # Basic structure checks
+    assert "bool" in query_none
+    assert "should" in query_none["bool"]
+    should_clauses = query_none["bool"]["should"]
+    assert len(should_clauses) > 0
+    for clause in should_clauses:
+        assert "match" in clause or "match_phrase" in clause
+    assert query_none["bool"]["minimum_should_match"] == 1 
