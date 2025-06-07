@@ -181,8 +181,7 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
     for result in results:
         if format == 'text-short':
             formatted_results.append(
-                f"{result.full_content}\n"
-                f"{'-' * 10}"
+                f"{result.full_content}"
             )
         elif format == 'text':
             metadata_str = ''
@@ -199,7 +198,6 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
                 f"Content:\n{result.full_content}\n"
                 f"{metadata_str}"
                 f"{explanation_str}"
-                f"{'-' * 40}"
             )
         elif format == 'dict':
             result_dict = dict(
@@ -213,7 +211,7 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
             formatted_results.append(result_dict)
     
     if join:
-        formatted_results = '\n'.join(formatted_results)
+        formatted_results = '\n\n\n------------\n\n'.join(formatted_results)
     return formatted_results or 'No results found.'
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
