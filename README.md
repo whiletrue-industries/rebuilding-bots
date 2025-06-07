@@ -95,6 +95,18 @@ Available query commands:
   - Options:
     - `--rtl`: Display fields in right-to-left order
 
+### Search Modes
+
+The vector store supports multiple search modes to optimize query results based on the context of the search. Currently, the following search modes are available:
+
+- **TAKANON_SECTION_NUMBER**: A specialized search mode for finding Takanon sections by their number in a document (e.g., "סעיף 12 בתקנון הכנסת"). This mode requires both the section number and the resource name, which can be provided in a flexible format (e.g., "חוק הכנסת" or "חוק-הכנסת").
+
+To use a specific search mode, include the `--search-mode` option in your query command:
+
+```bash
+botnim query search staging takanon legal_text "סעיף 12" --search-mode TAKANON_SECTION_NUMBER
+```
+
 ### Updating Vector Store Content
 
 To update or add content to the vector store:
