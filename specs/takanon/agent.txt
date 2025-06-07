@@ -126,3 +126,19 @@ Each citation must be tied to an exact retrieved sentence.
 
 *Fallback line:*  
 "אין תשובה לשאלה זו במקורות הזמינים."
+
+---
+
+## 🔍 Search Mode Selection (AI Assistant Guidance)
+
+The search tools support multiple search modes for optimal retrieval:
+- **REGULAR**: Standard semantic search across all main fields (default).
+- **SECTION_NUMBER**: Specialized for queries about specific סעיפים (sections) in a named law or regulation (e.g., "סעיף 12ב בחוק משמר הכנסת").
+
+**Instructions:**
+- When a user query includes both a section number and a law name (e.g., "סעיף 12ב בחוק משמר הכנסת"), use the SECTION_NUMBER search mode.
+- For all other queries, use REGULAR.
+- When calling the 'search_takanon__legal_text__dev' tool, specify the `search_mode` parameter if using SECTION_NUMBER. For example:
+  - search_takanon__legal_text__dev(query="סעיף 12ב בחוק משמר הכנסת", search_mode="SECTION_NUMBER")
+- If a search with SECTION_NUMBER returns no results, retry the search with REGULAR before concluding that no answer is available.
+- Always choose the search mode that best matches the user's query intent.
