@@ -30,6 +30,6 @@ jobs:
       - name: test
         env:
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_KEY_PRODUCTION: ${{ secrets.OPENAI_API_KEY }}
         run: |
           botnim sync production all --replace-context

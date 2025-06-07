@@ -38,7 +38,8 @@ class VectorStoreES(VectorStoreBase):
         logger.info(f"Connecting to Elasticsearch at {es_kwargs['hosts'][0]}")
 
         self.es_client = Elasticsearch(**es_kwargs)
-        self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        openai_api_key = os.getenv('OPENAI_API_KEY_PRODUCTION') if production else os.getenv('OPENAI_API_KEY_STAGING')
+        self.openai_client = OpenAI(api_key=openai_api_key)
 
         # Verify connection
         try:
