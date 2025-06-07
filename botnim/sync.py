@@ -23,7 +23,7 @@ def get_client(environment='production'):
     elif environment == "staging":
         api_key = os.environ['OPENAI_API_KEY_STAGING']
     else:
-        raise ValueError(f"Invalid environment: {environment}. Use 'production'.")
+        raise ValueError(f"Invalid environment: {environment}. Use 'production' or 'staging'.")
     client = OpenAI(api_key=api_key)
     return client
 
