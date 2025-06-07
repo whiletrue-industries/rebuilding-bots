@@ -13,7 +13,7 @@ class MockVectorStoreES(VectorStoreES):
         super().__init__(*args, **kwargs)
         self.mock_hits = []
 
-    def search(self, query_text: str, embedding: List[float], num_results: int = 5, search_mode: Optional[SearchModeConfig] = None, query: Optional[Dict[str, Any]] = None) -> List[SearchResult]:
+    def search(self, query_text: str, num_results: int = 5, search_mode: Optional[SearchModeConfig] = None, query: Optional[Dict[str, Any]] = None) -> List[SearchResult]:
         # Simulate real search: return SearchResult for each mock hit, up to num_results
         return [
             SearchResult(
@@ -24,34 +24,36 @@ class MockVectorStoreES(VectorStoreES):
             for hit in self.mock_hits[:num_results]
         ]
 
-def test_takanon_section_number_mode_configuration():
-    """Test that Takanon section number mode is configured correctly for the Takanon context"""
+def test_takanon_section_number_mode():
+    """Test the Takanon section number search mode"""
     mode = create_takanon_section_number_mode()
     
     # Test basic configuration
     assert mode.name == "TAKANON_SECTION_NUMBER"
-    assert "Takanon" in mode.description or "תקנון הכנסת" in mode.description
-    assert mode.min_score == 0.7
+    assert "סעיף" in mode.description
+    assert mode.min_score == 0.5
     
     # Test field configurations
-    assert "official_source" in mode.field_configs
-    assert "content" in mode.field_configs
+    assert len(mode.fields) == 3
     
-    # Test official source field configuration
-    official_source = mode.field_configs["official_source"]
-    assert official_source.field_path == "metadata.extracted_data.OfficialSource"
-    assert official_source.exact_match_weight == FieldWeight.EXACT.value * 2
-    assert official_source.partial_match_weight == FieldWeight.PARTIAL.value
-    assert official_source.semantic_match_weight == 0.0  # Semantic matching disabled for section numbers
-    assert official_source.boost_factor == 2.0
+    # Test official source field
+    official_source = next(f for f in mode.fields if f.name == "official_source")
+    assert official_source.weight.exact_match == 2.2
+    assert official_source.weight.partial_match == 0.8
+    assert official_source.boost_factor == 1.5
     
-    # Test content field configuration
-    content = mode.field_configs["content"]
-    assert content.field_path == "content"
-    assert content.exact_match_weight == FieldWeight.EXACT.value
-    assert content.partial_match_weight == FieldWeight.PARTIAL.value
-    assert content.semantic_match_weight == FieldWeight.SEMANTIC.value
-    assert content.boost_factor == 1.0
+    # Test content field
+    content = next(f for f in mode.fields if f.name == "content")
+    assert content.weight.exact_match == 1.0
+    assert content.weight.partial_match == 0.4
+    assert content.boost_factor == 0.8
+    
+    # Test document title field
+    document_title = next(f for f in mode.fields if f.name == "document_title")
+    assert document_title.weight.exact_match == 1.8
+    assert document_title.weight.partial_match == 0.9
+    assert document_title.boost_factor == 1.2
+    assert document_title.fuzzy_matching is True
 
 def test_takanon_section_number_query_structure():
     """Test that the search mode generates the correct query structure for section number searches"""
@@ -60,14 +62,11 @@ def test_takanon_section_number_query_structure():
     
     # Test query for section 12
     query_text = "סעיף 12"
-    embedding = [0.1] * 1536  # Mock embedding vector
     mode = create_takanon_section_number_mode()
     
     # Build the query
     query = vector_store._build_search_query(
         query_text=query_text,
-        embedding=embedding,
-        num_results=5,
         search_mode=mode
     )
     
@@ -76,40 +75,22 @@ def test_takanon_section_number_query_structure():
     assert "should" in query["bool"]
     should_clauses = query["bool"]["should"]
     
-    # Should have three clauses: vector, official_source, and content
-    assert len(should_clauses) == 3
+    # Should have six clauses: two for each field (match_phrase and match)
+    assert len(should_clauses) == 6
     
-    # Find the vector clause
-    vector_clause = next(
-        clause for clause in should_clauses
-        if "bool" in clause and "should" in clause["bool"] and any(
-            "nested" in subclause for subclause in clause["bool"]["should"]
-        )
-    )
-    assert "bool" in vector_clause
-    assert any("nested" in subclause for subclause in vector_clause["bool"]["should"])
-    
-    # Find the official_source clause
-    official_source_clause = next(
-        clause for clause in should_clauses 
-        if "multi_match" in clause and "metadata.extracted_data.OfficialSource" in clause["multi_match"]["fields"]
-    )
-    
-    # Verify official_source clause configuration
-    assert official_source_clause["multi_match"]["query"] == query_text
-    assert official_source_clause["multi_match"]["boost"] == FieldWeight.EXACT.value * 2
-    assert official_source_clause["multi_match"]["type"] == "best_fields"
-    
-    # Find the content clause
-    content_clause = next(
-        clause for clause in should_clauses 
-        if "multi_match" in clause and "content" in clause["multi_match"]["fields"]
-    )
-    
-    # Verify content clause configuration
-    assert content_clause["multi_match"]["query"] == query_text
-    assert content_clause["multi_match"]["boost"] == FieldWeight.EXACT.value
-    assert content_clause["multi_match"]["type"] == "best_fields"
+    # Verify each clause has the correct structure
+    for clause in should_clauses:
+        assert "match" in clause or "match_phrase" in clause
+        query_type = "match" if "match" in clause else "match_phrase"
+        field_name = next(iter(clause[query_type].keys()))
+        field_config = clause[query_type][field_name]
+        assert isinstance(field_config, dict)
+        assert "query" in field_config
+        assert "boost" in field_config
+        assert field_config["query"] == query_text
+
+    # Verify minimum_should_match
+    assert query["bool"]["minimum_should_match"] == 1
 
 @pytest.fixture
 def mock_es():
@@ -143,7 +124,6 @@ def test_takanon_section_number_integration(mock_es):
     
     # Perform a search using the Takanon section number mode
     query_text = "סעיף 12"
-    embedding = [0.1] * 1536  # Mock embedding vector
     mode = create_takanon_section_number_mode()
     
     # Mock the search response
@@ -171,7 +151,6 @@ def test_takanon_section_number_integration(mock_es):
     # Perform the search
     results = vector_store.search(
         query_text=query_text,
-        embedding=embedding,
         num_results=5,
         search_mode=mode
     )
@@ -212,7 +191,6 @@ def test_takanon_section_number_real_world_search(mock_es):
     
     # Perform a search using the Takanon section number mode
     query_text = "סעיף 12"
-    embedding = [0.1] * 1536  # Mock embedding vector
     mode = create_takanon_section_number_mode()
     
     # Mock the search response
@@ -240,7 +218,6 @@ def test_takanon_section_number_real_world_search(mock_es):
     # Perform the search
     results = vector_store.search(
         query_text=query_text,
-        embedding=embedding,
         num_results=5,
         search_mode=mode
     )
@@ -292,7 +269,6 @@ def test_takanon_section_number_weight_effects(mock_es):
     
     # Perform a search using the Takanon section number mode
     query_text = "סעיף 12"
-    embedding = [0.1] * 1536  # Mock embedding vector
     mode = create_takanon_section_number_mode()
     
     # Mock the search response
@@ -330,7 +306,6 @@ def test_takanon_section_number_weight_effects(mock_es):
     # Perform the search
     results = vector_store.search(
         query_text=query_text,
-        embedding=embedding,
         num_results=5,
         search_mode=mode
     )
