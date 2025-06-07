@@ -1,6 +1,7 @@
 import pytest
 from .search_modes import create_takanon_section_number_mode
-from .search_config import FieldWeight, SearchResult, SearchModeConfig
+from .search_config import FieldWeight, SearchModeConfig
+from botnim.query import SearchResult
 from .vector_store_es import VectorStoreES
 import json
 from typing import List, Dict, Any, Optional
@@ -17,9 +18,12 @@ class MockVectorStoreES(VectorStoreES):
         # Simulate real search: return SearchResult for each mock hit, up to num_results
         return [
             SearchResult(
-                content=hit["_source"]["content"],
-                metadata=hit["_source"]["metadata"],
-                score=hit["_score"]
+                score=hit["_score"],
+                id=hit["_id"],
+                content=hit["_source"]["content"].strip().split('\n')[0],
+                full_content=hit["_source"]["content"],
+                metadata=hit["_source"].get("metadata", None),
+                _explanation=None
             )
             for hit in self.mock_hits[:num_results]
         ]

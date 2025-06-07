@@ -23,12 +23,4 @@ class SearchModeConfig:
     name: str
     description: str
     fields: List[SearchFieldConfig]
-    min_score: float = 0.5
-
-@dataclass
-class SearchResult:
-    """Result from a search operation"""
-    content: str
-    metadata: Dict[str, Any]
-    score: float
-    explanation: Optional[Dict[str, Any]] = None 
+    min_score: float = 0.5 

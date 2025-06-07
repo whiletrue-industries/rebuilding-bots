@@ -14,7 +14,7 @@ from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
 from .vector_score_explainer import explain_vector_scores, combine_text_and_vector_scores
-from .search_config import SearchModeConfig, SearchResult
+from .search_config import SearchModeConfig
 
 logger = get_logger(__name__)
 
