@@ -84,7 +84,9 @@ class VectorStoreES(VectorStoreBase):
     def _build_search_query(
         self,
         query_text: str,
-        search_mode: Optional[SearchModeConfig] = None
+        search_mode: Optional[SearchModeConfig] = None,
+        embedding: Optional[List[float]] = None,
+        num_results: int = 7
     ) -> Dict[str, Any]:
         """
         Builds an Elasticsearch query based on the search mode configuration.
@@ -92,24 +94,138 @@ class VectorStoreES(VectorStoreBase):
         Args:
             query_text: The search query string
             search_mode: Optional search mode configuration
+            embedding: Optional embedding vector for vector search
+            num_results: Number of results to return
             
         Returns:
             Dict containing the Elasticsearch query
         """
         if not search_mode:
-            # Default to semantic search if no mode specified
-            return {
-                "bool": {
-                    "should": [
-                        {
-                            "match": {
-                                "content": {
-                                    "query": query_text,
+            # Default to previous hybrid search behavior if no mode specified
+            text_match = {
+                "multi_match": {
+                    "query": query_text,
+                    "fields": [
+                        "content",
+                        "metadata.title",
+                        "metadata.extracted_data.DocumentTitle",
+                        "metadata.extracted_data.DocumentTitle.keyword^3",  # Boost keyword matches
+                        "metadata.extracted_data.OfficialSource",
+                        "metadata.extracted_data.OfficialRoles.Role",
+                        "metadata.extracted_data.Description",
+                        "metadata.extracted_data.AdditionalKeywords",
+                        "metadata.extracted_data.Topics",
+                    ],
+                    "boost": 0.4,
+                    "type": 'cross_fields',
+                    "operator": 'or',
+                }
+            }
+            
+            # Enhanced priority for document title matches
+            title_matches = []
+            words = query_text.split()
+            
+            # Try exact match with full query
+            title_matches.append({
+                "term": {
+                    "metadata.extracted_data.DocumentTitle.keyword": {
+                        "value": query_text,
+                        "boost": 10.0
+                    }
+                }
+            })
+            
+            # Try with first 1-3 words
+            if len(words) >= 2:
+                potential_title = " ".join(words[0:2])
+                title_matches.append({
+                    "term": {
+                        "metadata.extracted_data.DocumentTitle.keyword": {
+                            "value": potential_title,
+                            "boost": 20.0
+                        }
+                    }
+                })
+                
+            if len(words) >= 3:
+                potential_title = " ".join(words[0:3])
+                title_matches.append({
+                    "term": {
+                        "metadata.extracted_data.DocumentTitle.keyword": {
+                            "value": potential_title,
+                            "boost": 15.0
+                        }
+                    }
+                })
+            
+            # Add a prefix match as fallback
+            title_matches.append({
+                "prefix": {
+                    "metadata.extracted_data.DocumentTitle.keyword": {
+                        "value": words[0] if words else "",
+                        "boost": 5.0
+                    }
+                }
+            })
+            
+            # Add vector search if embedding is provided
+            should_clauses = [text_match] + title_matches
+            if embedding:
+                vector_match = {
+                    "bool": {
+                        "should": [
+                            {
+                                "nested": {
+                                    "path": "vectors",
+                                    "query": {
+                                        "bool": {
+                                            "must": [
+                                                {"term": {"vectors.source": "content"}},
+                                                {
+                                                    "knn": {
+                                                        "field": "vectors.vector",
+                                                        "query_vector": embedding,
+                                                        "k": num_results,
+                                                        "num_candidates": 20
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
                                     "boost": 1.0
                                 }
+                            },
+                            {
+                                "nested": {
+                                    "path": "vectors",
+                                    "query": {
+                                        "bool": {
+                                            "must": [
+                                                {"term": {"vectors.source": "description"}},
+                                                {
+                                                    "knn": {
+                                                        "field": "vectors.vector",
+                                                        "query_vector": embedding,
+                                                        "k": num_results,
+                                                        "num_candidates": 20
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "boost": 0.8
+                                }
                             }
-                        }
-                    ]
+                        ]
+                    }
+                }
+                should_clauses.append(vector_match)
+            
+            return {
+                "bool": {
+                    "should": should_clauses,
+                    "minimum_should_match": 1,
                 }
             }
             
@@ -188,7 +304,9 @@ class VectorStoreES(VectorStoreBase):
         """
         query = self._build_search_query(
             query_text=query_text,
-            search_mode=search_mode
+            search_mode=search_mode,
+            embedding=embedding,
+            num_results=num_results
         )
 
         index_name = self._index_name_for_context(context_name)
