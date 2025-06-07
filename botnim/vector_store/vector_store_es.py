@@ -173,9 +173,9 @@ class VectorStoreES(VectorStoreBase):
             should_clauses = [text_match] + title_matches
             if embedding:
                 vector_match = {
-                    "bool": {
-                        "should": [
-                            {
+                "bool": {
+                    "should": [
+                        {
                                 "nested": {
                                     "path": "vectors",
                                     "query": {
