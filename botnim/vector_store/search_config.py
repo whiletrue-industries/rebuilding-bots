@@ -15,6 +15,7 @@ class SearchFieldConfig:
     weight: FieldWeight = field(default_factory=FieldWeight)
     boost_factor: float = 1.0
     fuzzy_matching: bool = False
+    use_phrase_match: bool = False
     field_path: Optional[str] = None
 
 @dataclass

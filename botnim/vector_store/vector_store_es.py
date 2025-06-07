@@ -107,35 +107,39 @@ class VectorStoreES(VectorStoreBase):
             search_mode = create_regular_search_mode()
 
         field_queries = []
-        for field in search_mode.fields:
-            field_es_path = field.field_path if field.field_path else f"metadata.extracted_data.{field.name.capitalize()}"
-            # Handle exact matches with match_phrase
-            if field.weight.exact_match > 0:
-                field_queries.append({
-                    "match_phrase": {
-                        field_es_path: {
-                            "query": query_text,
-                            "boost": field.weight.exact_match * field.boost_factor
+        for field_config in search_mode.fields:
+            field_es_path = field_config.field_path or f"metadata.extracted_data.{field_config.name.capitalize()}"
+
+            if field_config.use_phrase_match:
+                # Use a match_phrase query for exact phrase matching
+                weight = field_config.weight.exact_match
+                boost = weight * field_config.boost_factor
+                if boost > 0:
+                    field_queries.append({
+                        "match_phrase": {
+                            field_es_path: {
+                                "query": query_text,
+                                "boost": boost
+                            }
                         }
+                    })
+            else:
+                # Use a standard match query for term-based matching
+                weight = field_config.weight.partial_match
+                boost = weight * field_config.boost_factor
+                if boost > 0:
+                    match_query_body = {
+                        "query": query_text,
+                        "boost": boost
                     }
-                })
-            
-            # Handle partial matches with match
-            if field.weight.partial_match > 0:
-                match_query = {
-                    "match": {
-                        field_es_path: {
-                            "query": query_text,
-                            "boost": field.weight.partial_match * field.boost_factor
+                    if field_config.fuzzy_matching:
+                        match_query_body["fuzziness"] = "AUTO"
+                    
+                    field_queries.append({
+                        "match": {
+                            field_es_path: match_query_body
                         }
-                    }
-                }
-                
-                # Add fuzzy matching for document title if enabled
-                if field.name == "document_title" and field.fuzzy_matching:
-                    match_query["match"][field_es_path]["fuzziness"] = "AUTO"
-                
-                field_queries.append(match_query)
+                    })
         
         # Add vector search if embedding is provided
         should_clauses = field_queries.copy()

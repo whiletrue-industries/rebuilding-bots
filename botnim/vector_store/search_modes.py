@@ -17,33 +17,46 @@ def create_takanon_section_number_mode() -> SearchModeConfig:
                    "flexible format (e.g. 'חוק הכנסת' or 'חוק-הכנסת').",
         min_score=0.5,
         fields=[
+            # 1. Heavily boost the exact match for the resource name in DocumentTitle
+            SearchFieldConfig(
+                name="document_title_keyword",
+                weight=FieldWeight(
+                    exact_match=25.0,  # Highest boost for the exact resource name
+                    partial_match=0.0
+                ),
+                boost_factor=10.0,
+                field_path="metadata.extracted_data.DocumentTitle.keyword"
+            ),
+            # 2. Keep a high boost on OfficialSource, primarily for finding the section number
             SearchFieldConfig(
                 name="official_source",
                 weight=FieldWeight(
-                    exact_match=2.2,  # High boost for exact matches in OfficialSource
-                    partial_match=0.8  # Lower boost for partial matches
+                    exact_match=15.0, # High boost for the section number
+                    partial_match=1.0
                 ),
-                boost_factor=1.5,
-                field_path="metadata.extracted_data.OfficialSource"  # Use correct ES field path
+                boost_factor=5.0,
+                field_path="metadata.extracted_data.OfficialSource"
             ),
+            # 3. Reduce boost for fuzzy/partial matches on the title to avoid noise
+            SearchFieldConfig(
+                name="document_title",
+                weight=FieldWeight(
+                    exact_match=2.0,
+                    partial_match=1.0
+                ),
+                boost_factor=1.0, # Low boost for fuzzy title match
+                fuzzy_matching=True,
+                field_path="metadata.extracted_data.DocumentTitle"
+            ),
+            # 4. Keep content match as a low-priority signal
             SearchFieldConfig(
                 name="content",
                 weight=FieldWeight(
                     exact_match=1.0,
-                    partial_match=0.4
+                    partial_match=0.2
                 ),
-                boost_factor=0.8
+                boost_factor=0.5
             ),
-            SearchFieldConfig(
-                name="document_title",
-                weight=FieldWeight(
-                    exact_match=1.8,  # High boost for exact matches in document title
-                    partial_match=0.9  # Good boost for partial matches
-                ),
-                boost_factor=1.2,
-                fuzzy_matching=True,  # Enable fuzzy matching for resource names
-                field_path="metadata.extracted_data.DocumentTitle"  # Use correct ES field path
-            )
         ]
     )
 
