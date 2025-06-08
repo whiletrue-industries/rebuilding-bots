@@ -15,7 +15,7 @@ from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 from .vector_store_base import VectorStoreBase
 from .vector_score_explainer import explain_vector_scores, combine_text_and_vector_scores
 from .search_config import SearchModeConfig
-from .search_modes import create_regular_search_mode
+from .search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 
 logger = get_logger(__name__)
 
@@ -103,8 +103,8 @@ class VectorStoreES(VectorStoreBase):
             Dict containing the Elasticsearch query
         """
         # Always use a SearchModeConfig object
-        if search_mode is None or (hasattr(search_mode, 'name') and search_mode.name == "REGULAR"):
-            search_mode = create_regular_search_mode()
+        if search_mode is None:
+            search_mode = DEFAULT_SEARCH_MODE
 
         field_queries = []
         for field_config in search_mode.fields:

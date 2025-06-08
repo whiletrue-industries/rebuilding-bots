@@ -1,7 +1,7 @@
 import click
 
 from botnim.vector_store.vector_store_es import VectorStoreES
-from botnim.vector_store.search_modes import create_takanon_section_number_mode
+from botnim.vector_store.search_modes import create_takanon_section_number_mode, SEARCH_MODES, DEFAULT_SEARCH_MODE
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
 from .benchmark.evaluate_metrics_cli import evaluate
@@ -67,18 +67,14 @@ def reverse_lines(text: str) -> str:
 @click.option('--full', '-f', is_flag=True, help='Show full content of results')
 @click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
 @click.option('--explain', is_flag=True, help='Show detailed scoring explanation for results')
-@click.option('--search-mode', type=click.Choice(['TAKANON_SECTION_NUMBER']), help='Use a specific search mode')
+@click.option('--search-mode', type=click.Choice(list(SEARCH_MODES.keys())), help='Use a specific search mode')
 def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool, explain: bool, search_mode: str):
     """Search the vector store with the given query."""
     logger.info(f"Searching {bot}/{context} in {environment} with query: '{query_text}', num_results: {num_results}, search_mode: {search_mode}")
     try:
         vector_store_id = VectorStoreES.encode_index_name(bot, context, is_production(environment))
-        
-        # Create search mode if specified
-        mode = None
-        if search_mode == 'TAKANON_SECTION_NUMBER':
-            mode = create_takanon_section_number_mode()
-            
+        # Use the registry and canonical default for mode selection
+        mode = SEARCH_MODES.get(search_mode, DEFAULT_SEARCH_MODE) if search_mode else DEFAULT_SEARCH_MODE
         search_results = run_query(
             store_id=vector_store_id, 
             query_text=query_text, 

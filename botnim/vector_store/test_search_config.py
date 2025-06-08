@@ -1,6 +1,6 @@
 import pytest
 from botnim.vector_store.search_config import FieldWeight, SearchFieldConfig, SearchModeConfig
-from botnim.vector_store.search_modes import create_takanon_section_number_mode
+from botnim.vector_store.search_modes import SEARCH_MODES
 
 def test_field_weight_values():
     """Test that FieldWeight values are correct"""
@@ -51,7 +51,7 @@ def test_search_mode_config():
 
 def test_takanon_section_number_mode_configuration():
     """Test the configuration of the Takanon section number search mode"""
-    mode = create_takanon_section_number_mode()
+    mode = SEARCH_MODES["TAKANON_SECTION_NUMBER"]
     
     # Verify basic configuration
     assert mode.name == "TAKANON_SECTION_NUMBER"

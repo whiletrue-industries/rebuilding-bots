@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, is_production
 from botnim.vector_store.search_config import SearchModeConfig
+from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 import yaml
 import json
 
@@ -72,7 +73,7 @@ class QueryClient:
             production=is_production(self.environment),
         )
 
-    def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: Optional[SearchModeConfig] = None) -> List[SearchResult]:
+    def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: Optional[SearchModeConfig] = None, mode: Optional[str] = None) -> List[SearchResult]:
         """
         Search the vector store with the given text
         
@@ -81,6 +82,7 @@ class QueryClient:
             num_results (int, optional): Number of results to return, or None to use context default
             explain (bool): Whether to include scoring explanation in results
             search_mode (Optional[SearchModeConfig]): Optional search mode configuration
+            mode (Optional[str]): Optional search mode name (overrides search_mode if provided)
         
         Returns:
             List[SearchResult]: List of search results with enhanced explanations
@@ -97,13 +99,20 @@ class QueryClient:
             )
             embedding = response.data[0].embedding
 
+            # Determine the search mode config in a single line
+            search_mode_config = (
+                SEARCH_MODES.get(mode)
+                or SEARCH_MODES.get(getattr(search_mode, 'name', None))
+                or DEFAULT_SEARCH_MODE
+            )
+
             # Execute search with explanations
             results = self.vector_store.search(
                 self.context_name,
                 query_text, embedding,
                 num_results=num_results,
                 explain=explain,
-                search_mode=search_mode
+                search_mode=search_mode_config
             )
             
             # Format results with enhanced explanations
