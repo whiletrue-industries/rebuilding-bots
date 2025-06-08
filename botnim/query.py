@@ -88,7 +88,16 @@ class QueryClient:
             List[SearchResult]: List of search results with enhanced explanations
         """
         try:
-            # Use default num_results from context config if not provided
+            # Determine the search mode config
+            search_mode_config = (
+                SEARCH_MODES.get(mode)
+                or SEARCH_MODES.get(getattr(search_mode, 'name', None))
+                or DEFAULT_SEARCH_MODE
+            )
+
+            # Use num_results from the search mode config if not provided
+            if num_results is None:
+                num_results = getattr(search_mode_config, 'num_results', None)
             if num_results is None:
                 num_results = self.context_config.get('default_num_results', 7)
 
@@ -98,13 +107,6 @@ class QueryClient:
                 model=DEFAULT_EMBEDDING_MODEL,
             )
             embedding = response.data[0].embedding
-
-            # Determine the search mode config in a single line
-            search_mode_config = (
-                SEARCH_MODES.get(mode)
-                or SEARCH_MODES.get(getattr(search_mode, 'name', None))
-                or DEFAULT_SEARCH_MODE
-            )
 
             # Execute search with explanations
             results = self.vector_store.search(

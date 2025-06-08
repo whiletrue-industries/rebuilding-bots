@@ -1,7 +1,7 @@
 import click
 
 from botnim.vector_store.vector_store_es import VectorStoreES
-from botnim.vector_store.search_modes import create_takanon_section_number_mode, SEARCH_MODES, DEFAULT_SEARCH_MODE
+from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
 from .benchmark.evaluate_metrics_cli import evaluate
@@ -63,13 +63,16 @@ def reverse_lines(text: str) -> str:
 @click.argument('bot', type=click.Choice(AVAILABLE_BOTS))
 @click.argument('context', type=click.STRING)
 @click.argument('query_text', type=click.STRING)
-@click.option('--num-results', type=int, default=7, help='Number of results to return')
+@click.option('--num-results', '-n', type=int, help='Number of results to return. If not provided, uses the default for the selected search mode.')
 @click.option('--full', '-f', is_flag=True, help='Show full content of results')
 @click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
 @click.option('--explain', is_flag=True, help='Show detailed scoring explanation for results')
-@click.option('--search-mode', type=click.Choice(list(SEARCH_MODES.keys())), help='Use a specific search mode')
+@click.option('--search-mode', type=click.Choice(list(SEARCH_MODES.keys())), help='Use a specific search mode (see "list-modes" for details)')
 def search(environment: str, bot: str, context: str, query_text: str, num_results: int, full: bool, rtl: bool, explain: bool, search_mode: str):
-    """Search the vector store with the given query."""
+    """Search the vector store with the given query.
+    If --num-results/-n is not provided, the default for the selected search mode is used.
+    Use --search-mode to select a specific search mode (see 'list-modes' for details).
+    """
     logger.info(f"Searching {bot}/{context} in {environment} with query: '{query_text}', num_results: {num_results}, search_mode: {search_mode}")
     try:
         vector_store_id = VectorStoreES.encode_index_name(bot, context, is_production(environment))
@@ -121,6 +124,15 @@ def show_fields(environment: str, bot: str, context: str, rtl: bool):
         click.echo(formatted)
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)
+
+@query_group.command(name='list-modes')
+def list_modes():
+    """List all available search modes and their default settings."""
+    click.echo("Available search modes:")
+    for name, config in SEARCH_MODES.items():
+        click.echo(f"- {name}: {getattr(config, 'description', '')}")
+        click.echo(f"    Default num_results: {getattr(config, 'num_results', 7)}")
+    click.echo("\nUse --search-mode <MODE> with 'search' to select a mode.")
 
 @cli.command(name='assistant')
 @click.option('--assistant-id', type=click.STRING, help='ID of the assistant to chat with')

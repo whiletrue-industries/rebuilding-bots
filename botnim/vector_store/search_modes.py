@@ -7,6 +7,7 @@ TAKANON_SECTION_NUMBER_CONFIG = SearchModeConfig(
     name="TAKANON_SECTION_NUMBER",
     description="Specialized search mode for finding Takanon sections by their number (e.g. 'סעיף 12'). Requires both section number and resource name. The resource name can be provided in a flexible format (e.g. 'חוק הכנסת' or 'חוק-הכנסת').",
     min_score=0.5,
+    num_results=3,  # Default for section/resource search
     fields=[
         SearchFieldConfig(
             name="document_title_keyword",
@@ -51,6 +52,8 @@ TAKANON_SECTION_NUMBER_CONFIG = SearchModeConfig(
 REGULAR_CONFIG = SearchModeConfig(
     name="REGULAR",
     description="Standard semantic search across all main fields.",
+    min_score=0.5,
+    num_results=7,  # Default for regular/semantic search
     fields=[
         SearchFieldConfig(
             name="content",

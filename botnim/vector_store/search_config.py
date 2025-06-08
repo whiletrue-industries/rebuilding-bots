@@ -24,4 +24,5 @@ class SearchModeConfig:
     name: str
     description: str
     fields: List[SearchFieldConfig]
-    min_score: float = 0.5 
+    min_score: float = 0.5
+    num_results: int = 7  # Default number of results for this mode
