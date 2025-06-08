@@ -12,11 +12,29 @@ from .benchmark.assistant_loop import assistant_loop
 
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-
-client = OpenAI(
-    api_key=OPENAI_API_KEY
+client_production = OpenAI(
+    api_key=os.getenv('OPENAI_API_KEY_PRODUCTION')
 )
+client_staging = OpenAI(
+    api_key=os.getenv('OPENAI_API_KEY_STAGING')
+)
+
+def get_client(environment=DEFAULT_ENVIRONMENT):
+    """
+    Get the OpenAI client based on the specified environment.
+    
+    Args:
+        environment (str): The environment to use, either 'production' or 'staging'.
+    
+    Returns:
+        OpenAI: The OpenAI client for the specified environment.
+    """
+    if environment == "production":
+        return client_production
+    elif environment == "staging":
+        return client_staging
+    else:
+        raise ValueError(f"Invalid environment: {environment}. Use 'production' or 'staging'.")
 
 
 class ToolOutput(TypedDict, total=False):
@@ -29,7 +47,7 @@ class ToolOutput(TypedDict, total=False):
     the output is being submitted for.
     """
 
-def get_assistants():
+def get_assistants(client):
     """
     Get all available assistants details
     """
@@ -40,13 +58,13 @@ def get_assistants():
     my_assistants = [{"id":assistant.id, "name": assistant.name} for assistant in my_assistants_data.data]
     return my_assistants
 
-def get_assistant_name(assistant_id):
+def get_assistant_name(client, assistant_id):
     """
     Get the name of the assistant with the given ID
     """
     return client.beta.assistants.retrieve(assistant_id).name
 
-def start_conversation(assistant_id, openapi_spec = None, rtl=False, environment=DEFAULT_ENVIRONMENT):
+def start_conversation(client, assistant_id, openapi_spec = None, rtl=False, environment=DEFAULT_ENVIRONMENT):
     """
     Creates a new conversation thread for the given assistant and
     continuously processes user inputs until '/stop' is typed.
@@ -57,13 +75,13 @@ def start_conversation(assistant_id, openapi_spec = None, rtl=False, environment
     """
 
     # get the assistant name
-    assistant_name = get_assistant_name(assistant_id)
+    assistant_name = get_assistant_name(client, assistant_id)
 
     if openapi_spec is not None and not openapi_spec.endswith(".yaml"):
         openapi_spec += ".yaml"
 
     # Create a new thread (a new conversation session)
-    thread = openai.beta.threads.create()
+    thread = client.beta.threads.create()
     prefix = f"{assistant_name}: "[::-1] if not rtl else f"{assistant_name}: "
     thread_msg = f"Created new thread with ID: {thread.id} (type /stop to end the conversation)"
     print(thread_msg[::-1] if rtl else thread_msg)
@@ -78,7 +96,7 @@ def start_conversation(assistant_id, openapi_spec = None, rtl=False, environment
             break
 
         # Add the user message to the thread
-        openai.beta.threads.messages.create(
+        client.beta.threads.messages.create(
             thread_id=thread.id,
             role="user",
             content=user_input
@@ -120,10 +138,11 @@ def assistant_main(assistant_id=None, openapi_spec=None, rtl=False, environment=
         assistant_id (str, optional): ID of the assistant to chat with
         rtl (bool): Enable RTL support for Hebrew/Arabic
     """
+    client = get_client(environment)
     if assistant_id:
-        start_conversation(assistant_id, openapi_spec=openapi_spec, rtl=rtl, environment=environment)
+        start_conversation(client, assistant_id, openapi_spec=openapi_spec, rtl=rtl, environment=environment)
     else:
-        assistants = get_assistants()
+        assistants = get_assistants(client)
         
         # Print available assistants in a formatted way
         header = "\nAvailable Assistants:"
@@ -161,7 +180,7 @@ def assistant_main(assistant_id=None, openapi_spec=None, rtl=False, environment=
                 error_msg = "Please enter a valid number or press Enter for direct ID input."
                 print(error_msg[::-1] if rtl else error_msg)
         
-        start_conversation(assistant_id, openapi_spec=openapi_spec, rtl=rtl, environment=environment)
+        start_conversation(client, assistant_id, openapi_spec=openapi_spec, rtl=rtl, environment=environment)
 
 
 
