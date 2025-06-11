@@ -37,7 +37,7 @@ async def search_datasets_handler(
         store_id=store_id,
         query_text=query,
         num_results=num_results,
-        format='text-short',
+        format='yaml',
         search_mode=mode_config
     )
     return Response(content=results, media_type="text/plain")
