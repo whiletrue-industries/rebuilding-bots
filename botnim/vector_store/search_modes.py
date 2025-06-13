@@ -8,6 +8,7 @@ TAKANON_SECTION_NUMBER_CONFIG = SearchModeConfig(
     description="Specialized search mode for finding Takanon sections by their number (e.g. 'סעיף 12'). Requires both section number and resource name. The resource name can be provided in a flexible format (e.g. 'חוק הכנסת' or 'חוק-הכנסת').",
     min_score=0.5,
     num_results=3,  # Default for section/resource search
+    use_vector_search=True,
     fields=[
         SearchFieldConfig(
             name="document_title_keyword",
@@ -51,9 +52,10 @@ TAKANON_SECTION_NUMBER_CONFIG = SearchModeConfig(
 # Define the REGULAR mode config (canonical default)
 REGULAR_CONFIG = SearchModeConfig(
     name="REGULAR",
-    description="Standard semantic search across all main fields.",
+    description="Semantic + full text search across all main fields.",
     min_score=0.5,
     num_results=7,  # Default for regular/semantic search
+    use_vector_search=True,
     fields=[
         SearchFieldConfig(
             name="content",
@@ -116,9 +118,66 @@ REGULAR_CONFIG = SearchModeConfig(
 DEFAULT_SEARCH_MODE_NAME = "REGULAR"
 DEFAULT_SEARCH_MODE = REGULAR_CONFIG
 
+RELATED_RESOURCE_CONFIG = SearchModeConfig(
+    name="RELATED_RESOURCE",
+    description="Finds documents that are related to or mention a specific resource, by matching ReferenceLinks, LegalReferences, and related fields. Uses exact phrase matching for reference fields.",
+    min_score=0.5,
+    num_results=5,
+    use_vector_search=False,
+    fields=[
+        SearchFieldConfig(
+            name="reference_links",
+            weight=FieldWeight(exact_match=15.0, partial_match=0.0, semantic_match=0.0),
+            boost_factor=10.0,
+            field_path="metadata.extracted_data.ReferenceLinks",
+            use_phrase_match=True
+        ),
+        SearchFieldConfig(
+            name="legal_references_title",
+            weight=FieldWeight(exact_match=12.0, partial_match=0.0, semantic_match=0.0),
+            boost_factor=8.0,
+            field_path="metadata.extracted_data.LegalReferences.ReferenceTitle",
+            use_phrase_match=True
+        ),
+        SearchFieldConfig(
+            name="legal_references_text",
+            weight=FieldWeight(exact_match=10.0, partial_match=0.0, semantic_match=0.0),
+            boost_factor=6.0,
+            field_path="metadata.extracted_data.LegalReferences.ReferenceText",
+            use_phrase_match=True
+        ),
+        SearchFieldConfig(
+            name="description",
+            weight=FieldWeight(exact_match=2.0, partial_match=1.0, semantic_match=1.0),
+            boost_factor=1.0,
+            field_path="metadata.extracted_data.Description"
+        ),
+    ]
+)
+
 # Immutable registry of all search modes
 SEARCH_MODES = MappingProxyType({
     "TAKANON_SECTION_NUMBER": TAKANON_SECTION_NUMBER_CONFIG,
     "REGULAR": REGULAR_CONFIG,
+    "RELATED_RESOURCE": RELATED_RESOURCE_CONFIG,
     # Add more modes here as needed
 })
+
+def normalize_resource_identifier(resource: str) -> str:
+    """
+    Normalize a resource identifier (e.g., law name + section) for consistent matching.
+    - Strips whitespace
+    - Converts common punctuation to spaces
+    - Normalizes section formatting (e.g., 'סעיף 9א' -> 'סעיף 9א')
+    - Lowercases (if appropriate)
+    - Removes redundant characters
+    """
+    import re
+    s = resource.strip()
+    s = re.sub(r'[\-_,:]', ' ', s)  # Replace common punctuation with space
+    s = re.sub(r'\s+', ' ', s)     # Collapse multiple spaces
+    s = s.replace(' סעיף ', ' סעיף')  # Remove space before 'סעיף'
+    s = s.replace('סעיף ', 'סעיף')    # Remove space after 'סעיף' (if needed)
+    s = s.replace('חוק ', 'חוק') # Remove space after 'חוק'
+    s = s.replace(' חוק ', 'חוק') # Remove space after 'חוק'
+    return s

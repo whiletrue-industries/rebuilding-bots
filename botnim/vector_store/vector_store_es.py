@@ -141,9 +141,9 @@ class VectorStoreES(VectorStoreBase):
                         }
                     })
         
-        # Add vector search if embedding is provided
+        # Add vector search if embedding is provided and use_vector_search is True
         should_clauses = field_queries.copy()
-        if embedding:
+        if embedding and search_mode.use_vector_search:
             vector_match = {
                 "bool": {
                     "should": [
@@ -543,17 +543,11 @@ class VectorStoreES(VectorStoreBase):
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "The query string to use for semantic/free text search"
-                        },
-                        "search_mode": {
-                            "type": "string",
-                            "description": "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results).",
-                            "enum": [mode.name for mode in SEARCH_MODES.values()],
-                            "default": DEFAULT_SEARCH_MODE.name
+                            "description": "The query string to use for searching"
                         },
                         "num_results": {
                             "type": "integer",
-                            "description": "Number of results to return. Leave empty to use the default for the search mode.",
+                            "description": "Number of results to return",
                             "default": 7
                         }
                     },
