@@ -86,7 +86,7 @@ class VectorStoreES(VectorStoreBase):
     def _build_search_query(
         self,
         query_text: str,
-        search_mode: Optional[SearchModeConfig] = None,
+        search_mode: SearchModeConfig,
         embedding: Optional[List[float]] = None,
         num_results: int = 7
     ) -> Dict[str, Any]:
@@ -95,17 +95,13 @@ class VectorStoreES(VectorStoreBase):
         
         Args:
             query_text: The search query string
-            search_mode: Optional search mode configuration
+            search_mode: Search mode configuration
             embedding: Optional embedding vector for vector search
             num_results: Number of results to return
             
         Returns:
             Dict containing the Elasticsearch query
         """
-        # Always use a SearchModeConfig object
-        if search_mode is None:
-            search_mode = DEFAULT_SEARCH_MODE
-
         field_queries = []
         for field_config in search_mode.fields:
             field_es_path = field_config.field_path or f"metadata.extracted_data.{field_config.name.capitalize()}"
@@ -217,8 +213,7 @@ class VectorStoreES(VectorStoreBase):
             logger.error(f"Failed to verify vectors for document {document_id}: {str(e)}")
             return []
 
-    def search(self, context_name: str, query_text: str, embedding: List[float], 
-               num_results: int = 7, explain: bool = False, search_mode: Optional[SearchModeConfig] = None) -> Dict[str, Any]:
+    def search(self, context_name: str, query_text: str, search_mode: SearchModeConfig, embedding: List[float], num_results: int = 7, explain: bool = False) -> Dict[str, Any]:
         """
         Search the vector store with the given text and embedding
         
@@ -228,7 +223,7 @@ class VectorStoreES(VectorStoreBase):
             embedding (List[float]): The embedding vector to search with
             num_results (int): Number of results to return
             explain (bool): Whether to include scoring explanation in results
-            search_mode (Optional[SearchModeConfig]): Optional search mode configuration
+            search_mode (SearchModeConfig): Search mode configuration
             
         Returns:
             Dict[str, Any]: Elasticsearch search results
