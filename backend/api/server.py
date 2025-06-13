@@ -32,12 +32,12 @@ async def search_datasets_handler(
     mode_config = SEARCH_MODES.get(search_mode, DEFAULT_SEARCH_MODE) if search_mode else DEFAULT_SEARCH_MODE
     # Use num_results from mode if not provided
     if num_results is None:
-        num_results = getattr(mode_config, 'num_results', 7)
+        num_results = mode_config.num_results
     results = run_query(
         store_id=store_id,
         query_text=query,
         num_results=num_results,
-        format='yaml',
+        format='text-short',
         search_mode=mode_config
     )
     return Response(content=results, media_type="text/plain")
@@ -48,8 +48,8 @@ async def list_search_modes():
     return [
         {
             "name": name,
-            "description": getattr(config, 'description', ''),
-            "default_num_results": getattr(config, 'num_results', 7)
+            "description": config.description,
+            "default_num_results": config.num_results
         }
         for name, config in SEARCH_MODES.items()
     ]
