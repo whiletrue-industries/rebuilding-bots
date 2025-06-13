@@ -73,7 +73,7 @@ class QueryClient:
             production=is_production(self.environment),
         )
 
-    def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: Optional[SearchModeConfig] = None, mode: Optional[str] = None) -> List[SearchResult]:
+    def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: Optional[SearchModeConfig] = None) -> List[SearchResult]:
         """
         Search the vector store with the given text
         
@@ -81,23 +81,18 @@ class QueryClient:
             query_text (str): The text to search for
             num_results (int, optional): Number of results to return, or None to use context default
             explain (bool): Whether to include scoring explanation in results
-            search_mode (Optional[SearchModeConfig]): Optional search mode configuration
-            mode (Optional[str]): Optional search mode name (overrides search_mode if provided)
+            search_mode (Optional[SearchModeConfig]): Search mode configuration (required for custom modes)
         
         Returns:
             List[SearchResult]: List of search results with enhanced explanations
         """
         try:
-            # Determine the search mode config
-            search_mode_config = (
-                SEARCH_MODES.get(mode)
-                or SEARCH_MODES.get(getattr(search_mode, 'name', None))
-                or DEFAULT_SEARCH_MODE
-            )
+            # Use the provided search_mode config or default
+            search_mode_config = search_mode or DEFAULT_SEARCH_MODE
 
             # Use num_results from the search mode config if not provided
             if num_results is None:
-                num_results = getattr(search_mode_config, 'num_results', None)
+                num_results = search_mode_config.num_results
             if num_results is None:
                 num_results = self.context_config.get('default_num_results', 7)
 
@@ -154,7 +149,7 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         num_results (int): Number of results to return
         format (str): Format of the results ('dict', 'text', 'text-short')
         explain (bool): Whether to include scoring explanation in results
-        search_mode (Optional[SearchModeConfig]): Optional search mode configuration
+        search_mode (Optional[SearchModeConfig]): Search mode configuration (required for custom modes)
         
     Returns:
         Union[List[Dict], str]: Search results in the requested format
@@ -170,7 +165,7 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
 
         # Format results if requested
         formatted_results = format_search_results(results, format, explain)
-        if format.startswith('text') or format == 'yaml':
+        if format.startswith('text'):
             logger.info(f"Formatted results: {formatted_results}")
         return formatted_results
     except Exception as e:
@@ -196,7 +191,8 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
     for result in results:
         if format == 'text-short':
             formatted_results.append(
-                f"{result.full_content}"
+                f"{result.full_content}\n"
+                f"{'-' * 10}"
             )
         elif format == 'text':
             metadata_str = ''
@@ -213,6 +209,7 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
                 f"Content:\n{result.full_content}\n"
                 f"{metadata_str}"
                 f"{explanation_str}"
+                f"{'-' * 40}"
             )
         elif format == 'dict':
             result_dict = dict(
@@ -224,18 +221,9 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
             if explain and hasattr(result, '_explanation'):
                 result_dict['_explanation'] = result._explanation
             formatted_results.append(result_dict)
-        elif format == 'yaml':
-            parts = result.full_content.split('\n\n', 1)
-            result_dict = dict(
-                header=parts[0].strip(),
-                text=parts[1].strip() if len(parts) > 1 else '',
-            )
-            formatted_results.append(result_dict)
     
     if join:
-        formatted_results = '\n\n\n------------\n\n'.join(formatted_results)
-    if format == 'yaml':
-        formatted_results = yaml.dump(formatted_results, allow_unicode=True, width=1000000, sort_keys=True)
+        formatted_results = '\n'.join(formatted_results)
     return formatted_results or 'No results found.'
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
