@@ -92,22 +92,18 @@ class VectorStoreES(VectorStoreBase):
     ) -> Dict[str, Any]:
         """
         Builds an Elasticsearch query based on the search mode configuration.
-        
         Args:
             query_text: The search query string
-            search_mode: Search mode configuration
+            search_mode: Search mode configuration (required)
             embedding: Optional embedding vector for vector search
             num_results: Number of results to return
-            
         Returns:
             Dict containing the Elasticsearch query
         """
         field_queries = []
         for field_config in search_mode.fields:
             field_es_path = field_config.field_path or f"metadata.extracted_data.{field_config.name.capitalize()}"
-
             if field_config.use_phrase_match:
-                # Use a match_phrase query for exact phrase matching
                 weight = field_config.weight.exact_match
                 boost = weight * field_config.boost_factor
                 if boost > 0:
@@ -120,7 +116,6 @@ class VectorStoreES(VectorStoreBase):
                         }
                     })
             else:
-                # Use a standard match query for term-based matching
                 weight = field_config.weight.partial_match
                 boost = weight * field_config.boost_factor
                 if boost > 0:
@@ -130,71 +125,43 @@ class VectorStoreES(VectorStoreBase):
                     }
                     if field_config.fuzzy_matching:
                         match_query_body["fuzziness"] = "AUTO"
-                    
                     field_queries.append({
                         "match": {
                             field_es_path: match_query_body
                         }
                     })
-        
-        # Add vector search if embedding is provided and use_vector_search is True
         should_clauses = field_queries.copy()
-        if embedding and search_mode.use_vector_search:
-            vector_match = {
-                "bool": {
-                    "should": [
-                        {
-                            "nested": {
-                                "path": "vectors",
-                                "query": {
-                                    "bool": {
-                                        "must": [
-                                            {"term": {"vectors.source": "content"}},
-                                            {
-                                                "knn": {
-                                                    "field": "vectors.vector",
-                                                    "query_vector": embedding,
-                                                    "k": num_results,
-                                                    "num_candidates": 20
-                                                }
-                                            }
-                                        ]
+        # Only add vector search if enabled in config and embedding is provided
+        if search_mode.use_vector_search and embedding:
+            should_clauses.append({
+                "nested": {
+                    "path": "vectors",
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {"term": {"vectors.source": "content"}},
+                                {
+                                    "knn": {
+                                        "field": "vectors.vector",
+                                        "query_vector": embedding,
+                                        "k": num_results,
+                                        "num_candidates": 20
                                     }
-                                },
-                                "boost": 1.0
-                            }
-                        },
-                        {
-                            "nested": {
-                                "path": "vectors",
-                                "query": {
-                                    "bool": {
-                                        "must": [
-                                            {"term": {"vectors.source": "description"}},
-                                            {
-                                                "knn": {
-                                                    "field": "vectors.vector",
-                                                    "query_vector": embedding,
-                                                    "k": num_results,
-                                                    "num_candidates": 20
-                                                }
-                                            }
-                                        ]
-                                    }
-                                },
-                                "boost": 0.8
-                            }
+                                }
+                            ]
                         }
-                    ]
+                    }
                 }
-            }
-            should_clauses.append(vector_match)
-        
-        return {
+            })
+        query = {
             "bool": {
                 "should": should_clauses,
-                "minimum_should_match": 1,
+                "minimum_should_match": 1
             }
+        }
+        return {
+            "size": num_results,
+            "query": query
         }
 
     def verify_document_vectors(self, index_name: str, document_id: str) -> Dict:
@@ -224,7 +191,7 @@ class VectorStoreES(VectorStoreBase):
             embedding (List[float]): The embedding vector to search with
             num_results (int): Number of results to return
             explain (bool): Whether to include scoring explanation in results
-        
+            
         Returns:
             Dict[str, Any]: Elasticsearch search results
         """

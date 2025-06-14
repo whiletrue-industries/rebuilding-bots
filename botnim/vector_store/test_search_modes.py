@@ -75,9 +75,9 @@ def test_takanon_section_number_query_structure():
     )
     
     # Verify query structure
-    assert "bool" in query
-    assert "should" in query["bool"]
-    should_clauses = query["bool"]["should"]
+    assert "query" in query
+    assert "bool" in query["query"]
+    should_clauses = query["query"]["bool"]["should"]
     
     # Should have six clauses: two for each field (match_phrase and match)
     assert len(should_clauses) > 0
@@ -94,7 +94,7 @@ def test_takanon_section_number_query_structure():
         assert field_config["query"] == query_text
 
     # Verify minimum_should_match
-    assert query["bool"]["minimum_should_match"] == 1
+    assert query["query"]["bool"]["minimum_should_match"] == 1
 
 @pytest.fixture
 def mock_es():
@@ -337,13 +337,13 @@ def test_regular_mode_query_structure():
     query_regular = vector_store._build_search_query(query_text=query_text, search_mode=regular_mode)
 
     # Basic structure checks
-    assert "bool" in query_regular
-    assert "should" in query_regular["bool"]
-    should_clauses = query_regular["bool"]["should"]
+    assert "query" in query_regular
+    assert "bool" in query_regular["query"]
+    should_clauses = query_regular["query"]["bool"]["should"]
     assert len(should_clauses) > 0
     for clause in should_clauses:
         assert "match" in clause or "match_phrase" in clause
-    assert query_regular["bool"]["minimum_should_match"] == 1
+    assert query_regular["query"]["bool"]["minimum_should_match"] == 1
 
 def test_search_modes_registry_contains_expected_modes():
     assert "TAKANON_SECTION_NUMBER" in SEARCH_MODES
