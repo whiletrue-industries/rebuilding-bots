@@ -62,7 +62,8 @@ The `botnim query` command provides several ways to interact with the vector sto
 ```bash
 # Search in the vector store
 botnim query search staging takanon common_knowledge "מה עושה יושב ראש הכנסת?"
-botnim query search staging takanon common_knowledge --results 5 "your query here"
+botnim query search staging takanon common_knowledge --num-results 5 "your query here"
+botnim query search staging takanon common_knowledge -n 5 "your query here"
 # Show full content of search results
 botnim query search staging takanon common_knowledge "your query here" --full
 # or use the short flag
@@ -80,12 +81,16 @@ botnim query list-indexes staging --rtl
 botnim query show-fields staging budgetkey common_knowledge
 # Display fields in right-to-left order
 botnim query show-fields staging budgetkey common_knowledge --rtl
+
+# List all available search modes
+botnim query list-modes
 ```
 
 Available query commands:
-- `search`: Search the vector store with semantic search
+- `search`: Search the vector store with semantic or specialized search
   - Options:
-    - `--num-results`, `-n`: Number of results to return (default: 7)
+    - `--num-results`, `-n`: Number of results to return (default: depends on search mode)
+    - `--search-mode`: Use a specific search mode (see `list-modes` for available modes)
     - `--full`, `-f`: Show full content of results instead of just summaries
     - `--rtl`: Display results in right-to-left order
 - `list-indexes`: Show all available Elasticsearch indexes
@@ -94,6 +99,30 @@ Available query commands:
 - `show-fields`: Display the structure and field types of an index
   - Options:
     - `--rtl`: Display fields in right-to-left order
+- `list-modes`: List all available search modes and their default settings
+
+### Search Modes
+
+The vector store supports multiple search modes to optimize query results based on the context of the search. Each mode has its own default for `num_results`, which can be overridden with `--num-results`/`-n`.
+
+To see all available search modes and their defaults, run:
+
+```bash
+botnim query list-modes
+```
+
+#### Example search mode usage
+
+```bash
+botnim query search staging takanon legal_text "סעיף 12" --search-mode TAKANON_SECTION_NUMBER
+```
+
+#### Current search modes (from registry):
+
+- **REGULAR**: Standard semantic search across all main fields. Default num_results: 7
+- **TAKANON_SECTION_NUMBER**: Specialized search mode for finding Takanon sections by their number (e.g. 'סעיף 12'). Default num_results: 3
+
+(For a full, up-to-date list, use `botnim query list-modes`)
 
 ### Updating Vector Store Content
 

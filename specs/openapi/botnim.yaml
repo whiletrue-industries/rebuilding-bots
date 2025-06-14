@@ -7,10 +7,28 @@
   },
   "servers": [
     {
-      "url": "https://staging.botnim.co.il"
+     // "url": "https://www.botnim.co.il"
     }
   ],
   "paths": {
+    "/botnim/retrieve/budgetkey/common_knowledge": {
+      "get": {
+        "description": "Full text search on the budgetkey common knowledge",
+        "operationId": "search_budgetkey__common_knowledge",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
     "/botnim/retrieve/budgetkey/common_knowledge__dev": {
       "get": {
         "description": "Full text search on the budgetkey common knowledge",
@@ -47,6 +65,24 @@
         "deprecated": false
       }
     },
+    "/botnim/retrieve/takanon/common_knowledge": {
+      "get": {
+        "description": "Full text search on the takanon common knowledge",
+        "operationId": "search_takanon__common_knowledge",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
     "/botnim/retrieve/takanon/legal_text__dev": {
       "get": {
         "description": "Full text search on the takanon legal text",
@@ -59,6 +95,62 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["SECTION_NUMBER", "REGULAR"]
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 3 for SECTION_NUMBER, 7 for REGULAR).",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/takanon/legal_text": {
+      "get": {
+        "description": "Full text search on the takanon legal text",
+        "operationId": "search_takanon__legal_text",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["SECTION_NUMBER", "REGULAR"]
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 3 for SECTION_NUMBER, 7 for REGULAR).",
+            "required": false,
+            "schema": {
+              "type": "integer"
             }
           }
         ],
@@ -81,6 +173,43 @@
           }
         ],
         "deprecated": false
+      }
+    },
+    "/botnim/search-modes": {
+      "get": {
+        "description": "List all available search modes, their descriptions, and default num_results.",
+        "operationId": "list_search_modes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "A list of search modes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {"type": "string"},
+                      "description": {"type": "string"},
+                      "default_num_results": {"type": "integer"}
+                    }
+                  }
+                },
+                "examples": {
+                  "RELATED_RESOURCE": {
+                    "summary": "Finds documents that are related to or mention a specific resource, by matching ReferenceLinks, LegalReferences, and related fields.",
+                    "value": {
+                      "name": "RELATED_RESOURCE",
+                      "description": "Finds documents that are related to or mention a specific resource, by matching ReferenceLinks, LegalReferences, and related fields.",
+                      "default_num_results": 5
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
