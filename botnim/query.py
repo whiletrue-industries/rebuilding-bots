@@ -147,7 +147,7 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         store_id (str): The ID of the vector store
         query_text (str): The text to search for
         num_results (int): Number of results to return
-        format (str): Format of the results ('dict', 'text', 'text-short')
+        format (str): Format of the results ('dict', 'text', 'text-short', 'yaml')
         explain (bool): Whether to include scoring explanation in results
         search_mode (Optional[SearchModeConfig]): Search mode configuration (required for custom modes)
         
@@ -165,7 +165,7 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
 
         # Format results if requested
         formatted_results = format_search_results(results, format, explain)
-        if format.startswith('text'):
+        if format.startswith('text') or format == 'yaml':
             logger.info(f"Formatted results: {formatted_results}")
         return formatted_results
     except Exception as e:
@@ -179,7 +179,7 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
 
     Args:
         results (List[SearchResult]): The search results to format
-        format (str): Format of the results ('dict', 'text', 'text-short')
+        format (str): Format of the results ('dict', 'text', 'text-short', 'yaml')
         explain (bool): Whether to include scoring explanation in results
 
     Returns:
@@ -221,9 +221,20 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
             if explain and hasattr(result, '_explanation'):
                 result_dict['_explanation'] = result._explanation
             formatted_results.append(result_dict)
+        elif format == 'yaml':
+            # For YAML, split header/text for each result
+            parts = result.full_content.split('\n\n', 1)
+            result_dict = dict(
+                header=parts[0].strip(),
+                text=parts[1].strip() if len(parts) > 1 else '',
+            )
+            formatted_results.append(result_dict)
     
     if join:
         formatted_results = '\n'.join(formatted_results)
+    if format == 'yaml':
+        import yaml
+        return yaml.dump(formatted_results, allow_unicode=True, width=1000000, sort_keys=True)
     return formatted_results or 'No results found.'
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:

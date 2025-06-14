@@ -1,5 +1,5 @@
 import dataclasses
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,7 +25,8 @@ async def search_datasets_handler(
     context: str,
     query: str,
     num_results: Optional[int] = None,
-    search_mode: Optional[str] = None
+    search_mode: Optional[str] = None,
+    format: Optional[str] = Query('text-short', description="Format of the results: 'text-short', 'text', 'dict', or 'yaml'")
 ) -> str:
     store_id = f"{bot}__{context}"
     # Resolve search mode config
@@ -37,9 +38,11 @@ async def search_datasets_handler(
         store_id=store_id,
         query_text=query,
         num_results=num_results,
-        format='text-short',
+        format=format,
         search_mode=mode_config
     )
+    if format == 'yaml':
+        return Response(content=results, media_type="application/x-yaml")
     return Response(content=results, media_type="text/plain")
 
 @app.get("/search-modes")
