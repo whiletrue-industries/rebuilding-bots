@@ -220,11 +220,11 @@ class VectorStoreES(VectorStoreBase):
         Args:
             context_name (str): Name of the context to search in
             query_text (str): The text to search for
+            search_mode (SearchModeConfig): Search mode configuration
             embedding (List[float]): The embedding vector to search with
             num_results (int): Number of results to return
             explain (bool): Whether to include scoring explanation in results
-            search_mode (SearchModeConfig): Search mode configuration
-            
+        
         Returns:
             Dict[str, Any]: Elasticsearch search results
         """

@@ -73,7 +73,7 @@ class QueryClient:
             production=is_production(self.environment),
         )
 
-    def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: Optional[SearchModeConfig] = None) -> List[SearchResult]:
+    def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> List[SearchResult]:
         """
         Search the vector store with the given text
         
@@ -81,18 +81,15 @@ class QueryClient:
             query_text (str): The text to search for
             num_results (int, optional): Number of results to return, or None to use context default
             explain (bool): Whether to include scoring explanation in results
-            search_mode (Optional[SearchModeConfig]): Search mode configuration (required for custom modes)
+            search_mode (SearchModeConfig): Search mode configuration (required for custom modes)
         
         Returns:
             List[SearchResult]: List of search results with enhanced explanations
         """
         try:
-            # Use the provided search_mode config or default
-            search_mode_config = search_mode or DEFAULT_SEARCH_MODE
-
             # Use num_results from the search mode config if not provided
             if num_results is None:
-                num_results = search_mode_config.num_results
+                num_results = search_mode.num_results
             if num_results is None:
                 num_results = self.context_config.get('default_num_results', 7)
 
@@ -106,10 +103,9 @@ class QueryClient:
             # Execute search with explanations
             results = self.vector_store.search(
                 self.context_name,
-                query_text, embedding,
+                query_text, search_mode, embedding,
                 num_results=num_results,
-                explain=explain,
-                search_mode=search_mode_config
+                explain=explain
             )
             
             # Format results with enhanced explanations
@@ -139,7 +135,7 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str='dict', explain: bool=False, search_mode: Optional[SearchModeConfig] = None) -> Union[List[Dict], str]:
+def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str='dict', explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> Union[List[Dict], str]:
     """
     Run a query against the vector store
     
@@ -149,7 +145,7 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         num_results (int): Number of results to return
         format (str): Format of the results ('dict', 'text', 'text-short', 'yaml')
         explain (bool): Whether to include scoring explanation in results
-        search_mode (Optional[SearchModeConfig]): Search mode configuration (required for custom modes)
+        search_mode (SearchModeConfig): Search mode configuration (required for custom modes)
         
     Returns:
         Union[List[Dict], str]: Search results in the requested format
