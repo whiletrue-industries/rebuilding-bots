@@ -119,7 +119,8 @@
                     "properties": {
                       "name": {"type": "string"},
                       "description": {"type": "string"},
-                      "default_num_results": {"type": "integer"}
+                      "default_num_results": {"type": "integer"},
+                      "use_vector_search": {"type": "boolean"}
                     }
                   }
                 },
@@ -129,7 +130,8 @@
                     "value": {
                       "name": "RELATED_RESOURCE",
                       "description": "Finds documents that are related to or mention a specific resource, by matching ReferenceLinks, LegalReferences, and related fields.",
-                      "default_num_results": 5
+                      "default_num_results": 5,
+                      "use_vector_search": false
                     }
                   }
                 }

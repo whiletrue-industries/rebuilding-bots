@@ -47,12 +47,13 @@ async def search_datasets_handler(
 
 @app.get("/search-modes")
 async def list_search_modes():
-    """Return all available search modes, their descriptions, and default num_results."""
+    """Return all available search modes, their descriptions, default num_results, and use_vector_search flag."""
     return [
         {
             "name": name,
             "description": config.description,
-            "default_num_results": config.num_results
+            "default_num_results": config.num_results,
+            "use_vector_search": config.use_vector_search
         }
         for name, config in SEARCH_MODES.items()
     ]
