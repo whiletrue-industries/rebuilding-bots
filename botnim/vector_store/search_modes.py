@@ -168,7 +168,7 @@ def normalize_resource_identifier(resource: str) -> str:
     Normalize a resource identifier (e.g., law name + section) for consistent matching.
     - Strips whitespace
     - Converts common punctuation to spaces
-    - Normalizes section formatting (e.g., 'סעיף 9א' -> 'סעיף 9א')
+    - Normalizes section formatting (e.g., 'סעיף  9א' -> 'סעיף 9א')
     - Lowercases (if appropriate)
     - Removes redundant characters
     """
