@@ -26,7 +26,7 @@ async def search_datasets_handler(
     query: str,
     num_results: Optional[int] = None,
     search_mode: Optional[str] = None,
-    format: Optional[str] = Query('text-short', description="Format of the results: 'text-short', 'text', 'dict', or 'yaml'")
+    format: Optional[str] = Query('yaml', description="Format of the results: 'text-short', 'text', 'dict', or 'yaml'")
 ) -> str:
     store_id = f"{bot}__{context}"
     # Resolve search mode config
