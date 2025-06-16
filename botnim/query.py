@@ -229,7 +229,6 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
     if join:
         formatted_results = '\n'.join(formatted_results)
     if format == 'yaml':
-        import yaml
         return yaml.dump(formatted_results, allow_unicode=True, width=1000000, sort_keys=True)
     return formatted_results or 'No results found.'
 
