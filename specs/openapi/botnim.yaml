@@ -60,6 +60,25 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["SECTION_NUMBER", "REGULAR"]
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 3 for SECTION_NUMBER, 7 for REGULAR).",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "deprecated": false
@@ -82,7 +101,8 @@
         ],
         "deprecated": false
       }
-    }
+    },
+
   },
   "components": {
     "schemas": {}

@@ -138,18 +138,20 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                     # Store ID is the part after 'search_'
                     store_id = tool.function.name[len('search_'):]
 
-                    # Get num_results from arguments if provided, otherwise pass None to use context default
+                    # Get num_results and search_mode from arguments if provided
                     num_results = arguments.get('num_results')
                     query = arguments.get('query')
+                    search_mode = arguments.get('search_mode')
 
                     # Log the tool call parameters
-                    logger.info(f"Calling run_query on {store_id} with query: {query}, num_results: {num_results}")
+                    logger.info(f"Calling run_query on {store_id} with query: {query}, num_results: {num_results}, search_mode: {search_mode}")
 
                     output = run_query(
                         store_id=store_id,
                         query_text=query,
                         num_results=num_results,
-                        format="text-short"
+                        format="text-short",
+                        search_mode=search_mode
                     )
 
                     # Log the output

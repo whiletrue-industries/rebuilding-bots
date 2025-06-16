@@ -4,6 +4,8 @@ from typing import List, Dict, Union, Optional, Any
 from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, is_production
+from botnim.vector_store.search_config import SearchModeConfig
+from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 import yaml
 import json
 
@@ -71,7 +73,7 @@ class QueryClient:
             production=is_production(self.environment),
         )
 
-    def search(self, query_text: str, num_results: int=None, explain: bool=False) -> List[SearchResult]:
+    def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> List[SearchResult]:
         """
         Search the vector store with the given text
         
@@ -79,12 +81,15 @@ class QueryClient:
             query_text (str): The text to search for
             num_results (int, optional): Number of results to return, or None to use context default
             explain (bool): Whether to include scoring explanation in results
+            search_mode (SearchModeConfig): Search mode configuration (required for custom modes)
         
         Returns:
             List[SearchResult]: List of search results with enhanced explanations
         """
         try:
-            # Use default num_results from context config if not provided
+            # Use num_results from the search mode config if not provided
+            if num_results is None:
+                num_results = search_mode.num_results
             if num_results is None:
                 num_results = self.context_config.get('default_num_results', 7)
 
@@ -98,7 +103,7 @@ class QueryClient:
             # Execute search with explanations
             results = self.vector_store.search(
                 self.context_name,
-                query_text, embedding,
+                query_text, search_mode, embedding,
                 num_results=num_results,
                 explain=explain
             )
@@ -130,7 +135,7 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str='dict', explain: bool=False) -> Union[List[Dict], str]:
+def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str='dict', explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> Union[List[Dict], str]:
     """
     Run a query against the vector store
     
@@ -138,24 +143,25 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         store_id (str): The ID of the vector store
         query_text (str): The text to search for
         num_results (int): Number of results to return
-        format (str): Format of the results ('dict', 'text', 'text-short')
+        format (str): Format of the results ('dict', 'text', 'text-short', 'yaml')
         explain (bool): Whether to include scoring explanation in results
+        search_mode (SearchModeConfig): Search mode configuration (required for custom modes)
         
     Returns:
         Union[List[Dict], str]: Search results in the requested format
     """
     try:
-        logger.info(f"Running vector search with query: {query_text}, store_id: {store_id}, num_results: {num_results}, format: {format}")
+        logger.info(f"Running vector search with query: {query_text}, store_id: {store_id}, num_results: {num_results}, format: {format}, search_mode: {search_mode.name if search_mode else None}")
 
         client = QueryClient(store_id)
-        results = client.search(query_text=query_text, num_results=num_results, explain=explain)
+        results = client.search(query_text=query_text, num_results=num_results, explain=explain, search_mode=search_mode)
 
         # Log the results
         logger.info(f"Search results: {results}")
 
         # Format results if requested
         formatted_results = format_search_results(results, format, explain)
-        if format.startswith('text'):
+        if format.startswith('text') or format == 'yaml':
             logger.info(f"Formatted results: {formatted_results}")
         return formatted_results
     except Exception as e:
@@ -169,7 +175,7 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
 
     Args:
         results (List[SearchResult]): The search results to format
-        format (str): Format of the results ('dict', 'text', 'text-short')
+        format (str): Format of the results ('dict', 'text', 'text-short', 'yaml')
         explain (bool): Whether to include scoring explanation in results
 
     Returns:
@@ -209,9 +215,19 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
             if explain and hasattr(result, '_explanation'):
                 result_dict['_explanation'] = result._explanation
             formatted_results.append(result_dict)
+        elif format == 'yaml':
+            # For YAML, split header/text for each result
+            parts = result.full_content.split('\n\n', 1)
+            result_dict = dict(
+                header=parts[0].strip(),
+                text=parts[1].strip() if len(parts) > 1 else '',
+            )
+            formatted_results.append(result_dict)
     
     if join:
         formatted_results = '\n\n\n------------\n\n'.join(formatted_results)
+    if format == 'yaml':
+        return yaml.dump(formatted_results, allow_unicode=True, width=1000000, sort_keys=True)
     return formatted_results or 'No results found.'
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:

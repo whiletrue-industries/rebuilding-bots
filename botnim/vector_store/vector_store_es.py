@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import json
 from datetime import datetime
 import hashlib
+from abc import ABC, abstractmethod
 
 from kvfile.kvfile_sqlite import CachedKVFileSQLite as KVFile
 from elasticsearch import Elasticsearch
@@ -13,6 +14,8 @@ from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
 from .vector_score_explainer import explain_vector_scores, combine_text_and_vector_scores
+from .search_config import SearchModeConfig
+from .search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 
 logger = get_logger(__name__)
 
@@ -80,135 +83,86 @@ class VectorStoreES(VectorStoreBase):
             return '', '', DEFAULT_ENVIRONMENT
         
 
-    def _build_search_query(self, query_text: str, embedding: List[float], 
-                          num_results: int = 7) -> Dict[str, Any]:
-        """Build the hybrid search query"""
-        text_match = {
-            "multi_match": {            # fields to search in
-                "query": query_text,
-                "fields": [
-                    "content",
-                    "metadata.title",
-                    "metadata.extracted_data.DocumentTitle",
-                    "metadata.extracted_data.DocumentTitle.keyword^3",  # Boost keyword matches
-                    "metadata.extracted_data.OfficialSource^10",
-                    "metadata.extracted_data.OfficialRoles.Role",
-                    "metadata.extracted_data.Description",
-                    "metadata.extracted_data.AdditionalKeywords",
-                    "metadata.extracted_data.Topics",
-                ],
-                "boost": 0.4,           # boost for text match vs vector match
-                "type": 'cross_fields',  # type of search: cross_fields, bool, simple, phrase, phrase_prefix
-                "operator": 'or',       # operator: or, and 
-            }
-        }
-        
-        # Enhanced priority for document title matches
-        # This creates several potential exact title matches by taking the first 1-3 words of the query
-        title_matches = []
-        words = query_text.split()
-        
-        # Try exact match with full query
-        title_matches.append({
-            "term": {
-                "metadata.extracted_data.DocumentTitle.keyword": {
-                    "value": query_text,
-                    "boost": 10.0
-                }
-            }
-        })
-        
-        # Try with first 1-3 words (to match document titles like "חוק הכנסת")
-        if len(words) >= 2:
-            potential_title = " ".join(words[0:2])
-            title_matches.append({
-                "term": {
-                    "metadata.extracted_data.DocumentTitle.keyword": {
-                        "value": potential_title,
-                        "boost": 20.0  # Higher boost for shorter, exact title matches
+    def _build_search_query(
+        self,
+        query_text: str,
+        search_mode: SearchModeConfig,
+        embedding: Optional[List[float]] = None,
+        num_results: int = 7
+    ) -> Dict[str, Any]:
+        """
+        Builds an Elasticsearch query based on the search mode configuration.
+        Args:
+            query_text: The search query string
+            search_mode: Search mode configuration (required)
+            embedding: Optional embedding vector for vector search
+            num_results: Number of results to return
+        Returns:
+            Dict containing the Elasticsearch query
+        """
+        field_queries = []
+        for field_config in search_mode.fields:
+            field_es_path = field_config.field_path or f"metadata.extracted_data.{field_config.name.capitalize()}"
+            if field_config.use_phrase_match:
+                weight = field_config.weight.exact_match
+                boost = weight * field_config.boost_factor
+                if boost > 0:
+                    field_queries.append({
+                        "match_phrase": {
+                            field_es_path: {
+                                "query": query_text,
+                                "boost": boost
+                            }
+                        }
+                    })
+            else:
+                weight = field_config.weight.partial_match
+                boost = weight * field_config.boost_factor
+                if boost > 0:
+                    match_query_body = {
+                        "query": query_text,
+                        "boost": boost
+                    }
+                    if field_config.fuzzy_matching:
+                        match_query_body["fuzziness"] = "AUTO"
+                    field_queries.append({
+                        "match": {
+                            field_es_path: match_query_body
+                        }
+                    })
+        should_clauses = field_queries.copy()
+        # Only add vector search if enabled in config and embedding is provided
+        if search_mode.use_vector_search and embedding:
+            should_clauses.append({
+                "nested": {
+                    "path": "vectors",
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {"term": {"vectors.source": "content"}},
+                                {
+                                    "knn": {
+                                        "field": "vectors.vector",
+                                        "query_vector": embedding,
+                                        "k": num_results,
+                                        "num_candidates": 20
+                                    }
+                                }
+                            ]
+                        }
                     }
                 }
             })
-            
-        if len(words) >= 3:
-            potential_title = " ".join(words[0:3])
-            title_matches.append({
-                "term": {
-                    "metadata.extracted_data.DocumentTitle.keyword": {
-                        "value": potential_title,
-                        "boost": 15.0
-                    }
-                }
-            })
-        
-        # Add a prefix match as fallback
-        title_matches.append({
-            "prefix": {
-                "metadata.extracted_data.DocumentTitle.keyword": {
-                    "value": words[0] if words else "",
-                    "boost": 5.0
-                }
-            }
-        })
-        
-        vector_match = {
-            "bool": {
-                "should": [
-                    {
-                        "nested": {
-                            "path": "vectors",
-                            "query": {
-                                "bool": {
-                                    "must": [
-                                        {"term": {"vectors.source": "content"}},
-                                        {
-                                            "knn": {
-                                                "field": "vectors.vector",
-                                                "query_vector": embedding,
-                                                "k": num_results,
-                                                "num_candidates": 20
-                                            }
-                                        }
-                                    ]
-                                }
-                            },
-                            "boost": 1.0
-                        }
-                    },
-                    {
-                        "nested": {
-                            "path": "vectors",
-                            "query": {
-                                "bool": {
-                                    "must": [
-                                        {"term": {"vectors.source": "description"}},
-                                        {
-                                            "knn": {
-                                                "field": "vectors.vector",
-                                                "query_vector": embedding,
-                                                "k": num_results,
-                                                "num_candidates": 20
-                                            }
-                                        }
-                                    ]
-                                }
-                            },
-                            "boost": 0.8
-                        }
-                    }
-                ]
-            }
-        }
-        
-        # Build final query with all components
         query = {
             "bool": {
-                "should": [text_match, vector_match] + title_matches,
-                "minimum_should_match": 1,
+                "should": should_clauses,
+                "minimum_should_match": 1
             }
         }
-        
-        return query
+        return {
+            "size": num_results,
+            "query": query
+        }
 
     def verify_document_vectors(self, index_name: str, document_id: str) -> Dict:
         """Verify vectors stored for a specific document"""
@@ -226,13 +180,14 @@ class VectorStoreES(VectorStoreBase):
             logger.error(f"Failed to verify vectors for document {document_id}: {str(e)}")
             return []
 
-    def search(self, context_name: str, query_text: str, embedding: List[float], 
-               num_results: int = 7, explain: bool = False) -> Dict[str, Any]:
+    def search(self, context_name: str, query_text: str, search_mode: SearchModeConfig, embedding: List[float], num_results: int = 7, explain: bool = False) -> Dict[str, Any]:
         """
         Search the vector store with the given text and embedding
         
         Args:
+            context_name (str): Name of the context to search in
             query_text (str): The text to search for
+            search_mode (SearchModeConfig): Search mode configuration
             embedding (List[float]): The embedding vector to search with
             num_results (int): Number of results to return
             explain (bool): Whether to include scoring explanation in results
@@ -240,7 +195,13 @@ class VectorStoreES(VectorStoreBase):
         Returns:
             Dict[str, Any]: Elasticsearch search results
         """
-        query = self._build_search_query(query_text, embedding, num_results)
+        query = self._build_search_query(
+            query_text=query_text,
+            search_mode=search_mode,
+            embedding=embedding,
+            num_results=num_results
+        )
+
         index_name = self._index_name_for_context(context_name)
         
         logger.info(f"Executing search on index: {index_name}")
@@ -279,7 +240,6 @@ class VectorStoreES(VectorStoreBase):
                     # Get text similarity explanation
                     text_score = hit.get('_explanation', {})
                     
-                    # Combine scores
                     hit['_explanation'] = combine_text_and_vector_scores(
                         text_score=text_score,
                         vector_score=vector_score
@@ -545,11 +505,17 @@ class VectorStoreES(VectorStoreBase):
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "The query string to use for searching"
+                            "description": "The query string to use for semantic/free text search"
+                        },
+                        "search_mode": {
+                            "type": "string",
+                            "description": "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results).",
+                            "enum": [mode.name for mode in SEARCH_MODES.values()],
+                            "default": DEFAULT_SEARCH_MODE.name
                         },
                         "num_results": {
                             "type": "integer",
-                            "description": "Number of results to return",
+                            "description": "Number of results to return. Leave empty to use the default for the search mode.",
                             "default": 7
                         }
                     },
@@ -569,6 +535,18 @@ class VectorStoreES(VectorStoreBase):
                 index=index_name,
                 id=document_id,
                 _source=['metadata']
+            )
+            return result['_source'].get('metadata', {})
+        except Exception as e:
+            logger.error(f"Failed to verify metadata for document {document_id}: {str(e)}")
+            return {}
+
+    def verify_metadata(self, document_id: str) -> Dict:
+        """Verify metadata for a document"""
+        try:
+            result = self.es_client.get(
+                index=self._index_name_for_context(self.context_name),
+                id=document_id
             )
             return result['_source'].get('metadata', {})
         except Exception as e:
