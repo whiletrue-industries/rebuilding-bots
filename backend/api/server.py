@@ -45,18 +45,7 @@ async def search_datasets_handler(
         return Response(content=results, media_type="application/x-yaml")
     return Response(content=results, media_type="text/plain")
 
-@app.get("/search-modes")
-async def list_search_modes():
-    """Return all available search modes, their descriptions, default num_results, and use_vector_search flag."""
-    return [
-        {
-            "name": name,
-            "description": config.description,
-            "default_num_results": config.num_results,
-            "use_vector_search": config.use_vector_search
-        }
-        for name, config in SEARCH_MODES.items()
-    ]
+
 
 # Run the server with:
 # uvicorn server:app --reload

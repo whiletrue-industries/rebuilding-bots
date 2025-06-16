@@ -102,45 +102,7 @@
         "deprecated": false
       }
     },
-    "/botnim/search-modes": {
-      "get": {
-        "description": "List all available search modes, their descriptions, and default num_results.",
-        "operationId": "list_search_modes",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "A list of search modes.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "name": {"type": "string"},
-                      "description": {"type": "string"},
-                      "default_num_results": {"type": "integer"},
-                      "use_vector_search": {"type": "boolean"}
-                    }
-                  }
-                },
-                "examples": {
-                  "RELATED_RESOURCE": {
-                    "summary": "Finds documents that are related to or mention a specific resource, by matching ReferenceLinks, LegalReferences, and related fields.",
-                    "value": {
-                      "name": "RELATED_RESOURCE",
-                      "description": "Finds documents that are related to or mention a specific resource, by matching ReferenceLinks, LegalReferences, and related fields.",
-                      "default_num_results": 5,
-                      "use_vector_search": false
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+
   },
   "components": {
     "schemas": {}
