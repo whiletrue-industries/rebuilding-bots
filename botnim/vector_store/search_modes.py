@@ -163,21 +163,4 @@ SEARCH_MODES = MappingProxyType({
     # Add more modes here as needed
 })
 
-def normalize_resource_identifier(resource: str) -> str:
-    """
-    Normalize a resource identifier (e.g., law name + section) for consistent matching.
-    - Strips whitespace
-    - Converts common punctuation to spaces
-    - Normalizes section formatting (e.g., 'סעיף  9א' -> 'סעיף 9א')
-    - Lowercases (if appropriate)
-    - Removes redundant characters
-    """
-    import re
-    s = resource.strip()
-    s = re.sub(r'[\-_,:]', ' ', s)  # Replace common punctuation with space
-    s = re.sub(r'\s+', ' ', s)     # Collapse multiple spaces
-    s = s.replace(' סעיף ', ' סעיף')  # Remove space before 'סעיף'
-    s = s.replace('סעיף ', 'סעיף')    # Remove space after 'סעיף' (if needed)
-    s = s.replace('חוק ', 'חוק') # Remove space after 'חוק'
-    s = s.replace(' חוק ', 'חוק') # Remove space after 'חוק'
-    return s
+
