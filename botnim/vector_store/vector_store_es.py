@@ -505,11 +505,17 @@ class VectorStoreES(VectorStoreBase):
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "The query string to use for searching"
+                            "description": "The query string to use for semantic/free text search"
+                        },
+                        "search_mode": {
+                            "type": "string",
+                            "description": "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results).",
+                            "enum": [mode.name for mode in SEARCH_MODES.values()],
+                            "default": DEFAULT_SEARCH_MODE.name
                         },
                         "num_results": {
                             "type": "integer",
-                            "description": "Number of results to return",
+                            "description": "Number of results to return. Leave empty to use the default for the search mode.",
                             "default": 7
                         }
                     },
