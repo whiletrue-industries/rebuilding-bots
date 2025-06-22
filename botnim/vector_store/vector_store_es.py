@@ -159,10 +159,7 @@ class VectorStoreES(VectorStoreBase):
                 "minimum_should_match": 1
             }
         }
-        return {
-            "size": num_results,
-            "query": query
-        }
+        return query
 
     def verify_document_vectors(self, index_name: str, document_id: str) -> Dict:
         """Verify vectors stored for a specific document"""
@@ -195,7 +192,7 @@ class VectorStoreES(VectorStoreBase):
         Returns:
             Dict[str, Any]: Elasticsearch search results
         """
-        query_dict = self._build_search_query(
+        query = self._build_search_query(
             query_text=query_text,
             search_mode=search_mode,
             embedding=embedding,
@@ -205,17 +202,16 @@ class VectorStoreES(VectorStoreBase):
         index_name = self._index_name_for_context(context_name)
         
         logger.info(f"Executing search on index: {index_name}")
-        logger.debug(f"Query structure: {json.dumps(query_dict, indent=2)}")
+        logger.debug(f"Query structure: {json.dumps(query, indent=2)}")
         
         # Get search results with explanation if requested
-        # Use the complete query dict as the request body
+        # Use Elasticsearch 8.x parameter-based API (no deprecated 'body' parameter)
         results = self.es_client.search(
             index=index_name,
-            body={
-                **query_dict,
-                "_source": ['content', 'metadata', 'vectors'],
-                "explain": explain
-            }
+            query=query,
+            size=num_results,
+            source=['content', 'metadata', 'vectors'],
+            explain=explain
         )
         
         logger.info(f"Retrieved {len(results['hits']['hits'])} results")
@@ -331,7 +327,7 @@ class VectorStoreES(VectorStoreBase):
                     }
                 }
             }
-            self.es_client.indices.create(index=index_name, body=mapping)
+            self.es_client.indices.create(index=index_name, **mapping)
             logger.info(f"Created new index: {index_name}")
         
         return index_name
