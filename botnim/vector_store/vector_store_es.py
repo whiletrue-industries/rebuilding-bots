@@ -170,7 +170,7 @@ class VectorStoreES(VectorStoreBase):
             result = self.es_client.get(
                 index=index_name,
                 id=document_id,
-                _source=['vectors']
+                source=['vectors']
             )
             vectors = result['_source'].get('vectors', [])
             logger.info(f"Found {len(vectors)} vectors for document {document_id}")
@@ -195,7 +195,7 @@ class VectorStoreES(VectorStoreBase):
         Returns:
             Dict[str, Any]: Elasticsearch search results
         """
-        query = self._build_search_query(
+        query_dict = self._build_search_query(
             query_text=query_text,
             search_mode=search_mode,
             embedding=embedding,
@@ -205,14 +205,14 @@ class VectorStoreES(VectorStoreBase):
         index_name = self._index_name_for_context(context_name)
         
         logger.info(f"Executing search on index: {index_name}")
-        logger.debug(f"Query structure: {json.dumps(query, indent=2)}")
+        logger.debug(f"Query structure: {json.dumps(query_dict, indent=2)}")
         
         # Get search results with explanation if requested
+        # Use **query_dict directly in the search call (ES 8.x compatible)
         results = self.es_client.search(
             index=index_name,
-            query=query,
-            size=num_results,
-            _source=['content', 'metadata', 'vectors'],
+            **query_dict,
+            source=['content', 'metadata', 'vectors'],
             explain=explain
         )
         
@@ -329,7 +329,7 @@ class VectorStoreES(VectorStoreBase):
                     }
                 }
             }
-            self.es_client.indices.create(index=index_name, body=mapping)
+            self.es_client.indices.create(index=index_name, **mapping)
             logger.info(f"Created new index: {index_name}")
         
         return index_name
@@ -477,16 +477,14 @@ class VectorStoreES(VectorStoreBase):
     def delete_existing_files(self, context_, vector_store, file_names):
         try:
             # Delete documents by their IDs (filenames)
-            body = {
-                "query": {
-                    "ids": {
-                        "values": file_names
-                    }
+            query = {
+                "ids": {
+                    "values": file_names
                 }
             }
             result = self.es_client.delete_by_query(
                 index=vector_store,  # Use the index name directly
-                body=body
+                query=query
             )
             return result['deleted']
         except Exception as e:
@@ -534,7 +532,7 @@ class VectorStoreES(VectorStoreBase):
             result = self.es_client.get(
                 index=index_name,
                 id=document_id,
-                _source=['metadata']
+                source=['metadata']
             )
             return result['_source'].get('metadata', {})
         except Exception as e:
@@ -546,7 +544,8 @@ class VectorStoreES(VectorStoreBase):
         try:
             result = self.es_client.get(
                 index=self._index_name_for_context(self.context_name),
-                id=document_id
+                id=document_id,
+                source=['metadata']
             )
             return result['_source'].get('metadata', {})
         except Exception as e:
