@@ -195,7 +195,7 @@ class VectorStoreES(VectorStoreBase):
         Returns:
             Dict[str, Any]: Elasticsearch search results
         """
-        query = self._build_search_query(
+        query_dict = self._build_search_query(
             query_text=query_text,
             search_mode=search_mode,
             embedding=embedding,
@@ -205,15 +205,17 @@ class VectorStoreES(VectorStoreBase):
         index_name = self._index_name_for_context(context_name)
         
         logger.info(f"Executing search on index: {index_name}")
-        logger.debug(f"Query structure: {json.dumps(query, indent=2)}")
+        logger.debug(f"Query structure: {json.dumps(query_dict, indent=2)}")
         
         # Get search results with explanation if requested
+        # Use the complete query dict as the request body
         results = self.es_client.search(
             index=index_name,
-            query=query,
-            size=num_results,
-            _source=['content', 'metadata', 'vectors'],
-            explain=explain
+            body={
+                **query_dict,
+                "_source": ['content', 'metadata', 'vectors'],
+                "explain": explain
+            }
         )
         
         logger.info(f"Retrieved {len(results['hits']['hits'])} results")
