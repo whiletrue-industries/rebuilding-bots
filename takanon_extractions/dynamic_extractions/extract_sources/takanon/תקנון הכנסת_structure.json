@@ -1,0 +1,1364 @@
+{
+  "metadata": {
+    "input_file": "examples/takanon/תקנון הכנסת.html",
+    "document_name": "תקנון הכנסת",
+    "environment": "staging",
+    "model": "gpt-4.1",
+    "max_tokens": 32000,
+    "total_items": 206,
+    "structure_type": "nested_hierarchy",
+    "mark_type": "סעיף"
+  },
+  "structure": [
+    {
+      "depth": 1,
+      "section_name": "תוכן עניינים",
+      "html_id": null,
+      "section_type": "תוכן עניינים"
+    },
+    {
+      "depth": 1,
+      "section_name": "חלק א׳: הגדרות ופרשנות",
+      "html_id": "חלק_א",
+      "section_type": "חלק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 1",
+          "html_id": "סעיף_1",
+          "section_type": "סעיף"
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "חלק ב׳: ארגון הכנסת",
+      "html_id": "חלק_ב",
+      "section_type": "חלק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "פרק ראשון: יושב ראש הכנסת וסגניו",
+          "html_id": "חלק_ב_פרק_1",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 2",
+              "html_id": "סעיף_2",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 3",
+              "html_id": "סעיף_3",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 4",
+              "html_id": "סעיף_4",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 5",
+              "html_id": "סעיף_5",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 6",
+              "html_id": "סעיף_6",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7",
+              "html_id": "סעיף_7",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שני: סיעות",
+          "html_id": "חלק_ב_פרק_2",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 8",
+              "html_id": "סעיף_8",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 9",
+              "html_id": "סעיף_9",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 10",
+              "html_id": "סעיף_10",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 11",
+              "html_id": "סעיף_11",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שלישי: חברי הכנסת",
+          "html_id": "חלק_ב_פרק_3",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 12",
+              "html_id": "סעיף_12",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 13",
+              "html_id": "סעיף_13",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 14",
+              "html_id": "סעיף_14",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 15",
+              "html_id": "סעיף_15",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 16",
+              "html_id": "סעיף_16",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 17",
+              "html_id": "סעיף_17",
+              "section_type": "סעיף"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "חלק ג׳: עבודת הכנסת",
+      "html_id": "חלק_ג",
+      "section_type": "חלק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "פרק ראשון: ישיבות",
+          "html_id": "חלק_ג_פרק_1",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 18",
+              "html_id": "סעיף_18",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 19",
+              "html_id": "סעיף_19",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20",
+              "html_id": "סעיף_20",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 21",
+              "html_id": "סעיף_21",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 22",
+              "html_id": "סעיף_22",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 23",
+              "html_id": "סעיף_23",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 24",
+              "html_id": "סעיף_24",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שני: סדר היום",
+          "html_id": "חלק_ג_פרק_2",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 25",
+              "html_id": "סעיף_25",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 26",
+              "html_id": "סעיף_26",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שלישי: סדרי הדיון",
+          "html_id": "חלק_ג_פרק_3",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 27",
+              "html_id": "סעיף_27",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 28",
+              "html_id": "סעיף_28",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 29",
+              "html_id": "סעיף_29",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 30",
+              "html_id": "סעיף_30",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 31",
+              "html_id": "סעיף_31",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 32",
+              "html_id": "סעיף_32",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 33",
+              "html_id": "סעיף_33",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 34",
+              "html_id": "סעיף_34",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק רביעי: הצבעות במליאת הכנסת",
+          "html_id": "חלק_ג_פרק_4",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 35",
+              "html_id": "סעיף_35",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 36",
+              "html_id": "סעיף_36",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 37",
+              "html_id": "סעיף_37",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק חמישי: תיעוד ישיבות מליאת הכנסת",
+          "html_id": "חלק_ג_פרק_5",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 38",
+              "html_id": "סעיף_38",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 39",
+              "html_id": "סעיף_39",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 40",
+              "html_id": "סעיף_40",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שישי: התנהגות במליאת הכנסת",
+          "html_id": "חלק_ג_פרק_6",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 41",
+              "html_id": "סעיף_41",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42",
+              "html_id": "סעיף_42",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 43",
+              "html_id": "סעיף_43",
+              "section_type": "סעיף"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "חלק ד׳: כלים פרלמנטריים",
+      "html_id": "חלק_ד",
+      "section_type": "חלק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "פרק ראשון: הבעת אי־אמון בממשלה",
+          "html_id": "חלק_ד_פרק_1",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 44",
+              "html_id": "סעיף_44",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שני: דיון בהשתתפות ראש הממשלה",
+          "html_id": "חלק_ד_פרק_2",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 45",
+              "html_id": "סעיף_45",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שלישי: שאילתות",
+          "html_id": "חלק_ד_פרק_3",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 46",
+              "html_id": "סעיף_46",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 47",
+              "html_id": "סעיף_47",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 48",
+              "html_id": "סעיף_48",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 49",
+              "html_id": "סעיף_49",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 50",
+              "html_id": "סעיף_50",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 50א",
+              "html_id": "סעיף_50א",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק רביעי: נאומים בני דקה",
+          "html_id": "חלק_ד_פרק_4",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 51",
+              "html_id": "סעיף_51",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק חמישי: הצעות לסדר היום ודיונים מהירים",
+          "html_id": "חלק_ד_פרק_5",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 52",
+              "html_id": "סעיף_52",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 53",
+              "html_id": "סעיף_53",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 54",
+              "html_id": "סעיף_54",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 55",
+              "html_id": "סעיף_55",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 56",
+              "html_id": "סעיף_56",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 57",
+              "html_id": "סעיף_57",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 58",
+              "html_id": "סעיף_58",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 59",
+              "html_id": "סעיף_59",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 60",
+              "html_id": "סעיף_60",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 61",
+              "html_id": "סעיף_61",
+              "section_type": "סעיף"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "חלק ה׳: בחירה ומינוי של נושאי משרה",
+      "html_id": "חלק_ה",
+      "section_type": "חלק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "פרק ראשון: בחירת נציגים לוועדות מינויים בידי הכנסת",
+          "html_id": "חלק_ה_פרק_1",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 62",
+              "html_id": "סעיף_62",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 63",
+              "html_id": "סעיף_63",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 64",
+              "html_id": "סעיף_64",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שני: בחירת נציגים בידי ועדה של הכנסת",
+          "html_id": "חלק_ה_פרק_2",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 65",
+              "html_id": "סעיף_65",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 66",
+              "html_id": "סעיף_66",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שלישי: קביעת מספר שופטי בית המשפט העליון",
+          "html_id": "חלק_ה_פרק_3",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 67",
+              "html_id": "סעיף_67",
+              "section_type": "סעיף"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "חלק ו׳: מצב חירום",
+      "html_id": "חלק_ו",
+      "section_type": "חלק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "פרק ראשון: הכרזת מצב חירום",
+          "html_id": "חלק_ו_פרק_1",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 68",
+              "html_id": "סעיף_68",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 69",
+              "html_id": "סעיף_69",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 70",
+              "html_id": "סעיף_70",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 71",
+              "html_id": "סעיף_71",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 72",
+              "html_id": "סעיף_72",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שני: תקנות שעת חירום",
+          "html_id": "חלק_ו_פרק_2",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 73",
+              "html_id": "סעיף_73",
+              "section_type": "סעיף"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "חלק ז׳: הליך החקיקה",
+      "html_id": "חלק_ז",
+      "section_type": "חלק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "פרק ראשון: הליך החקיקה – כללי",
+          "html_id": "חלק_ז_פרק_1",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 74",
+              "html_id": "סעיף_74",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שני: הצעות חוק פרטיות",
+          "html_id": "חלק_ז_פרק_2",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סימן א׳: כללי",
+              "html_id": "חלק_ז_פרק_2_סימן_א",
+              "section_type": "סימן",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 75",
+                  "html_id": "סעיף_75",
+                  "section_type": "סעיף"
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סימן ב׳: הדיון המוקדם",
+              "html_id": "חלק_ז_פרק_2_סימן_ב",
+              "section_type": "סימן",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 76",
+                  "html_id": "סעיף_76",
+                  "section_type": "סעיף"
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 77",
+                  "html_id": "סעיף_77",
+                  "section_type": "סעיף"
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 78",
+                  "html_id": "סעיף_78",
+                  "section_type": "סעיף"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שלישי: הכנה לקריאה הראשונה",
+          "html_id": "חלק_ז_פרק_3",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סימן א׳: הכנת הצעת חוק פרטית לקריאה הראשונה",
+              "html_id": "חלק_ז_פרק_3_סימן_א",
+              "section_type": "סימן",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 79",
+                  "html_id": "סעיף_79",
+                  "section_type": "סעיף"
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סימן ב׳: הכנת הצעת חוק מטעם ועדה לקריאה הראשונה",
+              "html_id": "חלק_ז_פרק_3_סימן_ב",
+              "section_type": "סימן",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 80",
+                  "html_id": "סעיף_80",
+                  "section_type": "סעיף"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק רביעי: הקריאה הראשונה",
+          "html_id": "חלק_ז_פרק_4",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 81",
+              "html_id": "סעיף_81",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 82",
+              "html_id": "סעיף_82",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 83",
+              "html_id": "סעיף_83",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק חמישי: הכנה לקריאה השנייה ולקריאה השלישית",
+          "html_id": "חלק_ז_פרק_5",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 84",
+              "html_id": "סעיף_84",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 85",
+              "html_id": "סעיף_85",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 86",
+              "html_id": "סעיף_86",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 87",
+              "html_id": "סעיף_87",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שישי: הקריאה השנייה והקריאה השלישית",
+          "html_id": "חלק_ז_פרק_6",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 88",
+              "html_id": "סעיף_88",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 89",
+              "html_id": "סעיף_89",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 90",
+              "html_id": "סעיף_90",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 91",
+              "html_id": "סעיף_91",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 92",
+              "html_id": "סעיף_92",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שביעי: הליך החקיקה – הוראות שונות",
+          "html_id": "חלק_ז_פרק_7",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סימן א׳: עלות תקציבית",
+              "html_id": "חלק_ז_פרק_7_סימן_א",
+              "section_type": "סימן",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 93",
+                  "html_id": "סעיף_93",
+                  "section_type": "סעיף"
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סימן ב׳: הסרת הצעת חוק מסדר היום",
+              "html_id": "חלק_ז_פרק_7_סימן_ב",
+              "section_type": "סימן",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 94",
+                  "html_id": "סעיף_94",
+                  "section_type": "סעיף"
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סימן ג׳: חזרה מהצעת חוק",
+              "html_id": "חלק_ז_פרק_7_סימן_ג",
+              "section_type": "סימן",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 95",
+                  "html_id": "סעיף_95",
+                  "section_type": "סעיף"
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 96",
+                  "html_id": "סעיף_96",
+                  "section_type": "סעיף"
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סימן ד׳: רציפות הדיון בהצעות חוק לפי חוק הרציפות",
+              "html_id": "חלק_ז_פרק_7_סימן_ד",
+              "section_type": "סימן",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 97",
+                  "html_id": "סעיף_97",
+                  "section_type": "סעיף"
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סימן ה׳: סדרי דיון מיוחדים",
+              "html_id": "חלק_ז_פרק_7_סימן_ה",
+              "section_type": "סימן",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 98",
+                  "html_id": "סעיף_98",
+                  "section_type": "סעיף"
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סימן ו׳: מכסת הצעות חוק והצעות לסדר היום",
+              "html_id": "חלק_ז_פרק_7_סימן_ו",
+              "section_type": "סימן",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 99",
+                  "html_id": "סעיף_99",
+                  "section_type": "סעיף"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "חלק ח׳: ועדות הכנסת",
+      "html_id": "חלק_ח",
+      "section_type": "חלק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "פרק ראשון: ועדות קבועות, סמכויותיהן והרכבן",
+          "html_id": "חלק_ח_פרק_1",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 100",
+              "html_id": "סעיף_100",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 101",
+              "html_id": "סעיף_101",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 102",
+              "html_id": "סעיף_102",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 103",
+              "html_id": "סעיף_103",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 104",
+              "html_id": "סעיף_104",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 105",
+              "html_id": "סעיף_105",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 105א",
+              "html_id": "סעיף_105א",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שני: יושב ראש ועדה קבועה",
+          "html_id": "חלק_ח_פרק_2",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 106",
+              "html_id": "סעיף_106",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 107",
+              "html_id": "סעיף_107",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שלישי: ועדות לעניין מסוים, ועדות משנה, ועדות משותפות",
+          "html_id": "חלק_ח_פרק_3",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 108",
+              "html_id": "סעיף_108",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 109",
+              "html_id": "סעיף_109",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 110",
+              "html_id": "סעיף_110",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק רביעי: ישיבות הוועדות",
+          "html_id": "חלק_ח_פרק_4",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 111",
+              "html_id": "סעיף_111",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 112",
+              "html_id": "סעיף_112",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 113",
+              "html_id": "סעיף_113",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 114",
+              "html_id": "סעיף_114",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 115",
+              "html_id": "סעיף_115",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 116",
+              "html_id": "סעיף_116",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 117",
+              "html_id": "סעיף_117",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק חמישי: פומביות הישיבות והפרוטוקולים",
+          "html_id": "חלק_ח_פרק_5",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 118",
+              "html_id": "סעיף_118",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 119",
+              "html_id": "סעיף_119",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 120",
+              "html_id": "סעיף_120",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שישי: התנהגות חברי הכנסת בישיבות הוועדות",
+          "html_id": "חלק_ח_פרק_6",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 121",
+              "html_id": "סעיף_121",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 122",
+              "html_id": "סעיף_122",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שביעי: מוזמנים לישיבות הוועדות ומסירת מידע לוועדות",
+          "html_id": "חלק_ח_פרק_7",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 123",
+              "html_id": "סעיף_123",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 124",
+              "html_id": "סעיף_124",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 125",
+              "html_id": "סעיף_125",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 126",
+              "html_id": "סעיף_126",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 127",
+              "html_id": "סעיף_127",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שמיני: ועדת חקירה פרלמנטרית",
+          "html_id": "חלק_ח_פרק_8",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 128",
+              "html_id": "סעיף_128",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 129",
+              "html_id": "סעיף_129",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 130",
+              "html_id": "סעיף_130",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 131",
+              "html_id": "סעיף_131",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 132",
+              "html_id": "סעיף_132",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 133",
+              "html_id": "סעיף_133",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 134",
+              "html_id": "סעיף_134",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 135",
+              "html_id": "סעיף_135",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 136",
+              "html_id": "סעיף_136",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק תשיעי: הוראות לעניין ועדת האתיקה",
+          "html_id": "חלק_ח_פרק_9",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 137",
+              "html_id": "סעיף_137",
+              "section_type": "סעיף"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "חלק ט׳: שדולות חברי הכנסת וקבוצות ידידות בין־פרלמנטריות",
+      "html_id": "חלק_ט",
+      "section_type": "חלק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 138",
+          "html_id": "סעיף_138",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 139",
+          "html_id": "סעיף_139",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 140",
+          "html_id": "סעיף_140",
+          "section_type": "סעיף"
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "חלק י׳: תקנון הכנסת",
+      "html_id": "חלק_י",
+      "section_type": "חלק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "פרק ראשון: תקדימים ופירושים",
+          "html_id": "חלק_י_פרק_1",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 141",
+              "html_id": "סעיף_141",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 142",
+              "html_id": "סעיף_142",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 143",
+              "html_id": "סעיף_143",
+              "section_type": "סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "פרק שני: תיקון תקנון הכנסת",
+          "html_id": "חלק_י_פרק_2",
+          "section_type": "פרק",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 144",
+              "html_id": "סעיף_144",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 145",
+              "html_id": "סעיף_145",
+              "section_type": "סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 146",
+              "html_id": "סעיף_146",
+              "section_type": "סעיף"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

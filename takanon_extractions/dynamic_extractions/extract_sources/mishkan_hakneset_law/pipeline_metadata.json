@@ -1,0 +1,30 @@
+{
+  "pipeline_version": "1.0.0",
+  "start_time": "2025-07-05T01:13:14.339557",
+  "end_time": "2025-07-05T01:13:47.364115",
+  "stages_completed": [
+    "extract_structure",
+    "extract_content",
+    "generate_markdown"
+  ],
+  "errors": [],
+  "warnings": [],
+  "structure_extraction": {
+    "duration_seconds": 32.01,
+    "output_file": "examples/mishkan_hakneset_law/חוק משכן הכנסת, רחבתו ומשמר הכנסת_structure.json",
+    "file_size_bytes": 10187
+  },
+  "content_extraction": {
+    "duration_seconds": 0.85,
+    "output_file": "examples/mishkan_hakneset_law/חוק משכן הכנסת, רחבתו ומשמר הכנסת_structure_content.json",
+    "file_size_bytes": 77825,
+    "content_items_found": 50
+  },
+  "markdown_generation": {
+    "duration_seconds": 0.16,
+    "output_directory": "examples/mishkan_hakneset_law/chunks",
+    "files_generated": 50,
+    "total_size_bytes": 73105,
+    "dry_run": false
+  }
+}

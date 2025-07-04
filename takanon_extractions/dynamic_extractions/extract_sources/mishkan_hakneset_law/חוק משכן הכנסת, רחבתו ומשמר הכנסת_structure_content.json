@@ -1,6 +1,7 @@
 {
   "metadata": {
-    "input_file": "examples/mishkan_hakneset_law/חוק משכן הכנסת, רחבתו ומשמר הכנסת – ויקיטקסט.html",
+    "input_file": "examples/mishkan_hakneset_law/חוק משכן הכנסת, רחבתו ומשמר הכנסת.html",
+    "document_name": "חוק משכן הכנסת, רחבתו ומשמר הכנסת",
     "environment": "staging",
     "model": "gpt-4.1",
     "max_tokens": 32000,

@@ -1,6 +1,7 @@
 {
   "metadata": {
-    "input_file": "examples/takanon/takanon.html",
+    "input_file": "examples/takanon/תקנון הכנסת.html",
+    "document_name": "תקנון הכנסת",
     "environment": "staging",
     "model": "gpt-4.1",
     "max_tokens": 32000,
