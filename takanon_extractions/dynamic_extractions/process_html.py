@@ -255,6 +255,7 @@ def main():
         output_data = {
             "metadata": {
                 "input_file": str(input_path),
+                "document_name": input_path.stem,  # Filename without extension
                 "environment": args.environment,
                 "model": args.model,
                 "max_tokens": args.max_tokens,
