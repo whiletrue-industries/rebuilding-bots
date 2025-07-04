@@ -9,6 +9,10 @@ import sys
 from pathlib import Path
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
+from botnim.config import get_logger
+
+# Logger setup
+logger = get_logger(__name__)
 
 def extract_content_for_sections(html_content, structure_data, target_content_type):
     """
@@ -106,6 +110,7 @@ def extract_content_for_sections(html_content, structure_data, target_content_ty
     return structure_data
 
 def main():
+    """CLI interface for content extraction."""
     parser = argparse.ArgumentParser(description='Extract content for specific section types from HTML files')
     parser.add_argument('html_file', help='Path to the HTML file')
     parser.add_argument('structure_file', help='Path to the JSON structure file')
@@ -114,38 +119,49 @@ def main():
     
     args = parser.parse_args()
     
+    logger.info("Starting content extraction")
+    logger.info(f"HTML file: {args.html_file}")
+    logger.info(f"Structure file: {args.structure_file}")
+    logger.info(f"Content type: {args.content_type}")
+    
     # Read HTML file
     html_path = Path(args.html_file)
     if not html_path.exists():
-        print(f"Error: HTML file not found: {html_path}")
-        sys.exit(1)
+        logger.error(f"HTML file not found: {html_path}")
+        return 1
     
     try:
+        logger.info(f"Reading HTML file: {html_path}")
         with open(html_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
+        logger.info(f"HTML file read successfully ({len(html_content)} characters)")
     except Exception as e:
-        print(f"Error reading HTML file: {e}")
-        sys.exit(1)
+        logger.error(f"Error reading HTML file: {e}")
+        return 1
     
     # Read structure file
     structure_path = Path(args.structure_file)
     if not structure_path.exists():
-        print(f"Error: Structure file not found: {structure_path}")
-        sys.exit(1)
+        logger.error(f"Structure file not found: {structure_path}")
+        return 1
     
     try:
+        logger.info(f"Reading structure file: {structure_path}")
         with open(structure_path, 'r', encoding='utf-8') as f:
             structure_data = json.load(f)
+        logger.info("Structure file read successfully")
     except Exception as e:
-        print(f"Error reading structure file: {e}")
-        sys.exit(1)
+        logger.error(f"Error reading structure file: {e}")
+        return 1
     
     # Extract content
     try:
+        logger.info(f"Extracting content for type: {args.content_type}")
         updated_structure = extract_content_for_sections(html_content, structure_data, args.content_type)
+        logger.info("Content extraction completed")
     except Exception as e:
-        print(f"Error extracting content: {e}")
-        sys.exit(1)
+        logger.error(f"Error extracting content: {e}")
+        return 1
     
     # Determine output path
     if args.output:
@@ -155,12 +171,16 @@ def main():
     
     # Write output
     try:
+        logger.info(f"Writing output to: {output_path}")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(updated_structure, f, ensure_ascii=False, indent=2)
-        print(f"Content extracted and saved to: {output_path}")
+        logger.info(f"Content extracted and saved to: {output_path}")
     except Exception as e:
-        print(f"Error writing output file: {e}")
-        sys.exit(1)
+        logger.error(f"Error writing output file: {e}")
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
-    main() 
+    exit(main()) 

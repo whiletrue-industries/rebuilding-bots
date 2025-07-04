@@ -8,6 +8,10 @@ import json
 import sys
 import re
 from pathlib import Path
+from botnim.config import get_logger
+
+# Logger setup
+logger = get_logger(__name__)
 
 def sanitize_filename(filename):
     """
@@ -93,9 +97,9 @@ def traverse_and_generate(items, document_name, output_dir, parent_path=[]):
                 with open(filepath, 'w', encoding='utf-8') as f:
                     f.write(markdown_content)
                 generated_files.append(filepath)
-                print(f"Generated: {filepath}")
+                logger.info(f"Generated: {filepath}")
             except Exception as e:
-                print(f"Error writing file {filepath}: {e}")
+                logger.error(f"Error writing file {filepath}: {e}")
         
         # Recursively process children
         if 'children' in item and isinstance(item['children'], list):
@@ -110,6 +114,7 @@ def traverse_and_generate(items, document_name, output_dir, parent_path=[]):
     return generated_files
 
 def main():
+    """CLI interface for markdown generation."""
     parser = argparse.ArgumentParser(description='Generate individual markdown files from JSON structure with content')
     parser.add_argument('json_file', help='Path to the JSON file with content')
     parser.add_argument('--output-dir', '-o', help='Output directory for markdown files (default: chunks subfolder in JSON file directory)')
@@ -117,18 +122,24 @@ def main():
     
     args = parser.parse_args()
     
+    logger.info("Starting markdown file generation")
+    logger.info(f"JSON file: {args.json_file}")
+    logger.info(f"Dry run: {args.dry_run}")
+    
     # Read JSON file
     json_path = Path(args.json_file)
     if not json_path.exists():
-        print(f"Error: JSON file not found: {json_path}")
-        sys.exit(1)
+        logger.error(f"JSON file not found: {json_path}")
+        return 1
     
     try:
+        logger.info(f"Reading JSON file: {json_path}")
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
+        logger.info("JSON file read successfully")
     except Exception as e:
-        print(f"Error reading JSON file: {e}")
-        sys.exit(1)
+        logger.error(f"Error reading JSON file: {e}")
+        return 1
     
     # Determine output directory
     if args.output_dir:
@@ -138,6 +149,7 @@ def main():
     
     # Create output directory if it doesn't exist
     if not args.dry_run:
+        logger.info(f"Creating output directory: {output_dir}")
         output_dir.mkdir(parents=True, exist_ok=True)
     
     # Get document name from metadata
@@ -146,27 +158,27 @@ def main():
         # Fallback to extracting from input_file if document_name not available
         input_file = data.get('metadata', {}).get('input_file', '')
         if not input_file:
-            print("Error: No document_name or input_file found in metadata")
-            sys.exit(1)
+            logger.error("No document_name or input_file found in metadata")
+            return 1
         document_name = get_base_filename(input_file)
     
     document_name = sanitize_filename(document_name)
+    logger.info(f"Document name: {document_name}")
+    logger.info(f"Output directory: {output_dir}")
     
     if args.dry_run:
-        print(f"Dry run mode - would generate files with document name: {document_name}")
-        print(f"Output directory: {output_dir}")
-        print()
+        logger.info("Running in dry-run mode - no files will be created")
     
     # Process structure
     structure = data.get('structure', [])
     if not structure:
-        print("Error: No structure found in JSON")
-        sys.exit(1)
+        logger.error("No structure found in JSON")
+        return 1
     
     # Generate markdown files
     try:
         if args.dry_run:
-            print("Files that would be generated:")
+            logger.info("Files that would be generated:")
             # For dry run, we'll just show what would be generated
             def dry_run_traverse(items, parent_path=[]):
                 count = 0
@@ -178,22 +190,25 @@ def main():
                         filename = f"{document_name}_{sanitized_section}.md"
                         filepath = output_dir / filename
                         hierarchy_str = " > ".join([name for name, _ in current_path])
-                        print(f"  {filepath}")
-                        print(f"    Hierarchy: {hierarchy_str}")
+                        logger.info(f"  {filepath}")
+                        logger.info(f"    Hierarchy: {hierarchy_str}")
                         count += 1
                     if 'children' in item:
                         count += dry_run_traverse(item['children'], current_path)
                 return count
             
             total_files = dry_run_traverse(structure)
-            print(f"\nTotal files that would be generated: {total_files}")
+            logger.info(f"Total files that would be generated: {total_files}")
         else:
+            logger.info("Generating markdown files...")
             generated_files = traverse_and_generate(structure, document_name, output_dir)
-            print(f"\nSuccessfully generated {len(generated_files)} markdown files in {output_dir}")
+            logger.info(f"Successfully generated {len(generated_files)} markdown files in {output_dir}")
     
     except Exception as e:
-        print(f"Error generating markdown files: {e}")
-        sys.exit(1)
+        logger.error(f"Error generating markdown files: {e}")
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
-    main() 
+    exit(main()) 
