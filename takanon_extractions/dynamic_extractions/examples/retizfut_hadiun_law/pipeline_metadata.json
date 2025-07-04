@@ -1,0 +1,30 @@
+{
+  "pipeline_version": "1.0.0",
+  "start_time": "2025-07-05T01:19:12.915000",
+  "end_time": "2025-07-05T01:19:29.699635",
+  "stages_completed": [
+    "extract_structure",
+    "extract_content",
+    "generate_markdown"
+  ],
+  "errors": [],
+  "warnings": [],
+  "structure_extraction": {
+    "duration_seconds": 16.4,
+    "output_file": "examples/retizfut_hadiun_law/חוק רציפות הדיון בהצעות חוק_structure.json",
+    "file_size_bytes": 3350
+  },
+  "content_extraction": {
+    "duration_seconds": 0.28,
+    "output_file": "examples/retizfut_hadiun_law/חוק רציפות הדיון בהצעות חוק_structure_content.json",
+    "file_size_bytes": 10079,
+    "content_items_found": 7
+  },
+  "markdown_generation": {
+    "duration_seconds": 0.1,
+    "output_directory": "examples/retizfut_hadiun_law/chunks",
+    "files_generated": 7,
+    "total_size_bytes": 7014,
+    "dry_run": false
+  }
+}

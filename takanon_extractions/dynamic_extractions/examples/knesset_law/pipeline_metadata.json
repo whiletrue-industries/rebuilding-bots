@@ -1,0 +1,30 @@
+{
+  "pipeline_version": "1.0.0",
+  "start_time": "2025-07-05T00:54:47.223493",
+  "end_time": "2025-07-05T00:55:25.895531",
+  "stages_completed": [
+    "extract_structure",
+    "extract_content",
+    "generate_markdown"
+  ],
+  "errors": [],
+  "warnings": [],
+  "structure_extraction": {
+    "duration_seconds": 37.88,
+    "output_file": "examples/knesset_law/חוק הכנסת_structure.json",
+    "file_size_bytes": 16835
+  },
+  "content_extraction": {
+    "duration_seconds": 0.7,
+    "output_file": "examples/knesset_law/חוק הכנסת_structure_content.json",
+    "file_size_bytes": 115546,
+    "content_items_found": 78
+  },
+  "markdown_generation": {
+    "duration_seconds": 0.09,
+    "output_directory": "examples/knesset_law/chunks",
+    "files_generated": 78,
+    "total_size_bytes": 102496,
+    "dry_run": false
+  }
+}

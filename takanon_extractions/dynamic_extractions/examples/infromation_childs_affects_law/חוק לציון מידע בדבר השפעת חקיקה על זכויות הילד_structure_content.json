@@ -1,6 +1,7 @@
 {
   "metadata": {
-    "input_file": "examples/infromation_childs_affects_law/חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד – ויקיטקסט.html",
+    "input_file": "examples/infromation_childs_affects_law/חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד.html",
+    "document_name": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד",
     "environment": "staging",
     "model": "gpt-4.1",
     "max_tokens": 32000,
@@ -12,8 +13,8 @@
     {
       "depth": 1,
       "section_name": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד, התשס״ב–2002",
-      "html_id": "חוק_לציון_מידע_בדבר_השפעת_חקיקה_על_זכויות_הילד,_התשס״ב–2002",
-      "section_type": null,
+      "html_id": null,
+      "section_type": "חלק",
       "children": [
         {
           "depth": 2,
@@ -31,7 +32,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 3 - ציון מידע בדברי הסבר",
+          "section_name": "סעיף 3 - ציון מידע בדברי הסבר [תיקון: תשס״ב]",
           "html_id": "סעיף_3",
           "section_type": "סעיף",
           "children": [

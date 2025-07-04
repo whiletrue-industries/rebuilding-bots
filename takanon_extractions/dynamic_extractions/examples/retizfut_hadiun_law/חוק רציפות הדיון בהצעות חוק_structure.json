@@ -1,0 +1,142 @@
+{
+  "metadata": {
+    "input_file": "examples/retizfut_hadiun_law/חוק רציפות הדיון בהצעות חוק.html",
+    "document_name": "חוק רציפות הדיון בהצעות חוק",
+    "environment": "staging",
+    "model": "gpt-4.1",
+    "max_tokens": 32000,
+    "total_items": 19,
+    "structure_type": "nested_hierarchy",
+    "mark_type": "סעיף"
+  },
+  "structure": [
+    {
+      "depth": 1,
+      "section_name": "חוק רציפות הדיון בהצעות חוק, התשנ״ג–1993",
+      "html_id": null,
+      "section_type": null
+    },
+    {
+      "depth": 1,
+      "section_name": "סעיף 1",
+      "html_id": "סעיף_1",
+      "section_type": "סעיף",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "הצעת הממשלה",
+          "html_id": null,
+          "section_type": null
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "סעיף 2",
+      "html_id": "סעיף_2",
+      "section_type": "סעיף",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "הצעת ועדה של הכנסת",
+          "html_id": null,
+          "section_type": null
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "סעיף 3",
+      "html_id": "סעיף_3",
+      "section_type": "סעיף",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "הסכמת חבר הכנסת",
+          "html_id": null,
+          "section_type": null
+        },
+        {
+          "depth": 2,
+          "section_name": "(א)",
+          "html_id": null,
+          "section_type": "תת-סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "(ב)",
+          "html_id": null,
+          "section_type": "תת-סעיף"
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "סעיף 4",
+      "html_id": "סעיף_4",
+      "section_type": "סעיף",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "הדיון בועדה",
+          "html_id": null,
+          "section_type": null
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "סעיף 5",
+      "html_id": "סעיף_5",
+      "section_type": "סעיף",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "התנגדות לרציפות",
+          "html_id": null,
+          "section_type": null
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "סעיף 6",
+      "html_id": "סעיף_6",
+      "section_type": "סעיף",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "דין רציפות",
+          "html_id": null,
+          "section_type": null
+        },
+        {
+          "depth": 2,
+          "section_name": "(א)",
+          "html_id": null,
+          "section_type": "תת-סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "(ב)",
+          "html_id": null,
+          "section_type": "תת-סעיף"
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "סעיף 7",
+      "html_id": "סעיף_7",
+      "section_type": "סעיף",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "ביטול",
+          "html_id": null,
+          "section_type": null
+        }
+      ]
+    }
+  ]
+}

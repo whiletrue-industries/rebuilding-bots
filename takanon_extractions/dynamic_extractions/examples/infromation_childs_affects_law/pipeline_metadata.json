@@ -1,0 +1,30 @@
+{
+  "pipeline_version": "1.0.0",
+  "start_time": "2025-07-05T00:46:06.420495",
+  "end_time": "2025-07-05T00:46:24.660101",
+  "stages_completed": [
+    "extract_structure",
+    "extract_content",
+    "generate_markdown"
+  ],
+  "errors": [],
+  "warnings": [],
+  "structure_extraction": {
+    "duration_seconds": 17.97,
+    "output_file": "examples/infromation_childs_affects_law/חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד_structure.json",
+    "file_size_bytes": 2568
+  },
+  "content_extraction": {
+    "duration_seconds": 0.21,
+    "output_file": "examples/infromation_childs_affects_law/חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד_structure_content.json",
+    "file_size_bytes": 6337,
+    "content_items_found": 5
+  },
+  "markdown_generation": {
+    "duration_seconds": 0.06,
+    "output_directory": "examples/infromation_childs_affects_law/chunks",
+    "files_generated": 5,
+    "total_size_bytes": 4793,
+    "dry_run": false
+  }
+}
