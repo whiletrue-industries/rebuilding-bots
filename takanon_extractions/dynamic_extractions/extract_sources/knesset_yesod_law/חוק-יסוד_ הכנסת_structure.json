@@ -1,0 +1,884 @@
+{
+  "metadata": {
+    "input_file": "examples/knesset_yesod_law/חוק-יסוד_ הכנסת.html",
+    "document_name": "חוק-יסוד_ הכנסת",
+    "environment": "staging",
+    "model": "gpt-4.1",
+    "max_tokens": 32000,
+    "total_items": 139,
+    "structure_type": "nested_hierarchy",
+    "mark_type": "סעיף"
+  },
+  "structure": [
+    {
+      "depth": 1,
+      "section_name": "תוכן עניינים",
+      "html_id": null,
+      "section_type": "תוכן עניינים"
+    },
+    {
+      "depth": 1,
+      "section_name": "חוק־יסוד: הכנסת",
+      "html_id": "חוק־יסוד:_הכנסת",
+      "section_type": "חלק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 1",
+          "html_id": "סעיף_1",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 2",
+          "html_id": "סעיף_2",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 3",
+          "html_id": "סעיף_3",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 4",
+          "html_id": "סעיף_4",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 5",
+          "html_id": "סעיף_5",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 5א",
+          "html_id": "סעיף_5א",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 6",
+          "html_id": "סעיף_6",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 6(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 6(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 6(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 6(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 6(ה)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 6א",
+          "html_id": "סעיף_6א",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 6א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 6א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 7",
+          "html_id": "סעיף_7",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(1)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(2)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(3)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(4)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(5)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(6)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(7)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(8)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(9)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(10)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 7א",
+          "html_id": "סעיף_7א",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 7א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 7א(א)(1)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף"
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 7א(א)(2)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף"
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 7א(א)(3)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף"
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7א(א1)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7א(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7א(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 8",
+          "html_id": "סעיף_8",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 8א",
+          "html_id": "סעיף_8א",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 9",
+          "html_id": "סעיף_9",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 9א",
+          "html_id": "סעיף_9א",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 9א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 9א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 10",
+          "html_id": "סעיף_10",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 11",
+          "html_id": "סעיף_11",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 12",
+          "html_id": "סעיף_12",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 13",
+          "html_id": "סעיף_13",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 14",
+          "html_id": "סעיף_14",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 15",
+          "html_id": "סעיף_15",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 15(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 15(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 16",
+          "html_id": "סעיף_16",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 16א",
+          "html_id": "סעיף_16א",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 17",
+          "html_id": "סעיף_17",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 18",
+          "html_id": "סעיף_18",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 19",
+          "html_id": "סעיף_19",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 20",
+          "html_id": "סעיף_20",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 20(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 20א",
+          "html_id": "סעיף_20א",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(ג1)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 20א(ג1)(1)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף"
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 20א(ג1)(2)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף"
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(ה)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(ו)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 21",
+          "html_id": "סעיף_21",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 21(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 21(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 21(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 21א",
+          "html_id": "סעיף_21א",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 22",
+          "html_id": "סעיף_22",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 23",
+          "html_id": "סעיף_23",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 24",
+          "html_id": "סעיף_24",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 25",
+          "html_id": "סעיף_25",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 26",
+          "html_id": "סעיף_26",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 27",
+          "html_id": "סעיף_27",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 28",
+          "html_id": "סעיף_28",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 29",
+          "html_id": "סעיף_29",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 30",
+          "html_id": "סעיף_30",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 31",
+          "html_id": "סעיף_31",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 32",
+          "html_id": "סעיף_32",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 33",
+          "html_id": "סעיף_33",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 34",
+          "html_id": "סעיף_34",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 35",
+          "html_id": "סעיף_35",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 36",
+          "html_id": "סעיף_36",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 36א",
+          "html_id": "סעיף_36א",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 36א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 36א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 36א(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 37",
+          "html_id": "סעיף_37",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 38",
+          "html_id": "סעיף_38",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 39",
+          "html_id": "סעיף_39",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 40",
+          "html_id": "סעיף_40",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 41",
+          "html_id": "סעיף_41",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 42",
+          "html_id": "סעיף_42",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 42א",
+          "html_id": "סעיף_42א",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 42א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42א(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42א(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42א(ה)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42א(ו)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 42ב",
+          "html_id": "סעיף_42ב",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ב(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ב(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ב(ב1)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ב(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 42ג",
+          "html_id": "סעיף_42ג",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(א1)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ד)(1)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף"
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ד)(א)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף"
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ד)(א1)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף"
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ד)(ב)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף"
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ד)(ג)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף"
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ד)(ד)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף"
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ה)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ו)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ז)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 43",
+          "html_id": "סעיף_43",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(ה)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(ו)",
+              "html_id": null,
+              "section_type": "תת-סעיף"
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 44",
+          "html_id": "סעיף_44",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 45",
+          "html_id": "סעיף_45",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 45א",
+          "html_id": "סעיף_45א",
+          "section_type": "סעיף"
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 46",
+          "html_id": "סעיף_46",
+          "section_type": "סעיף"
+        }
+      ]
+    }
+  ]
+}
