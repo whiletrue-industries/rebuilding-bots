@@ -131,8 +131,26 @@ class PipelineRunner:
             return False
     
     def _run_markdown_generation(self) -> bool:
-        logger.info("Stage 3: Generating markdown files (direct function call)")
-        stage_start = time.time()
+        # Ensure the output directory exists
+        self.config.chunks_dir.mkdir(parents=True, exist_ok=True)
+        return self._run_stage(
+            stage_name="Stage 3: Generating markdown files",
+            output_path=self.config.chunks_dir,
+            output_exists_check=lambda: self.config.chunks_dir.exists() and any(self.config.chunks_dir.glob("*.md")),
+            confirm_overwrite=self._confirm_overwrite,
+            command=[
+                sys.executable, "generate_markdown_files.py",
+                str(self.config.content_file),
+                "--output-dir", str(self.config.chunks_dir),
+                "--write-files",
+            ] + (["--dry-run"] if self.config.dry_run else []),
+            validation_file=self.config.chunks_dir,  # Not used for validation, but required by signature
+            validation_keys=[],  # No validation for markdown files
+            metadata_key="markdown_generation",
+            metadata_extra=lambda: self._markdown_metadata_extra(),
+            dry_run=self.config.dry_run,
+            skip_stage_enum=PipelineStage.GENERATE_MARKDOWN
+        )
 
         # Check if output already exists
         if self.config.chunks_dir.exists() and any(self.config.chunks_dir.glob("*.md")) and not self.config.overwrite_existing:
@@ -360,6 +378,7 @@ def main():
         action="store_true",
         help="Generate markdown files in the final stage (default: do not generate)"
     )
+    parser.add_argument('--mediawiki-mode', action='store_true', help='Apply MediaWiki-specific heuristics (e.g., selflink class)')
     
     args = parser.parse_args()
     
@@ -401,7 +420,7 @@ def main():
             content_type=args.content_type,
             environment=Environment(args.environment),
             model=args.model,
-            max_tokens=args.max_tokens,  # May be None
+            max_tokens=args.max_tokens,
             dry_run=args.dry_run,
             overwrite_existing=args.overwrite,
             mediawiki_mode=args.mediawiki_mode,
