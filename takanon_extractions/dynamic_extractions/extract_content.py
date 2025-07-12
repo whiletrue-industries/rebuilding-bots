@@ -14,7 +14,7 @@ from botnim.config import get_logger
 # Logger setup
 logger = get_logger(__name__)
 
-def extract_content_for_sections(html_content, structure_data, target_content_type):
+def extract_content_for_sections(html_content, structure_data, target_content_type, mediawiki_mode=False):
     """
     Extract complete content for sections of the specified type.
     
@@ -22,6 +22,7 @@ def extract_content_for_sections(html_content, structure_data, target_content_ty
         html_content: Raw HTML content
         structure_data: Parsed JSON structure
         target_content_type: Type of content to extract (e.g., "סעיף")
+        mediawiki_mode: If True, apply MediaWiki-specific heuristics (e.g., selflink class)
     
     Returns:
         Updated structure with content added
@@ -73,9 +74,9 @@ def extract_content_for_sections(html_content, structure_data, target_content_ty
                 # Stop if we hit the next section
                 if current and next_section_element and current == next_section_element:
                     break
-                # Stop if we hit another section with selflink class
-                if (current and hasattr(current, 'get') and 
-                    current.get('class') and 'selflink' in current.get('class', [])):
+                # MediaWiki-specific: Stop if we hit another section with selflink class
+                if mediawiki_mode and current and hasattr(current, 'get') and current.get('class') and 'selflink' in current.get('class', []):
+                    # This is a MediaWiki-specific heuristic to avoid navigation/TOC elements
                     break
             # Convert collected elements to HTML string
             content_html = ""
@@ -97,7 +98,7 @@ def extract_content_for_sections(html_content, structure_data, target_content_ty
     
     return structure_data
 
-def extract_content_from_html(html_path, structure_path, content_type, output_path):
+def extract_content_from_html(html_path, structure_path, content_type, output_path, mediawiki_mode=False):
     """
     Pipeline-friendly function to extract content for sections from HTML and structure files.
     Args:
@@ -105,6 +106,7 @@ def extract_content_from_html(html_path, structure_path, content_type, output_pa
         structure_path: Path to the JSON structure file (str or Path)
         content_type: Type of content to extract (e.g., "סעיף")
         output_path: Path to write the output JSON (str or Path)
+        mediawiki_mode: If True, apply MediaWiki-specific heuristics (e.g., selflink class)
     Raises:
         FileNotFoundError, ValueError, or IOError on error
     """
@@ -139,7 +141,7 @@ def extract_content_from_html(html_path, structure_path, content_type, output_pa
 
     try:
         logger.info(f"Extracting content for type: {content_type}")
-        updated_structure = extract_content_for_sections(html_content, structure_data, content_type)
+        updated_structure = extract_content_for_sections(html_content, structure_data, content_type, mediawiki_mode=mediawiki_mode)
         logger.info("Content extraction completed")
     except Exception as e:
         logger.error(f"Error extracting content: {e}")
@@ -162,6 +164,7 @@ def main():
     parser.add_argument('structure_file', help='Path to the JSON structure file')
     parser.add_argument('content_type', help='Type of content to extract (e.g., "סעיף")')
     parser.add_argument('--output', '-o', help='Output file path (default: add _content suffix)')
+    parser.add_argument('--mediawiki-mode', action='store_true', help='Apply MediaWiki-specific heuristics (e.g., selflink class)')
     args = parser.parse_args()
 
     logger.info("Starting content extraction")
@@ -179,7 +182,8 @@ def main():
             html_path=args.html_file,
             structure_path=args.structure_file,
             content_type=args.content_type,
-            output_path=output_path
+            output_path=output_path,
+            mediawiki_mode=args.mediawiki_mode
         )
         return 0
     except Exception as e:

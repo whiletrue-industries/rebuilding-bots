@@ -42,6 +42,7 @@ class PipelineConfig:
     # Processing options
     dry_run: bool = False
     overwrite_existing: bool = False
+    mediawiki_mode: bool = False
     
     # Derived paths
     structure_file: Optional[Path] = field(init=False)
@@ -89,6 +90,7 @@ class PipelineConfig:
             "pretty_json": self.pretty_json,
             "dry_run": self.dry_run,
             "overwrite_existing": self.overwrite_existing,
+            "mediawiki_mode": self.mediawiki_mode,
             "structure_file": str(self.structure_file) if self.structure_file else None,
             "content_file": str(self.content_file) if self.content_file else None,
             "chunks_dir": str(self.chunks_dir) if self.chunks_dir else None,

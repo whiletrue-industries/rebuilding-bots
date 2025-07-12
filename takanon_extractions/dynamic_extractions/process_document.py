@@ -187,7 +187,8 @@ class PipelineRunner:
                 html_path=self.config.input_html_file,
                 structure_path=self.config.structure_file,
                 content_type=self.config.content_type,
-                output_path=self.config.content_file
+                output_path=self.config.content_file,
+                mediawiki_mode=self.config.mediawiki_mode
             )
             logger.info(f"Content extraction completed and saved to: {self.config.content_file}")
             self.metadata.stages_completed.append(PipelineStage.EXTRACT_CONTENT)
@@ -415,6 +416,7 @@ def main():
         type=str,
         help="Save configuration to JSON file and exit"
     )
+    parser.add_argument('--mediawiki-mode', action='store_true', help='Apply MediaWiki-specific heuristics (e.g., selflink class)')
     
     args = parser.parse_args()
     
@@ -442,6 +444,7 @@ def main():
             max_tokens=args.max_tokens,  # May be None
             dry_run=args.dry_run,
             overwrite_existing=args.overwrite,
+            mediawiki_mode=args.mediawiki_mode,
         )
     
     # Save configuration if requested

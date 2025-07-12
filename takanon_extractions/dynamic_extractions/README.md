@@ -104,6 +104,7 @@ The pipeline accepts the following configuration options:
 | `max_tokens` | int | 32000 | Maximum tokens for API calls |
 | `dry_run` | bool | False | Run without generating final files |
 | `overwrite_existing` | bool | False | Overwrite existing files |
+| `mediawiki_mode` | bool | False | Apply MediaWiki-specific heuristics (e.g., selflink class) |
 
 ### Environment Variables
 
@@ -230,3 +231,4 @@ Enable debug logging:
 export LOG_LEVEL=DEBUG
 python process_document.py input.html output_directory
 ```
+
