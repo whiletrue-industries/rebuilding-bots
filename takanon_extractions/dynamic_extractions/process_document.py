@@ -289,6 +289,9 @@ class PipelineRunner:
             return False
 
 
+def resolve_abs(p):
+    return str(Path(p).expanduser().resolve())
+
 def main():
     """CLI interface for pipeline runner."""
     parser = argparse.ArgumentParser(
@@ -350,6 +353,10 @@ def main():
     
     args = parser.parse_args()
     
+    # Resolve all paths to absolute paths
+    input_html_file = resolve_abs(args.input_html_file)
+    output_base_dir = resolve_abs(args.output_base_dir)
+    
     # Load configuration from file if specified
     if args.config:
         config_file = Path(args.config)
@@ -359,6 +366,9 @@ def main():
         
         try:
             config = PipelineConfig.load(config_file)
+            # Patch loaded config to use absolute paths
+            config.input_html_file = Path(resolve_abs(config.input_html_file))
+            config.output_base_dir = Path(resolve_abs(config.output_base_dir))
             logger.info(f"Configuration loaded from: {config_file}")
         except Exception as e:
             logger.error(f"Failed to load configuration: {e}")
@@ -366,8 +376,8 @@ def main():
     else:
         # Create configuration from command line arguments
         config = PipelineConfig(
-            input_html_file=Path(args.input_html_file),
-            output_base_dir=Path(args.output_base_dir),
+            input_html_file=Path(input_html_file),
+            output_base_dir=Path(output_base_dir),
             content_type=args.content_type,
             environment=Environment(args.environment),
             model=args.model,
