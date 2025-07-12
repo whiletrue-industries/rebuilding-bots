@@ -2,15 +2,10 @@ from openai import OpenAI
 import json
 import os
 from pathlib import Path
-import dotenv
 import argparse
 from pydantic import BaseModel, Extra
 from typing import List, Optional
 from botnim.config import get_logger, DEFAULT_ENVIRONMENT
-
-# Load environment variables
-ROOT = Path(__file__).parent.parent.parent
-dotenv.load_dotenv(ROOT / '.env')
 
 # Logger setup
 logger = get_logger(__name__)
@@ -157,8 +152,10 @@ def build_nested_structure(flat_items: List[StructureItem]) -> List[dict]:
 
 def flatten_for_json_serialization(nested_items: List[dict]) -> List[dict]:
     """
-    Flatten nested structure for JSON serialization while preserving hierarchy.
-    Each item includes its children inline and preserves all fields (e.g., html_id).
+    Prepare the nested structure (with 'children' fields) for JSON output.
+    This function is used in the CLI main() flow to convert the nested tree structure
+    into a JSON-serializable format, preserving hierarchy and all fields (e.g., html_id).
+    It is called before writing the output file to ensure the structure is properly formatted.
     """
     def process_node(node):
         # Copy all fields except 'children'
