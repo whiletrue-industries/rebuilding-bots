@@ -70,58 +70,34 @@ def generate_markdown_content(item, hierarchy_path, document_name):
     
     return '\n'.join(content_lines)
 
-def traverse_and_generate(items, document_name, output_dir, parent_path=[]):
+def generate_markdown_dict(items, document_name, parent_path=[]):
     """
-    Traverse the structure and generate markdown files for items with content.
+    Traverse the structure and generate a dict of {filename: markdown_content} for items with content.
     """
-    generated_files = []
-    
+    markdown_dict = {}
     for item in items:
-        # Build current hierarchy path
         current_path = build_hierarchy_path(item, parent_path)
-        
-        # If item has content, generate a markdown file
         if item.get('content'):
             section_name = item.get('section_name', 'unknown')
-            
-            # Create filename
             sanitized_section = sanitize_filename(section_name)
             filename = f"{document_name}_{sanitized_section}.md"
-            filepath = output_dir / filename
-            
-            # Generate markdown content
             markdown_content = generate_markdown_content(item, current_path, document_name)
-            
-            # Write file
-            try:
-                with open(filepath, 'w', encoding='utf-8') as f:
-                    f.write(markdown_content)
-                generated_files.append(filepath)
-                logger.info(f"Generated: {filepath}")
-            except Exception as e:
-                logger.error(f"Error writing file {filepath}: {e}")
-        
-        # Recursively process children
+            markdown_dict[filename] = markdown_content
         if 'children' in item and isinstance(item['children'], list):
-            child_files = traverse_and_generate(
-                item['children'], 
-                document_name, 
-                output_dir, 
-                current_path
-            )
-            generated_files.extend(child_files)
-    
-    return generated_files
+            child_dict = generate_markdown_dict(item['children'], document_name, current_path)
+            markdown_dict.update(child_dict)
+    return markdown_dict
 
-def generate_markdown_from_json(json_path, output_dir=None, dry_run=False):
+def generate_markdown_from_json(json_path, output_dir=None, write_files=False, dry_run=False):
     """
-    Pipeline-friendly function to generate markdown files from a JSON structure with content.
+    Generate markdown files from a JSON structure with content.
     Args:
         json_path: Path to the JSON file with content (str or Path)
         output_dir: Output directory for markdown files (str or Path, optional)
+        write_files: If True, write markdown files to disk
         dry_run: If True, only log what would be generated
     Returns:
-        Number of files generated (or would be generated in dry run)
+        markdown_dict: dict of {filename: markdown_content}
     Raises:
         FileNotFoundError, ValueError, or IOError on error
     """
@@ -143,10 +119,6 @@ def generate_markdown_from_json(json_path, output_dir=None, dry_run=False):
         output_dir = Path(output_dir)
     else:
         output_dir = json_path.parent / 'chunks'
-    # Create output directory if it doesn't exist
-    if not dry_run:
-        logger.info(f"Creating output directory: {output_dir}")
-        output_dir.mkdir(parents=True, exist_ok=True)
     # Get document name from metadata
     document_name = data.get('metadata', {}).get('document_name', '')
     if not document_name:
@@ -157,63 +129,45 @@ def generate_markdown_from_json(json_path, output_dir=None, dry_run=False):
         document_name = get_base_filename(input_file)
     document_name = sanitize_filename(document_name)
     logger.info(f"Document name: {document_name}")
-    logger.info(f"Output directory: {output_dir}")
-    if dry_run:
-        logger.info("Running in dry-run mode - no files will be created")
     structure = data.get('structure', [])
     if not structure:
         logger.error("No structure found in JSON")
         raise ValueError("No structure found in JSON")
+    markdown_dict = generate_markdown_dict(structure, document_name)
     if dry_run:
+        logger.info("Running in dry-run mode - no files will be created")
         logger.info("Files that would be generated:")
-        def dry_run_traverse(items, parent_path=[]):
-            count = 0
-            for item in items:
-                current_path = build_hierarchy_path(item, parent_path)
-                if item.get('content'):
-                    section_name = item.get('section_name', 'unknown')
-                    sanitized_section = sanitize_filename(section_name)
-                    filename = f"{document_name}_{sanitized_section}.md"
-                    filepath = output_dir / filename
-                    hierarchy_str = " > ".join([name for name, _ in current_path])
-                    logger.info(f"  {filepath}")
-                    logger.info(f"    Hierarchy: {hierarchy_str}")
-                    count += 1
-                if 'children' in item:
-                    count += dry_run_traverse(item['children'], current_path)
-            return count
-        total_files = dry_run_traverse(structure)
-        logger.info(f"Total files that would be generated: {total_files}")
-        return total_files
-    else:
+        for filename in markdown_dict:
+            logger.info(f"  {output_dir / filename}")
+        logger.info(f"Total files that would be generated: {len(markdown_dict)}")
+    if write_files and not dry_run:
+        logger.info(f"Creating output directory: {output_dir}")
+        output_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Generating markdown files...")
-        generated_files = traverse_and_generate(structure, document_name, output_dir)
-        logger.info(f"Successfully generated {len(generated_files)} markdown files in {output_dir}")
-        return len(generated_files)
+        for filename, content in markdown_dict.items():
+            filepath = output_dir / filename
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(content)
+        logger.info(f"Total files generated: {len(markdown_dict)}")
+    return markdown_dict
+
 
 def main():
     """CLI interface for markdown generation."""
-    parser = argparse.ArgumentParser(description='Generate individual markdown files from JSON structure with content')
+    parser = argparse.ArgumentParser(description='Generate markdown content from JSON structure with content')
     parser.add_argument('json_file', help='Path to the JSON file with content')
-    parser.add_argument('--output-dir', '-o', help='Output directory for markdown files (default: chunks subfolder in JSON file directory)')
+    parser.add_argument('--output-dir', '-o', help='Output directory for markdown files (used only with --write-files)')
+    parser.add_argument('--write-files', action='store_true', help='Write markdown files to disk for manual verification')
     parser.add_argument('--dry-run', action='store_true', help='Show what would be generated without creating files')
     args = parser.parse_args()
 
-    logger.info("Starting markdown file generation")
-    logger.info(f"JSON file: {args.json_file}")
-    logger.info(f"Dry run: {args.dry_run}")
+    generate_markdown_from_json(
+        args.json_file,
+        output_dir=args.output_dir,
+        write_files=args.write_files,
+        dry_run=args.dry_run
+    )
 
-    try:
-        num_files = generate_markdown_from_json(
-            json_path=args.json_file,
-            output_dir=args.output_dir,
-            dry_run=args.dry_run
-        )
-        logger.info(f"Total files generated: {num_files}")
-        return 0
-    except Exception as e:
-        logger.error(f"Markdown generation failed: {e}")
-        return 1
 
 if __name__ == "__main__":
-    exit(main()) 
+    main() 
