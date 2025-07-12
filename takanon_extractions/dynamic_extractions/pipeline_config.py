@@ -34,7 +34,7 @@ class PipelineConfig:
     
     # OpenAI parameters
     model: str = "gpt-4.1"  # Use mini model with larger context window
-    max_tokens: int = 32000
+    max_tokens: Optional[int] = None  # Optional; if None, use model default
     
     # Output formatting
     pretty_json: bool = True
@@ -72,8 +72,8 @@ class PipelineConfig:
         if not self.content_type.strip():
             errors.append("Content type cannot be empty")
         
-        if self.max_tokens < 1000:
-            errors.append("Max tokens must be at least 1000")
+        if self.max_tokens is not None and self.max_tokens < 1000:
+            errors.append("Max tokens must be at least 1000 if set")
         
         return errors
     

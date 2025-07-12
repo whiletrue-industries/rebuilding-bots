@@ -110,20 +110,24 @@ class PipelineRunner:
             return False
 
     def _run_structure_extraction(self) -> bool:
+        command = [
+            sys.executable, "extract_structure.py",
+            str(self.config.input_html_file),
+            str(self.config.structure_file),
+            "--environment", self.config.environment.value,
+            "--model", self.config.model,
+            "--mark-type", self.config.content_type,
+        ]
+        if self.config.max_tokens is not None:
+            command += ["--max-tokens", str(self.config.max_tokens)]
+        if self.config.pretty_json:
+            command.append("--pretty")
         return self._run_stage(
             stage_name="Stage 1: Extracting document structure",
             output_path=self.config.structure_file,
             output_exists_check=lambda: self.config.structure_file.exists(),
             confirm_overwrite=self._confirm_overwrite,
-            command=[
-                sys.executable, "extract_structure.py",
-                str(self.config.input_html_file),
-                str(self.config.structure_file),
-                "--environment", self.config.environment.value,
-                "--model", self.config.model,
-                "--max-tokens", str(self.config.max_tokens),
-                "--mark-type", self.config.content_type,
-            ] + (["--pretty"] if self.config.pretty_json else []),
+            command=command,
             validation_file=self.config.structure_file,
             validation_keys=["metadata", "structure"],
             metadata_key="structure_extraction",
@@ -348,8 +352,8 @@ def main():
     parser.add_argument(
         "--max-tokens",
         type=int,
-        default=32000,
-        help="Maximum tokens for OpenAI response (default: 32000)"
+        default=None,
+        help="Maximum tokens for OpenAI response (optional; defaults to model's maximum if not set)"
     )
     parser.add_argument(
         "--dry-run",
@@ -395,7 +399,7 @@ def main():
             content_type=args.content_type,
             environment=Environment(args.environment),
             model=args.model,
-            max_tokens=args.max_tokens,
+            max_tokens=args.max_tokens,  # May be None
             dry_run=args.dry_run,
             overwrite_existing=args.overwrite,
         )

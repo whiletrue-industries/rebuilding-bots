@@ -35,7 +35,7 @@ def get_openai_client(environment=DEFAULT_ENVIRONMENT):
     logger.info(f"Using OpenAI API key from {key_name} (length: {len(api_key)} chars)")
     return OpenAI(api_key=api_key, timeout=360.0)
 
-def extract_structure_from_html(html_text: str, client: OpenAI, model: str, max_tokens: int = 32000, mark_type: str = None) -> List[StructureItem]:
+def extract_structure_from_html(html_text: str, client: OpenAI, model: str, max_tokens: Optional[int], mark_type: str = None) -> List[StructureItem]:
     """
     Extract structural elements from HTML using OpenAI API.
     """
@@ -84,22 +84,18 @@ def extract_structure_from_html(html_text: str, client: OpenAI, model: str, max_
         )
 
     try:
-        response = client.beta.chat.completions.parse(
-            model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": f"""```html\n{html_text}\n```"""
-                }
+        api_kwargs = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"""```html\n{html_text}\n```"""}
             ],
-            response_format=StructureResponse,
-            max_tokens=max_tokens,
-            temperature=0.0
-        )
+            "response_format": StructureResponse,
+            "temperature": 0.0
+        }
+        if max_tokens is not None:
+            api_kwargs["max_tokens"] = max_tokens
+        response = client.beta.chat.completions.parse(**api_kwargs)
         logger.info("LLM API call completed successfully")
         
         
@@ -197,8 +193,8 @@ def main():
     parser.add_argument(
         "--max-tokens",
         type=int,
-        default=32000,
-        help="Maximum tokens for OpenAI response (default: 16384)"
+        default=None,
+        help="Maximum tokens for OpenAI response (optional; defaults to model's maximum if not set)"
     )
     parser.add_argument(
         "--pretty",
