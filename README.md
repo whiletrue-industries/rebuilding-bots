@@ -193,6 +193,50 @@ Running the benchmark in production is best done using the action in the GitHub 
 For running locally:
 `botnim benchmarks {staging/production} {budgetkey/takanon} {TRUE/FALSE whether to save results locally}`
 
+## Document Extraction and Sync (Updated)
+
+- The document processing pipeline now saves only the final `*_structure_content.json` files in the `specs/takanon/extraction/` folder. These are the only files required for sync/ingestion.
+- All intermediate files (structure.json, pipeline metadata, and markdown files if generated) are saved in `takanon_extractions/dynamic_extractions/logs/`.
+- Markdown files are **not required** for sync—they are only for manual inspection. To generate them, run the pipeline with `--generate-markdown`.
+- The pipeline automatically creates all necessary directories.
+
+### Example Directory Layout
+
+```
+specs/takanon/extraction/
+    תקנון הכנסת_structure_content.json
+    חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
+
+takanon_extractions/dynamic_extractions/logs/
+    תקנון הכנסת_structure.json
+    תקנון הכנסת_pipeline_metadata.json
+    חוק_רציפות_הדיון_בהצעות_חוק_structure.json
+    חוק_רציפות_הדיון_בהצעות_חוק_pipeline_metadata.json
+    chunks/
+        תקנון הכנסת_סעיף_1.md
+        חוק_רציפות_הדיון_בהצעות_חוק_סעיף_1.md
+        ...
+```
+
+## Configuration for Sync
+
+- In your `config.yaml`, use `type: split` for each JSON structure content file:
+  ```yaml
+  sources:
+    - type: split
+      source: extraction/תקנון הכנסת_structure_content.json
+    - type: split
+      source: extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
+  ```
+
+## Manual Markdown Generation
+
+- To generate markdown files for manual review, run:
+  ```bash
+  python takanon_extractions/dynamic_extractions/process_document.py input.html output_directory --generate-markdown
+  ```
+- Markdown files will be written to `takanon_extractions/dynamic_extractions/logs/chunks/`.
+
 ## Context Specification
 
 - Sources can be configured in `config.yaml` with different types:

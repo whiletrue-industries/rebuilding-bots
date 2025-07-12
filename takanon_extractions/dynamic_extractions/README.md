@@ -120,28 +120,61 @@ OPENAI_API_KEY_PRODUCTION=your_production_key
 
 ## Output Structure
 
-The pipeline generates the following output structure:
+The pipeline produces outputs as follows:
+
+- **In the output directory you specify:**
+  - Only the final `*_structure_content.json` file is saved here. This is the file used for downstream sync/ingestion.
+- **In the logs directory (`takanon_extractions/dynamic_extractions/logs/`):**
+  - All intermediate files, including:
+    - `*_structure.json` (document structure)
+    - `*_pipeline_metadata.json` (execution metadata)
+    - `chunks/` (markdown files, if generated)
+
+### Example Directory Layout
 
 ```
-output_directory/
-├── input_structure.json           # Document structure
-├── input_structure_content.json   # Structure with content
-├── pipeline_metadata.json         # Execution metadata
-└── chunks/                        # Individual markdown files
-    ├── document_section1.md
-    ├── document_section2.md
-    └── ...
+specs/takanon/extraction/
+    תקנון הכנסת_structure_content.json
+    חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
+
+takanon_extractions/dynamic_extractions/logs/
+    תקנון הכנסת_structure.json
+    תקנון הכנסת_pipeline_metadata.json
+    חוק_רציפות_הדיון_בהצעות_חוק_structure.json
+    חוק_רציפות_הדיון_בהצעות_חוק_pipeline_metadata.json
+    chunks/
+        תקנון הכנסת_סעיף_1.md
+        חוק_רציפות_הדיון_בהצעות_חוק_סעיף_1.md
+        ...
 ```
 
-### Metadata
+## Markdown Generation (Manual Inspection)
 
-Each execution generates detailed metadata including:
+- By default, the pipeline does **not** generate markdown files for each section.
+- To generate markdown files for manual inspection, use the `--generate-markdown` flag:
 
-- Execution times for each stage
-- File sizes and counts
-- Error and warning messages
-- Configuration used
-- Performance metrics
+```bash
+python process_document.py input.html output_directory --generate-markdown
+```
+- Markdown files will be written to `logs/chunks/`.
+- All necessary directories are created automatically.
+
+## Ingestion/Sync Pipeline
+
+- The sync pipeline now works **directly from the *_structure_content.json files** in your output directory (e.g., `specs/takanon/extraction/`).
+- Markdown files are **not required** for ingestion or sync—they are only for manual review.
+
+## Configuration Note
+
+- For context types in your config, use `type: split` for JSON structure content files.
+- Example:
+  ```yaml
+  sources:
+    - type: split
+      source: extraction/תקנון הכנסת_structure_content.json
+    - type: split
+      source: extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
+  ```
 
 ## Error Handling
 
