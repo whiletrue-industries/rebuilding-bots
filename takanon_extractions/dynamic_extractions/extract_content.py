@@ -39,52 +39,47 @@ def extract_content_for_sections(html_content, structure_data, target_content_ty
                 collect_sections(item['children'])
     
     collect_sections(structure_data['structure'])
-    
+
     # Sort sections by their position in the HTML
-    sections_with_positions = []
-    for section in sections_with_ids:
-        html_id = section['html_id']
-        element = soup.find(id=html_id)
-        if element:
-            # Find the position of this element in the document
-            position = 0
-            for elem in soup.find_all():
-                if elem == element:
-                    break
-                position += 1
-            sections_with_positions.append((section, element, position))
-    
-    # Sort by position in document
-    sections_with_positions.sort(key=lambda x: x[2])
-    
+    all_ids = [el['id'] for el in soup.find_all(attrs={'id': True})]
+    def section_sort_key(section):
+        try:
+            return all_ids.index(section['html_id'])
+        except (ValueError, KeyError, TypeError):
+            logger.warning(f"html_id '{section['html_id']}' from structure not found in HTML.")
+            return float('inf')
+    sections_with_ids.sort(key=section_sort_key)
+
     # Extract content for target sections
-    for i, (section, element, position) in enumerate(sections_with_positions):
+    for section in sections_with_ids:
         if section.get('section_type') == target_content_type:
+            html_id = section['html_id']
+            if html_id not in all_ids:
+                continue  # Skip sections whose id is not found in HTML
+            element = soup.find(id=html_id)
+            if not element:
+                continue
             # Find the content boundaries
             start_element = element
-            
             # Find the next section element to determine boundaries
             next_section_element = None
-            if i + 1 < len(sections_with_positions):
-                next_section_element = sections_with_positions[i + 1][1]
-            
+            idx = sections_with_ids.index(section)
+            if idx + 1 < len(sections_with_ids):
+                next_html_id = sections_with_ids[idx + 1]['html_id']
+                next_section_element = soup.find(id=next_html_id) if next_html_id in all_ids else None
             # Extract content between this section and the next
             content_elements = []
             current = start_element
-            
             while current:
                 content_elements.append(current)
                 current = current.next_sibling
-                
                 # Stop if we hit the next section
                 if current and next_section_element and current == next_section_element:
                     break
-                    
                 # Stop if we hit another section with selflink class
                 if (current and hasattr(current, 'get') and 
                     current.get('class') and 'selflink' in current.get('class', [])):
                     break
-            
             # Convert collected elements to HTML string
             content_html = ""
             for elem in content_elements:
@@ -92,18 +87,14 @@ def extract_content_for_sections(html_content, structure_data, target_content_ty
                     content_html += str(elem)
                 elif hasattr(elem, 'strip'):  # It's a string/text
                     content_html += str(elem)
-            
             # Clean up and convert to markdown
             if content_html.strip():
                 # Remove extra whitespace and clean up
                 content_html = content_html.strip()
-                
                 # Convert to markdown
                 markdown_content = md(content_html, heading_style="ATX")
-                
                 # Clean up the markdown
                 markdown_content = markdown_content.strip()
-                
                 # Add the content to the section
                 section['content'] = markdown_content
     
