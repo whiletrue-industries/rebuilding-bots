@@ -7,6 +7,8 @@ from kvfile.kvfile_sqlite import CachedKVFileSQLite as KVFile
 
 from .config import get_logger
 from .dynamic_extraction import extract_structured_content
+from takanon_extractions.dynamic_extractions.generate_markdown_files import generate_markdown_dict
+import json
 
 logger = get_logger(__name__)
 cache: KVFile = None
@@ -87,13 +89,32 @@ def collect_sources_files(config_dir: Path, context_name, source):
 
 def collect_sources_split(config_dir, context_name, source, offset=0):
     filename = config_dir / source
-    content = filename.read_text()
-    content = content.split('\n---\n')
-    file_streams = [
-        process_file_stream(f'{context_name}_{i+offset}.md', c, 'text/markdown')
-        for i, c in enumerate(content)
-    ]
-    return file_streams
+    if filename.suffix == '.json':
+        # In-memory markdown generation from JSON structure
+        with open(filename, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        document_name = data.get('metadata', {}).get('document_name', '')
+        if not document_name:
+            input_file = data.get('metadata', {}).get('input_file', '')
+            from takanon_extractions.dynamic_extractions.generate_markdown_files import get_base_filename, sanitize_filename
+            document_name = get_base_filename(input_file)
+        from takanon_extractions.dynamic_extractions.generate_markdown_files import sanitize_filename
+        document_name = sanitize_filename(document_name)
+        structure = data.get('structure', [])
+        markdown_dict = generate_markdown_dict(structure, document_name)
+        file_streams = [
+            process_file_stream(fname, content, 'text/markdown')
+            for fname, content in markdown_dict.items()
+        ]
+        return file_streams
+    else:
+        content = filename.read_text()
+        content = content.split('\n---\n')
+        file_streams = [
+            process_file_stream(f'{context_name}_{i+offset}.md', c, 'text/markdown')
+            for i, c in enumerate(content)
+        ]
+        return file_streams
 
 def collect_sources_google_spreadsheet(context_name, source, offset=0):
     resources, dp, _ = DF.Flow(

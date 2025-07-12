@@ -21,6 +21,9 @@ from takanon_extractions.dynamic_extractions.generate_markdown_files import gene
 # Logger setup
 logger = get_logger(__name__)
 
+LOGS_DIR = Path(__file__).parent / "logs"
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
 def validate_markdown_output(output_dir: Path) -> list:
     errors = []
     if not output_dir.exists() or not output_dir.is_dir():
@@ -140,12 +143,13 @@ class PipelineRunner:
                 return True
 
         try:
-            num_files = generate_markdown_from_json(
+            generate_markdown_from_json(
                 json_path=self.config.content_file,
                 output_dir=self.config.chunks_dir,
+                write_files=not self.config.dry_run,
                 dry_run=self.config.dry_run
             )
-            logger.info(f"Markdown generation completed: {num_files} files in {self.config.chunks_dir}")
+            logger.info(f"Markdown generation completed in {self.config.chunks_dir}")
             self.metadata.stages_completed.append(PipelineStage.GENERATE_MARKDOWN)
             return True
         except Exception as e:
@@ -200,24 +204,25 @@ class PipelineRunner:
         return response.lower() in ['y', 'yes']
     
     def _save_pipeline_metadata(self):
-        """Save pipeline metadata to file."""
+        """Save pipeline metadata to file in logs directory, with input file name as prefix."""
         try:
-            metadata_file = self.config.output_base_dir / "pipeline_metadata.json"
+            input_html_name = self.config.input_html_file.stem
+            metadata_file = LOGS_DIR / f"{input_html_name}_pipeline_metadata.json"
             with open(metadata_file, 'w', encoding='utf-8') as f:
                 json.dump(self.metadata.to_dict(), f, indent=2, ensure_ascii=False)
             logger.info(f"Pipeline metadata saved to: {metadata_file}")
         except Exception as e:
             logger.error(f"Failed to save pipeline metadata: {e}")
     
-    def _print_summary(self):
+    def _print_summary(self, generate_markdown: bool):
         """Print pipeline execution summary."""
         duration = datetime.now() - self.start_time
-        
+        total_stages = 3 if generate_markdown else 2
         print("\n" + "="*60)
         print("PIPELINE EXECUTION SUMMARY")
         print("="*60)
         print(f"Total Duration: {duration}")
-        print(f"Stages Completed: {len(self.metadata.stages_completed)}/3")
+        print(f"Stages Completed: {len(self.metadata.stages_completed)}/{total_stages}")
         
         if self.metadata.structure_extraction:
             print(f"Structure Extraction: {self.metadata.structure_extraction['duration_seconds']}s")
@@ -243,7 +248,7 @@ class PipelineRunner:
         
         print("="*60)
 
-    def run(self) -> bool:
+    def run(self, generate_markdown=False) -> bool:
         """Run the complete pipeline."""
         logger.info("Starting HTML processing pipeline")
         logger.info(f"Configuration: {self.config.to_dict()}")
@@ -269,16 +274,17 @@ class PipelineRunner:
             if not self._run_content_extraction():
                 return False
 
-            # Stage 3: Generate markdown files
-            if not self._run_markdown_generation():
-                return False
+            # Stage 3: Generate markdown files (optional)
+            if generate_markdown:
+                if not self._run_markdown_generation():
+                    return False
 
             # Pipeline completed successfully
             self.metadata.end_time = datetime.now().isoformat()
             self._save_pipeline_metadata()
 
             logger.info("Pipeline completed successfully")
-            self._print_summary()
+            self._print_summary(generate_markdown)
             return True
 
         except Exception as e:
@@ -349,13 +355,23 @@ def main():
         type=str,
         help="Save configuration to JSON file and exit"
     )
-    parser.add_argument('--mediawiki-mode', action='store_true', help='Apply MediaWiki-specific heuristics (e.g., selflink class)')
+    parser.add_argument(
+        "--generate-markdown",
+        action="store_true",
+        help="Generate markdown files in the final stage (default: do not generate)"
+    )
     
     args = parser.parse_args()
     
     # Resolve all paths to absolute paths
     input_html_file = resolve_abs(args.input_html_file)
     output_base_dir = resolve_abs(args.output_base_dir)
+    
+    # Compute output file paths
+    input_html_name = Path(input_html_file).stem
+    structure_file = LOGS_DIR / f"{input_html_name}_structure.json"
+    content_file = Path(output_base_dir) / f"{input_html_name}_structure_content.json"
+    chunks_dir = LOGS_DIR / "chunks"
     
     # Load configuration from file if specified
     if args.config:
@@ -369,6 +385,10 @@ def main():
             # Patch loaded config to use absolute paths
             config.input_html_file = Path(resolve_abs(config.input_html_file))
             config.output_base_dir = Path(resolve_abs(config.output_base_dir))
+            # Patch intermediate/log file paths
+            config.structure_file = structure_file
+            config.content_file = content_file
+            config.chunks_dir = chunks_dir
             logger.info(f"Configuration loaded from: {config_file}")
         except Exception as e:
             logger.error(f"Failed to load configuration: {e}")
@@ -386,6 +406,9 @@ def main():
             overwrite_existing=args.overwrite,
             mediawiki_mode=args.mediawiki_mode,
         )
+        config.structure_file = structure_file
+        config.content_file = content_file
+        config.chunks_dir = chunks_dir
     
     # Save configuration if requested
     if args.save_config:
@@ -400,7 +423,8 @@ def main():
     
     # Run pipeline
     runner = PipelineRunner(config)
-    success = runner.run()
+    # Pass the flag to the runner
+    success = runner.run(generate_markdown=args.generate_markdown)
     
     return 0 if success else 1
 
