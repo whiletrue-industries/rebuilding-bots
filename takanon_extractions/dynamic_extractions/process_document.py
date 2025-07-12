@@ -13,7 +13,10 @@ import json
 import time
 
 from botnim.config import get_logger
-from pipeline_config import PipelineConfig, PipelineMetadata, PipelineStage, Environment, validate_json_structure
+from takanon_extractions.dynamic_extractions.pipeline_config import PipelineConfig, PipelineMetadata, PipelineStage, Environment, validate_json_structure
+from takanon_extractions.dynamic_extractions.extract_structure import extract_structure_from_html, get_openai_client, build_nested_structure, flatten_for_json_serialization
+from takanon_extractions.dynamic_extractions.extract_content import extract_content_from_html
+from takanon_extractions.dynamic_extractions.generate_markdown_files import generate_markdown_from_json
 
 # Logger setup
 logger = get_logger(__name__)
@@ -110,77 +113,114 @@ class PipelineRunner:
             return False
 
     def _run_structure_extraction(self) -> bool:
-        command = [
-            sys.executable, "extract_structure.py",
-            str(self.config.input_html_file),
-            str(self.config.structure_file),
-            "--environment", self.config.environment.value,
-            "--model", self.config.model,
-            "--mark-type", self.config.content_type,
-        ]
-        if self.config.max_tokens is not None:
-            command += ["--max-tokens", str(self.config.max_tokens)]
-        if self.config.pretty_json:
-            command.append("--pretty")
-        return self._run_stage(
-            stage_name="Stage 1: Extracting document structure",
-            output_path=self.config.structure_file,
-            output_exists_check=lambda: self.config.structure_file.exists(),
-            confirm_overwrite=self._confirm_overwrite,
-            command=command,
-            validation_file=self.config.structure_file,
-            validation_keys=["metadata", "structure"],
-            metadata_key="structure_extraction",
-            metadata_extra=lambda: {
-                "output_file": str(self.config.structure_file),
-                "file_size_bytes": self.config.structure_file.stat().st_size,
-            },
-            skip_stage_enum=PipelineStage.EXTRACT_STRUCTURE
-        )
-    
+        logger.info("Stage 1: Extracting document structure (direct function call)")
+        stage_start = time.time()
+
+        # Check if output already exists
+        if self.config.structure_file.exists() and not self.config.overwrite_existing:
+            logger.warning(f"Structure file already exists: {self.config.structure_file}")
+            if not self._confirm_overwrite():
+                logger.info("Skipping structure extraction")
+                self.metadata.stages_completed.append(PipelineStage.EXTRACT_STRUCTURE)
+                return True
+
+        try:
+            # Read input HTML
+            with open(self.config.input_html_file, 'r', encoding='utf-8') as f:
+                html_text = f.read()
+            # Get OpenAI client
+            client = get_openai_client(self.config.environment.value)
+            # Extract structure
+            structure_items = extract_structure_from_html(
+                html_text,
+                client,
+                self.config.model,
+                self.config.max_tokens,
+                self.config.content_type
+            )
+            # Build nested tree structure
+            nested_structure = build_nested_structure(structure_items)
+            # Convert to JSON-serializable format
+            structure_data = flatten_for_json_serialization(nested_structure)
+            # Prepare output data with metadata
+            output_data = {
+                "metadata": {
+                    "input_file": str(self.config.input_html_file),
+                    "document_name": Path(self.config.input_html_file).stem,
+                    "environment": self.config.environment.value,
+                    "model": self.config.model,
+                    "max_tokens": self.config.max_tokens,
+                    "total_items": len(structure_items),
+                    "structure_type": "nested_hierarchy",
+                    "mark_type": self.config.content_type
+                },
+                "structure": structure_data
+            }
+            # Write output JSON file
+            with open(self.config.structure_file, 'w', encoding='utf-8') as f:
+                if self.config.pretty_json:
+                    json.dump(output_data, f, ensure_ascii=False, indent=2)
+                else:
+                    json.dump(output_data, f, ensure_ascii=False)
+            logger.info(f"Structure extraction completed and saved to: {self.config.structure_file}")
+            self.metadata.stages_completed.append(PipelineStage.EXTRACT_STRUCTURE)
+            return True
+        except Exception as e:
+            logger.error(f"Structure extraction failed with exception: {e}")
+            self.metadata.errors.append(f"Structure extraction exception: {str(e)}")
+            return False
+
     def _run_content_extraction(self) -> bool:
-        return self._run_stage(
-            stage_name="Stage 2: Extracting content",
-            output_path=self.config.content_file,
-            output_exists_check=lambda: self.config.content_file.exists(),
-            confirm_overwrite=self._confirm_overwrite,
-            command=[
-                sys.executable, "extract_content.py",
-                str(self.config.input_html_file),
-                str(self.config.structure_file),
-                self.config.content_type,
-                "--output", str(self.config.content_file),
-            ],
-            validation_file=self.config.content_file,
-            validation_keys=["metadata", "structure"],
-            metadata_key="content_extraction",
-            metadata_extra=lambda: {
-                "output_file": str(self.config.content_file),
-                "file_size_bytes": self.config.content_file.stat().st_size,
-                "content_items_found": self._count_content_items(self.config.content_file),
-            },
-            skip_stage_enum=PipelineStage.EXTRACT_CONTENT
-        )
+        logger.info("Stage 2: Extracting content (direct function call)")
+        stage_start = time.time()
+
+        # Check if output already exists
+        if self.config.content_file.exists() and not self.config.overwrite_existing:
+            logger.warning(f"Content file already exists: {self.config.content_file}")
+            if not self._confirm_overwrite():
+                logger.info("Skipping content extraction")
+                self.metadata.stages_completed.append(PipelineStage.EXTRACT_CONTENT)
+                return True
+
+        try:
+            extract_content_from_html(
+                html_path=self.config.input_html_file,
+                structure_path=self.config.structure_file,
+                content_type=self.config.content_type,
+                output_path=self.config.content_file
+            )
+            logger.info(f"Content extraction completed and saved to: {self.config.content_file}")
+            self.metadata.stages_completed.append(PipelineStage.EXTRACT_CONTENT)
+            return True
+        except Exception as e:
+            logger.error(f"Stage 2: Extracting content failed: {e}")
+            return False
     
     def _run_markdown_generation(self) -> bool:
-        return self._run_stage(
-            stage_name="Stage 3: Generating markdown files",
-            output_path=self.config.chunks_dir,
-            output_exists_check=lambda: self.config.chunks_dir.exists() and any(self.config.chunks_dir.glob("*.md")),
-            confirm_overwrite=self._confirm_overwrite,
-            command=[
-                sys.executable, "generate_markdown_files.py",
-                str(self.config.content_file),
-                "--output-dir", str(self.config.chunks_dir),
-            ] + (["--dry-run"] if self.config.dry_run else []),
-            validation_file=self.config.chunks_dir,  # Not used for validation, but required by signature
-            validation_keys=[],  # No validation for markdown files
-            metadata_key="markdown_generation",
-            metadata_extra=lambda: self._markdown_metadata_extra(),
-            dry_run=self.config.dry_run,
-            skip_stage_enum=PipelineStage.GENERATE_MARKDOWN
-        )
+        logger.info("Stage 3: Generating markdown files (direct function call)")
+        stage_start = time.time()
 
+        # Check if output already exists
+        if self.config.chunks_dir.exists() and any(self.config.chunks_dir.glob("*.md")) and not self.config.overwrite_existing:
+            logger.warning(f"Markdown files already exist in: {self.config.chunks_dir}")
+            if not self._confirm_overwrite():
+                logger.info("Skipping markdown generation")
+                self.metadata.stages_completed.append(PipelineStage.GENERATE_MARKDOWN)
+                return True
+
+        try:
+            num_files = generate_markdown_from_json(
+                json_path=self.config.content_file,
+                output_dir=self.config.chunks_dir,
+                dry_run=self.config.dry_run
+            )
+            logger.info(f"Markdown generation completed: {num_files} files in {self.config.chunks_dir}")
+            self.metadata.stages_completed.append(PipelineStage.GENERATE_MARKDOWN)
+            return True
+        except Exception as e:
+            logger.error(f"Stage 3: Generating markdown files failed: {e}")
+            return False
+    
     def _markdown_metadata_extra(self):
         if not self.config.dry_run:
             markdown_files = list(self.config.chunks_dir.glob("*.md"))

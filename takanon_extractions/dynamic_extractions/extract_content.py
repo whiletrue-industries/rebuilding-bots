@@ -97,27 +97,25 @@ def extract_content_for_sections(html_content, structure_data, target_content_ty
     
     return structure_data
 
-def main():
-    """CLI interface for content extraction."""
-    parser = argparse.ArgumentParser(description='Extract content for specific section types from HTML files')
-    parser.add_argument('html_file', help='Path to the HTML file')
-    parser.add_argument('structure_file', help='Path to the JSON structure file')
-    parser.add_argument('content_type', help='Type of content to extract (e.g., "סעיף")')
-    parser.add_argument('--output', '-o', help='Output file path (default: add _content suffix)')
-    
-    args = parser.parse_args()
-    
-    logger.info("Starting content extraction")
-    logger.info(f"HTML file: {args.html_file}")
-    logger.info(f"Structure file: {args.structure_file}")
-    logger.info(f"Content type: {args.content_type}")
-    
-    # Read HTML file
-    html_path = Path(args.html_file)
+def extract_content_from_html(html_path, structure_path, content_type, output_path):
+    """
+    Pipeline-friendly function to extract content for sections from HTML and structure files.
+    Args:
+        html_path: Path to the HTML file (str or Path)
+        structure_path: Path to the JSON structure file (str or Path)
+        content_type: Type of content to extract (e.g., "סעיף")
+        output_path: Path to write the output JSON (str or Path)
+    Raises:
+        FileNotFoundError, ValueError, or IOError on error
+    """
+    logger.info("Starting content extraction (pipeline-friendly function)")
+    html_path = Path(html_path)
+    structure_path = Path(structure_path)
+    output_path = Path(output_path)
+
     if not html_path.exists():
         logger.error(f"HTML file not found: {html_path}")
-        return 1
-    
+        raise FileNotFoundError(f"HTML file not found: {html_path}")
     try:
         logger.info(f"Reading HTML file: {html_path}")
         with open(html_path, 'r', encoding='utf-8') as f:
@@ -125,14 +123,11 @@ def main():
         logger.info(f"HTML file read successfully ({len(html_content)} characters)")
     except Exception as e:
         logger.error(f"Error reading HTML file: {e}")
-        return 1
-    
-    # Read structure file
-    structure_path = Path(args.structure_file)
+        raise
+
     if not structure_path.exists():
         logger.error(f"Structure file not found: {structure_path}")
-        return 1
-    
+        raise FileNotFoundError(f"Structure file not found: {structure_path}")
     try:
         logger.info(f"Reading structure file: {structure_path}")
         with open(structure_path, 'r', encoding='utf-8') as f:
@@ -140,24 +135,16 @@ def main():
         logger.info("Structure file read successfully")
     except Exception as e:
         logger.error(f"Error reading structure file: {e}")
-        return 1
-    
-    # Extract content
+        raise
+
     try:
-        logger.info(f"Extracting content for type: {args.content_type}")
-        updated_structure = extract_content_for_sections(html_content, structure_data, args.content_type)
+        logger.info(f"Extracting content for type: {content_type}")
+        updated_structure = extract_content_for_sections(html_content, structure_data, content_type)
         logger.info("Content extraction completed")
     except Exception as e:
         logger.error(f"Error extracting content: {e}")
-        return 1
-    
-    # Determine output path
-    if args.output:
-        output_path = Path(args.output)
-    else:
-        output_path = structure_path.with_name(structure_path.stem + '_content.json')
-    
-    # Write output
+        raise
+
     try:
         logger.info(f"Writing output to: {output_path}")
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -166,9 +153,38 @@ def main():
         logger.info(f"Content extracted and saved to: {output_path}")
     except Exception as e:
         logger.error(f"Error writing output file: {e}")
+        raise
+
+def main():
+    """CLI interface for content extraction."""
+    parser = argparse.ArgumentParser(description='Extract content for specific section types from HTML files')
+    parser.add_argument('html_file', help='Path to the HTML file')
+    parser.add_argument('structure_file', help='Path to the JSON structure file')
+    parser.add_argument('content_type', help='Type of content to extract (e.g., "סעיף")')
+    parser.add_argument('--output', '-o', help='Output file path (default: add _content suffix)')
+    args = parser.parse_args()
+
+    logger.info("Starting content extraction")
+    logger.info(f"HTML file: {args.html_file}")
+    logger.info(f"Structure file: {args.structure_file}")
+    logger.info(f"Content type: {args.content_type}")
+
+    if args.output:
+        output_path = args.output
+    else:
+        structure_path = Path(args.structure_file)
+        output_path = structure_path.with_name(structure_path.stem + '_content.json')
+    try:
+        extract_content_from_html(
+            html_path=args.html_file,
+            structure_path=args.structure_file,
+            content_type=args.content_type,
+            output_path=output_path
+        )
+        return 0
+    except Exception as e:
+        logger.error(f"Content extraction failed: {e}")
         return 1
-    
-    return 0
 
 if __name__ == "__main__":
     exit(main()) 
