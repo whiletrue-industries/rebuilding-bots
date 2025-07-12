@@ -28,17 +28,14 @@ def extract_content_for_sections(html_content, structure_data, target_content_ty
     """
     soup = BeautifulSoup(html_content, 'html.parser')
     
-    # Find all sections with html_id in the structure
-    sections_with_ids = []
-    
+    # Collect all sections with html_id using a generator
     def collect_sections(items):
         for item in items:
             if item.get('html_id'):
-                sections_with_ids.append(item)
+                yield item
             if 'children' in item:
-                collect_sections(item['children'])
-    
-    collect_sections(structure_data['structure'])
+                yield from collect_sections(item['children'])
+    sections_with_ids = list(collect_sections(structure_data['structure']))
 
     # Sort sections by their position in the HTML
     all_ids = [el['id'] for el in soup.find_all(attrs={'id': True})]
