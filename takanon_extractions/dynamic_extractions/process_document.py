@@ -14,7 +14,7 @@ import time
 
 from botnim.config import get_logger
 from takanon_extractions.dynamic_extractions.pipeline_config import PipelineConfig, PipelineMetadata, PipelineStage, Environment, validate_json_structure
-from takanon_extractions.dynamic_extractions.extract_structure import extract_structure_from_html, get_openai_client, build_nested_structure, flatten_for_json_serialization
+from takanon_extractions.dynamic_extractions.extract_structure import extract_structure_from_html, get_openai_client, build_nested_structure
 from takanon_extractions.dynamic_extractions.extract_content import extract_content_from_html
 from takanon_extractions.dynamic_extractions.generate_markdown_files import generate_markdown_from_json
 
@@ -141,7 +141,7 @@ class PipelineRunner:
             # Build nested tree structure
             nested_structure = build_nested_structure(structure_items)
             # Convert to JSON-serializable format
-            structure_data = flatten_for_json_serialization(nested_structure)
+            structure_data = nested_structure # No longer using flatten_for_json_serialization
             # Prepare output data with metadata
             output_data = {
                 "metadata": {

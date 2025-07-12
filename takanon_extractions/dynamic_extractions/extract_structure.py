@@ -146,22 +146,6 @@ def build_nested_structure(flat_items: List[StructureItem]) -> List[dict]:
     return nested_items
 
 
-def flatten_for_json_serialization(nested_items: List[dict]) -> List[dict]:
-    """
-    Prepare the nested structure (with 'children' fields) for JSON output.
-    This function is used in the CLI main() flow to convert the nested tree structure
-    into a JSON-serializable format, preserving hierarchy and all fields (e.g., html_id).
-    It is called before writing the output file to ensure the structure is properly formatted.
-    """
-    def process_node(node):
-        # Copy all fields except 'children'
-        result = {k: v for k, v in node.items() if k != "children"}
-        if node.get("children"):
-            result["children"] = [process_node(child) for child in node["children"]]
-        return result
-    return [process_node(item) for item in nested_items]
-
-
 def main():
     """
     CLI interface for extracting structure from HTML files.
@@ -241,9 +225,6 @@ def main():
         logger.info("Building nested tree structure")
         nested_structure = build_nested_structure(structure_items)
         
-        # Convert to JSON-serializable format
-        structure_data = flatten_for_json_serialization(nested_structure)
-        
         # Prepare output data with metadata
         output_data = {
             "metadata": {
@@ -256,7 +237,7 @@ def main():
                 "structure_type": "nested_hierarchy",
                 "mark_type": args.mark_type
             },
-            "structure": structure_data
+            "structure": nested_structure
         }
         
     except Exception as e:
