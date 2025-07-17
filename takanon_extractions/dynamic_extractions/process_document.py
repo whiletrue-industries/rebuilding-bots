@@ -3,20 +3,25 @@
 Main pipeline runner for HTML document processing.
 """
 
-import argparse
 import sys
-import subprocess
-from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict, Any
-import json
-import time
+# Add project root to sys.path for direct script execution
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+# Now import project modules
 from botnim.config import get_logger
 from takanon_extractions.dynamic_extractions.pipeline_config import PipelineConfig, PipelineMetadata, PipelineStage, Environment, validate_json_structure
 from takanon_extractions.dynamic_extractions.extract_structure import extract_structure_from_html, get_openai_client, build_nested_structure
 from takanon_extractions.dynamic_extractions.extract_content import extract_content_from_html
 from takanon_extractions.dynamic_extractions.generate_markdown_files import generate_markdown_from_json
+
+import argparse
+import subprocess
+from datetime import datetime
+from typing import Optional, List, Dict, Any
+import json
+import time
+
 
 # Logger setup
 logger = get_logger(__name__)
@@ -131,26 +136,8 @@ class PipelineRunner:
             return False
     
     def _run_markdown_generation(self) -> bool:
-        # Ensure the output directory exists
-        self.config.chunks_dir.mkdir(parents=True, exist_ok=True)
-        return self._run_stage(
-            stage_name="Stage 3: Generating markdown files",
-            output_path=self.config.chunks_dir,
-            output_exists_check=lambda: self.config.chunks_dir.exists() and any(self.config.chunks_dir.glob("*.md")),
-            confirm_overwrite=self._confirm_overwrite,
-            command=[
-                sys.executable, "generate_markdown_files.py",
-                str(self.config.content_file),
-                "--output-dir", str(self.config.chunks_dir),
-                "--write-files",
-            ] + (["--dry-run"] if self.config.dry_run else []),
-            validation_file=self.config.chunks_dir,  # Not used for validation, but required by signature
-            validation_keys=[],  # No validation for markdown files
-            metadata_key="markdown_generation",
-            metadata_extra=lambda: self._markdown_metadata_extra(),
-            dry_run=self.config.dry_run,
-            skip_stage_enum=PipelineStage.GENERATE_MARKDOWN
-        )
+        logger.info("Stage 3: Generating markdown files (direct function call)")
+        stage_start = time.time()
 
         # Check if output already exists
         if self.config.chunks_dir.exists() and any(self.config.chunks_dir.glob("*.md")) and not self.config.overwrite_existing:

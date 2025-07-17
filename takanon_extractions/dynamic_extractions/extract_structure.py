@@ -1,8 +1,16 @@
+#!/usr/bin/env python3
+"""
+Extract hierarchical structure from HTML using OpenAI API
+"""
+
+import sys
+from pathlib import Path
+# Add project root to sys.path for direct script execution
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 from openai import OpenAI
 import json
 import os
-from pathlib import Path
-import argparse
 from pydantic import BaseModel, Extra
 from typing import List, Optional
 from botnim.config import get_logger, DEFAULT_ENVIRONMENT

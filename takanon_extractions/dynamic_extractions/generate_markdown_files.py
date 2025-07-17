@@ -9,6 +9,8 @@ import sys
 import re
 from pathlib import Path
 from botnim.config import get_logger
+# Add project root to sys.path for direct script execution
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 # Logger setup
 logger = get_logger(__name__)
@@ -163,10 +165,10 @@ def main():
 
     generate_markdown_from_json(
         args.json_file,
-        output_dir=args.output_dir,
+            output_dir=args.output_dir,
         write_files=args.write_files,
-        dry_run=args.dry_run
-    )
+            dry_run=args.dry_run
+        )
 
 
 if __name__ == "__main__":
