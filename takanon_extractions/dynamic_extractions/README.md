@@ -148,16 +148,34 @@ takanon_extractions/dynamic_extractions/logs/
         ...
 ```
 
-## Markdown Generation (Manual Inspection)
+## Markdown Generation
 
 - By default, the pipeline does **not** generate markdown files for each section.
-- To generate markdown files for manual inspection, use the `--generate-markdown` flag:
+- To generate markdown files for manual inspection, use the `--generate-markdown` flag with the pipeline:
 
 ```bash
 python process_document.py input.html output_directory --generate-markdown
 ```
-- Markdown files will be written to `logs/chunks/`.
+
+- Markdown files will be written to `logs/chunks/` by default.
 - All necessary directories are created automatically.
+
+### Advanced Markdown Generation (Direct CLI)
+
+You can also generate markdown files directly from a JSON structure content file using the CLI:
+
+```bash
+python generate_markdown_files.py structure_content.json --write-files --output-dir output_dir/chunks/
+```
+
+- Use `--write-files` to actually write files to disk.
+- Use `--dry-run` to preview what would be generated, without writing files.
+- If neither flag is provided, markdown content is generated in memory (for programmatic use).
+
+### In-Memory Markdown Generation for Sync/Automation
+
+- The function `generate_markdown_from_json` can be used programmatically to generate markdown content in memory as a dictionary, without writing files to disk.
+- This is useful for direct ingestion or further processing in automated workflows.
 
 ## Ingestion/Sync Pipeline
 

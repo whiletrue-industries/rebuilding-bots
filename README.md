@@ -197,8 +197,24 @@ For running locally:
 
 - The document processing pipeline now saves only the final `*_structure_content.json` files in the `specs/takanon/extraction/` folder. These are the only files required for sync/ingestion.
 - All intermediate files (structure.json, pipeline metadata, and markdown files if generated) are saved in `takanon_extractions/dynamic_extractions/logs/`.
-- Markdown files are **not required** for sync—they are only for manual inspection. To generate them, run the pipeline with `--generate-markdown`.
-- The pipeline automatically creates all necessary directories.
+- Markdown files are **not required** for sync—they are only for manual inspection.
+- To generate markdown files for manual inspection, use the `--generate-markdown` flag with the pipeline:
+
+```bash
+python takanon_extractions/dynamic_extractions/process_document.py input.html output_directory --generate-markdown
+```
+
+- For advanced/manual markdown generation, you can use the CLI directly:
+
+```bash
+python takanon_extractions/dynamic_extractions/generate_markdown_files.py structure_content.json --write-files --output-dir output_dir/chunks/
+```
+
+  - Use `--write-files` to actually write files to disk.
+  - Use `--dry-run` to preview what would be generated, without writing files.
+  - If neither flag is provided, markdown content is generated in memory (for programmatic use).
+
+- The pipeline and CLI both support in-memory markdown generation for direct ingestion or further processing in automated workflows.
 
 ### Example Directory Layout
 
