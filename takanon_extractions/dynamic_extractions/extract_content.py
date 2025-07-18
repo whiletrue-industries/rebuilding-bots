@@ -12,9 +12,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 from botnim.config import get_logger
+from urllib.parse import unquote
+import re
 
 # Logger setup
 logger = get_logger(__name__)
+
+def decode_markdown_links(text):
+    # This regex finds markdown links: [text](url)
+    return re.sub(
+        r'\((https?://[^)]+)\)',
+        lambda m: f'({unquote(m.group(1))})',
+        text
+    )
 
 def extract_content_for_sections(html_content, structure_data, target_content_type, mediawiki_mode=False):
     """
@@ -95,6 +105,8 @@ def extract_content_for_sections(html_content, structure_data, target_content_ty
                 markdown_content = md(content_html, heading_style="ATX")
                 # Clean up the markdown
                 markdown_content = markdown_content.strip()
+                # Decode percent-encoded URLs in markdown links
+                markdown_content = decode_markdown_links(markdown_content)
                 # Add the content to the section
                 section['content'] = markdown_content
     

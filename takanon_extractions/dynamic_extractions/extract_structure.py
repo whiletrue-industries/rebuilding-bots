@@ -2,7 +2,7 @@
 """
 Extract hierarchical structure from HTML using OpenAI API
 """
-
+import argparse
 import sys
 from pathlib import Path
 # Add project root to sys.path for direct script execution
