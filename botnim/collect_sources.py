@@ -8,7 +8,7 @@ import json
 
 from .config import get_logger
 from .dynamic_extraction import extract_structured_content
-from botnim.document_parser.dynamic_extractions.generate_markdown_files import generate_markdown_dict, get_base_filename, sanitize_filename
+from .document_parser.dynamic_extractions.generate_markdown_files import generate_markdown_dict, get_base_filename, sanitize_filename
 
 
 logger = get_logger(__name__)
