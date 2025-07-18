@@ -20,6 +20,33 @@ for development:
 $ pip install -U -e .[dev]
 ```
 
+## Environment Variables for Elasticsearch
+
+To support different Elasticsearch clusters for production and staging, set the following environment variables as needed:
+
+- `ES_HOST_PRODUCTION`: Elasticsearch host URL for production (e.g., `https://prod-es.example.com:9200`)
+- `ES_HOST_STAGING`: Elasticsearch host URL for staging (e.g., `https://staging-es.example.com:9200`)
+- `ES_USERNAME_PRODUCTION`: Username for production Elasticsearch (optional)
+- `ES_USERNAME_STAGING`: Username for staging Elasticsearch (optional)
+- `ES_PASSWORD_PRODUCTION` or `ELASTIC_PASSWORD_PRODUCTION`: Password for production Elasticsearch (optional)
+- `ES_PASSWORD_STAGING` or `ELASTIC_PASSWORD_STAGING`: Password for staging Elasticsearch (optional)
+
+If these are not set, the following fallback variables are used:
+- `ES_HOST`, `ES_USERNAME`, `ES_PASSWORD`, `ELASTIC_PASSWORD`
+
+**Example .env file:**
+```env
+# Production
+ES_HOST_PRODUCTION=https://prod-es.example.com:9200
+ES_USERNAME_PRODUCTION=prod_user
+ES_PASSWORD_PRODUCTION=prod_pass
+
+# Staging
+ES_HOST_STAGING=https://staging-es.example.com:9200
+ES_USERNAME_STAGING=staging_user
+ES_PASSWORD_STAGING=staging_pass
+```
+
 ## Directory Structure
 
 - `.env.sample`: Sample environment file for the benchmarking scripts.

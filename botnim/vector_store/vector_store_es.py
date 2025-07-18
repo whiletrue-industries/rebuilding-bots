@@ -28,11 +28,24 @@ class VectorStoreES(VectorStoreBase):
                  es_timeout=30, production=False):
         super().__init__(config, config_dir, production=production)
         
+        # Select environment-specific ES host and credentials
+        if production:
+            es_host_env = os.getenv('ES_HOST_PRODUCTION')
+            es_username_env = os.getenv('ES_USERNAME_PRODUCTION')
+            es_password_env = os.getenv('ES_PASSWORD_PRODUCTION') or os.getenv('ELASTIC_PASSWORD_PRODUCTION')
+        else:
+            es_host_env = os.getenv('ES_HOST_STAGING')
+            es_username_env = os.getenv('ES_USERNAME_STAGING')
+            es_password_env = os.getenv('ES_PASSWORD_STAGING') or os.getenv('ELASTIC_PASSWORD_STAGING')
+        # Fallback to generic env vars if not set
+        es_host_final = es_host or es_host_env or os.getenv('ES_HOST', 'https://localhost:9200')
+        es_username_final = es_username or es_username_env or os.getenv('ES_USERNAME')
+        es_password_final = es_password or es_password_env or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')
+
         # Initialize Elasticsearch client
         es_kwargs = {
-            'hosts': [es_host or os.getenv('ES_HOST', 'https://localhost:9200')],
-            'basic_auth': (es_username or os.getenv('ES_USERNAME'),
-                           es_password or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')),
+            'hosts': [es_host_final],
+            'basic_auth': (es_username_final, es_password_final),
             'request_timeout': es_timeout,
             'verify_certs': False,
             'ca_certs': os.getenv('ES_CA_CERT'),
