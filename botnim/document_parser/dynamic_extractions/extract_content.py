@@ -167,42 +167,4 @@ def extract_content_from_html(html_path, structure_path, content_type, output_pa
         logger.info(f"Content extracted and saved to: {output_path}")
     except Exception as e:
         logger.error(f"Error writing output file: {e}")
-        raise
-
-def main(argv=None):
-    """CLI interface for content extraction."""
-    if argv is None:
-        argv = []
-    parser = argparse.ArgumentParser(description='Extract content for specific section types from HTML files')
-    parser.add_argument('html_file', help='Path to the HTML file')
-    parser.add_argument('structure_file', help='Path to the JSON structure file')
-    parser.add_argument('content_type', help='Type of content to extract (e.g., "סעיף")')
-    parser.add_argument('--output', '-o', help='Output file path (default: add _content suffix)')
-    parser.add_argument('--mediawiki-mode', action='store_true', help='Apply MediaWiki-specific heuristics (e.g., selflink class)')
-    args = parser.parse_args(argv)
-
-    logger.info("Starting content extraction")
-    logger.info(f"HTML file: {args.html_file}")
-    logger.info(f"Structure file: {args.structure_file}")
-    logger.info(f"Content type: {args.content_type}")
-
-    if args.output:
-        output_path = args.output
-    else:
-        structure_path = Path(args.structure_file)
-        output_path = structure_path.with_name(structure_path.stem + '_content.json')
-    try:
-        extract_content_from_html(
-            html_path=args.html_file,
-            structure_path=args.structure_file,
-            content_type=args.content_type,
-            output_path=output_path,
-            mediawiki_mode=args.mediawiki_mode
-        )
-        return 0
-    except Exception as e:
-        logger.error(f"Content extraction failed: {e}")
-        return 1
-
-if __name__ == "__main__":
-    exit(main()) 
+        raise 
