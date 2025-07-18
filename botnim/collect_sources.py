@@ -4,11 +4,12 @@ from typing import Union
 import hashlib
 import dataflows as DF
 from kvfile.kvfile_sqlite import CachedKVFileSQLite as KVFile
+import json
 
 from .config import get_logger
 from .dynamic_extraction import extract_structured_content
-from takanon_extractions.dynamic_extractions.generate_markdown_files import generate_markdown_dict
-import json
+from takanon_extractions.dynamic_extractions.generate_markdown_files import generate_markdown_dict, get_base_filename, sanitize_filename
+
 
 logger = get_logger(__name__)
 cache: KVFile = None
@@ -96,9 +97,7 @@ def collect_sources_split(config_dir, context_name, source, offset=0):
         document_name = data.get('metadata', {}).get('document_name', '')
         if not document_name:
             input_file = data.get('metadata', {}).get('input_file', '')
-            from takanon_extractions.dynamic_extractions.generate_markdown_files import get_base_filename, sanitize_filename
             document_name = get_base_filename(input_file)
-        from takanon_extractions.dynamic_extractions.generate_markdown_files import sanitize_filename
         document_name = sanitize_filename(document_name)
         structure = data.get('structure', [])
         markdown_dict = generate_markdown_dict(structure, document_name)
