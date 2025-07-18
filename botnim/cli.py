@@ -1,4 +1,5 @@
 import click
+import sys
 
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
@@ -9,6 +10,7 @@ from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT, is_
 from .query import run_query, get_available_indexes, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
 from .config import SPECS, get_logger
+from botnim.document_parser.dynamic_extractions import process_document, extract_structure, extract_content, generate_markdown_files
 
 logger = get_logger(__name__)
 
@@ -151,6 +153,107 @@ def assistant(assistant_id, openapi_spec, rtl, environment):
 
 # Add evaluate command to main CLI
 cli.add_command(evaluate)
+
+@cli.command(name='process-document')
+@click.argument('input_html_file')
+@click.argument('output_base_dir')
+@click.option('--content-type', default='סעיף')
+@click.option('--environment', default='staging')
+@click.option('--model', default='gpt-4.1')
+@click.option('--max-tokens', type=int, default=None)
+@click.option('--dry-run', is_flag=True)
+@click.option('--overwrite', is_flag=True)
+@click.option('--generate-markdown', is_flag=True)
+@click.option('--mediawiki-mode', is_flag=True)
+def process_document_cmd(input_html_file, output_base_dir, content_type, environment, model, max_tokens, dry_run, overwrite, generate_markdown, mediawiki_mode):
+    """Run the full document processing pipeline."""
+    argv = [
+        'process_document.py',
+        input_html_file,
+        output_base_dir,
+        '--content-type', content_type,
+        '--environment', environment,
+        '--model', model,
+    ]
+    if max_tokens:
+        argv += ['--max-tokens', str(max_tokens)]
+    if dry_run:
+        argv.append('--dry-run')
+    if overwrite:
+        argv.append('--overwrite')
+    if generate_markdown:
+        argv.append('--generate-markdown')
+    if mediawiki_mode:
+        argv.append('--mediawiki-mode')
+    sys.argv = argv
+    process_document.main()
+
+@cli.command(name='extract-structure')
+@click.argument('input_file')
+@click.argument('output_file')
+@click.option('--environment', default='staging')
+@click.option('--model', default='gpt-4.1')
+@click.option('--max-tokens', type=int, default=None)
+@click.option('--pretty', is_flag=True)
+@click.option('--mark-type', default=None)
+def extract_structure_cmd(input_file, output_file, environment, model, max_tokens, pretty, mark_type):
+    """Extract hierarchical structure from HTML using OpenAI API."""
+    argv = [
+        'extract_structure.py',
+        input_file,
+        output_file,
+        '--environment', environment,
+        '--model', model,
+    ]
+    if max_tokens:
+        argv += ['--max-tokens', str(max_tokens)]
+    if pretty:
+        argv.append('--pretty')
+    if mark_type:
+        argv += ['--mark-type', mark_type]
+    sys.argv = argv
+    extract_structure.main()
+
+@cli.command(name='extract-content')
+@click.argument('html_file')
+@click.argument('structure_file')
+@click.argument('content_type')
+@click.option('--output', '-o', default=None)
+@click.option('--mediawiki-mode', is_flag=True)
+def extract_content_cmd(html_file, structure_file, content_type, output, mediawiki_mode):
+    """Extract content for specific section types from HTML files."""
+    argv = [
+        'extract_content.py',
+        html_file,
+        structure_file,
+        content_type,
+    ]
+    if output:
+        argv += ['--output', output]
+    if mediawiki_mode:
+        argv.append('--mediawiki-mode')
+    sys.argv = argv
+    extract_content.main()
+
+@cli.command(name='generate-markdown-files')
+@click.argument('json_file')
+@click.option('--output-dir', '-o', default=None)
+@click.option('--write-files', is_flag=True)
+@click.option('--dry-run', is_flag=True)
+def generate_markdown_files_cmd(json_file, output_dir, write_files, dry_run):
+    """Generate markdown files from a JSON structure with content."""
+    argv = [
+        'generate_markdown_files.py',
+        json_file,
+    ]
+    if output_dir:
+        argv += ['--output-dir', output_dir]
+    if write_files:
+        argv.append('--write-files')
+    if dry_run:
+        argv.append('--dry-run')
+    sys.argv = argv
+    generate_markdown_files.main()
 
 def main():
     cli()
