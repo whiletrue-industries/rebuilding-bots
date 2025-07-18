@@ -5,11 +5,11 @@ Main pipeline runner for HTML document processing.
 
 import sys
 from pathlib import Path
-from botnim.config import get_logger
-from botnim.document_parser.dynamic_extractions.pipeline_config import PipelineConfig, PipelineMetadata, PipelineStage, Environment, validate_json_structure
-from botnim.document_parser.dynamic_extractions.extract_structure import extract_structure_from_html, get_openai_client, build_nested_structure
-from botnim.document_parser.dynamic_extractions.extract_content import extract_content_from_html
-from botnim.document_parser.dynamic_extractions.generate_markdown_files import generate_markdown_from_json
+from ...config import get_logger
+from .pipeline_config import PipelineConfig, PipelineMetadata, PipelineStage, Environment, validate_json_structure
+from .extract_structure import extract_structure_from_html, get_openai_client, build_nested_structure
+from .extract_content import extract_content_from_html
+from .generate_markdown_files import generate_markdown_from_json
 
 import argparse
 from datetime import datetime
