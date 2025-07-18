@@ -1,5 +1,7 @@
 import click
 import sys
+from pathlib import Path
+import json
 
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
@@ -10,10 +12,11 @@ from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT, is_
 from .query import run_query, get_available_indexes, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
 from .config import SPECS, get_logger
-from botnim.document_parser.dynamic_extractions.process_document import main as process_document_main
-from botnim.document_parser.dynamic_extractions.extract_structure import main as extract_structure_main
-from botnim.document_parser.dynamic_extractions.extract_content import main as extract_content_main
-from botnim.document_parser.dynamic_extractions.generate_markdown_files import main as generate_markdown_files_main
+from .document_parser.dynamic_extractions.process_document import PipelineRunner, PipelineConfig
+from .document_parser.dynamic_extractions.extract_structure import extract_structure_from_html, build_nested_structure, get_openai_client
+from .document_parser.dynamic_extractions.extract_content import extract_content_from_html
+from .document_parser.dynamic_extractions.generate_markdown_files import generate_markdown_from_json
+from .document_parser.dynamic_extractions.pipeline_config import Environment
 
 logger = get_logger(__name__)
 
@@ -170,25 +173,19 @@ cli.add_command(evaluate)
 @click.option('--mediawiki-mode', is_flag=True)
 def process_document_cmd(input_html_file, output_base_dir, content_type, environment, model, max_tokens, dry_run, overwrite, generate_markdown, mediawiki_mode):
     """Run the full document processing pipeline."""
-    argv = [
-        'process_document.py',
-        input_html_file,
-        output_base_dir,
-        '--content-type', content_type,
-        '--environment', environment,
-        '--model', model,
-    ]
-    if max_tokens:
-        argv += ['--max-tokens', str(max_tokens)]
-    if dry_run:
-        argv.append('--dry-run')
-    if overwrite:
-        argv.append('--overwrite')
-    if generate_markdown:
-        argv.append('--generate-markdown')
-    if mediawiki_mode:
-        argv.append('--mediawiki-mode')
-    process_document_main(argv)
+    config = PipelineConfig(
+        input_html_file=input_html_file,
+        output_base_dir=output_base_dir,
+        content_type=content_type,
+        environment=Environment(environment),  # Convert string to enum
+        model=model,
+        max_tokens=max_tokens,
+        dry_run=dry_run,
+        overwrite_existing=overwrite,
+        mediawiki_mode=mediawiki_mode,
+    )
+    runner = PipelineRunner(config)
+    runner.run(generate_markdown=generate_markdown)
 
 @cli.command(name='extract-structure')
 @click.argument('input_file')
@@ -200,20 +197,33 @@ def process_document_cmd(input_html_file, output_base_dir, content_type, environ
 @click.option('--mark-type', default=None)
 def extract_structure_cmd(input_file, output_file, environment, model, max_tokens, pretty, mark_type):
     """Extract hierarchical structure from HTML using OpenAI API."""
-    argv = [
-        'extract_structure.py',
-        input_file,
-        output_file,
-        '--environment', environment,
-        '--model', model,
-    ]
-    if max_tokens:
-        argv += ['--max-tokens', str(max_tokens)]
-    if pretty:
-        argv.append('--pretty')
-    if mark_type:
-        argv += ['--mark-type', mark_type]
-    extract_structure_main(argv)
+    # Read input HTML
+    input_path = Path(input_file)
+    with open(input_path, 'r', encoding='utf-8') as f:
+        html_text = f.read()
+    client = get_openai_client(environment)
+    structure_items = extract_structure_from_html(html_text, client, model, max_tokens, mark_type)
+    nested_structure = build_nested_structure(structure_items)
+    output_data = {
+        "metadata": {
+            "input_file": str(input_path),
+            "document_name": input_path.stem,
+            "environment": environment,
+            "model": model,
+            "max_tokens": max_tokens,
+            "total_items": len(structure_items),
+            "structure_type": "nested_hierarchy",
+            "mark_type": mark_type
+        },
+        "structure": nested_structure
+    }
+    output_path = Path(output_file)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        if pretty:
+            json.dump(output_data, f, ensure_ascii=False, indent=2)
+        else:
+            json.dump(output_data, f, ensure_ascii=False)
 
 @cli.command(name='extract-content')
 @click.argument('html_file')
@@ -223,17 +233,14 @@ def extract_structure_cmd(input_file, output_file, environment, model, max_token
 @click.option('--mediawiki-mode', is_flag=True)
 def extract_content_cmd(html_file, structure_file, content_type, output, mediawiki_mode):
     """Extract content for specific section types from HTML files."""
-    argv = [
-        'extract_content.py',
-        html_file,
-        structure_file,
-        content_type,
-    ]
-    if output:
-        argv += ['--output', output]
-    if mediawiki_mode:
-        argv.append('--mediawiki-mode')
-    extract_content_main(argv)
+    output_path = output or Path(structure_file).with_name(Path(structure_file).stem + '_content.json')
+    extract_content_from_html(
+        html_path=html_file,
+        structure_path=structure_file,
+        content_type=content_type,
+        output_path=output_path,
+        mediawiki_mode=mediawiki_mode
+    )
 
 @cli.command(name='generate-markdown-files')
 @click.argument('json_file')
@@ -242,17 +249,12 @@ def extract_content_cmd(html_file, structure_file, content_type, output, mediawi
 @click.option('--dry-run', is_flag=True)
 def generate_markdown_files_cmd(json_file, output_dir, write_files, dry_run):
     """Generate markdown files from a JSON structure with content."""
-    argv = [
-        'generate_markdown_files.py',
-        json_file,
-    ]
-    if output_dir:
-        argv += ['--output-dir', output_dir]
-    if write_files:
-        argv.append('--write-files')
-    if dry_run:
-        argv.append('--dry-run')
-    generate_markdown_files_main(argv)
+    generate_markdown_from_json(
+        json_path=json_file,
+        output_dir=output_dir,
+        write_files=write_files,
+        dry_run=dry_run
+    )
 
 def main():
     cli()
