@@ -6,3 +6,6 @@ botnim.egg-info/
 __pycache__/
 .cursor/rules/onboarding.mdc
 venv/
+
+botnim/document_parser/dynamic_extractions/logs/chunks/*
+!botnim/document_parser/dynamic_extractions/logs/chunks/.gitkeep
