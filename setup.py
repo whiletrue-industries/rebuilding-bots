@@ -3,10 +3,10 @@ from setuptools import setup, find_packages
 setup(
     name='botnim',
     version='0.1.0',
-    packages=['botnim', 'takanon_extractions'],
+    packages=find_packages(),
     entry_points={
         'console_scripts': [
-            'botnim=botnim.cli:main',
+            'botnim = botnim.cli:main',
         ],
     },
     install_requires=[
