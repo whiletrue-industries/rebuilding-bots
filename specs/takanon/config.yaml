@@ -2,7 +2,7 @@ slug: takanon
 name: בוט תקנון הכנסת
 description: עונה על שאלות מתוך תקנון הכנסת וחוקים נלווים
 instructions: agent.txt
-context: 
+context:
   - slug: common_knowledge
     name: ידע רלוונטי על התקנון
     max_num_results: 7
@@ -11,12 +11,25 @@ context:
       source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=0#gid=0
     - type: google-spreadsheet
       source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=656974237#gid=656974237
-    - type: files
-      source: extraction/ethics/*.md
+    - type: split
+      source: extraction/כללי אתיקה לחברי הכנסת_structure_content.json
   - slug: legal_text
     name: Knesset Bylaws (תקנון הכנסת) and related laws
-    type: files
-    source: extraction/*.md
+    sources:
+      - type: split
+        source: extraction/חוק הכנסת_structure_content.json
+      - type: split
+        source: extraction/חוק משכן הכנסת, רחבתו ומשמר הכנסת_structure_content.json
+      - type: split
+        source: extraction/חוק-יסוד__הכנסת_structure_content.json
+      - type: split
+        source: extraction/חוק_חסינות_חברי_הכנסת,_זכויותיהם_וחובותיהם_structure_content.json
+      - type: split
+        source: extraction/חוק_לציון_מידע_בדבר_השפעת_חקיקה_על_זכויות_הילד_structure_content.json
+      - type: split
+        source: extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
+      - type: split
+        source: extraction/תקנון הכנסת_structure_content.json
   - slug: ethics_decisions
     name: "החלטות ועדת אתיקה בדבר כללי אתיקה לחברי הכנסת"
     sources:

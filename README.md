@@ -48,9 +48,13 @@ $ pip install -U -e .[dev]
     - `agent.txt`: Agent instructions.
     - `extraction/`: Extracted and processed text from the Knesset Takanon
   - `openapi/`: OpenAPI definitions of the BudgetKey (and other deprecated) APIs.
-- `takanon_extractions/`: Code and extracted content from the Knesset Takanon and other laws.
-  - `process_clauses.py`: Script to parse the Knesset Takanon HTML, extract the document structure, save it as JSON/YAML and Markdown files and then to split the JSON data into individual Markdown files for each clause.
-  - `transform_to_markdown.py`: LLM-powered tool to convert raw text files to properly formatted markdown files, with the ability to automatically split the content into logical sections.
+- `botnim/document_parser/`: Document extraction and processing tools (formerly takanon_extractions/)
+  - `dynamic_extractions/`: Main extraction pipeline and utilities
+    - `process_document.py`: Full document processing pipeline (now accessible via `botnim process-document`)
+    - `extract_structure.py`: Structure extraction (now accessible via `botnim extract-structure`)
+    - `extract_content.py`: Content extraction (now accessible via `botnim extract-content`)
+    - `generate_markdown_files.py`: Markdown generation (now accessible via `botnim generate-markdown-files`)
+    - `logs/`: Intermediate and output files (structure.json, pipeline metadata, markdown chunks)
 - `ui/`: DEPRECATED: User interface for the bots.
 
 ## Common Tasks
@@ -192,6 +196,66 @@ Running the benchmark in production is best done using the action in the GitHub 
 
 For running locally:
 `botnim benchmarks {staging/production} {budgetkey/takanon} {TRUE/FALSE whether to save results locally}`
+
+## Document Extraction and Sync (Updated)
+
+- The document processing pipeline now saves only the final `*_structure_content.json` files in the `specs/takanon/extraction/` folder. These are the only files required for sync/ingestion.
+- All intermediate files (structure.json, pipeline metadata, and markdown files if generated) are saved in `botnim/document_parser/dynamic_extractions/logs/`.
+- Markdown files are **not required** for sync—they are only for manual inspection.
+- To generate markdown files for manual inspection, use the `--generate-markdown` flag with the pipeline:
+
+```bash
+botnim process-document botnim/document_parser/extract_sources/חוק הכנסת.html specs/takanon/extraction/ --generate-markdown
+```
+
+- For advanced/manual markdown generation, you can use the CLI directly:
+
+```bash
+botnim generate-markdown-files specs/takanon/extraction/חוק הכנסת_structure_content.json --write-files --output-dir botnim/document_parser/dynamic_extractions/logs/chunks/
+```
+
+  - Use `--write-files` to actually write files to disk.
+  - Use `--dry-run` to preview what would be generated, without writing files.
+  - If neither flag is provided, markdown content is generated in memory (for programmatic use).
+
+- The pipeline and CLI both support in-memory markdown generation for direct ingestion or further processing in automated workflows.
+
+### Example Directory Layout
+
+```
+specs/takanon/extraction/
+    תקנון הכנסת_structure_content.json
+    חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
+
+botnim/document_parser/dynamic_extractions/logs/
+    תקנון הכנסת_structure.json
+    תקנון הכנסת_pipeline_metadata.json
+    חוק_רציפות_הדיון_בהצעות_חוק_structure.json
+    חוק_רציפות_הדיון_בהצעות_חוק_pipeline_metadata.json
+    chunks/
+        תקנון הכנסת_סעיף_1.md
+        חוק_רציפות_הדיון_בהצעות_חוק_סעיף_1.md
+        ...
+```
+
+## Configuration for Sync
+
+- In your `config.yaml`, use `type: split` for each JSON structure content file:
+  ```yaml
+  sources:
+    - type: split
+      source: extraction/תקנון הכנסת_structure_content.json
+    - type: split
+      source: extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
+  ```
+
+## Manual Markdown Generation
+
+- To generate markdown files for manual review, run:
+  ```bash
+  botnim process-document botnim/document_parser/extract_sources/חוק הכנסת.html specs/takanon/extraction/ --generate-markdown
+  ```
+- Markdown files will be written to `botnim/document_parser/dynamic_extractions/logs/chunks/`.
 
 ## Context Specification
 
