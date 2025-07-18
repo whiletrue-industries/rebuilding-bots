@@ -1,0 +1,15 @@
+{
+  "pipeline_version": "1.0.0",
+  "start_time": "2025-07-18T11:48:30.138278",
+  "end_time": "2025-07-18T11:49:16.200398",
+  "stages_completed": [
+    "extract_structure",
+    "extract_content",
+    "generate_markdown"
+  ],
+  "errors": [],
+  "warnings": [],
+  "structure_extraction": {},
+  "content_extraction": {},
+  "markdown_generation": {}
+}
