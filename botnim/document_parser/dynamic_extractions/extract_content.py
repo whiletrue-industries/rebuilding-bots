@@ -169,15 +169,17 @@ def extract_content_from_html(html_path, structure_path, content_type, output_pa
         logger.error(f"Error writing output file: {e}")
         raise
 
-def main():
+def main(argv=None):
     """CLI interface for content extraction."""
+    if argv is None:
+        argv = []
     parser = argparse.ArgumentParser(description='Extract content for specific section types from HTML files')
     parser.add_argument('html_file', help='Path to the HTML file')
     parser.add_argument('structure_file', help='Path to the JSON structure file')
     parser.add_argument('content_type', help='Type of content to extract (e.g., "סעיף")')
     parser.add_argument('--output', '-o', help='Output file path (default: add _content suffix)')
     parser.add_argument('--mediawiki-mode', action='store_true', help='Apply MediaWiki-specific heuristics (e.g., selflink class)')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     logger.info("Starting content extraction")
     logger.info(f"HTML file: {args.html_file}")

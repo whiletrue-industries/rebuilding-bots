@@ -303,8 +303,10 @@ class PipelineRunner:
 def resolve_abs(p):
     return str(Path(p).expanduser().resolve())
 
-def main():
+def main(argv=None):
     """CLI interface for pipeline runner."""
+    if argv is None:
+        argv = []
     parser = argparse.ArgumentParser(
         description="Process HTML legal documents and extract content to markdown files"
     )
@@ -367,7 +369,7 @@ def main():
     )
     parser.add_argument('--mediawiki-mode', action='store_true', help='Apply MediaWiki-specific heuristics (e.g., selflink class)')
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     
     # Resolve all paths to absolute paths
     input_html_file = resolve_abs(args.input_html_file)

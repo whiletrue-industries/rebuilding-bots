@@ -3,7 +3,6 @@
 Extract hierarchical structure from HTML using OpenAI API
 """
 import argparse
-import sys
 from pathlib import Path
 
 from openai import OpenAI
@@ -152,10 +151,12 @@ def build_nested_structure(flat_items: List[StructureItem]) -> List[dict]:
     return nested_items
 
 
-def main():
+def main(argv=None):
     """
     CLI interface for extracting structure from HTML files.
     """
+    if argv is None:
+        argv = []
     parser = argparse.ArgumentParser(
         description="Extract hierarchical structure from HTML using OpenAI API"
     )
@@ -198,7 +199,7 @@ def main():
         help="Free text describing the type of content to mark for extraction (e.g., 'סעיף' or 'clause'). If provided, relevant items in the output will include their HTML id."
     )
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     
     # Validate input file exists
     input_path = Path(args.input_file)

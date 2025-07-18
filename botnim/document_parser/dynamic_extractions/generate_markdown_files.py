@@ -152,14 +152,16 @@ def generate_markdown_from_json(json_path, output_dir=None, write_files=False, d
     return markdown_dict
 
 
-def main():
+def main(argv=None):
     """CLI interface for markdown generation."""
+    if argv is None:
+        argv = []
     parser = argparse.ArgumentParser(description='Generate markdown content from JSON structure with content')
     parser.add_argument('json_file', help='Path to the JSON file with content')
     parser.add_argument('--output-dir', '-o', help='Output directory for markdown files (used only with --write-files)')
     parser.add_argument('--write-files', action='store_true', help='Write markdown files to disk for manual verification')
     parser.add_argument('--dry-run', action='store_true', help='Show what would be generated without creating files')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     generate_markdown_from_json(
         args.json_file,

@@ -10,7 +10,10 @@ from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT, is_
 from .query import run_query, get_available_indexes, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
 from .config import SPECS, get_logger
-from botnim.document_parser.dynamic_extractions import process_document, extract_structure, extract_content, generate_markdown_files
+from botnim.document_parser.dynamic_extractions.process_document import main as process_document_main
+from botnim.document_parser.dynamic_extractions.extract_structure import main as extract_structure_main
+from botnim.document_parser.dynamic_extractions.extract_content import main as extract_content_main
+from botnim.document_parser.dynamic_extractions.generate_markdown_files import main as generate_markdown_files_main
 
 logger = get_logger(__name__)
 
@@ -185,8 +188,7 @@ def process_document_cmd(input_html_file, output_base_dir, content_type, environ
         argv.append('--generate-markdown')
     if mediawiki_mode:
         argv.append('--mediawiki-mode')
-    sys.argv = argv
-    process_document.main()
+    process_document_main(argv)
 
 @cli.command(name='extract-structure')
 @click.argument('input_file')
@@ -211,8 +213,7 @@ def extract_structure_cmd(input_file, output_file, environment, model, max_token
         argv.append('--pretty')
     if mark_type:
         argv += ['--mark-type', mark_type]
-    sys.argv = argv
-    extract_structure.main()
+    extract_structure_main(argv)
 
 @cli.command(name='extract-content')
 @click.argument('html_file')
@@ -232,8 +233,7 @@ def extract_content_cmd(html_file, structure_file, content_type, output, mediawi
         argv += ['--output', output]
     if mediawiki_mode:
         argv.append('--mediawiki-mode')
-    sys.argv = argv
-    extract_content.main()
+    extract_content_main(argv)
 
 @cli.command(name='generate-markdown-files')
 @click.argument('json_file')
@@ -252,8 +252,7 @@ def generate_markdown_files_cmd(json_file, output_dir, write_files, dry_run):
         argv.append('--write-files')
     if dry_run:
         argv.append('--dry-run')
-    sys.argv = argv
-    generate_markdown_files.main()
+    generate_markdown_files_main(argv)
 
 def main():
     cli()
