@@ -87,6 +87,8 @@ botnim sync production takanon --backend es
 # Demo scripts (environment is required)
 python backend/es/demo-load-data-to-es.py local
 python backend/es/demo-query-es.py "your query" local
+
+**Note:** The demo scripts use direct imports from the `botnim` package. Make sure the package is installed in development mode (`pip install -e .`) to run these scripts.
 ```
 
 ## Directory Structure
