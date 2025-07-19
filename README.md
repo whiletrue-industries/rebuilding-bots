@@ -47,6 +47,8 @@ To support different Elasticsearch clusters for local development, staging, and 
 
 **Note:** You must explicitly specify the environment when running commands. The application will use the environment-specific variables based on your choice. If any of these variables are missing for the environment you're using, the application will show a clear error message indicating which variables need to be set.
 
+**Important:** The application no longer has default fallback environments. All commands and scripts require explicit environment specification to prevent accidental deployments to the wrong environment.
+
 **Example .env file:**
 ```env
 # Production
@@ -81,6 +83,10 @@ botnim sync staging takanon --backend es
 
 # Production
 botnim sync production takanon --backend es
+
+# Demo scripts (environment is required)
+python backend/es/demo-load-data-to-es.py local
+python backend/es/demo-query-es.py "your query" local
 ```
 
 ## Directory Structure
