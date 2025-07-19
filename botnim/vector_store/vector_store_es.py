@@ -25,25 +25,40 @@ class VectorStoreES(VectorStoreBase):
     """	
     def __init__(self, config, config_dir,
                  es_host=None, es_username=None, es_password=None, 
-                 es_timeout=30, production=False):
+                 es_timeout=30, production=False, environment=None):
         super().__init__(config, config_dir, production=production)
         
-        # Select environment-specific ES host and credentials
-        if production:
+        # Determine environment explicitly
+        if environment is None:
+            # For backward compatibility, derive from production flag
+            env_name = 'production' if production else 'staging'
+        else:
+            env_name = environment.lower()
+            if env_name not in ['local', 'staging', 'production']:
+                raise ValueError(f"Invalid environment: {environment}. Must be one of: local, staging, production")
+        
+        # Get environment-specific variables
+        if env_name == 'production':
             es_host_env = os.getenv('ES_HOST_PRODUCTION')
             es_username_env = os.getenv('ES_USERNAME_PRODUCTION')
             es_password_env = os.getenv('ES_PASSWORD_PRODUCTION') or os.getenv('ELASTIC_PASSWORD_PRODUCTION')
-            env_name = 'production'
-        else:
+            es_ca_cert_env = os.getenv('ES_CA_CERT_PRODUCTION')
+        elif env_name == 'staging':
             es_host_env = os.getenv('ES_HOST_STAGING')
             es_username_env = os.getenv('ES_USERNAME_STAGING')
             es_password_env = os.getenv('ES_PASSWORD_STAGING') or os.getenv('ELASTIC_PASSWORD_STAGING')
-            env_name = 'staging'
+            es_ca_cert_env = os.getenv('ES_CA_CERT_STAGING')
+        else:  # local
+            es_host_env = os.getenv('ES_HOST_LOCAL', 'https://localhost:9200')
+            es_username_env = os.getenv('ES_USERNAME_LOCAL')
+            es_password_env = os.getenv('ES_PASSWORD_LOCAL') or os.getenv('ELASTIC_PASSWORD_LOCAL')
+            es_ca_cert_env = os.getenv('ES_CA_CERT_LOCAL')
         
-        # Use provided parameters or environment variables, but don't fallback to generic ones
+        # Use provided parameters or environment variables
         es_host_final = es_host or es_host_env
         es_username_final = es_username or es_username_env
         es_password_final = es_password or es_password_env
+        es_ca_cert_final = es_ca_cert_env or os.getenv('ES_CA_CERT')  # Fallback to generic CA cert
         
         # Check if required variables are set
         missing_vars = []
@@ -63,10 +78,10 @@ class VectorStoreES(VectorStoreBase):
             'basic_auth': (es_username_final, es_password_final),
             'request_timeout': es_timeout,
             'verify_certs': False,
-            'ca_certs': os.getenv('ES_CA_CERT'),
+            'ca_certs': es_ca_cert_final,
             'ssl_show_warn': production
         }
-        logger.info(f"Connecting to Elasticsearch at {es_kwargs['hosts'][0]}")
+        logger.info(f"Connecting to Elasticsearch at {es_kwargs['hosts'][0]} for {env_name} environment")
 
         self.es_client = Elasticsearch(**es_kwargs)
         openai_api_key = os.getenv('OPENAI_API_KEY_PRODUCTION') if production else os.getenv('OPENAI_API_KEY_STAGING')

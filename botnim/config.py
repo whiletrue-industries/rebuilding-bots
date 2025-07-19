@@ -30,7 +30,7 @@ DEFAULT_EMBEDDING_SIZE = 1536
 DEFAULT_BATCH_SIZE = 50
 
 # Constants
-VALID_ENVIRONMENTS = ['production', 'staging']
+VALID_ENVIRONMENTS = ['production', 'staging', 'local']
 DEFAULT_ENVIRONMENT = 'staging'
 
 def is_production(environment: str) -> bool:
