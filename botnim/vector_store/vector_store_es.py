@@ -33,14 +33,29 @@ class VectorStoreES(VectorStoreBase):
             es_host_env = os.getenv('ES_HOST_PRODUCTION')
             es_username_env = os.getenv('ES_USERNAME_PRODUCTION')
             es_password_env = os.getenv('ES_PASSWORD_PRODUCTION') or os.getenv('ELASTIC_PASSWORD_PRODUCTION')
+            env_name = 'production'
         else:
             es_host_env = os.getenv('ES_HOST_STAGING')
             es_username_env = os.getenv('ES_USERNAME_STAGING')
             es_password_env = os.getenv('ES_PASSWORD_STAGING') or os.getenv('ELASTIC_PASSWORD_STAGING')
-        # Fallback to generic env vars if not set
-        es_host_final = es_host or es_host_env or os.getenv('ES_HOST', 'https://localhost:9200')
-        es_username_final = es_username or es_username_env or os.getenv('ES_USERNAME')
-        es_password_final = es_password or es_password_env or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')
+            env_name = 'staging'
+        
+        # Use provided parameters or environment variables, but don't fallback to generic ones
+        es_host_final = es_host or es_host_env
+        es_username_final = es_username or es_username_env
+        es_password_final = es_password or es_password_env
+        
+        # Check if required variables are set
+        missing_vars = []
+        if not es_host_final:
+            missing_vars.append(f'ES_HOST_{env_name.upper()}')
+        if not es_username_final:
+            missing_vars.append(f'ES_USERNAME_{env_name.upper()}')
+        if not es_password_final:
+            missing_vars.append(f'ES_PASSWORD_{env_name.upper()} or ELASTIC_PASSWORD_{env_name.upper()}')
+        
+        if missing_vars:
+            raise ValueError(f"Missing required Elasticsearch environment variables for {env_name} environment: {', '.join(missing_vars)}")
 
         # Initialize Elasticsearch client
         es_kwargs = {
