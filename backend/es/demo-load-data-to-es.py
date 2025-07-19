@@ -7,6 +7,10 @@ load_dotenv()
 from elasticsearch import Elasticsearch
 from openai import OpenAI
 
+# Add the project root to Python path to import our config
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from botnim.config import ElasticsearchConfig
+
 ES_INDEX = 'test'
 OPENAI_EMBEDDING_SIZE = 1536
 OPENAI_TEXT_EMBEDDING_MODEL = 'text-embedding-3-small'
@@ -17,58 +21,43 @@ CHUNK_OVERLAP = 64
 RECREATE_INDEX = True
 
 def get_es_connection_params(environment='staging'):
-    """Get Elasticsearch connection parameters based on environment"""
-    if environment == 'production':
-        es_host = os.getenv('ES_HOST_PRODUCTION')
-        es_username = os.getenv('ES_USERNAME_PRODUCTION', 'elastic')
-        es_password = os.getenv('ES_PASSWORD_PRODUCTION') or os.getenv('ELASTIC_PASSWORD_PRODUCTION')
-        openai_api_key = os.getenv('OPENAI_API_KEY_PRODUCTION')
-    else:  # staging
-        es_host = os.getenv('ES_HOST_STAGING')
-        es_username = os.getenv('ES_USERNAME_STAGING', 'elastic')
-        es_password = os.getenv('ES_PASSWORD_STAGING') or os.getenv('ELASTIC_PASSWORD_STAGING')
-        openai_api_key = os.getenv('OPENAI_API_KEY_STAGING')
-    
-    # Check if required variables are set
-    missing_vars = []
-    if not es_host:
-        missing_vars.append(f'ES_HOST_{environment.upper()}')
-    if not es_password:
-        missing_vars.append(f'ES_PASSWORD_{environment.upper()} or ELASTIC_PASSWORD_{environment.upper()}')
-    if not openai_api_key:
-        missing_vars.append(f'OPENAI_API_KEY_{environment.upper()}')
-    
-    if missing_vars:
-        raise ValueError(f"Missing required environment variables for {environment} environment: {', '.join(missing_vars)}")
-    
-    return es_host, es_username, es_password, openai_api_key
+    """Get Elasticsearch connection parameters using centralized config"""
+    try:
+        es_config = ElasticsearchConfig.from_environment(environment)
+        
+        # Get OpenAI API key
+        if environment == 'production':
+            openai_api_key = os.getenv('OPENAI_API_KEY_PRODUCTION')
+        else:  # staging or local
+            openai_api_key = os.getenv('OPENAI_API_KEY_STAGING')
+        
+        if not openai_api_key:
+            raise ValueError(f"Missing OPENAI_API_KEY_{environment.upper()}")
+        
+        return es_config, openai_api_key
+        
+    except ValueError as e:
+        raise ValueError(f"Configuration error for {environment} environment: {e}")
 
 if __name__ == '__main__':
     # Parse command line arguments
     environment = 'staging'  # default
     if len(sys.argv) > 1:
-        if sys.argv[1] in ['production', 'staging']:
+        if sys.argv[1] in ['production', 'staging', 'local']:
             environment = sys.argv[1]
         else:
-            print("Usage: python demo-load-data-to-es.py [production|staging]")
+            print("Usage: python demo-load-data-to-es.py [production|staging|local]")
             print("Default: staging")
             sys.exit(1)
     
     print(f"Using {environment} environment...")
     
-    # Get connection parameters
-    es_host, es_username, es_password, openai_api_key = get_es_connection_params(environment)
+    # Get connection parameters using centralized config
+    es_config, openai_api_key = get_es_connection_params(environment)
     
-    # For local development, use the cert file if it exists
-    ca_certs = './certs/ca/ca.crt' if os.path.exists('./certs/ca/ca.crt') else None
-    
-    es_client = Elasticsearch(
-        es_host,
-        basic_auth=(es_username, es_password),
-        ca_certs=ca_certs,
-        request_timeout=30,
-        verify_certs=ca_certs is not None
-    )
+    # Use the centralized configuration to create Elasticsearch client
+    es_kwargs = es_config.to_elasticsearch_kwargs()
+    es_client = Elasticsearch(**es_kwargs)
 
     if RECREATE_INDEX:
         if es_client.indices.exists(index=ES_INDEX):
