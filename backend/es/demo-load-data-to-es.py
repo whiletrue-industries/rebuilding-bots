@@ -20,35 +20,33 @@ CHUNK_SIZE = 256
 CHUNK_OVERLAP = 64
 RECREATE_INDEX = True
 
-def get_es_connection_params(environment='staging'):
+def get_es_connection_params(environment):
     """Get Elasticsearch connection parameters using centralized config"""
-    try:
-        es_config = ElasticsearchConfig.from_environment(environment)
-        
-        # Get OpenAI API key
-        if environment == 'production':
-            openai_api_key = os.getenv('OPENAI_API_KEY_PRODUCTION')
-        else:  # staging or local
-            openai_api_key = os.getenv('OPENAI_API_KEY_STAGING')
-        
-        if not openai_api_key:
-            raise ValueError(f"Missing OPENAI_API_KEY_{environment.upper()}")
-        
-        return es_config, openai_api_key
-        
-    except ValueError as e:
-        raise ValueError(f"Configuration error for {environment} environment: {e}")
+    es_config = ElasticsearchConfig.from_environment(environment)
+    
+    # Get OpenAI API key
+    if environment == 'production':
+        openai_api_key = os.getenv('OPENAI_API_KEY_PRODUCTION')
+    else:  # staging or local
+        openai_api_key = os.getenv('OPENAI_API_KEY_STAGING')
+    
+    if not openai_api_key:
+        raise ValueError(f"Missing OPENAI_API_KEY_{environment.upper()}")
+    
+    return es_config, openai_api_key
 
 if __name__ == '__main__':
-    # Parse command line arguments
-    environment = 'staging'  # default
-    if len(sys.argv) > 1:
-        if sys.argv[1] in ['production', 'staging', 'local']:
-            environment = sys.argv[1]
-        else:
-            print("Usage: python demo-load-data-to-es.py [production|staging|local]")
-            print("Default: staging")
-            sys.exit(1)
+    # Parse command line arguments - environment is required
+    if len(sys.argv) < 2:
+        print("Usage: python demo-load-data-to-es.py <environment>")
+        print("Environment must be one of: production, staging, local")
+        sys.exit(1)
+    
+    environment = sys.argv[1]
+    if environment not in ['production', 'staging', 'local']:
+        print("Usage: python demo-load-data-to-es.py <environment>")
+        print("Environment must be one of: production, staging, local")
+        sys.exit(1)
     
     print(f"Using {environment} environment...")
     

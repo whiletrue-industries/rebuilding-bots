@@ -71,6 +71,7 @@ class QueryClient:
             config_dir=Path('.'),
             es_timeout=30,
             production=is_production(self.environment),
+            environment=self.environment,
         )
 
     def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> List[SearchResult]:
@@ -235,12 +236,13 @@ def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     Get list of available indexes
     
     Args:
+        environment (str): Environment to use ('local', 'staging', 'production')
         bot_name (str): Name of the bot to use  
         
     Returns:
         List[str]: List of available index names
     """
-    client = VectorStoreES('', '.')
+    client = VectorStoreES('', '.', environment=environment)
     search_pattern = f"*"
     if not is_production(environment):
         search_pattern += '__dev'

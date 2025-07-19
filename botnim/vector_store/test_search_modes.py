@@ -62,7 +62,7 @@ def test_takanon_section_number_mode():
 def test_takanon_section_number_query_structure():
     """Test that the search mode generates the correct query structure for section number searches"""
     # Create a mock vector store
-    vector_store = MockVectorStoreES(config={}, config_dir="", production=False)
+    vector_store = MockVectorStoreES(config={}, config_dir="", production=False, environment='staging')
     
     # Test query for section 12
     query_text = "סעיף 12"
@@ -124,7 +124,7 @@ def test_takanon_section_number_integration(mock_es):
     mock_es_instance.index.return_value = {"_id": "1", "result": "created"}
     
     # Create a mock vector store
-    vector_store = MockVectorStoreES(config={}, config_dir="", production=False)
+    vector_store = MockVectorStoreES(config={}, config_dir="", production=False, environment='staging')
     
     # Perform a search using the Takanon section number mode
     query_text = "סעיף 12"
@@ -191,7 +191,7 @@ def test_takanon_section_number_real_world_search(mock_es):
     mock_es_instance.index.return_value = {"_id": "1", "result": "created"}
     
     # Create a mock vector store
-    vector_store = MockVectorStoreES(config={}, config_dir="", production=False)
+    vector_store = MockVectorStoreES(config={}, config_dir="", production=False, environment='staging')
     
     # Perform a search using the Takanon section number mode
     query_text = "סעיף 12"
@@ -269,7 +269,7 @@ def test_takanon_section_number_weight_effects(mock_es):
     ]
     
     # Create a mock vector store
-    vector_store = MockVectorStoreES(config={}, config_dir="", production=False)
+    vector_store = MockVectorStoreES(config={}, config_dir="", production=False, environment='staging')
     
     # Perform a search using the Takanon section number mode
     query_text = "סעיף 12"
@@ -329,7 +329,7 @@ def test_takanon_section_number_weight_effects(mock_es):
 
 def test_regular_mode_query_structure():
     """Test that the REGULAR mode produces the expected query structure."""
-    vector_store = MockVectorStoreES(config={}, config_dir="", production=False)
+    vector_store = MockVectorStoreES(config={}, config_dir="", production=False, environment='staging')
     query_text = "example query"
 
     # Build the query with explicit REGULAR mode

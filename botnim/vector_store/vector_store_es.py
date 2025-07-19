@@ -28,84 +28,30 @@ class VectorStoreES(VectorStoreBase):
                  es_timeout=30, production=False, environment=None):
         super().__init__(config, config_dir, production=production)
         
-        # Determine environment explicitly
+        # Environment must be explicitly specified
         if environment is None:
-            # For backward compatibility, derive from production flag
-            env_name = 'production' if production else 'staging'
-        else:
-            env_name = environment.lower()
-            if env_name not in ['local', 'staging', 'production']:
-                raise ValueError(f"Invalid environment: {environment}. Must be one of: local, staging, production")
+            raise ValueError("Environment must be explicitly specified. Use 'local', 'staging', or 'production'")
+        
+        env_name = environment.lower()
+        if env_name not in ['local', 'staging', 'production']:
+            raise ValueError(f"Invalid environment: {environment}. Must be one of: local, staging, production")
         
         # Use centralized configuration management
-        try:
-            es_config = ElasticsearchConfig.from_environment(env_name)
+        es_config = ElasticsearchConfig.from_environment(env_name)
+        
+        # Override with provided parameters if any
+        if es_host:
+            es_config.host = es_host
+        if es_username:
+            es_config.username = es_username
+        if es_password:
+            es_config.password = es_password
+        if es_timeout:
+            es_config.timeout = es_timeout
             
-            # Override with provided parameters if any
-            if es_host:
-                es_config.host = es_host
-            if es_username:
-                es_config.username = es_username
-            if es_password:
-                es_config.password = es_password
-            if es_timeout:
-                es_config.timeout = es_timeout
-                
-            # Convert to Elasticsearch kwargs
-            es_kwargs = es_config.to_elasticsearch_kwargs()
-            
-        except ValueError as e:
-            # Fallback to old pattern for backward compatibility
-            logger.warning(f"Using fallback configuration pattern: {e}")
-            
-            if env_name == 'production':
-                es_host_env = os.getenv('ES_HOST_PRODUCTION')
-                es_username_env = os.getenv('ES_USERNAME_PRODUCTION')
-                es_password_env = os.getenv('ES_PASSWORD_PRODUCTION') or os.getenv('ELASTIC_PASSWORD_PRODUCTION')
-                es_ca_cert_env = os.getenv('ES_CA_CERT_PRODUCTION')
-            elif env_name == 'staging':
-                es_host_env = os.getenv('ES_HOST_STAGING')
-                es_username_env = os.getenv('ES_USERNAME_STAGING')
-                es_password_env = os.getenv('ES_PASSWORD_STAGING') or os.getenv('ELASTIC_PASSWORD_STAGING')
-                es_ca_cert_env = os.getenv('ES_CA_CERT_STAGING')
-            else:  # local
-                es_host_env = os.getenv('ES_HOST_LOCAL', 'https://localhost:9200')
-                es_username_env = os.getenv('ES_USERNAME_LOCAL')
-                es_password_env = os.getenv('ES_PASSWORD_LOCAL') or os.getenv('ELASTIC_PASSWORD_LOCAL')
-                es_ca_cert_env = os.getenv('ES_CA_CERT_LOCAL')
-            
-            # Use provided parameters or environment variables
-            es_host_final = es_host or es_host_env
-            es_username_final = es_username or es_username_env
-            es_password_final = es_password or es_password_env
-            es_ca_cert_final = es_ca_cert_env or os.getenv('ES_CA_CERT')  # Fallback to generic CA cert
-            
-            # Check if required variables are set
-            missing_vars = []
-            if not es_host_final:
-                missing_vars.append(f'ES_HOST_{env_name.upper()}')
-            if not es_username_final:
-                missing_vars.append(f'ES_USERNAME_{env_name.upper()}')
-            if not es_password_final:
-                missing_vars.append(f'ES_PASSWORD_{env_name.upper()} or ELASTIC_PASSWORD_{env_name.upper()}')
-            
-            if missing_vars:
-                raise ValueError(f"Missing required Elasticsearch environment variables for {env_name} environment: {', '.join(missing_vars)}")
-
-            # Initialize Elasticsearch client
-            es_kwargs = {
-                'hosts': [es_host_final],
-                'basic_auth': (es_username_final, es_password_final),
-                'request_timeout': es_timeout,
-            }
-            
-            # Only add TLS options if using HTTPS
-            if es_host_final and es_host_final.startswith('https://'):
-                es_kwargs.update({
-                    'verify_certs': False,
-                    'ca_certs': es_ca_cert_final,
-                    'ssl_show_warn': production
-                })
+        # Convert to Elasticsearch kwargs
+        es_kwargs = es_config.to_elasticsearch_kwargs()
+        
         logger.info(f"Connecting to Elasticsearch at {es_kwargs['hosts'][0]} for {env_name} environment")
 
         self.es_client = Elasticsearch(**es_kwargs)
