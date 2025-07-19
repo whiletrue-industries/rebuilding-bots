@@ -77,10 +77,15 @@ class VectorStoreES(VectorStoreBase):
             'hosts': [es_host_final],
             'basic_auth': (es_username_final, es_password_final),
             'request_timeout': es_timeout,
-            'verify_certs': False,
-            'ca_certs': es_ca_cert_final,
-            'ssl_show_warn': production
         }
+        
+        # Only add TLS options if using HTTPS
+        if es_host_final.startswith('https://'):
+            es_kwargs.update({
+                'verify_certs': False,
+                'ca_certs': es_ca_cert_final,
+                'ssl_show_warn': production
+            })
         logger.info(f"Connecting to Elasticsearch at {es_kwargs['hosts'][0]} for {env_name} environment")
 
         self.es_client = Elasticsearch(**es_kwargs)
