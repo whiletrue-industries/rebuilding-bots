@@ -67,7 +67,7 @@ def openapi_to_tools(openapi_spec):
             ret.append(func)
     return ret
 
-def update_assistant(client, config, config_dir, production, backend, environment, replace_context=False, reindex=False):
+def update_assistant(client, config, config_dir, backend, environment, replace_context=False, reindex=False):
     tool_resources = None
     tools = None
     print(f'Updating assistant: {config["name"]}')
@@ -78,7 +78,7 @@ def update_assistant(client, config, config_dir, production, backend, environmen
             vs = VectorStoreOpenAI(config, config_dir, production, client)
         ## Elasticsearch
         elif backend == 'es':
-            vs = VectorStoreES(config, config_dir, production=production, environment=environment)
+            vs = VectorStoreES(config, config_dir, environment=environment)
         else:
             raise ValueError(f"Unsupported backend: {backend}")
         # Update the vector store with the context
@@ -88,7 +88,7 @@ def update_assistant(client, config, config_dir, production, backend, environmen
     assistants = client.beta.assistants.list()
     assistant_id = None
     assistant_name = config['name']
-    if not production:
+    if not is_production(environment):
         assistant_name += ' - פיתוח'
     
     print(f'Looking for assistant named: {assistant_name}')
@@ -146,7 +146,7 @@ def sync_agents(environment, bots, backend='openai', replace_context=False, rein
             with config_fn.open() as config_f:
                 config = yaml.safe_load(config_f)
                 config['instructions'] = (config_dir / config['instructions']).read_text()
-                if production:
+                if is_production(environment):
                     config['instructions'] = config['instructions'].replace('__dev', '')
-                update_assistant(client, config, config_dir, production, backend, environment,
+                update_assistant(client, config, config_dir, backend, environment,
                                  replace_context=replace_context, reindex=reindex)

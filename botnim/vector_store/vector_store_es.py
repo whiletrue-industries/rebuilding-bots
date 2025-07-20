@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from kvfile.kvfile_sqlite import CachedKVFileSQLite as KVFile
 from elasticsearch import Elasticsearch
 from openai import OpenAI
-from ..config import DEFAULT_ENVIRONMENT, get_logger, ElasticsearchConfig
+from ..config import DEFAULT_ENVIRONMENT, get_logger, ElasticsearchConfig, is_production
 from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
@@ -25,9 +25,7 @@ class VectorStoreES(VectorStoreBase):
     """	
     def __init__(self, config, config_dir,
                  es_host=None, es_username=None, es_password=None, 
-                 es_timeout=30, production=False, environment=None):
-        super().__init__(config, config_dir, production=production)
-        
+                 es_timeout=30, environment=None):
         # Environment must be explicitly specified
         if environment is None:
             raise ValueError("Environment must be explicitly specified. Use 'local', 'staging', or 'production'")
@@ -35,6 +33,13 @@ class VectorStoreES(VectorStoreBase):
         env_name = environment.lower()
         if env_name not in ['local', 'staging', 'production']:
             raise ValueError(f"Invalid environment: {environment}. Must be one of: local, staging, production")
+        
+        # Derive production from environment
+        production = is_production(env_name)
+        super().__init__(config, config_dir, production=production)
+        
+        # Store environment for internal use
+        self.environment = env_name
         
         # Use centralized configuration management
         es_config = ElasticsearchConfig.from_environment(env_name)
@@ -73,14 +78,14 @@ class VectorStoreES(VectorStoreBase):
         return self.encode_index_name(
             bot_name=self.config['slug'],
             context_name=context_name,
-            production=self.production
+            environment=self.environment
         )
 
     @staticmethod
-    def encode_index_name(bot_name: str, context_name: str, production: bool) -> str:
+    def encode_index_name(bot_name: str, context_name: str, environment: str) -> str:
         """Encode index name to get context name"""
         parts = [bot_name, context_name]
-        if not production:
+        if not is_production(environment):
             parts.append('dev')
         return '__'.join(parts)
 

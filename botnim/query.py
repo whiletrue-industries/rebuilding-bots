@@ -267,7 +267,7 @@ def get_index_fields(environment: str, bot_name: str, context_name: str) -> Dict
     Returns:
         Dict: Index mapping showing all fields and their types
     """
-    store_id = VectorStoreES.encode_index_name(bot_name, context_name, is_production(environment))
+    store_id = VectorStoreES.encode_index_name(bot_name, context_name, environment)
     client = QueryClient(store_id)
     return client.get_index_mapping()
 
