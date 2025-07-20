@@ -1,14 +1,16 @@
 import os
+import sys
 from pathlib import Path
-from dotenv import load_dotenv
-load_dotenv()
 
+from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 from openai import OpenAI
 
+from botnim.config import ElasticsearchConfig
+load_dotenv()
+
+
 ES_INDEX = 'test'
-ELASTIC_PASSWORD = os.getenv('ELASTIC_PASSWORD')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 OPENAI_EMBEDDING_SIZE = 1536
 OPENAI_TEXT_EMBEDDING_MODEL = 'text-embedding-3-small'
 
@@ -17,13 +19,42 @@ CHUNK_SIZE = 256
 CHUNK_OVERLAP = 64
 RECREATE_INDEX = True
 
-if __name__ == '__main__':
+def get_es_connection_params(environment):
+    """Get Elasticsearch connection parameters using centralized config"""
+    es_config = ElasticsearchConfig.from_environment(environment)
+    
+    # Get OpenAI API key
+    if environment == 'production':
+        openai_api_key = os.getenv('OPENAI_API_KEY_PRODUCTION')
+    else:  # staging or local
+        openai_api_key = os.getenv('OPENAI_API_KEY_STAGING')
+    
+    if not openai_api_key:
+        raise ValueError(f"Missing OPENAI_API_KEY_{environment.upper()}")
+    
+    return es_config, openai_api_key
 
-    es_client = Elasticsearch(
-        f'https://localhost:9200/',
-        basic_auth=('elastic', ELASTIC_PASSWORD),
-        ca_certs='./certs/ca/ca.crt', request_timeout=30
-    )
+if __name__ == '__main__':
+    # Parse command line arguments - environment is required
+    if len(sys.argv) < 2:
+        print("Usage: python demo-load-data-to-es.py <environment>")
+        print("Environment must be one of: production, staging, local")
+        sys.exit(1)
+    
+    environment = sys.argv[1]
+    if environment not in ['production', 'staging', 'local']:
+        print("Usage: python demo-load-data-to-es.py <environment>")
+        print("Environment must be one of: production, staging, local")
+        sys.exit(1)
+    
+    print(f"Using {environment} environment...")
+    
+    # Get connection parameters using centralized config
+    es_config, openai_api_key = get_es_connection_params(environment)
+    
+    # Use the centralized configuration to create Elasticsearch client
+    es_kwargs = es_config.to_elasticsearch_kwargs()
+    es_client = Elasticsearch(**es_kwargs)
 
     if RECREATE_INDEX:
         if es_client.indices.exists(index=ES_INDEX):
@@ -45,7 +76,7 @@ if __name__ == '__main__':
             }
         })
     
-    openai_client = OpenAI(api_key=OPENAI_API_KEY)
+    openai_client = OpenAI(api_key=openai_api_key)
 
     for file in DATA_SOURCES_PATH.glob('*.md'):
         with open(file, 'r') as f:

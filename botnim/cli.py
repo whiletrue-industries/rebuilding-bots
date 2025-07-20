@@ -83,7 +83,7 @@ def search(environment: str, bot: str, context: str, query_text: str, num_result
     """
     logger.info(f"Searching {bot}/{context} in {environment} with query: '{query_text}', num_results: {num_results}, search_mode: {search_mode}")
     try:
-        vector_store_id = VectorStoreES.encode_index_name(bot, context, is_production(environment))
+        vector_store_id = VectorStoreES.encode_index_name(bot, context, environment)
         # Use the registry and canonical default for mode selection
         mode = SEARCH_MODES.get(search_mode, DEFAULT_SEARCH_MODE) if search_mode else DEFAULT_SEARCH_MODE
         search_results = run_query(

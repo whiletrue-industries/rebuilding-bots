@@ -86,7 +86,7 @@ def evaluate(bot: str, context: str, environment: str, csv_path: str, max_result
         validate_csv(df)
         
         # Construct store_id using VectorStoreES.encode_index_name
-        store_id = VectorStoreES.encode_index_name(bot, context, is_production(environment))
+        store_id = VectorStoreES.encode_index_name(bot, context, environment)
         logger.info(f"Using store_id: {store_id}")
         
         # Run evaluation

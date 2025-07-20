@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from kvfile.kvfile_sqlite import CachedKVFileSQLite as KVFile
 from elasticsearch import Elasticsearch
 from openai import OpenAI
-from ..config import DEFAULT_ENVIRONMENT, get_logger
+from ..config import DEFAULT_ENVIRONMENT, get_logger, ElasticsearchConfig, is_production
 from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 
 from .vector_store_base import VectorStoreBase
@@ -25,20 +25,39 @@ class VectorStoreES(VectorStoreBase):
     """	
     def __init__(self, config, config_dir,
                  es_host=None, es_username=None, es_password=None, 
-                 es_timeout=30, production=False):
+                 es_timeout=30, environment=None):
+        # Environment must be explicitly specified
+        if environment is None:
+            raise ValueError("Environment must be explicitly specified. Use 'local', 'staging', or 'production'")
+        
+        env_name = environment.lower()
+        if env_name not in ['local', 'staging', 'production']:
+            raise ValueError(f"Invalid environment: {environment}. Must be one of: local, staging, production")
+        
+        # Derive production from environment
+        production = is_production(env_name)
         super().__init__(config, config_dir, production=production)
         
-        # Initialize Elasticsearch client
-        es_kwargs = {
-            'hosts': [es_host or os.getenv('ES_HOST', 'https://localhost:9200')],
-            'basic_auth': (es_username or os.getenv('ES_USERNAME'),
-                           es_password or os.getenv('ELASTIC_PASSWORD') or os.getenv('ES_PASSWORD')),
-            'request_timeout': es_timeout,
-            'verify_certs': False,
-            'ca_certs': os.getenv('ES_CA_CERT'),
-            'ssl_show_warn': production
-        }
-        logger.info(f"Connecting to Elasticsearch at {es_kwargs['hosts'][0]}")
+        # Store environment for internal use
+        self.environment = env_name
+        
+        # Use centralized configuration management
+        es_config = ElasticsearchConfig.from_environment(env_name)
+        
+        # Override with provided parameters if any
+        if es_host:
+            es_config.host = es_host
+        if es_username:
+            es_config.username = es_username
+        if es_password:
+            es_config.password = es_password
+        if es_timeout:
+            es_config.timeout = es_timeout
+            
+        # Convert to Elasticsearch kwargs
+        es_kwargs = es_config.to_elasticsearch_kwargs()
+        
+        logger.info(f"Connecting to Elasticsearch at {es_kwargs['hosts'][0]} for {env_name} environment")
 
         self.es_client = Elasticsearch(**es_kwargs)
         openai_api_key = os.getenv('OPENAI_API_KEY_PRODUCTION') if production else os.getenv('OPENAI_API_KEY_STAGING')
@@ -59,14 +78,14 @@ class VectorStoreES(VectorStoreBase):
         return self.encode_index_name(
             bot_name=self.config['slug'],
             context_name=context_name,
-            production=self.production
+            environment=self.environment
         )
 
     @staticmethod
-    def encode_index_name(bot_name: str, context_name: str, production: bool) -> str:
+    def encode_index_name(bot_name: str, context_name: str, environment: str) -> str:
         """Encode index name to get context name"""
         parts = [bot_name, context_name]
-        if not production:
+        if not is_production(environment):
             parts.append('dev')
         return '__'.join(parts)
 

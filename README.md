@@ -20,6 +20,77 @@ for development:
 $ pip install -U -e .[dev]
 ```
 
+## Environment Variables for Elasticsearch
+
+To support different Elasticsearch clusters for local development, staging, and production, you must set the following environment variables:
+
+**Required for Production:**
+- `ES_HOST_PRODUCTION`: Elasticsearch host URL for production (e.g., `https://prod-es.example.com:9200`)
+- `ES_USERNAME_PRODUCTION`: Username for production Elasticsearch
+- `ES_PASSWORD_PRODUCTION` or `ELASTIC_PASSWORD_PRODUCTION`: Password for production Elasticsearch
+- `ES_CA_CERT_PRODUCTION`: Path to CA certificate file for production (optional, for SSL verification)
+
+**Required for Staging:**
+- `ES_HOST_STAGING`: Elasticsearch host URL for staging (e.g., `https://staging-es.example.com:9200`)
+- `ES_USERNAME_STAGING`: Username for staging Elasticsearch
+- `ES_PASSWORD_STAGING` or `ELASTIC_PASSWORD_STAGING`: Password for staging Elasticsearch
+- `ES_CA_CERT_STAGING`: Path to CA certificate file for staging (optional, for SSL verification)
+
+**Required for Local Development:**
+- `ES_HOST_LOCAL`: Elasticsearch host URL for local development (defaults to `https://localhost:9200`)
+- `ES_USERNAME_LOCAL`: Username for local Elasticsearch
+- `ES_PASSWORD_LOCAL` or `ELASTIC_PASSWORD_LOCAL`: Password for local Elasticsearch
+- `ES_CA_CERT_LOCAL`: Path to CA certificate file for local (optional, for SSL verification)
+
+**Optional Fallback:**
+- `ES_CA_CERT`: Generic CA certificate path (used as fallback if environment-specific CA cert is not set)
+
+**Note:** You must explicitly specify the environment when running commands. The application will use the environment-specific variables based on your choice. If any of these variables are missing for the environment you're using, the application will show a clear error message indicating which variables need to be set.
+
+**Important:** The application no longer has default fallback environments. All commands and scripts require explicit environment specification to prevent accidental deployments to the wrong environment.
+
+**Example .env file:**
+```env
+# Production
+ES_HOST_PRODUCTION=https://prod-es.example.com:9200
+ES_USERNAME_PRODUCTION=prod_user
+ES_PASSWORD_PRODUCTION=prod_pass
+ES_CA_CERT_PRODUCTION=/path/to/prod-ca.crt
+
+# Staging
+ES_HOST_STAGING=https://staging-es.example.com:9200
+ES_USERNAME_STAGING=staging_user
+ES_PASSWORD_STAGING=staging_pass
+ES_CA_CERT_STAGING=/path/to/staging-ca.crt
+
+# Local Development
+ES_HOST_LOCAL=https://localhost:9200
+ES_USERNAME_LOCAL=elastic
+ES_PASSWORD_LOCAL=changeme
+ES_CA_CERT_LOCAL=/path/to/local-ca.crt
+
+# Optional: Generic fallback CA certificate
+ES_CA_CERT=/path/to/generic-ca.crt
+```
+
+**Usage Examples:**
+```bash
+# Local development
+botnim sync local takanon --backend es
+
+# Staging
+botnim sync staging takanon --backend es
+
+# Production
+botnim sync production takanon --backend es
+
+# Demo scripts (environment is required)
+python backend/es/demo-load-data-to-es.py local
+python backend/es/demo-query-es.py "your query" local
+
+**Note:** The demo scripts use direct imports from the `botnim` package. Make sure the package is installed in development mode (`pip install -e .`) to run these scripts.
+```
+
 ## Directory Structure
 
 - `.env.sample`: Sample environment file for the benchmarking scripts.
