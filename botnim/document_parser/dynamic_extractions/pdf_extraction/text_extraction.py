@@ -17,7 +17,56 @@ def extract_text_with_pdfplumber(pdf_path: Path) -> str:
             page_text = page.extract_text() or ""
             logger.info(f"Extracted {len(page_text)} characters from page {i+1}")
             text += page_text + "\n"
+    
+    # Fix Hebrew text direction issues
+    text = fix_hebrew_text_direction(text)
     return text
+
+def fix_hebrew_text_direction(text: str) -> str:
+    """
+    Fix Hebrew text direction issues that commonly occur in PDF extraction.
+    This handles cases where Hebrew text appears reversed or with incorrect character ordering.
+    """
+    if not text:
+        return text
+    
+    # Check if text contains Hebrew characters
+    hebrew_chars = sum(1 for c in text if '\u0590' <= c <= '\u05FF')
+    if hebrew_chars < len(text) * 0.1:  # Less than 10% Hebrew, probably not Hebrew text
+        return text
+    
+    # Split into lines and fix each line
+    lines = text.split('\n')
+    fixed_lines = []
+    
+    for line in lines:
+        if not line.strip():
+            fixed_lines.append(line)
+            continue
+        
+        # Check if line contains Hebrew
+        hebrew_in_line = sum(1 for c in line if '\u0590' <= c <= '\u05FF')
+        if hebrew_in_line < len(line) * 0.3:  # Less than 30% Hebrew in line
+            fixed_lines.append(line)
+            continue
+        
+        # For Hebrew-heavy lines, try to fix character ordering
+        # This is a simple approach - in practice, you might need more sophisticated RTL handling
+        words = line.split()
+        fixed_words = []
+        
+        for word in words:
+            # Check if word is primarily Hebrew
+            hebrew_in_word = sum(1 for c in word if '\u0590' <= c <= '\u05FF')
+            if hebrew_in_word > len(word) * 0.5:  # More than 50% Hebrew
+                # Reverse the word to fix character ordering
+                fixed_words.append(word[::-1])
+            else:
+                fixed_words.append(word)
+        
+        fixed_lines.append(' '.join(fixed_words))
+    
+    return '\n'.join(fixed_lines)
 
 def extract_text_with_pdfminer(pdf_path: Path) -> str:
     try:

@@ -106,17 +106,12 @@ class GoogleSheetsSync:
     def _append_to_sheet(self, spreadsheet_id: str, sheet_name: str, data: List[List]) -> bool:
         """Append new rows to existing sheet."""
         try:
-            # Check if sheet exists, create if not
+            # Try to create the sheet first (it will fail silently if it exists)
             try:
-                self.service.spreadsheets().values().get(
-                    spreadsheetId=spreadsheet_id,
-                    range=f"{sheet_name}!A1"
-                ).execute()
-            except HttpError as e:
-                if e.resp.status == 404:
-                    self._create_sheet(spreadsheet_id, sheet_name)
-                else:
-                    raise
+                self._create_sheet(spreadsheet_id, sheet_name)
+            except Exception:
+                # Sheet might already exist, continue
+                pass
             
             # Append data
             range_name = f"{sheet_name}!A:A"
@@ -157,6 +152,66 @@ class GoogleSheetsSync:
             logger.error(f"Failed to create sheet: {e}")
             raise
     
+    def append_data_rows(self, data_rows: List[List], spreadsheet_id: str, sheet_name: str,
+                        replace_existing: bool = False, headers: List[str] = None) -> bool:
+        """
+        Append data rows to Google Sheets, adding headers only on first upload.
+        
+        Args:
+            data_rows: List of data rows (without headers)
+            spreadsheet_id: Google Sheets spreadsheet ID
+            sheet_name: Name of the sheet to create/update
+            replace_existing: If True, replace entire sheet. If False, append new rows.
+            headers: List of header names to add on first upload
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not data_rows:
+                logger.warning("No data rows to upload")
+                return False
+            
+            # Check if sheet exists and has content
+            sheet_exists = self._sheet_exists(spreadsheet_id, sheet_name)
+            
+            if replace_existing or not sheet_exists:
+                # First upload or replace - include headers
+                if headers:
+                    full_data = [headers] + data_rows
+                else:
+                    full_data = data_rows
+                logger.info(f"Creating/replacing sheet '{sheet_name}' with {len(full_data)} rows (including headers)")
+                return self._replace_sheet(spreadsheet_id, sheet_name, full_data)
+            else:
+                # Append to existing sheet - no headers
+                logger.info(f"Appending {len(data_rows)} data rows to existing sheet '{sheet_name}'")
+                return self._append_to_sheet(spreadsheet_id, sheet_name, data_rows)
+            
+        except Exception as e:
+            logger.error(f"Failed to upload data rows: {e}")
+            return False
+    
+    def _sheet_exists(self, spreadsheet_id: str, sheet_name: str) -> bool:
+        """Check if a sheet exists and has content."""
+        try:
+            # Try to get the first row to see if sheet exists and has content
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range=f"{sheet_name}!A1:Z1"
+            ).execute()
+            
+            values = result.get('values', [])
+            return len(values) > 0 and len(values[0]) > 0
+            
+        except HttpError as e:
+            if e.resp.status == 404:
+                return False
+            else:
+                raise
+        except Exception:
+            return False
+
     def upload_csv_to_sheet(self, csv_path: str, spreadsheet_id: str, sheet_name: str,
                            replace_existing: bool = False) -> bool:
         """
