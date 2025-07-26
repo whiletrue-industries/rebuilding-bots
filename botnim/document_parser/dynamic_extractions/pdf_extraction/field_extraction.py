@@ -10,9 +10,26 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 def extract_fields_from_text(text: str, config: SourceConfig, client, model: str = "gpt-4.1") -> Dict:
-    prompt = config.extraction_instructions or """Extract the following fields from the provided document text. Return a JSON object with the fields: {}.""".format(
-        ", ".join([f.name for f in config.fields])
-    )
+    # Build a detailed prompt with field definitions
+    field_definitions = []
+    for field in config.fields:
+        field_def = f"- {field.name}: {field.description}"
+        if field.example:
+            field_def += f" (example: {field.example})"
+        if field.hint:
+            field_def += f" (hint: {field.hint})"
+        field_definitions.append(field_def)
+    
+    field_list = "\n".join(field_definitions)
+    
+    prompt = f"""You are extracting structured data from a Hebrew document. 
+
+Required fields to extract:
+{field_list}
+
+{config.extraction_instructions or "Extract the specified fields from the document text. Return a JSON object with the exact field names as specified above."}
+
+IMPORTANT: Return ONLY a JSON object with the exact field names specified above. Do not add any additional fields or change the field names."""
     logger.info("Building prompt for field extraction.")
     messages = [
         {"role": "system", "content": prompt},
