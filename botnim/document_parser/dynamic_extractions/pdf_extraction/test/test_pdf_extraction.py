@@ -156,9 +156,10 @@ def test_extract_fields_from_text_mock(mock_logger):
     text = "This is a test document with a title and content."
     result = extract_fields_from_text(text, source_config, mock_client)
     
-    # Verify result
-    assert result["title"] == "Test Title"
-    assert result["content"] == "Test Content"
+    # Verify result - result is now a list
+    assert len(result) == 1
+    assert result[0]["title"] == "Test Title"
+    assert result[0]["content"] == "Test Content"
     
     # Verify OpenAI was called
     mock_client.chat.completions.create.assert_called_once()
