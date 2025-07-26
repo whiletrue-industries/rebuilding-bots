@@ -30,6 +30,8 @@ context:
         source: extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
       - type: split
         source: extraction/תקנון הכנסת_structure_content.json
+      - type: split
+        source: extraction/חוק_הפרשנות_structure_content.json
   - slug: ethics_decisions
     name: "החלטות ועדת אתיקה בדבר כללי אתיקה לחברי הכנסת"
     sources:
