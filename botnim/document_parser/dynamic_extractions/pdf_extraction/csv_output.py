@@ -6,6 +6,7 @@ import argparse
 import sys
 import json
 from botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_extraction_config import PDFExtractionConfig
+from botnim.document_parser.dynamic_extractions.pdf_extraction.text_extraction import fix_hebrew_text_direction
 
 def write_csv(data: List[Dict], fieldnames: List[str], source_name: str, output_dir: str = ".") -> str:
     """
@@ -52,6 +53,7 @@ def flatten_for_sheets(doc: dict, fieldnames: List[str]) -> List[str]:
         value = doc.get("fields", {}).get(field, "")
         if not value:
             value = doc.get("metadata", {}).get(field, "")
+        # DO NOT reverse Hebrew for Google Sheets!
         row.append(str(value) if value is not None else "")
     return row
 

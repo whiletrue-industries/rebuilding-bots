@@ -9,7 +9,9 @@ test/
 ├── input/           # Test PDF files
 │   ├── ethic_commitee_decisions/  # Ethics committee decision PDFs
 │   │   └── *.pdf
-│   └── legal_advisor_answers/     # Legal advisor correspondence PDFs
+│   ├── legal_advisor_answers/     # Legal advisor correspondence PDFs
+│   │   └── *.pdf
+│   └── knesset_committee/         # Knesset committee decision PDFs
 │       └── *.pdf
 ├── output/          # Test output files
 │   ├── *.csv       # Generated CSV files
@@ -49,7 +51,7 @@ python -m pytest test_pdf_extraction.py -v
 
 #### 2. Pipeline Test
 
-Run the full pipeline test (processes both sources):
+Run the full pipeline test (processes all three sources):
 
 ```bash
 # From project root
@@ -101,19 +103,23 @@ Place your test PDF files in the appropriate subdirectories:
 
 - **`input/ethic_commitee_decisions/`**: PDF files related to Knesset Ethics Committee decisions
 - **`input/legal_advisor_answers/`**: PDF files related to legal advisor correspondence and letters
+- **`input/knesset_committee/`**: PDF files related to Knesset Committee decisions
 
-The test configuration expects Hebrew PDF files for both resource types.
+The test configuration expects Hebrew PDF files for all three resource types.
 
 ### Configuration
 
-The test configuration (`config/test_config.yaml`) is set up for two sources:
+The test configuration (`config/test_config.yaml`) is set up for three sources:
 - **Source 1**: "החלטות ועדת האתיקה" (Knesset Ethics Committee Decisions)
   - **File Pattern**: `test/input/ethic_commitee_decisions/*.pdf`
   - **Fields**: Hebrew field names for extracting decision metadata
 - **Source 2**: "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת" (Correspondence Letters)
   - **File Pattern**: `test/input/legal_advisor_answers/*.pdf`
   - **Fields**: Hebrew field names for extracting correspondence metadata
-- **Output**: CSV and Google Sheets integration for both sources
+- **Source 3**: "החלטות ועדת הכנסת" (Knesset Committee Decisions)
+  - **File Pattern**: `test/input/knesset_committee/*.pdf`
+  - **Fields**: Hebrew field names for extracting committee decision metadata
+- **Output**: CSV and Google Sheets integration for all three sources
 
 ### Output Files
 
