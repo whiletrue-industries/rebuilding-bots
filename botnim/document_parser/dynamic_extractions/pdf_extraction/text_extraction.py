@@ -68,6 +68,23 @@ def fix_hebrew_text_direction(text: str) -> str:
     
     return '\n'.join(fixed_lines)
 
+def reverse_hebrew_line_order(text: str) -> str:
+    """
+    For each line, reverse the order of words (but not the characters in the words).
+    Only applies to lines that are mostly Hebrew.
+    """
+    lines = text.split('\n')
+    fixed_lines = []
+    for line in lines:
+        # Check if line contains enough Hebrew
+        hebrew_in_line = sum(1 for c in line if '\u0590' <= c <= '\u05FF')
+        if hebrew_in_line < len(line) * 0.3:
+            fixed_lines.append(line)
+            continue
+        words = line.split()
+        fixed_lines.append(' '.join(reversed(words)))
+    return '\n'.join(fixed_lines)
+
 def extract_text_with_pdfminer(pdf_path: Path) -> str:
     try:
         from pdfminer.high_level import extract_text

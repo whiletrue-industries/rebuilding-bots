@@ -7,6 +7,7 @@ import sys
 import json
 from botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_extraction_config import PDFExtractionConfig
 from botnim.document_parser.dynamic_extractions.pdf_extraction.text_extraction import fix_hebrew_text_direction
+from botnim.document_parser.dynamic_extractions.pdf_extraction.text_extraction import reverse_hebrew_line_order
 
 def write_csv(data: List[Dict], fieldnames: List[str], source_name: str, output_dir: str = ".") -> str:
     """
@@ -53,7 +54,9 @@ def flatten_for_sheets(doc: dict, fieldnames: List[str]) -> List[str]:
         value = doc.get("fields", {}).get(field, "")
         if not value:
             value = doc.get("metadata", {}).get(field, "")
-        # DO NOT reverse Hebrew for Google Sheets!
+        # Fix word order for full text fields
+        if field in ["טקסט_מלא", "full_text"] and value:
+            value = reverse_hebrew_line_order(str(value))
         row.append(str(value) if value is not None else "")
     return row
 

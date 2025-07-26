@@ -45,12 +45,14 @@ def run_pipeline_test():
     ethic_decisions_dir = input_dir / "ethic_commitee_decisions"
     legal_advisor_dir = input_dir / "legal_advisor_answers"
     knesset_committee_dir = input_dir / "knesset_committee"
+    legal_advisor_letters_dir = input_dir / "legal_advisor_letters"
     
     ethic_files = list(ethic_decisions_dir.glob("*.pdf")) if ethic_decisions_dir.exists() else []
     legal_files = list(legal_advisor_dir.glob("*.pdf")) if legal_advisor_dir.exists() else []
     knesset_files = list(knesset_committee_dir.glob("*.pdf")) if knesset_committee_dir.exists() else []
+    legal_letters_files = list(legal_advisor_letters_dir.glob("*.pdf")) if legal_advisor_letters_dir.exists() else []
     
-    total_files = len(ethic_files) + len(legal_files) + len(knesset_files)
+    total_files = len(ethic_files) + len(legal_files) + len(knesset_files) + len(legal_letters_files)
     if total_files == 0:
         print("Error: No PDF files found in test/input/ subdirectories")
         return False
@@ -58,6 +60,7 @@ def run_pipeline_test():
     print(f"Found {len(ethic_files)} ethics committee decision files in {ethic_decisions_dir}")
     print(f"Found {len(legal_files)} legal advisor correspondence files in {legal_advisor_dir}")
     print(f"Found {len(knesset_files)} knesset committee decision files in {knesset_committee_dir}")
+    print(f"Found {len(legal_letters_files)} legal advisor letters/guidelines files in {legal_advisor_letters_dir}")
     print(f"Total: {total_files} PDF files")
     print(f"Using config: {config_file}")
     print(f"Output directory: {output_dir}")

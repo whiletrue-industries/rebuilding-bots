@@ -11,7 +11,9 @@ test/
 │   │   └── *.pdf
 │   ├── legal_advisor_answers/     # Legal advisor correspondence PDFs
 │   │   └── *.pdf
-│   └── knesset_committee/         # Knesset committee decision PDFs
+│   ├── knesset_committee/         # Knesset committee decision PDFs
+│   │   └── *.pdf
+│   └── legal_advisor_letters/     # Legal advisor guidelines and letters PDFs
 │       └── *.pdf
 ├── output/          # Test output files
 │   ├── *.csv       # Generated CSV files
@@ -51,7 +53,7 @@ python -m pytest test_pdf_extraction.py -v
 
 #### 2. Pipeline Test
 
-Run the full pipeline test (processes all three sources):
+Run the full pipeline test (processes all four sources):
 
 ```bash
 # From project root
@@ -84,7 +86,7 @@ python -m botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_pipeline
 If you have Google Sheets credentials set up:
 
 ```bash
-# Process both sources
+# Process all four sources
 python -m botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_pipeline \
   --config botnim/document_parser/dynamic_extractions/pdf_extraction/test/config/test_config.yaml \
   --output-dir botnim/document_parser/dynamic_extractions/pdf_extraction/test/output \
@@ -104,12 +106,13 @@ Place your test PDF files in the appropriate subdirectories:
 - **`input/ethic_commitee_decisions/`**: PDF files related to Knesset Ethics Committee decisions
 - **`input/legal_advisor_answers/`**: PDF files related to legal advisor correspondence and letters
 - **`input/knesset_committee/`**: PDF files related to Knesset Committee decisions
+- **`input/legal_advisor_letters/`**: PDF files related to legal advisor guidelines and letters
 
-The test configuration expects Hebrew PDF files for all three resource types.
+The test configuration expects Hebrew PDF files for all four resource types.
 
 ### Configuration
 
-The test configuration (`config/test_config.yaml`) is set up for three sources:
+The test configuration (`config/test_config.yaml`) is set up for four sources:
 - **Source 1**: "החלטות ועדת האתיקה" (Knesset Ethics Committee Decisions)
   - **File Pattern**: `test/input/ethic_commitee_decisions/*.pdf`
   - **Fields**: Hebrew field names for extracting decision metadata
@@ -119,7 +122,10 @@ The test configuration (`config/test_config.yaml`) is set up for three sources:
 - **Source 3**: "החלטות ועדת הכנסת" (Knesset Committee Decisions)
   - **File Pattern**: `test/input/knesset_committee/*.pdf`
   - **Fields**: Hebrew field names for extracting committee decision metadata
-- **Output**: CSV and Google Sheets integration for all three sources
+- **Source 4**: "הנחיות חו\"ד ומכתבים של היועצת המשפטית לכנסת" (Legal Advisor Guidelines and Letters)
+  - **File Pattern**: `test/input/legal_advisor_letters/*.pdf`
+  - **Fields**: Hebrew field names for extracting guidelines and letters metadata
+- **Output**: CSV and Google Sheets integration for all four sources
 
 ### Output Files
 
