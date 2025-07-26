@@ -72,22 +72,40 @@ class GoogleSheetsSync:
     def _replace_sheet(self, spreadsheet_id: str, sheet_name: str, data: List[List]) -> bool:
         """Replace entire sheet content."""
         try:
-            # Clear existing content if sheet exists
-            try:
-                self.service.spreadsheets().values().clear(
-                    spreadsheetId=spreadsheet_id,
-                    range=f"{sheet_name}!A:Z"
-                ).execute()
-                logger.info(f"Cleared existing content in sheet '{sheet_name}'")
-            except HttpError as e:
-                if e.resp.status == 404:
-                    # Sheet doesn't exist, create it
-                    self._create_sheet(spreadsheet_id, sheet_name)
-                else:
-                    raise
+            # Check if sheet exists and delete it if it does
+            if self._sheet_exists(spreadsheet_id, sheet_name):
+                try:
+                    # Get the sheet ID to delete it
+                    spreadsheet = self.service.spreadsheets().get(
+                        spreadsheetId=spreadsheet_id
+                    ).execute()
+                    sheets = spreadsheet.get('sheets', [])
+                    sheet_id = None
+                    for sheet in sheets:
+                        if sheet.get('properties', {}).get('title') == sheet_name:
+                            sheet_id = sheet.get('properties', {}).get('sheetId')
+                            break
+                    
+                    if sheet_id is not None:
+                        # Delete the existing sheet
+                        request = {
+                            'deleteSheet': {
+                                'sheetId': sheet_id
+                            }
+                        }
+                        self.service.spreadsheets().batchUpdate(
+                            spreadsheetId=spreadsheet_id,
+                            body={'requests': [request]}
+                        ).execute()
+                        logger.info(f"Deleted existing sheet '{sheet_name}'")
+                except Exception as e:
+                    logger.warning(f"Failed to delete existing sheet: {e}")
             
-            # Write new data
-            range_name = f"{sheet_name}!A1"
+            # Create new sheet
+            self._create_sheet(spreadsheet_id, sheet_name)
+            
+            # Write new data (use just the sheet name as the range)
+            range_name = sheet_name  # No !A1 or !A:Z
             body = {'values': data}
             self.service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
@@ -113,8 +131,8 @@ class GoogleSheetsSync:
                 # Sheet might already exist, continue
                 pass
             
-            # Append data
-            range_name = f"{sheet_name}!A:A"
+            # Append data (use just the sheet name as the range)
+            range_name = sheet_name  # No !A:A or !A1:Z1
             body = {'values': data}
             self.service.spreadsheets().values().append(
                 spreadsheetId=spreadsheet_id,
@@ -126,7 +144,6 @@ class GoogleSheetsSync:
             
             logger.info(f"Successfully appended {len(data)} rows to sheet '{sheet_name}'")
             return True
-            
         except Exception as e:
             logger.error(f"Failed to append to sheet: {e}")
             return False
@@ -172,16 +189,26 @@ class GoogleSheetsSync:
                 logger.warning("No data rows to upload")
                 return False
             
-            # Check if sheet exists and has content
+
+            
+            # Check if sheet exists
             sheet_exists = self._sheet_exists(spreadsheet_id, sheet_name)
             
-            if replace_existing or not sheet_exists:
-                # First upload or replace - include headers
+            if replace_existing:
+                # Replace entire sheet - include headers
                 if headers:
                     full_data = [headers] + data_rows
                 else:
                     full_data = data_rows
-                logger.info(f"Creating/replacing sheet '{sheet_name}' with {len(full_data)} rows (including headers)")
+                logger.info(f"Replacing sheet '{sheet_name}' with {len(full_data)} rows (including headers)")
+                return self._replace_sheet(spreadsheet_id, sheet_name, full_data)
+            elif not sheet_exists:
+                # First upload - create sheet with headers
+                if headers:
+                    full_data = [headers] + data_rows
+                else:
+                    full_data = data_rows
+                logger.info(f"Creating new sheet '{sheet_name}' with {len(full_data)} rows (including headers)")
                 return self._replace_sheet(spreadsheet_id, sheet_name, full_data)
             else:
                 # Append to existing sheet - no headers
@@ -193,23 +220,18 @@ class GoogleSheetsSync:
             return False
     
     def _sheet_exists(self, spreadsheet_id: str, sheet_name: str) -> bool:
-        """Check if a sheet exists and has content."""
+        """Check if a sheet exists by title (not by range)."""
         try:
-            # Try to get the first row to see if sheet exists and has content
-            result = self.service.spreadsheets().values().get(
-                spreadsheetId=spreadsheet_id,
-                range=f"{sheet_name}!A1:Z1"
+            spreadsheet = self.service.spreadsheets().get(
+                spreadsheetId=spreadsheet_id
             ).execute()
-            
-            values = result.get('values', [])
-            return len(values) > 0 and len(values[0]) > 0
-            
-        except HttpError as e:
-            if e.resp.status == 404:
-                return False
-            else:
-                raise
-        except Exception:
+            sheets = spreadsheet.get('sheets', [])
+            for sheet in sheets:
+                if sheet.get('properties', {}).get('title') == sheet_name:
+                    return True
+            return False
+        except Exception as e:
+            logger.error(f"Failed to check if sheet exists: {e}")
             return False
 
     def upload_csv_to_sheet(self, csv_path: str, spreadsheet_id: str, sheet_name: str,

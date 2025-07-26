@@ -10,7 +10,7 @@ from datetime import datetime
 from botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_extraction_config import PDFExtractionConfig
 from botnim.document_parser.dynamic_extractions.pdf_extraction.text_extraction import extract_text_from_pdf
 from botnim.document_parser.dynamic_extractions.pdf_extraction.field_extraction import extract_fields_from_text
-from botnim.document_parser.dynamic_extractions.pdf_extraction.csv_output import write_csv, flatten_for_csv
+from botnim.document_parser.dynamic_extractions.pdf_extraction.csv_output import write_csv, flatten_for_csv, flatten_for_sheets
 from botnim.document_parser.dynamic_extractions.pdf_extraction.google_sheets_sync import GoogleSheetsSync
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class PDFExtractionPipeline:
         
         logger.info(f"Initialized pipeline with {len(self.config.sources)} sources")
     
-    def process_pdf_file(self, pdf_path: str, source_config) -> Optional[Dict]:
+    def process_pdf_file(self, pdf_path: str, source_config, sheets_sync=None, spreadsheet_id=None, sheet_name=None, replace_sheet=False) -> Optional[List[Dict]]:
         """
         Process a single PDF file through the extraction pipeline.
         
@@ -57,33 +57,61 @@ class PDFExtractionPipeline:
             
             # Step 2: Extract structured fields using LLM
             logger.info("Extracting structured fields...")
-            extracted_fields = extract_fields_from_text(text, source_config, self.openai_client)
+            extracted_fields_list = extract_fields_from_text(text, source_config, self.openai_client)
             
-            if "error" in extracted_fields:
-                logger.error(f"Field extraction failed: {extracted_fields['error']}")
+            if "error" in extracted_fields_list:
+                logger.error(f"Field extraction failed: {extracted_fields_list['error']}")
                 return None
             
-            # Step 3: Prepare output data
-            # Add metadata
-            metadata = {}
-            for key, value in source_config.metadata.items():
-                if value == "{pdf_url}":
-                    metadata[key] = pdf_path  # For now, use file path as URL
-                elif value == "{download_date}":
-                    metadata[key] = datetime.now().isoformat()
-                else:
-                    metadata[key] = value
+            # Step 3: Prepare output data for each entity
+            results = []
+            for i, extracted_fields in enumerate(extracted_fields_list):
+                # Add metadata
+                metadata = {}
+                for key, value in source_config.metadata.items():
+                    if value == "{pdf_url}":
+                        metadata[key] = pdf_path  # For now, use file path as URL
+                    elif value == "{download_date}":
+                        metadata[key] = datetime.now().isoformat()
+                    else:
+                        metadata[key] = value
+                
+                # Add entity-specific metadata
+                if len(extracted_fields_list) > 1:
+                    metadata["entity_number"] = i + 1
+                    metadata["total_entities"] = len(extracted_fields_list)
+                
+                result = {
+                    "fields": extracted_fields,
+                    "metadata": metadata,
+                    "source_name": source_config.name,
+                    "pdf_path": pdf_path,
+                    "entity_index": i,
+                    "processed_at": datetime.now().isoformat()
+                }
+                
+                results.append(result)
+                
+                # Upload to Google Sheets immediately if enabled
+                if sheets_sync and spreadsheet_id:
+                    try:
+                        fieldnames = [f.name for f in source_config.fields]
+                        row_data = [flatten_for_sheets(result, fieldnames)]
+                        
+                        # Upload data row with headers on first upload
+                        success = sheets_sync.append_data_rows(
+                            row_data, spreadsheet_id, sheet_name, replace_sheet, fieldnames
+                        )
+                        
+                        if success:
+                            logger.info(f"Successfully uploaded entity {i+1} to Google Sheets")
+                        else:
+                            logger.error(f"Failed to upload entity {i+1} to Google Sheets")
+                    except Exception as e:
+                        logger.error(f"Failed to upload entity {i+1} to Google Sheets: {e}")
             
-            result = {
-                "fields": extracted_fields,
-                "metadata": metadata,
-                "source_name": source_config.name,
-                "pdf_path": pdf_path,
-                "processed_at": datetime.now().isoformat()
-            }
-            
-            logger.info(f"Successfully processed PDF: {pdf_path}")
-            return result
+            logger.info(f"Successfully processed PDF: {pdf_path} - extracted {len(results)} entities")
+            return results
             
         except Exception as e:
             logger.error(f"Failed to process PDF {pdf_path}: {e}")
@@ -156,46 +184,47 @@ class PDFExtractionPipeline:
                 logger.warning(f"No PDF files found for source '{source_name}'")
                 return True  # Not an error, just no files to process
             
-            # Process each PDF file
-            results = []
-            for pdf_file in pdf_files:
-                result = self.process_pdf_file(pdf_file, source_config)
-                if result:
-                    results.append(result)
-            
-            if not results:
-                logger.warning(f"No PDF files were successfully processed for source '{source_name}'")
-                return True
-            
-            logger.info(f"Successfully processed {len(results)} PDF files for source '{source_name}'")
-            
-            # Generate CSV output
-            fieldnames = [f.name for f in source_config.fields]
-            flat_data = []
-            for result in results:
-                row = flatten_for_csv(result, fieldnames)
-                flat_data.append(row)
-            
-            # Write CSV file
-            csv_path = write_csv(flat_data, fieldnames, source_name, str(self.output_dir))
-            logger.info(f"CSV output written to: {csv_path}")
-            
-            # Upload to Google Sheets if requested
+            # Initialize Google Sheets sync if needed
+            sheets_sync = None
+            sheet_name = None
             if upload_to_sheets and sheets_credentials and spreadsheet_id:
                 try:
                     sheets_sync = GoogleSheetsSync(sheets_credentials)
                     sheet_name = source_name.replace(" ", "_").replace("-", "_")
-                    success = sheets_sync.upload_csv_to_sheet(
-                        csv_path, spreadsheet_id, sheet_name, replace_sheet
-                    )
-                    if success:
-                        logger.info(f"Successfully uploaded to Google Sheets: {sheet_name}")
-                    else:
-                        logger.error(f"Failed to upload to Google Sheets: {sheet_name}")
-                        return False
+                    logger.info(f"Initialized Google Sheets sync for sheet: {sheet_name}")
                 except Exception as e:
-                    logger.error(f"Google Sheets upload failed: {e}")
+                    logger.error(f"Failed to initialize Google Sheets sync: {e}")
                     return False
+            
+            # Process each PDF file
+            all_results = []
+            for i, pdf_file in enumerate(pdf_files):
+                # Only replace sheet for the first PDF if replace_sheet is True
+                current_replace_sheet = replace_sheet if i == 0 else False
+                result_list = self.process_pdf_file(
+                    pdf_file, source_config, sheets_sync, spreadsheet_id, sheet_name, current_replace_sheet
+                )
+                if result_list:
+                    all_results.extend(result_list)
+            
+            if not all_results:
+                logger.warning(f"No PDF files were successfully processed for source '{source_name}'")
+                return True
+            
+            logger.info(f"Successfully processed {len(all_results)} entities from {len(pdf_files)} PDF files for source '{source_name}'")
+            
+            # Generate CSV output
+            fieldnames = [f.name for f in source_config.fields]
+            flat_data = []
+            for result in all_results:
+                row = flatten_for_csv(result, fieldnames)
+                flat_data.append(row)
+            
+            # Write CSV file (for debugging/backup)
+            csv_path = write_csv(flat_data, fieldnames, source_name, str(self.output_dir))
+            logger.info(f"CSV output written to: {csv_path}")
+            
+            # Note: Google Sheets upload is done in real-time during processing
             
             return True
             

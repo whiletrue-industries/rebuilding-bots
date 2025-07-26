@@ -41,6 +41,20 @@ def flatten_for_csv(doc: dict, fieldnames: List[str]) -> dict:
         row[field] = value
     return row
 
+def flatten_for_sheets(doc: dict, fieldnames: List[str]) -> List[str]:
+    """
+    Flatten a document dict into a list of values for Google Sheets.
+    Returns a list of values in the same order as fieldnames.
+    """
+    row = []
+    for field in fieldnames:
+        # Prefer 'fields', fallback to 'metadata'
+        value = doc.get("fields", {}).get(field, "")
+        if not value:
+            value = doc.get("metadata", {}).get(field, "")
+        row.append(str(value) if value is not None else "")
+    return row
+
 def main():
     parser = argparse.ArgumentParser(description="Write a list of dicts to a CSV file with UTF-8 encoding, using config schema.")
     parser.add_argument("--input", required=True, help="Path to input JSON file (list of dicts)")

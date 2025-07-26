@@ -53,10 +53,25 @@ IMPORTANT: Return ONLY a JSON object with the exact field names specified above.
         except Exception as e:
             logger.error(f"Failed to parse JSON from LLM response: {e}\nResponse was: {content}")
             raise ValueError(f"Failed to parse JSON from LLM response: {e}")
-        missing = [f.name for f in config.fields if f.name not in data]
-        if missing:
-            logger.warning(f"Missing fields in extraction: {missing}")
-        return data
+        
+        # Handle both single object and array of objects
+        if isinstance(data, list):
+            logger.info(f"LLM returned array of {len(data)} entities")
+            # Validate each object in the array
+            for i, item in enumerate(data):
+                if not isinstance(item, dict):
+                    logger.warning(f"Item {i} is not a dictionary, skipping")
+                    continue
+                missing = [f.name for f in config.fields if f.name not in item]
+                if missing:
+                    logger.warning(f"Missing fields in entity {i}: {missing}")
+            return data
+        else:
+            # Single object
+            missing = [f.name for f in config.fields if f.name not in data]
+            if missing:
+                logger.warning(f"Missing fields in extraction: {missing}")
+            return [data]  # Return as array for consistency
     except Exception as e:
         logger.error(f"Field extraction failed: {e}")
         return {"error": str(e)}
