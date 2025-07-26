@@ -1,7 +1,7 @@
 sources:
   - name: "החלטות ועדת האתיקה"
     description: "החלטות ועדת האתיקה של הכנסת, 2010-2024"
-    file_pattern: "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/ethic_commitee_decisions/*.pdf"
+    file_pattern: "../input/ethic_commitee_decisions/*.pdf"
     unique_id_field: "קישור_למקור"
     metadata:
       קישור_למקור: "{pdf_url}"
@@ -69,7 +69,7 @@ sources:
 
   - name: "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת"
     description: "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת, כולל פניות לחברי הכנסת, גורמים ברשות המבצעת והציבור"
-    file_pattern: "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/legal_advisor_answers/*.pdf"
+    file_pattern: "../input/legal_advisor_answers/*.pdf"
     unique_id_field: "קישור_למקור"
     metadata:
       קישור_למקור: "{pdf_url}"
@@ -150,7 +150,7 @@ sources:
 
   - name: "החלטות ועדת הכנסת"
     description: "החלטות ועדת הכנסת, כולל החלטות בנושאים שונים"
-    file_pattern: "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/knesset_committee/*.pdf"
+    file_pattern: "../input/knesset_committee/*.pdf"
     unique_id_field: "קישור_למקור"
     metadata:
       קישור_למקור: "{pdf_url}"
@@ -206,7 +206,7 @@ sources:
 
   - name: "הנחיות חו\"ד ומכתבים של היועצת המשפטית לכנסת"
     description: "הנחיות, חוות דעת ומכתבים רשמיים של היועצת המשפטית לכנסת"
-    file_pattern: "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/legal_advisor_letters/*.pdf"
+    file_pattern: "../input/legal_advisor_letters/*.pdf"
     unique_id_field: "קישור_למקור"
     metadata:
       קישור_למקור: "{pdf_url}"

@@ -3,6 +3,7 @@ import json
 from typing import Dict
 from pydantic import ValidationError
 from botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_extraction_config import SourceConfig, PDFExtractionConfig
+from botnim.document_parser.dynamic_extractions.pdf_extraction.exceptions import FieldExtractionError, ValidationError as PDFValidationError
 import argparse
 import sys
 from datetime import datetime
@@ -10,6 +11,28 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 def extract_fields_from_text(text: str, config: SourceConfig, client, model: str = "gpt-4.1") -> Dict:
+    """
+    Extract structured fields from text using LLM.
+    
+    Args:
+        text: Text content to extract fields from
+        config: Source configuration with field definitions
+        client: OpenAI client
+        model: Model to use for extraction
+        
+    Returns:
+        Dictionary with extracted fields or error information
+        
+    Raises:
+        FieldExtractionError: When extraction fails
+        PDFValidationError: When validation fails
+    """
+    if not text or not text.strip():
+        raise FieldExtractionError("Input text is empty or contains only whitespace")
+    
+    if not config.fields:
+        raise FieldExtractionError("No fields defined in configuration")
+    
     # Build a detailed prompt with field definitions
     field_definitions = []
     for field in config.fields:
@@ -30,11 +53,13 @@ Required fields to extract:
 {config.extraction_instructions or "Extract the specified fields from the document text. Return a JSON object with the exact field names as specified above."}
 
 IMPORTANT: Return ONLY a JSON object with the exact field names specified above. Do not add any additional fields or change the field names."""
+    
     logger.info("Building prompt for field extraction.")
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": f"""Document text:\n{text}\n\nReturn the result as a JSON object."""}
     ]
+    
     try:
         logger.info(f"Sending extraction prompt to OpenAI (model={model})")
         response = client.chat.completions.create(
@@ -44,15 +69,21 @@ IMPORTANT: Return ONLY a JSON object with the exact field names specified above.
         )
         content = response.choices[0].message.content
         logger.info("Received response from OpenAI. Attempting to parse JSON.")
+        
         try:
             if content.strip().startswith("```json"):
                 content = content.strip().split("```json", 1)[1].rsplit("```", 1)[0]
             elif content.strip().startswith("```"):
                 content = content.strip().split("```", 1)[1].rsplit("```", 1)[0]
             data = json.loads(content)
+        except json.JSONDecodeError as e:
+            raise FieldExtractionError(f"Failed to parse JSON from LLM response: {e}\nResponse was: {content}")
         except Exception as e:
-            logger.error(f"Failed to parse JSON from LLM response: {e}\nResponse was: {content}")
-            raise ValueError(f"Failed to parse JSON from LLM response: {e}")
+            raise FieldExtractionError(f"Unexpected error parsing LLM response: {e}\nResponse was: {content}")
+        
+        # Validate extracted data
+        if not isinstance(data, (dict, list)):
+            raise PDFValidationError(f"LLM returned invalid data type: {type(data)}. Expected dict or list.")
         
         # Handle both single object and array of objects
         if isinstance(data, list):
@@ -60,8 +91,8 @@ IMPORTANT: Return ONLY a JSON object with the exact field names specified above.
             # Validate each object in the array
             for i, item in enumerate(data):
                 if not isinstance(item, dict):
-                    logger.warning(f"Item {i} is not a dictionary, skipping")
-                    continue
+                    raise PDFValidationError(f"Item {i} is not a dictionary: {type(item)}")
+                
                 missing = [f.name for f in config.fields if f.name not in item]
                 if missing:
                     logger.warning(f"Missing fields in entity {i}: {missing}")
@@ -72,9 +103,11 @@ IMPORTANT: Return ONLY a JSON object with the exact field names specified above.
             if missing:
                 logger.warning(f"Missing fields in extraction: {missing}")
             return [data]  # Return as array for consistency
+            
     except Exception as e:
-        logger.error(f"Field extraction failed: {e}")
-        return {"error": str(e)}
+        if isinstance(e, (FieldExtractionError, PDFValidationError)):
+            raise
+        raise FieldExtractionError(f"Field extraction failed: {str(e)}")
 
 def build_metadata(input_file: str, source_url: str, extraction_date: str, extra_metadata: dict = None) -> dict:
     metadata = {

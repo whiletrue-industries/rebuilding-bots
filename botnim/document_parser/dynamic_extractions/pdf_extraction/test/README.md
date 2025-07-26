@@ -91,7 +91,7 @@ python -m botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_pipeline
   --config botnim/document_parser/dynamic_extractions/pdf_extraction/test/config/test_config.yaml \
   --output-dir botnim/document_parser/dynamic_extractions/pdf_extraction/test/output \
   --upload-sheets \
-  --sheets-credentials .google_spreadsheet_crednetials.json \
+  --sheets-credentials .google_spreadsheet_credentials.json \
   --spreadsheet-id "YOUR_SPREADSHEET_ID" \
   --replace-sheet \
   --verbose

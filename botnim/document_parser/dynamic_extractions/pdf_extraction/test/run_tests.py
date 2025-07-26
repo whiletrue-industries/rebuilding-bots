@@ -74,7 +74,7 @@ def run_pipeline_test():
     ]
     
     # Add Google Sheets options if credentials are available
-    credentials_file = Path(".google_spreadsheet_crednetials.json")
+    credentials_file = Path(".google_spreadsheet_credentials.json")
     if credentials_file.exists():
         cmd.extend([
             "--upload-sheets",
@@ -126,7 +126,7 @@ def main():
     print()
     
     # Check if we're in the right directory
-    if not Path(".google_spreadsheet_crednetials.json").exists():
+    if not Path(".google_spreadsheet_credentials.json").exists():
         print("Warning: Google Sheets credentials not found in current directory")
         print("You can still run tests without Google Sheets integration")
         print()

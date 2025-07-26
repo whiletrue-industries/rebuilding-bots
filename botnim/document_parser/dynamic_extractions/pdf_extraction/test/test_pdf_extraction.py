@@ -167,6 +167,8 @@ def test_extract_fields_from_text_mock(mock_logger):
 @patch('botnim.document_parser.dynamic_extractions.pdf_extraction.field_extraction.logger')
 def test_extract_fields_from_text_error(mock_logger):
     """Test field extraction with error handling."""
+    from botnim.document_parser.dynamic_extractions.pdf_extraction.exceptions import FieldExtractionError
+    
     source_config = SourceConfig(
         name="Test Source",
         file_pattern="test/*.pdf",
@@ -180,11 +182,13 @@ def test_extract_fields_from_text_error(mock_logger):
     mock_client.chat.completions.create.side_effect = Exception("API Error")
     
     text = "Test document"
-    result = extract_fields_from_text(text, source_config, mock_client)
     
-    # Should return error dict
-    assert "error" in result
-    assert "API Error" in result["error"]
+    # Should raise FieldExtractionError
+    with pytest.raises(FieldExtractionError) as exc_info:
+        extract_fields_from_text(text, source_config, mock_client)
+    
+    # Check error message
+    assert "API Error" in str(exc_info.value)
 
 @pytest.fixture
 def sample_pipeline_config():

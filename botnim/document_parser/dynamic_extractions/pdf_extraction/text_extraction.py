@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import argparse
 import sys
+from .exceptions import PDFTextExtractionError
 
 logger = logging.getLogger(__name__)
 
@@ -9,18 +10,30 @@ def extract_text_with_pdfplumber(pdf_path: Path) -> str:
     try:
         import pdfplumber
     except ImportError:
-        logger.error("pdfplumber is not installed. Please install it with 'pip install pdfplumber'.")
-        raise
-    text = ""
-    with pdfplumber.open(str(pdf_path)) as pdf:
-        for i, page in enumerate(pdf.pages):
-            page_text = page.extract_text() or ""
-            logger.info(f"Extracted {len(page_text)} characters from page {i+1}")
-            text += page_text + "\n"
+        raise PDFTextExtractionError("pdfplumber is not installed. Please install it with 'pip install pdfplumber'.")
     
-    # Fix Hebrew text direction issues
-    text = fix_hebrew_text_direction(text)
-    return text
+    try:
+        text = ""
+        with pdfplumber.open(str(pdf_path)) as pdf:
+            if not pdf.pages:
+                raise PDFTextExtractionError(f"PDF file {pdf_path} appears to be empty or corrupted")
+            
+            for i, page in enumerate(pdf.pages):
+                page_text = page.extract_text() or ""
+                logger.info(f"Extracted {len(page_text)} characters from page {i+1}")
+                text += page_text + "\n"
+        
+        if not text.strip():
+            raise PDFTextExtractionError(f"No text content found in PDF {pdf_path}. The PDF might contain only images or be password-protected.")
+        
+        # Fix Hebrew text direction issues
+        text = fix_hebrew_text_direction(text)
+        return text
+        
+    except Exception as e:
+        if isinstance(e, PDFTextExtractionError):
+            raise
+        raise PDFTextExtractionError(f"Failed to extract text from PDF {pdf_path}: {str(e)}")
 
 def fix_hebrew_text_direction(text: str) -> str:
     """
