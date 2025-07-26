@@ -13,6 +13,9 @@ context:
       source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=656974237#gid=656974237
     - type: split
       source: extraction/כללי אתיקה לחברי הכנסת_structure_content.json
+    - type: split
+      source: extraction/חוק הפרשנות_structure_content.json
+
   - slug: legal_text
     name: Knesset Bylaws (תקנון הכנסת) and related laws
     sources:
@@ -32,6 +35,8 @@ context:
         source: extraction/תקנון הכנסת_structure_content.json
       - type: split
         source: extraction/חוק הפרשנות_structure_content.json
+
+
   - slug: ethics_decisions
     name: "החלטות ועדת אתיקה בדבר כללי אתיקה לחברי הכנסת"
     sources:
