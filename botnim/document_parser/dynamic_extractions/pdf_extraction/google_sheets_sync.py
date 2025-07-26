@@ -1,0 +1,234 @@
+import logging
+import csv
+import os
+from typing import List, Dict, Optional
+import argparse
+import sys
+from datetime import datetime
+import json
+
+logger = logging.getLogger(__name__)
+
+try:
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
+    GOOGLE_SHEETS_AVAILABLE = True
+except ImportError:
+    GOOGLE_SHEETS_AVAILABLE = False
+    logger.warning("Google Sheets API not available. Install with: pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client")
+
+class GoogleSheetsSync:
+    def __init__(self, credentials_path: str):
+        """
+        Initialize Google Sheets sync with service account credentials.
+        
+        Args:
+            credentials_path: Path to service account JSON credentials file
+        """
+        if not GOOGLE_SHEETS_AVAILABLE:
+            raise ImportError("Google Sheets API not available. Install required packages.")
+        
+        self.credentials_path = credentials_path
+        self.service = None
+        self._authenticate()
+    
+    def _authenticate(self):
+        """Authenticate with Google Sheets API using service account."""
+        try:
+            credentials = service_account.Credentials.from_service_account_file(
+                self.credentials_path,
+                scopes=['https://www.googleapis.com/auth/spreadsheets']
+            )
+            self.service = build('sheets', 'v4', credentials=credentials)
+            logger.info("Successfully authenticated with Google Sheets API")
+        except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            raise
+    
+    def create_or_update_sheet(self, spreadsheet_id: str, sheet_name: str, 
+                              data: List[List], replace_existing: bool = False) -> bool:
+        """
+        Create or update a sheet in the specified spreadsheet.
+        
+        Args:
+            spreadsheet_id: Google Sheets spreadsheet ID
+            sheet_name: Name of the sheet to create/update
+            data: List of lists representing rows (first row should be headers)
+            replace_existing: If True, replace entire sheet. If False, append new rows.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if replace_existing:
+                return self._replace_sheet(spreadsheet_id, sheet_name, data)
+            else:
+                return self._append_to_sheet(spreadsheet_id, sheet_name, data)
+        except Exception as e:
+            logger.error(f"Failed to create/update sheet: {e}")
+            return False
+    
+    def _replace_sheet(self, spreadsheet_id: str, sheet_name: str, data: List[List]) -> bool:
+        """Replace entire sheet content."""
+        try:
+            # Clear existing content if sheet exists
+            try:
+                self.service.spreadsheets().values().clear(
+                    spreadsheetId=spreadsheet_id,
+                    range=f"{sheet_name}!A:Z"
+                ).execute()
+                logger.info(f"Cleared existing content in sheet '{sheet_name}'")
+            except HttpError as e:
+                if e.resp.status == 404:
+                    # Sheet doesn't exist, create it
+                    self._create_sheet(spreadsheet_id, sheet_name)
+                else:
+                    raise
+            
+            # Write new data
+            range_name = f"{sheet_name}!A1"
+            body = {'values': data}
+            self.service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id,
+                range=range_name,
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+            
+            logger.info(f"Successfully replaced sheet '{sheet_name}' with {len(data)} rows")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to replace sheet: {e}")
+            return False
+    
+    def _append_to_sheet(self, spreadsheet_id: str, sheet_name: str, data: List[List]) -> bool:
+        """Append new rows to existing sheet."""
+        try:
+            # Check if sheet exists, create if not
+            try:
+                self.service.spreadsheets().values().get(
+                    spreadsheetId=spreadsheet_id,
+                    range=f"{sheet_name}!A1"
+                ).execute()
+            except HttpError as e:
+                if e.resp.status == 404:
+                    self._create_sheet(spreadsheet_id, sheet_name)
+                else:
+                    raise
+            
+            # Append data
+            range_name = f"{sheet_name}!A:A"
+            body = {'values': data}
+            self.service.spreadsheets().values().append(
+                spreadsheetId=spreadsheet_id,
+                range=range_name,
+                valueInputOption='RAW',
+                insertDataOption='INSERT_ROWS',
+                body=body
+            ).execute()
+            
+            logger.info(f"Successfully appended {len(data)} rows to sheet '{sheet_name}'")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to append to sheet: {e}")
+            return False
+    
+    def _create_sheet(self, spreadsheet_id: str, sheet_name: str):
+        """Create a new sheet in the spreadsheet."""
+        try:
+            request = {
+                'addSheet': {
+                    'properties': {
+                        'title': sheet_name
+                    }
+                }
+            }
+            
+            self.service.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body={'requests': [request]}
+            ).execute()
+            
+            logger.info(f"Created new sheet '{sheet_name}'")
+        except Exception as e:
+            logger.error(f"Failed to create sheet: {e}")
+            raise
+    
+    def upload_csv_to_sheet(self, csv_path: str, spreadsheet_id: str, sheet_name: str,
+                           replace_existing: bool = False) -> bool:
+        """
+        Upload CSV file to Google Sheets.
+        
+        Args:
+            csv_path: Path to CSV file
+            spreadsheet_id: Google Sheets spreadsheet ID
+            sheet_name: Name of the sheet to create/update
+            replace_existing: If True, replace entire sheet. If False, append new rows.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Read CSV file
+            data = []
+            with open(csv_path, 'r', encoding='utf-8') as csvfile:
+                reader = csv.reader(csvfile)
+                for row in reader:
+                    data.append(row)
+            
+            if not data:
+                logger.warning("CSV file is empty")
+                return False
+            
+            logger.info(f"Read {len(data)} rows from CSV file")
+            return self.create_or_update_sheet(spreadsheet_id, sheet_name, data, replace_existing)
+            
+        except Exception as e:
+            logger.error(f"Failed to upload CSV: {e}")
+            return False
+
+def main():
+    parser = argparse.ArgumentParser(description="Upload CSV data to Google Sheets")
+    parser.add_argument("--csv", required=True, help="Path to CSV file")
+    parser.add_argument("--credentials", required=True, help="Path to service account credentials JSON")
+    parser.add_argument("--spreadsheet-id", required=True, help="Google Sheets spreadsheet ID")
+    parser.add_argument("--sheet-name", required=True, help="Name of the sheet to create/update")
+    parser.add_argument("--replace", action="store_true", help="Replace entire sheet (default: append)")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    
+    args = parser.parse_args()
+    
+    if args.verbose:
+        logging.basicConfig(level=logging.INFO)
+    
+    try:
+        if not GOOGLE_SHEETS_AVAILABLE:
+            print("Error: Google Sheets API not available. Install with:")
+            print("pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client")
+            sys.exit(1)
+        
+        sync = GoogleSheetsSync(args.credentials)
+        success = sync.upload_csv_to_sheet(
+            args.csv, 
+            args.spreadsheet_id, 
+            args.sheet_name, 
+            args.replace
+        )
+        
+        if success:
+            print(f"Successfully uploaded CSV to Google Sheets")
+            print(f"Spreadsheet: {args.spreadsheet_id}")
+            print(f"Sheet: {args.sheet_name}")
+        else:
+            print("Failed to upload CSV to Google Sheets")
+            sys.exit(1)
+            
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main() 
