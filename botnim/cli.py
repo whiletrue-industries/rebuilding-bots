@@ -2,6 +2,7 @@ import click
 import sys
 from pathlib import Path
 import json
+import logging
 
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
@@ -17,6 +18,7 @@ from .document_parser.dynamic_extractions.extract_structure import extract_struc
 from .document_parser.dynamic_extractions.extract_content import extract_content_from_html
 from .document_parser.dynamic_extractions.generate_markdown_files import generate_markdown_from_json
 from .document_parser.dynamic_extractions.pipeline_config import Environment
+from .document_parser.dynamic_extractions.pdf_extraction.pdf_pipeline import PDFExtractionPipeline
 
 logger = get_logger(__name__)
 
@@ -255,6 +257,66 @@ def generate_markdown_files_cmd(json_file, output_dir, write_files, dry_run):
         write_files=write_files,
         dry_run=dry_run
     )
+
+@cli.command(name='pdf-extract')
+@click.argument('config_file')
+@click.option('--source', help='Process specific source (default: process all)')
+@click.option('--output-dir', default='.', help='Output directory for CSV files')
+@click.option('--upload-sheets', is_flag=True, help='Upload results to Google Sheets')
+@click.option('--sheets-credentials', help='Path to Google Sheets credentials JSON')
+@click.option('--spreadsheet-id', help='Google Sheets spreadsheet ID')
+@click.option('--replace-sheet', is_flag=True, help='Replace existing sheet content')
+@click.option('--environment', default='staging', help='API environment (default: staging)')
+@click.option('--verbose', is_flag=True, help='Enable verbose logging')
+@click.option('--no-metrics', is_flag=True, help='Disable performance metrics collection')
+def pdf_extract_cmd(config_file, source, output_dir, upload_sheets, sheets_credentials, spreadsheet_id, replace_sheet, environment, verbose, no_metrics):
+    """Extract structured data from PDFs using LLM and sync to Google Sheets."""
+    # Setup logging
+    log_level = logging.INFO if verbose else logging.WARNING
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    try:
+        # Initialize OpenAI client
+        openai_client = get_openai_client(environment)
+        
+        # Initialize pipeline
+        pipeline = PDFExtractionPipeline(
+            config_file, 
+            openai_client, 
+            output_dir, 
+            enable_metrics=not no_metrics
+        )
+        
+        # Process sources
+        if source:
+            success = pipeline.process_source(
+                source, upload_sheets, sheets_credentials,
+                spreadsheet_id, replace_sheet
+            )
+        else:
+            success = pipeline.process_all_sources(
+                upload_sheets, sheets_credentials,
+                spreadsheet_id, replace_sheet
+            )
+        
+        if success:
+            click.echo("PDF extraction completed successfully")
+            # Save and display metrics
+            pipeline.save_metrics()
+            pipeline.print_performance_summary()
+        else:
+            click.echo("PDF extraction completed with errors")
+            # Still save metrics even if there were errors
+            pipeline.save_metrics()
+            pipeline.print_performance_summary()
+            sys.exit(1)
+            
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        sys.exit(1)
 
 def main():
     cli()

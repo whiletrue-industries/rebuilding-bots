@@ -125,6 +125,15 @@ python backend/es/demo-query-es.py "your query" local
     - `extract_structure.py`: Structure extraction (now accessible via `botnim extract-structure`)
     - `extract_content.py`: Content extraction (now accessible via `botnim extract-content`)
     - `generate_markdown_files.py`: Markdown generation (now accessible via `botnim generate-markdown-files`)
+    - `pdf_extraction/`: PDF extraction and Google Sheets sync pipeline
+      - `pdf_pipeline.py`: Main orchestration pipeline (now accessible via `botnim pdf-extract`)
+      - `text_extraction.py`: PDF text extraction with Hebrew RTL fixes
+      - `field_extraction.py`: LLM-based structured data extraction
+      - `google_sheets_sync.py`: Google Sheets upload functionality
+      - `csv_output.py`: CSV generation and data flattening
+      - `metrics.py`: Performance metrics and structured logging
+      - `exceptions.py`: Custom exception classes for error handling
+      - `test/`: Comprehensive test suite with sample PDFs
     - `logs/`: Intermediate and output files (structure.json, pipeline metadata, markdown chunks)
 - `ui/`: DEPRECATED: User interface for the bots.
 
@@ -290,6 +299,102 @@ botnim generate-markdown-files specs/takanon/extraction/חוק הכנסת_struct
   - If neither flag is provided, markdown content is generated in memory (for programmatic use).
 
 - The pipeline and CLI both support in-memory markdown generation for direct ingestion or further processing in automated workflows.
+
+## PDF Extraction Pipeline
+
+The PDF extraction pipeline provides comprehensive tools for extracting structured data from Hebrew PDFs and syncing to Google Sheets.
+
+### Features
+
+- **Multi-source PDF processing** with configurable extraction schemas
+- **Hebrew text handling** with RTL (right-to-left) text direction fixes
+- **LLM-based field extraction** using OpenAI GPT-4.1
+- **Google Sheets integration** for data synchronization
+- **Comprehensive testing framework** with unit tests and integration tests
+- **Performance metrics and structured logging**
+- **Robust error handling** with custom exception types
+
+### Google Sheets Setup
+
+To use Google Sheets integration, you need to set up a service account and download credentials:
+
+1. **Create a Google Cloud Project** (or use an existing one)
+2. **Enable the Google Sheets API**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Navigate to "APIs & Services" > "Library"
+   - Search for "Google Sheets API" and enable it
+
+3. **Create a Service Account**:
+   - Go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "Service Account"
+   - Fill in the service account details
+   - Click "Create and Continue"
+
+4. **Generate JSON Key**:
+   - In the service account list, click on your new service account
+   - Go to the "Keys" tab
+   - Click "Add Key" > "Create New Key"
+   - Choose "JSON" format
+   - Download the JSON file and save it as `.google_spreadsheet_credentials.json`
+
+5. **Share Your Spreadsheet**:
+   - Open your Google Spreadsheet
+   - Click "Share" and add your service account email (found in the JSON file)
+   - Give it "Editor" permissions
+
+### Usage
+
+```bash
+# Process PDFs using a configuration file
+botnim pdf-extract --config config.yaml --output-dir ./output
+
+# Process specific source only
+botnim pdf-extract --config config.yaml --source "Ethics Committee Decisions" --output-dir ./output
+
+# With Google Sheets integration
+botnim pdf-extract --config config.yaml --output-dir ./output --upload-sheets --sheets-credentials credentials.json --spreadsheet-id "your-spreadsheet-id"
+```
+
+### Configuration
+
+The pipeline uses YAML configuration files to define PDF sources and extraction schemas:
+
+```yaml
+sources:
+  - name: "Ethics Committee Decisions"
+    description: "Decisions of the Knesset Ethics Committee"
+    file_pattern: "ethics_decisions/*.pdf"
+    unique_id_field: "source_url"
+    fields:
+      - name: "decision_date"
+        description: "Date of the ethics decision"
+        example: "2023-05-12"
+      - name: "member_name"
+        description: "Name of the Knesset member"
+        example: "יוסי כהן"
+    extraction_instructions: "Extract the specified fields from the document text..."
+```
+
+### Testing
+
+```bash
+# Run unit tests
+cd botnim/document_parser/dynamic_extractions/pdf_extraction/test
+python -m pytest test_pdf_extraction.py -v
+
+# Run full pipeline test
+python run_tests.py
+```
+
+### Performance Monitoring
+
+The pipeline automatically collects performance metrics:
+- Processing time per PDF
+- Text extraction vs field extraction time
+- Success rates and error tracking
+- Detailed logs in JSON format
+
+Results are saved to `pipeline_metrics.json` and displayed as a summary at the end of processing.
 
 ### Example Directory Layout
 
