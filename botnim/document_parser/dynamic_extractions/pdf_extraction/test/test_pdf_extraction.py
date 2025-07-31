@@ -218,8 +218,8 @@ def test_pipeline_initialization(mock_config_class, sample_pipeline_config):
     
     from botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_pipeline import PDFExtractionPipeline
     
-    with tempfile.TemporaryDirectory() as temp_dir:
-        pipeline = PDFExtractionPipeline("config.yaml", mock_openai_client, temp_dir)
-        
-        assert pipeline.output_dir == Path(temp_dir)
-        mock_config_class.from_yaml.assert_called_once_with("config.yaml") 
+    pipeline = PDFExtractionPipeline("config.yaml", mock_openai_client)
+    
+    assert pipeline.config == mock_config
+    assert pipeline.openai_client == mock_openai_client
+    mock_config_class.from_yaml.assert_called_once_with("config.yaml") 
