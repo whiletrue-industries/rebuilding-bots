@@ -6,12 +6,12 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import time
 
-from botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_extraction_config import PDFExtractionConfig
-from botnim.document_parser.dynamic_extractions.pdf_extraction.text_extraction import extract_text_from_pdf
-from botnim.document_parser.dynamic_extractions.pdf_extraction.field_extraction import extract_fields_from_text
-from botnim.document_parser.dynamic_extractions.pdf_extraction.csv_output import write_csv, flatten_for_csv
-from botnim.document_parser.dynamic_extractions.pdf_extraction.metrics import MetricsCollector, ExtractionMetrics
-from botnim.document_parser.dynamic_extractions.pdf_extraction.metrics import ExtractionMetrics
+from .pdf_extraction_config import PDFExtractionConfig
+from .text_extraction import extract_text_from_pdf
+from .field_extraction import extract_fields_from_text
+from .csv_output import write_csv, flatten_for_csv
+from .metrics import MetricsCollector, ExtractionMetrics
+from .metrics import ExtractionMetrics
 
 logger = logging.getLogger(__name__)
 

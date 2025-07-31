@@ -5,7 +5,7 @@ Main pipeline runner for HTML document processing.
 
 import sys
 from pathlib import Path
-from ...config import get_logger
+from botnim.config import get_logger
 from .pipeline_config import PipelineConfig, PipelineMetadata, PipelineStage, Environment, validate_json_structure
 from .extract_structure import extract_structure_from_html, get_openai_client, build_nested_structure
 from .extract_content import extract_content_from_html

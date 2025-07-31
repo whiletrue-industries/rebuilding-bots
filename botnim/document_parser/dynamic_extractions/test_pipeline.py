@@ -5,8 +5,8 @@ Test script for the document processing tool.
 
 import sys
 from pathlib import Path
-from process_document import PipelineRunner
-from pipeline_config import PipelineConfig, Environment
+from botnim.document_parser.dynamic_extractions.process_document import PipelineRunner
+from botnim.document_parser.dynamic_extractions.pipeline_config import PipelineConfig, Environment
 from botnim.config import get_logger
 
 logger = get_logger(__name__)
