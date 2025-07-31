@@ -260,17 +260,21 @@ def generate_markdown_files_cmd(json_file, output_dir, write_files, dry_run):
 
 @cli.command(name='pdf-extract')
 @click.argument('config_file')
+@click.argument('input_dir')
 @click.option('--source', help='Process specific source (default: process all)')
-@click.option('--output-dir', default='.', help='Output directory for CSV files')
-@click.option('--upload-sheets', is_flag=True, help='Upload results to Google Sheets')
-@click.option('--sheets-credentials', help='Path to Google Sheets credentials JSON')
-@click.option('--spreadsheet-id', help='Google Sheets spreadsheet ID')
-@click.option('--replace-sheet', is_flag=True, help='Replace existing sheet content')
 @click.option('--environment', default='staging', help='API environment (default: staging)')
 @click.option('--verbose', is_flag=True, help='Enable verbose logging')
 @click.option('--no-metrics', is_flag=True, help='Disable performance metrics collection')
-def pdf_extract_cmd(config_file, source, output_dir, upload_sheets, sheets_credentials, spreadsheet_id, replace_sheet, environment, verbose, no_metrics):
-    """Extract structured data from PDFs using LLM and sync to Google Sheets."""
+def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_metrics):
+    """Extract structured data from PDFs using LLM with CSV-based contract.
+    
+    Input directory should contain:
+    - input.csv (optional, existing data)
+    - *.pdf files
+    - *.pdf.metadata.json files (optional)
+    
+    Output will be written to output.csv in the same directory.
+    """
     # Setup logging
     log_level = logging.INFO if verbose else logging.WARNING
     logging.basicConfig(
@@ -286,21 +290,14 @@ def pdf_extract_cmd(config_file, source, output_dir, upload_sheets, sheets_crede
         pipeline = PDFExtractionPipeline(
             config_file, 
             openai_client, 
-            output_dir, 
             enable_metrics=not no_metrics
         )
         
         # Process sources
         if source:
-            success = pipeline.process_source(
-                source, upload_sheets, sheets_credentials,
-                spreadsheet_id, replace_sheet
-            )
+            success = pipeline.process_source(source, input_dir)
         else:
-            success = pipeline.process_all_sources(
-                upload_sheets, sheets_credentials,
-                spreadsheet_id, replace_sheet
-            )
+            success = pipeline.process_all_sources(input_dir)
         
         if success:
             click.echo("PDF extraction completed successfully")
