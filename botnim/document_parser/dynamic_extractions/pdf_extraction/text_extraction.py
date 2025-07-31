@@ -1,15 +1,13 @@
 import logging
 from pathlib import Path
 from .exceptions import PDFTextExtractionError
+import pdfplumber
+from pdfminer.high_level import extract_text
+
 
 logger = logging.getLogger(__name__)
 
 def extract_text_with_pdfplumber(pdf_path: Path) -> str:
-    try:
-        import pdfplumber
-    except ImportError:
-        raise PDFTextExtractionError("pdfplumber is not installed. Please install it with 'pip install pdfplumber'.")
-    
     try:
         text = ""
         with pdfplumber.open(str(pdf_path)) as pdf:
@@ -97,11 +95,6 @@ def reverse_hebrew_line_order(text: str) -> str:
     return '\n'.join(fixed_lines)
 
 def extract_text_with_pdfminer(pdf_path: Path) -> str:
-    try:
-        from pdfminer.high_level import extract_text
-    except ImportError:
-        logger.error("pdfminer.six is not installed. Please install it with 'pip install pdfminer.six'.")
-        raise
     text = extract_text(str(pdf_path))
     logger.info(f"Extracted {len(text)} characters using pdfminer.six")
     return text
