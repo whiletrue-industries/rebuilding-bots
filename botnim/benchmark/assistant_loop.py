@@ -11,6 +11,7 @@ from openai.types.beta.threads.runs.run_step import ToolCallsStepDetails
 
 from botnim.query import QueryClient, run_query
 from botnim.config import get_logger, DEFAULT_ENVIRONMENT, SPECS
+from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 TEMP = 0
 
 logger = get_logger(__name__)
@@ -141,10 +142,13 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                     # Get num_results and search_mode from arguments if provided
                     num_results = arguments.get('num_results')
                     query = arguments.get('query')
-                    search_mode = arguments.get('search_mode')
+                    search_mode_str = arguments.get('search_mode')
+                    
+                    # Convert string search_mode to SearchModeConfig object
+                    search_mode = SEARCH_MODES.get(search_mode_str, DEFAULT_SEARCH_MODE) if search_mode_str else DEFAULT_SEARCH_MODE
 
                     # Log the tool call parameters
-                    logger.info(f"Calling run_query on {store_id} with query: {query}, num_results: {num_results}, search_mode: {search_mode}")
+                    logger.info(f"Calling run_query on {store_id} with query: {query}, num_results: {num_results}, search_mode: {search_mode.name if search_mode else None}")
 
                     output = run_query(
                         store_id=store_id,
