@@ -126,6 +126,21 @@ class MetricsCollector:
                 extra=extra
             )
     
+    def record_failure(self, pdf_path: str, source_name: str, error_message: str):
+        """Record a failed PDF extraction."""
+        metrics = ExtractionMetrics(
+            pdf_path=pdf_path,
+            source_name=source_name,
+            text_extraction_time=0.0,
+            field_extraction_time=0.0,
+            total_processing_time=0.0,
+            text_length=0,
+            entities_extracted=0,
+            success=False,
+            error_message=error_message
+        )
+        self.record_extraction(metrics)
+    
     def get_pipeline_summary(self) -> PipelineMetrics:
         """Generate summary metrics for the entire pipeline."""
         end_time = time.time()

@@ -116,6 +116,12 @@ def extract_text_from_pdf(pdf_path: str, client=None, model: str = "gpt-4.1", en
     if not pdf_path.exists():
         logger.error(f"PDF file not found: {pdf_path}")
         raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+    
+    # Check file size
+    file_size = pdf_path.stat().st_size
+    if file_size == 0:
+        raise ValueError(f"PDF file is empty: {pdf_path}")
+    
     # Try pdfplumber first
     try:
         logger.info("Trying to extract text with pdfplumber...")
@@ -127,6 +133,7 @@ def extract_text_from_pdf(pdf_path: str, client=None, model: str = "gpt-4.1", en
             logger.warning("pdfplumber returned empty text. Falling back to pdfminer.six...")
     except Exception as e:
         logger.warning(f"pdfplumber failed: {e}. Falling back to pdfminer.six...")
+    
     # Fallback to pdfminer.six
     try:
         text = extract_text_with_pdfminer(pdf_path)
@@ -135,9 +142,9 @@ def extract_text_from_pdf(pdf_path: str, client=None, model: str = "gpt-4.1", en
             return text
         else:
             logger.error("pdfminer.six also returned empty text.")
-            raise ValueError("Both pdfplumber and pdfminer.six returned empty text.")
+            raise ValueError(f"Both pdfplumber and pdfminer.six returned empty text for {pdf_path}. The PDF might be password-protected, contain only images, or be corrupted.")
     except Exception as e:
         logger.error(f"pdfminer.six failed: {e}")
-        raise
+        raise ValueError(f"Failed to extract text from {pdf_path} with both pdfplumber and pdfminer.six. Error: {e}")
 
  
