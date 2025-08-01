@@ -267,7 +267,7 @@ def generate_markdown_files_cmd(json_file, output_dir, write_files, dry_run):
 @click.option('--no-metrics', is_flag=True, help='Disable performance metrics collection')
 @click.option('--upload-to-sheets', is_flag=True, help='Upload results to Google Sheets after processing')
 @click.option('--spreadsheet-id', help='Google Sheets spreadsheet ID for upload')
-@click.option('--sheet-name', help='Google Sheets sheet name for upload (deprecated: each source now gets its own sheet)')
+@click.option('--sheet-name', help='Google Sheets sheet name for upload (DEPRECATED: each source now gets its own sheet automatically)')
 @click.option('--replace-sheet', is_flag=True, help='Replace existing sheet instead of appending')
 @click.option('--use-adc', is_flag=True, help='Use Application Default Credentials instead of service account key')
 @click.option('--credentials-path', help='Path to service account credentials file (if not using ADC)')

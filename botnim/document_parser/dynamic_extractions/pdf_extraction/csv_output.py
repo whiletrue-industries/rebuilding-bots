@@ -15,13 +15,13 @@ def write_csv(data: List[Dict], fieldnames: List[str], source_name: str, output_
     """
     Write a list of dicts to a CSV file with UTF-8 encoding and correct column order.
     
-    Creates an output.csv file with proper UTF-8 encoding for Hebrew text.
+    Creates a source-specific CSV file with proper UTF-8 encoding for Hebrew text.
     The file is written to the specified output directory.
     
     Args:
         data: List of dictionaries, each representing a document's extracted data
         fieldnames: List of field names that define the column order
-        source_name: Name of the source (used for logging)
+        source_name: Name of the source (used for file naming)
         output_dir: Directory to save the CSV file (default: current directory)
         
     Returns:
@@ -31,7 +31,12 @@ def write_csv(data: List[Dict], fieldnames: List[str], source_name: str, output_
         OSError: If the output directory doesn't exist or is not writable
         UnicodeEncodeError: If there are encoding issues with the data
     """
-    output_path = os.path.join(output_dir, "output.csv")
+    # Create a safe filename from the source name
+    safe_source_name = source_name.replace('"', '').replace('/', '_').replace('\\', '_')
+    safe_source_name = safe_source_name.replace(':', '_').replace('?', '_').replace('*', '_')
+    safe_source_name = safe_source_name.replace('[', '_').replace(']', '_')
+    
+    output_path = os.path.join(output_dir, f"{safe_source_name}_output.csv")
     
     with open(output_path, "w", encoding="utf-8", newline="") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')

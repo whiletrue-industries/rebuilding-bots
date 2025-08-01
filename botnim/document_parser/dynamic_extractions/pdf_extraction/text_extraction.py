@@ -47,7 +47,10 @@ def fix_hebrew_text_direction(text: str) -> str:
     if hebrew_chars < len(text) * 0.1:  # Less than 10% Hebrew, probably not Hebrew text
         return text
     
-    # Split into lines and fix each line
+    # First, fix line-level word ordering (reverse words in Hebrew lines)
+    text = reverse_hebrew_line_order(text)
+    
+    # Then, fix character-level ordering within words
     lines = text.split('\n')
     fixed_lines = []
     

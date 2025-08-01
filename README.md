@@ -4,6 +4,15 @@
 
 This is a repository for the rebuilding anew bots (bot-nim).
 
+### Recent Improvements
+
+The PDF extraction pipeline has been significantly enhanced with:
+- **Source-specific Google Sheets integration** - each source automatically gets its own sheet
+- **DRY architecture** - clean separation of concerns and reusable components  
+- **Comprehensive testing** - full test suite covering all aspects of the pipeline
+- **Robust error handling** - graceful handling of edge cases and API limits
+- **Performance monitoring** - detailed metrics and structured logging
+
 ## Getting Started
 
 ```bash
@@ -340,12 +349,13 @@ The PDF extraction pipeline provides comprehensive tools for extracting structur
 ### Features
 
 - **Multi-source PDF processing** with configurable extraction schemas
+- **Source-specific Google Sheets integration** - each source automatically gets its own sheet
 - **Hebrew text handling** with RTL (right-to-left) text direction fixes
-- **LLM-based field extraction** using OpenAI GPT-4.1
-- **Google Sheets integration** for data synchronization
+- **LLM-based field extraction** using OpenAI GPT-4.1 with JSON response format
 - **Comprehensive testing framework** with unit tests and integration tests
 - **Performance metrics and structured logging**
 - **Robust error handling** with custom exception types
+- **DRY architecture** - clean separation of concerns and reusable components
 
 ### Google Sheets Setup
 
@@ -395,19 +405,19 @@ botnim pdf-extract config.yaml input_dir
 # Process specific source only
 botnim pdf-extract config.yaml input_dir --source "Ethics Committee Decisions"
 
-# With Google Sheets integration (ADC)
+# With Google Sheets integration (ADC) - each source gets its own sheet
 botnim pdf-extract config.yaml input_dir --upload-to-sheets --spreadsheet-id "your-spreadsheet-id" --use-adc
 
-# With Google Sheets integration (Service Account)
+# With Google Sheets integration (Service Account) - each source gets its own sheet
 botnim pdf-extract config.yaml input_dir --upload-to-sheets --spreadsheet-id "your-spreadsheet-id" --credentials-path "credentials.json"
 
-# With additional options
-botnim pdf-extract config.yaml input_dir --verbose --no-metrics --sheet-name "Custom Sheet Name" --replace-sheet
+# With additional options (--sheet-name is deprecated, each source gets its own sheet)
+botnim pdf-extract config.yaml input_dir --verbose --no-metrics --replace-sheet
 ```
 
 ### Configuration
 
-The pipeline uses YAML configuration files to define PDF sources and extraction schemas:
+The pipeline uses YAML configuration files to define PDF sources and extraction schemas. Each source will automatically get its own sheet in Google Sheets when using the `--upload-to-sheets` option:
 
 ```yaml
 sources:
@@ -428,7 +438,7 @@ sources:
 ### Testing
 
 ```bash
-# Run comprehensive integration tests
+# Run comprehensive integration tests (covers all PR feedback points)
 cd botnim/document_parser/dynamic_extractions/pdf_extraction/test
 python test_integration.py
 
@@ -438,6 +448,15 @@ python -m pytest test_pdf_extraction.py -v
 # Run specific test components
 python run_tests.py
 ```
+
+**Test Coverage:**
+- ✅ **Prerequisites** - Environment and dependencies check
+- ✅ **CSV Contract** - Input/output CSV file handling  
+- ✅ **Separation of Concerns** - Pipeline without Google Sheets
+- ✅ **Path Resolution** - Absolute, relative, and invalid paths
+- ✅ **OpenAI JSON Format** - JSON response format validation
+- ✅ **CLI Integration** - Command-line interface testing
+- ✅ **Google Sheets Integration** - Authentication and upload testing
 
 ### Troubleshooting Google Sheets Authentication
 
