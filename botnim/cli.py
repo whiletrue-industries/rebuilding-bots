@@ -328,11 +328,21 @@ def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_met
             if sheet_name:
                 click.echo("Warning: --sheet-name is deprecated. Each source now gets its own sheet.", err=True)
             
-            upload_success = pipeline.process_with_google_sheets_upload(
-                input_dir,
-                spreadsheet_id,
-                replace_sheet
-            )
+            if source:
+                # Upload only the specified source
+                upload_success = pipeline.upload_single_source_to_google_sheets(
+                    source, input_dir, spreadsheet_id, replace_sheet
+                )
+            else:
+                # Upload all sources using the single source method
+                upload_success = True
+                for source_config in pipeline.config.sources:
+                    source_upload_success = pipeline.upload_single_source_to_google_sheets(
+                        source_config.name, input_dir, spreadsheet_id, replace_sheet
+                    )
+                    if not source_upload_success:
+                        upload_success = False
+            
             if not upload_success:
                 click.echo("Warning: Google Sheets upload failed", err=True)
         

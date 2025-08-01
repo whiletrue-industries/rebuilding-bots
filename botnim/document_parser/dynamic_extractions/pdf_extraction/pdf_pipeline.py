@@ -379,51 +379,54 @@ class PDFExtractionPipeline:
             logger.error(f"Error uploading to Google Sheets: {e}")
             return False
 
-    def process_with_google_sheets_upload(self, input_dir: str, spreadsheet_id: str, 
-                                        replace_existing: bool = False) -> bool:
+    def upload_single_source_to_google_sheets(self, source_name: str, input_dir: str, spreadsheet_id: str, 
+                                            replace_existing: bool = False) -> bool:
         """
-        Process all sources and automatically upload results to Google Sheets.
-        Each source will be uploaded to its own sheet named after the source.
+        Upload a single source to Google Sheets.
         
         Args:
+            source_name: Name of the source to upload
             input_dir: Directory containing input files
             spreadsheet_id: Google Sheets spreadsheet ID
-            replace_existing: If True, replace entire sheets. If False, append new rows.
+            replace_existing: If True, replace entire sheet. If False, append new rows.
             
         Returns:
-            True if processing and upload were successful, False otherwise
+            True if upload was successful, False otherwise
         """
-        # Process all sources
-        success = self.process_all_sources(input_dir)
-        
-        if not success:
-            logger.error("PDF processing failed, skipping Google Sheets upload")
+        if not self.google_sheets_sync:
+            logger.error("Google Sheets sync not configured")
             return False
+            
+        # Find the source-specific CSV file
+        safe_source_name = source_name.replace('"', '').replace('/', '_').replace('\\', '_')
+        safe_source_name = safe_source_name.replace(':', '_').replace('?', '_').replace('*', '_')
+        safe_source_name = safe_source_name.replace('[', '_').replace(']', '_')
+        csv_filename = f"{safe_source_name}_output.csv"
+        csv_path = Path(input_dir) / csv_filename
         
-        # Upload each source to its own sheet
-        upload_success = True
-        for source in self.config.sources:
-            source_name = source.name
-            # Create a safe sheet name (Google Sheets has restrictions on sheet names)
-            sheet_name = self._create_safe_sheet_name(source_name)
+        if not csv_path.exists():
+            logger.error(f"CSV file not found for source '{source_name}': {csv_path}")
+            return False
             
-            # Find the source-specific CSV file
-            source_csv = Path(input_dir) / f"{source_name}_output.csv"
-            if not source_csv.exists():
-                logger.warning(f"Source CSV file not found for {source_name}: {source_csv}")
-                continue
-            
-            # Upload this source to its own sheet
-            logger.info(f"Uploading source '{source_name}' to sheet '{sheet_name}'")
-            source_upload_success = self.upload_to_google_sheets(
-                str(source_csv), spreadsheet_id, sheet_name, replace_existing
+        try:
+            logger.info(f"Uploading source '{source_name}' to Google Sheets...")
+            success = self.google_sheets_sync.upload_csv_to_sheet(
+                str(csv_path),
+                spreadsheet_id,
+                source_name,  # Use source name as sheet name
+                replace_existing
             )
             
-            if not source_upload_success:
-                logger.error(f"Failed to upload source '{source_name}' to Google Sheets")
-                upload_success = False
-        
-        return upload_success
+            if success:
+                logger.info(f"✅ Successfully uploaded source '{source_name}' to Google Sheets")
+            else:
+                logger.error(f"❌ Failed to upload source '{source_name}' to Google Sheets")
+                
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error uploading source '{source_name}' to Google Sheets: {e}")
+            return False
     
     def _create_safe_sheet_name(self, source_name: str) -> str:
         """
