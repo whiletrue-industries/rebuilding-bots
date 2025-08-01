@@ -1,21 +1,23 @@
-# PDF Extraction Pipeline Tests
+# PDF Extraction Tests
 
 This directory contains the test suite for the PDF extraction pipeline.
 
-## Quick Start
+## Running Tests
+
+Due to the use of relative imports in the test files, you need to run pytest with the `--import-mode=importlib` flag:
 
 ```bash
-# Run comprehensive integration tests
-python test_integration.py
+# From the project root
+python -m pytest --import-mode=importlib botnim/document_parser/dynamic_extractions/pdf_extraction/test/
 
-# Run unit tests only
-python -m pytest test_pdf_extraction.py -v
+# Or run a specific test file
+python -m pytest --import-mode=importlib botnim/document_parser/dynamic_extractions/pdf_extraction/test/test_field_extraction.py
 
-# Run specific test components
-python run_tests.py
+# Or run a specific test
+python -m pytest --import-mode=importlib botnim/document_parser/dynamic_extractions/pdf_extraction/test/test_field_extraction.py::TestFieldExtraction::test_build_extraction_schema
 ```
 
-## Test Structure
+## Why Relative Imports?
 
 ```
 test/
@@ -64,4 +66,4 @@ Place your test PDF files in the appropriate `input/` subdirectories. The test c
 - **Import errors**: Run from project root or ensure PYTHONPATH is set
 - **Google Sheets errors**: Check credentials and permissions
 
-For detailed usage and configuration information, see the main project README.md. 
+The relative import approach with `--import-mode=importlib` is the recommended solution. 

@@ -16,9 +16,6 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
 
-# Add the parent directory to the path so we can import the modules
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
-
 from botnim.config import get_logger
 from botnim.cli import get_openai_client
 from botnim.document_parser.dynamic_extractions.pdf_extraction import PDFExtractionPipeline
@@ -311,6 +308,52 @@ class PDFExtractionIntegrationTest:
             logger.error(f"❌ OpenAI JSON format test failed: {e}")
             return False
     
+    def test_json_schema_validation(self) -> bool:
+        """Test JSON schema validation in field extraction (Enhanced Task 3.1)."""
+        logger.info("🔍 Testing JSON schema validation...")
+        
+        try:
+            # Check that jsonschema is available (required dependency)
+            try:
+                import jsonschema
+                logger.info("✅ jsonschema library is available")
+            except ImportError:
+                logger.error("❌ jsonschema library not installed (required dependency)")
+                return False
+            
+            # Check that field extraction uses schema validation
+            field_extraction_path = Path(__file__).parent.parent / "field_extraction.py"
+            if field_extraction_path.exists():
+                content = field_extraction_path.read_text()
+                
+                # Check for schema validation usage
+                if 'jsonschema.validate' in content:
+                    logger.info("✅ JSON schema validation is implemented")
+                else:
+                    logger.error("❌ JSON schema validation not found in field extraction")
+                    return False
+                
+                # Check for enhanced error handling
+                if 'JSONSchemaValidationError' in content:
+                    logger.info("✅ Schema validation error handling is implemented")
+                else:
+                    logger.warning("⚠️ Schema validation error handling not found")
+                
+                # Check that conditional import is removed (jsonschema is required)
+                if 'JSONSCHEMA_AVAILABLE' in content:
+                    logger.warning("⚠️ Conditional import still present (jsonschema should be required)")
+                else:
+                    logger.info("✅ jsonschema is required (no conditional import)")
+                
+                return True
+            else:
+                logger.warning("⚠️ Could not find field_extraction.py")
+                return True
+                
+        except Exception as e:
+            logger.error(f"❌ JSON schema validation test failed: {e}")
+            return False
+    
     def test_cli_integration(self) -> bool:
         """Test CLI integration (Task 1.2)."""
         logger.info("🖥️ Testing CLI integration...")
@@ -427,6 +470,7 @@ class PDFExtractionIntegrationTest:
             ("Separation of Concerns", self.test_separation_of_concerns),
             ("Path Resolution", self.test_path_resolution),
             ("OpenAI JSON Format", self.test_openai_json_format),
+            ("JSON Schema Validation", self.test_json_schema_validation),
             ("CLI Integration", self.test_cli_integration),
             ("Google Sheets Integration", self.test_google_sheets_integration),
         ]

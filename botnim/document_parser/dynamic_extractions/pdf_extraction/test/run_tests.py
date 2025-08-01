@@ -14,9 +14,6 @@ import subprocess
 import logging
 from pathlib import Path
 
-# Add the parent directory to the path so we can import the modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 def setup_logging():
     """Setup logging for the test runner."""
     logging.basicConfig(

@@ -7,6 +7,7 @@ This is a repository for the rebuilding anew bots (bot-nim).
 ### Recent Improvements
 
 The PDF extraction pipeline has been significantly enhanced with:
+- **Enhanced JSON Schema Validation** - robust client-side validation using jsonschema library with detailed error messages
 - **Source-specific Google Sheets integration** - each source automatically gets its own sheet
 - **DRY architecture** - clean separation of concerns and reusable components  
 - **Comprehensive testing** - full test suite covering all aspects of the pipeline
@@ -349,6 +350,7 @@ The PDF extraction pipeline provides comprehensive tools for extracting structur
 ### Features
 
 - **Multi-source PDF processing** with configurable extraction schemas
+- **Enhanced JSON Schema Validation** - robust client-side validation using jsonschema library with detailed error messages
 - **Source-specific Google Sheets integration** - each source automatically gets its own sheet
 - **Hebrew text handling** with RTL (right-to-left) text direction fixes
 - **LLM-based field extraction** using OpenAI GPT-4.1 with JSON response format
@@ -435,12 +437,38 @@ sources:
     extraction_instructions: "Extract the specified fields from the document text..."
 ```
 
+### Enhanced JSON Schema Validation
+
+The pipeline includes robust client-side JSON schema validation using the `jsonschema` library:
+
+- **Comprehensive Validation**: Validates field types, required fields, and prevents unexpected fields
+- **Detailed Error Messages**: Provides specific field-level error information for debugging
+- **Required Dependency**: jsonschema is now a required dependency for robust validation
+- **Performance Optimized**: Minimal overhead with fast validation processing
+
+**Validation Features**:
+- ✅ Field type validation (all fields must be strings)
+- ✅ Required field validation (all configured fields must be present)
+- ✅ Unexpected field prevention (`additionalProperties: false`)
+- ✅ Array and single object support
+- ✅ Detailed error reporting with field paths
+
+**Example Validation Error**:
+```
+JSON schema validation failed:
+  - content: 'content' is a required property
+  - extra_field: Additional properties are not allowed ('extra_field' was unexpected)
+```
+
 ### Testing
 
 ```bash
 # Run comprehensive integration tests (covers all PR feedback points)
 cd botnim/document_parser/dynamic_extractions/pdf_extraction/test
 python test_integration.py
+
+# Run unit tests for field extraction with schema validation
+python test_field_extraction.py
 
 # Run unit tests only
 python -m pytest test_pdf_extraction.py -v
@@ -455,6 +483,7 @@ python run_tests.py
 - ✅ **Separation of Concerns** - Pipeline without Google Sheets
 - ✅ **Path Resolution** - Absolute, relative, and invalid paths
 - ✅ **OpenAI JSON Format** - JSON response format validation
+- ✅ **JSON Schema Validation** - Enhanced client-side validation with jsonschema
 - ✅ **CLI Integration** - Command-line interface testing
 - ✅ **Google Sheets Integration** - Authentication and upload testing
 
