@@ -355,8 +355,10 @@ To use Google Sheets integration, you need to set up authentication:
 
 ```bash
 # Install Google Cloud CLI
-gcloud auth application-default login
+gcloud auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/spreadsheets
 ```
+
+**Important**: The `cloud-platform` scope is required by Google Cloud, and the `spreadsheets` scope is needed for Google Sheets API access.
 
 #### Method 2: Service Account Key
 
@@ -436,6 +438,29 @@ python -m pytest test_pdf_extraction.py -v
 # Run specific test components
 python run_tests.py
 ```
+
+### Troubleshooting Google Sheets Authentication
+
+If you encounter authentication errors like "Request had insufficient authentication scopes":
+
+1. **Re-authenticate with proper scopes**:
+   ```bash
+   gcloud auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/spreadsheets
+   ```
+
+2. **Verify your Google Cloud project has Google Sheets API enabled**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Navigate to "APIs & Services" > "Library"
+   - Search for "Google Sheets API" and ensure it's enabled
+
+3. **Check spreadsheet permissions**:
+   - Ensure your Google account has "Editor" access to the target spreadsheet
+   - If using a service account, make sure the service account email is added as an editor
+
+4. **Common error messages and solutions**:
+   - `ACCESS_TOKEN_SCOPE_INSUFFICIENT`: Re-authenticate with the correct scopes
+   - `PERMISSION_DENIED`: Check spreadsheet sharing permissions
+   - `API not enabled`: Enable Google Sheets API in your Google Cloud project
 
 ### Performance Monitoring
 

@@ -75,16 +75,15 @@ IMPORTANT: Return ONLY a JSON object with the exact field names specified above.
     ]
     
     try:
-        logger.info(f"Sending extraction prompt to OpenAI (model={model}) with JSON schema validation")
+        logger.info(f"Sending extraction prompt to OpenAI (model={model}) with JSON response format")
         response = client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=0.0,
-            response_format={"type": "json_object"},
-            response_format_params={"schema": schema}
+            response_format={"type": "json_object"}
         )
         content = response.choices[0].message.content
-        logger.info("Received JSON response from OpenAI with schema validation.")
+        logger.info("Received JSON response from OpenAI.")
         
         try:
             data = json.loads(content)

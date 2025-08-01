@@ -79,7 +79,7 @@ def run_pipeline_test():
         cmd.extend([
             "--upload-sheets",
             "--sheets-credentials", str(credentials_file),
-            "--spreadsheet-id", "1X-_-OKriUZJAoXaPJfDK1w0qcTZy73bkX1kqfSw5LfQ",
+            "--spreadsheet-id", "1oCLmFceQl2i4Hms1wnHWS1glYZrWdfBpaFR8YYTTBg4",
             "--replace-sheet"
         ])
         print("Google Sheets integration enabled")

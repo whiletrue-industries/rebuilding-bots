@@ -267,7 +267,7 @@ def generate_markdown_files_cmd(json_file, output_dir, write_files, dry_run):
 @click.option('--no-metrics', is_flag=True, help='Disable performance metrics collection')
 @click.option('--upload-to-sheets', is_flag=True, help='Upload results to Google Sheets after processing')
 @click.option('--spreadsheet-id', help='Google Sheets spreadsheet ID for upload')
-@click.option('--sheet-name', help='Google Sheets sheet name for upload')
+@click.option('--sheet-name', help='Google Sheets sheet name for upload (deprecated: each source now gets its own sheet)')
 @click.option('--replace-sheet', is_flag=True, help='Replace existing sheet instead of appending')
 @click.option('--use-adc', is_flag=True, help='Use Application Default Credentials instead of service account key')
 @click.option('--credentials-path', help='Path to service account credentials file (if not using ADC)')
@@ -325,11 +325,12 @@ def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_met
         
         # Upload to Google Sheets if requested
         if upload_to_sheets and success:
-            sheet_name = sheet_name or "PDF_Extraction_Results"
-            upload_success = pipeline.upload_to_google_sheets(
-                str(Path(input_dir) / "output.csv"),
+            if sheet_name:
+                click.echo("Warning: --sheet-name is deprecated. Each source now gets its own sheet.", err=True)
+            
+            upload_success = pipeline.process_with_google_sheets_upload(
+                input_dir,
                 spreadsheet_id,
-                sheet_name,
                 replace_sheet
             )
             if not upload_success:

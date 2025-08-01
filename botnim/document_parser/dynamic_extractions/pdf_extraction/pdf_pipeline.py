@@ -305,7 +305,7 @@ class PDFExtractionPipeline:
             # Flatten data for CSV
             flattened_data = [flatten_for_csv(result, fieldnames) for result in combined_data]
             
-            # Write to output.csv in the same directory
+            # Write to source-specific CSV file
             output_path = write_csv(flattened_data, fieldnames, source_name, input_dir)
             logger.info(f"Wrote {len(flattened_data)} records to {output_path}")
         
@@ -380,15 +380,15 @@ class PDFExtractionPipeline:
             return False
 
     def process_with_google_sheets_upload(self, input_dir: str, spreadsheet_id: str, 
-                                        sheet_name: str, replace_existing: bool = False) -> bool:
+                                        replace_existing: bool = False) -> bool:
         """
         Process all sources and automatically upload results to Google Sheets.
+        Each source will be uploaded to its own sheet named after the source.
         
         Args:
             input_dir: Directory containing input files
             spreadsheet_id: Google Sheets spreadsheet ID
-            sheet_name: Name of the sheet to create/update
-            replace_existing: If True, replace entire sheet. If False, append new rows.
+            replace_existing: If True, replace entire sheets. If False, append new rows.
             
         Returns:
             True if processing and upload were successful, False otherwise
@@ -400,13 +400,51 @@ class PDFExtractionPipeline:
             logger.error("PDF processing failed, skipping Google Sheets upload")
             return False
         
-        # Find the output CSV file
-        output_csv = Path(input_dir) / "output.csv"
-        if not output_csv.exists():
-            logger.error("Output CSV file not found after processing")
-            return False
+        # Upload each source to its own sheet
+        upload_success = True
+        for source in self.config.sources:
+            source_name = source.name
+            # Create a safe sheet name (Google Sheets has restrictions on sheet names)
+            sheet_name = self._create_safe_sheet_name(source_name)
+            
+            # Find the source-specific CSV file
+            source_csv = Path(input_dir) / f"{source_name}_output.csv"
+            if not source_csv.exists():
+                logger.warning(f"Source CSV file not found for {source_name}: {source_csv}")
+                continue
+            
+            # Upload this source to its own sheet
+            logger.info(f"Uploading source '{source_name}' to sheet '{sheet_name}'")
+            source_upload_success = self.upload_to_google_sheets(
+                str(source_csv), spreadsheet_id, sheet_name, replace_existing
+            )
+            
+            if not source_upload_success:
+                logger.error(f"Failed to upload source '{source_name}' to Google Sheets")
+                upload_success = False
         
-        # Upload to Google Sheets
-        return self.upload_to_google_sheets(str(output_csv), spreadsheet_id, sheet_name, replace_existing)
+        return upload_success
+    
+    def _create_safe_sheet_name(self, source_name: str) -> str:
+        """
+        Create a safe sheet name for Google Sheets.
+        Google Sheets has restrictions on sheet names (max 31 chars, no special chars).
+        
+        Args:
+            source_name: Original source name
+            
+        Returns:
+            Safe sheet name that complies with Google Sheets restrictions
+        """
+        # Remove or replace problematic characters
+        safe_name = source_name.replace('"', '').replace('/', '_').replace('\\', '_')
+        safe_name = safe_name.replace(':', '_').replace('?', '_').replace('*', '_')
+        safe_name = safe_name.replace('[', '_').replace(']', '_')
+        
+        # Limit to 31 characters (Google Sheets limit)
+        if len(safe_name) > 31:
+            safe_name = safe_name[:28] + "..."
+        
+        return safe_name
 
  
