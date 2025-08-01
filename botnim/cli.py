@@ -4,8 +4,8 @@ from pathlib import Path
 import json
 import logging
 
-from botnim.vector_store.vector_store_es import VectorStoreES
-from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
+from .vector_store.vector_store_es import VectorStoreES
+from .vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
 from .benchmark.evaluate_metrics_cli import evaluate
@@ -265,7 +265,14 @@ def generate_markdown_files_cmd(json_file, output_dir, write_files, dry_run):
 @click.option('--environment', default='staging', help='API environment (default: staging)')
 @click.option('--verbose', is_flag=True, help='Enable verbose logging')
 @click.option('--no-metrics', is_flag=True, help='Disable performance metrics collection')
-def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_metrics):
+@click.option('--upload-to-sheets', is_flag=True, help='Upload results to Google Sheets after processing')
+@click.option('--spreadsheet-id', help='Google Sheets spreadsheet ID for upload')
+@click.option('--sheet-name', help='Google Sheets sheet name for upload')
+@click.option('--replace-sheet', is_flag=True, help='Replace existing sheet instead of appending')
+@click.option('--use-adc', is_flag=True, help='Use Application Default Credentials instead of service account key')
+@click.option('--credentials-path', help='Path to service account credentials file (if not using ADC)')
+def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_metrics, 
+                   upload_to_sheets, spreadsheet_id, sheet_name, replace_sheet, use_adc, credentials_path):
     """Extract structured data from PDFs using LLM with CSV-based contract.
     
     Input directory should contain:
@@ -286,11 +293,28 @@ def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_met
         # Initialize OpenAI client
         openai_client = get_openai_client(environment)
         
+        # Prepare Google Sheets configuration
+        google_sheets_config = None
+        if upload_to_sheets:
+            if not spreadsheet_id:
+                click.echo("Error: --spreadsheet-id is required when --upload-to-sheets is specified", err=True)
+                sys.exit(1)
+            
+            google_sheets_config = {
+                'use_adc': use_adc,
+                'credentials_path': credentials_path
+            }
+            
+            if not use_adc and not credentials_path:
+                click.echo("Error: Either --use-adc or --credentials-path must be specified for Google Sheets upload", err=True)
+                sys.exit(1)
+        
         # Initialize pipeline
         pipeline = PDFExtractionPipeline(
             config_file, 
             openai_client, 
-            enable_metrics=not no_metrics
+            enable_metrics=not no_metrics,
+            google_sheets_config=google_sheets_config
         )
         
         # Process sources
@@ -298,6 +322,18 @@ def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_met
             success = pipeline.process_source(source, input_dir)
         else:
             success = pipeline.process_all_sources(input_dir)
+        
+        # Upload to Google Sheets if requested
+        if upload_to_sheets and success:
+            sheet_name = sheet_name or "PDF_Extraction_Results"
+            upload_success = pipeline.upload_to_google_sheets(
+                str(Path(input_dir) / "output.csv"),
+                spreadsheet_id,
+                sheet_name,
+                replace_sheet
+            )
+            if not upload_success:
+                click.echo("Warning: Google Sheets upload failed", err=True)
         
         if success:
             click.echo("PDF extraction completed successfully")

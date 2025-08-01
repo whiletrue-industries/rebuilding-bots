@@ -1,0 +1,20 @@
+# Simple test configuration with clear path resolution
+sources:
+  - name: "Test Source"
+    description: "Simple test source for path resolution testing"
+    file_pattern: "*.pdf"  # Simple pattern relative to input directory
+    unique_id_field: "id"
+    metadata:
+      source: "test"
+      created_at: "{download_date}"
+    fields:
+      - name: "title"
+        description: "Document title"
+        example: "Test Document"
+      - name: "content"
+        description: "Document content"
+        example: "This is test content"
+      - name: "id"
+        description: "Unique identifier"
+        example: "doc_001"
+    extraction_instructions: "Extract basic information from the test document." 

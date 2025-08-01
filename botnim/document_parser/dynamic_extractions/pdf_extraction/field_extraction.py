@@ -1,11 +1,13 @@
 import logging
 import json
-from typing import Dict
+from typing import List, Dict, Any, Optional
+from pathlib import Path
 from pydantic import ValidationError
-from botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_extraction_config import SourceConfig, PDFExtractionConfig
-from botnim.document_parser.dynamic_extractions.pdf_extraction.exceptions import FieldExtractionError, ValidationError as PDFValidationError
+from .pdf_extraction_config import SourceConfig, PDFExtractionConfig
+from .exceptions import FieldExtractionError, ValidationError as PDFValidationError
+from botnim.config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def extract_fields_from_text(text: str, config: SourceConfig, client, model: str = "gpt-4.1") -> Dict:
     """

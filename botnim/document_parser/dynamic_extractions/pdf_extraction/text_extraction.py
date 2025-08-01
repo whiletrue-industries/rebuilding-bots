@@ -1,11 +1,14 @@
 import logging
+import os
+from typing import Optional
 from pathlib import Path
 from .exceptions import PDFTextExtractionError
 import pdfplumber
 from pdfminer.high_level import extract_text
+from botnim.config import get_logger
 
+logger = get_logger(__name__)
 
-logger = logging.getLogger(__name__)
 
 def extract_text_with_pdfplumber(pdf_path: Path) -> str:
     try:

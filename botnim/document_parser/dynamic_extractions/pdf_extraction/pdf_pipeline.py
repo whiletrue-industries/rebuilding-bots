@@ -1,6 +1,7 @@
 import logging
 import os
 import json
+import glob
 from pathlib import Path
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -12,11 +13,14 @@ from .field_extraction import extract_fields_from_text
 from .csv_output import write_csv, flatten_for_csv
 from .metrics import MetricsCollector, ExtractionMetrics
 from .metrics import ExtractionMetrics
+from .google_sheets_sync import GoogleSheetsSync
+from botnim.config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class PDFExtractionPipeline:
-    def __init__(self, config_path: str, openai_client, enable_metrics: bool = True):
+    def __init__(self, config_path: str, openai_client, enable_metrics: bool = True, 
+                 google_sheets_config: Optional[Dict] = None):
         """
         Initialize the PDF extraction pipeline.
         
@@ -24,13 +28,27 @@ class PDFExtractionPipeline:
             config_path: Path to YAML configuration file
             openai_client: OpenAI client for field extraction
             enable_metrics: Whether to enable performance metrics collection
+            google_sheets_config: Optional Google Sheets configuration for automatic upload
         """
         self.config_path = config_path
         self.config = PDFExtractionConfig.from_yaml(config_path)
         self.openai_client = openai_client
+        self.google_sheets_config = google_sheets_config
         
         # Initialize metrics collector
         self.metrics = MetricsCollector() if enable_metrics else None
+        
+        # Initialize Google Sheets sync if configured
+        self.google_sheets_sync = None
+        if google_sheets_config:
+            try:
+                self.google_sheets_sync = GoogleSheetsSync(
+                    credentials_path=google_sheets_config.get('credentials_path'),
+                    use_adc=google_sheets_config.get('use_adc', False)
+                )
+                logger.info("Google Sheets integration initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Google Sheets integration: {e}")
         
         logger.info(f"Initialized pipeline with {len(self.config.sources)} sources")
     
@@ -54,11 +72,6 @@ class PDFExtractionPipeline:
         logger.info("Extracting structured fields...")
         try:
             extracted_fields_list = extract_fields_from_text(text, source_config, self.openai_client)
-            
-            if "error" in extracted_fields_list:
-                logger.error(f"Field extraction failed: {extracted_fields_list['error']}")
-                return None
-            
             return extracted_fields_list
         except Exception as e:
             logger.error(f"Field extraction failed: {e}")
@@ -160,21 +173,17 @@ class PDFExtractionPipeline:
         """
         input_path = Path(input_dir)
         if not input_path.exists():
-            logger.warning(f"Input directory does not exist: {input_dir}")
+            logger.error(f"Input directory does not exist: {input_dir}")
             return []
         
-        # Use absolute path for pattern matching
+        # Resolve pattern relative to input directory
         pattern = source_config.file_pattern
+        if not os.path.isabs(pattern):
+            pattern = str(input_path / pattern)
         
         # Find matching files
         pdf_files = []
         try:
-            # Handle relative paths by resolving from input directory
-            if not os.path.isabs(pattern):
-                pattern = str(input_path / pattern)
-            
-            # Use glob to find matching files
-            import glob
             matching_files = glob.glob(pattern)
             
             for file_path in matching_files:
@@ -184,6 +193,9 @@ class PDFExtractionPipeline:
             
         except Exception as e:
             logger.error(f"Error finding PDF files with pattern '{pattern}': {e}")
+        
+        if not pdf_files:
+            logger.warning(f"No PDF files found for pattern '{pattern}' in directory '{input_dir}'")
         
         logger.info(f"Found {len(pdf_files)} PDF files for source '{source_config.name}'")
         return pdf_files
@@ -256,14 +268,24 @@ class PDFExtractionPipeline:
         
         # Process each PDF file
         all_results = []
-        success = True
+        processed_count = 0
+        failed_count = 0
         
         for pdf_path in pdf_files:
             results = self.process_pdf_file(pdf_path, source_config)
             if results:
                 all_results.extend(results)
+                processed_count += 1
             else:
-                success = False
+                failed_count += 1
+                logger.warning(f"Failed to process PDF: {pdf_path}")
+        
+        # Consider the source successful if we processed at least some files
+        success = processed_count > 0
+        if failed_count > 0:
+            logger.warning(f"Source '{source_name}': {processed_count} files processed successfully, {failed_count} files failed")
+        else:
+            logger.info(f"Source '{source_name}': All {processed_count} files processed successfully")
         
         # Combine existing and new data
         combined_data = source_data + all_results
@@ -325,5 +347,66 @@ class PDFExtractionPipeline:
         if self.metrics:
             return self.metrics.get_pipeline_summary()
         return None
+
+    def upload_to_google_sheets(self, csv_path: str, spreadsheet_id: str, sheet_name: str, 
+                               replace_existing: bool = False) -> bool:
+        """
+        Upload CSV results to Google Sheets.
+        
+        Args:
+            csv_path: Path to the CSV file to upload
+            spreadsheet_id: Google Sheets spreadsheet ID
+            sheet_name: Name of the sheet to create/update
+            replace_existing: If True, replace entire sheet. If False, append new rows.
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.google_sheets_sync:
+            logger.error("Google Sheets integration not configured")
+            return False
+        
+        try:
+            success = self.google_sheets_sync.upload_csv_to_sheet(
+                csv_path, spreadsheet_id, sheet_name, replace_existing
+            )
+            if success:
+                logger.info(f"Successfully uploaded CSV to Google Sheets: {sheet_name}")
+            else:
+                logger.error("Failed to upload CSV to Google Sheets")
+            return success
+        except Exception as e:
+            logger.error(f"Error uploading to Google Sheets: {e}")
+            return False
+
+    def process_with_google_sheets_upload(self, input_dir: str, spreadsheet_id: str, 
+                                        sheet_name: str, replace_existing: bool = False) -> bool:
+        """
+        Process all sources and automatically upload results to Google Sheets.
+        
+        Args:
+            input_dir: Directory containing input files
+            spreadsheet_id: Google Sheets spreadsheet ID
+            sheet_name: Name of the sheet to create/update
+            replace_existing: If True, replace entire sheet. If False, append new rows.
+            
+        Returns:
+            True if processing and upload were successful, False otherwise
+        """
+        # Process all sources
+        success = self.process_all_sources(input_dir)
+        
+        if not success:
+            logger.error("PDF processing failed, skipping Google Sheets upload")
+            return False
+        
+        # Find the output CSV file
+        output_csv = Path(input_dir) / "output.csv"
+        if not output_csv.exists():
+            logger.error("Output CSV file not found after processing")
+            return False
+        
+        # Upload to Google Sheets
+        return self.upload_to_google_sheets(str(output_csv), spreadsheet_id, sheet_name, replace_existing)
 
  

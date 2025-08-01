@@ -1,45 +1,56 @@
+"""
+Google Sheets synchronization module for PDF extraction pipeline.
+
+This module provides functionality to upload CSV data to Google Sheets.
+"""
+
 import logging
 import csv
 import os
 from typing import List, Dict, Optional
-import argparse
-import sys
 from datetime import datetime
 import json
+from botnim.config import get_logger
 
-logger = logging.getLogger(__name__)
+# Google Sheets API imports
+from google.oauth2 import service_account
+from google.auth import default
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
-try:
-    from google.oauth2 import service_account
-    from googleapiclient.discovery import build
-    from googleapiclient.errors import HttpError
-    GOOGLE_SHEETS_AVAILABLE = True
-except ImportError:
-    GOOGLE_SHEETS_AVAILABLE = False
-    logger.warning("Google Sheets API not available. Install with: pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client")
+logger = get_logger(__name__)
 
 class GoogleSheetsSync:
-    def __init__(self, credentials_path: str):
+    def __init__(self, credentials_path: Optional[str] = None, use_adc: bool = False):
         """
-        Initialize Google Sheets sync with service account credentials.
+        Initialize Google Sheets sync with service account credentials or Application Default Credentials.
         
         Args:
-            credentials_path: Path to service account JSON credentials file
+            credentials_path: Path to service account JSON credentials file (optional if use_adc=True)
+            use_adc: If True, use Application Default Credentials instead of service account key
         """
-        if not GOOGLE_SHEETS_AVAILABLE:
-            raise ImportError("Google Sheets API not available. Install required packages.")
-        
         self.credentials_path = credentials_path
+        self.use_adc = use_adc
         self.service = None
         self._authenticate()
     
     def _authenticate(self):
-        """Authenticate with Google Sheets API using service account."""
+        """Authenticate with Google Sheets API using service account or Application Default Credentials."""
         try:
-            credentials = service_account.Credentials.from_service_account_file(
-                self.credentials_path,
-                scopes=['https://www.googleapis.com/auth/spreadsheets']
-            )
+            if self.use_adc:
+                # Use Application Default Credentials
+                credentials, project = default()
+                logger.info(f"Authenticated with Application Default Credentials (project: {project})")
+            else:
+                # Use service account credentials
+                if not self.credentials_path:
+                    raise ValueError("credentials_path is required when use_adc=False")
+                credentials = service_account.Credentials.from_service_account_file(
+                    self.credentials_path,
+                    scopes=['https://www.googleapis.com/auth/spreadsheets']
+                )
+                logger.info("Authenticated with service account credentials")
+            
             self.service = build('sheets', 'v4', credentials=credentials)
             logger.info("Successfully authenticated with Google Sheets API")
         except Exception as e:
@@ -265,47 +276,4 @@ class GoogleSheetsSync:
             
         except Exception as e:
             logger.error(f"Failed to upload CSV: {e}")
-            return False
-
-def main():
-    parser = argparse.ArgumentParser(description="Upload CSV data to Google Sheets")
-    parser.add_argument("--csv", required=True, help="Path to CSV file")
-    parser.add_argument("--credentials", required=True, help="Path to service account credentials JSON")
-    parser.add_argument("--spreadsheet-id", required=True, help="Google Sheets spreadsheet ID")
-    parser.add_argument("--sheet-name", required=True, help="Name of the sheet to create/update")
-    parser.add_argument("--replace", action="store_true", help="Replace entire sheet (default: append)")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
-    
-    args = parser.parse_args()
-    
-    if args.verbose:
-        logging.basicConfig(level=logging.INFO)
-    
-    try:
-        if not GOOGLE_SHEETS_AVAILABLE:
-            print("Error: Google Sheets API not available. Install with:")
-            print("pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client")
-            sys.exit(1)
-        
-        sync = GoogleSheetsSync(args.credentials)
-        success = sync.upload_csv_to_sheet(
-            args.csv, 
-            args.spreadsheet_id, 
-            args.sheet_name, 
-            args.replace
-        )
-        
-        if success:
-            print(f"Successfully uploaded CSV to Google Sheets")
-            print(f"Spreadsheet: {args.spreadsheet_id}")
-            print(f"Sheet: {args.sheet_name}")
-        else:
-            print("Failed to upload CSV to Google Sheets")
-            sys.exit(1)
-            
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main() 
+            return False 
