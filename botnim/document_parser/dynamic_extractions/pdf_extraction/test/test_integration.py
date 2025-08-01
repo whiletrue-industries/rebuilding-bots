@@ -31,17 +31,16 @@ class PDFExtractionIntegrationTest:
         self.test_output = Path(__file__).parent / "output"
         self.results = {}
         
-    def check_prerequisites(self) -> bool:
-        """Check if all prerequisites are met."""
-        logger.info("🔍 Checking prerequisites...")
-        
-        # Check if virtual environment is activated
+    def _check_virtual_environment(self) -> bool:
+        """Check if virtual environment is activated."""
         if not os.environ.get('VIRTUAL_ENV'):
             logger.error("❌ Virtual environment not activated")
             logger.info("Please run: source venv/bin/activate")
             return False
-        
-        # Check if test files exist
+        return True
+    
+    def _check_test_files(self) -> bool:
+        """Check if required test files exist."""
         if not self.test_config.exists():
             logger.error(f"❌ Test config not found: {self.test_config}")
             return False
@@ -50,18 +49,39 @@ class PDFExtractionIntegrationTest:
             logger.error(f"❌ Test input directory not found: {self.test_input}")
             return False
         
-        # Check if botnim CLI is available
+        return True
+    
+    def _check_botnim_cli(self) -> bool:
+        """Check if botnim CLI is available."""
         try:
             result = subprocess.run(
                 ["python", "-m", "botnim", "--help"],
                 capture_output=True, text=True, timeout=10
             )
-            if result.returncode != 0:
-                logger.warning("⚠️ botnim CLI not available, CLI tests will be skipped")
-            else:
+            if result.returncode == 0:
                 logger.info("✅ botnim CLI available")
+                return True
+            else:
+                logger.warning("⚠️ botnim CLI not available, CLI tests will be skipped")
+                return False
         except Exception as e:
             logger.warning(f"⚠️ Could not verify botnim CLI: {e}")
+            return False
+    
+    def check_prerequisites(self) -> bool:
+        """Check if all prerequisites are met."""
+        logger.info("🔍 Checking prerequisites...")
+        
+        # Check virtual environment
+        if not self._check_virtual_environment():
+            return False
+        
+        # Check test files
+        if not self._check_test_files():
+            return False
+        
+        # Check botnim CLI (optional - don't fail if not available)
+        self._check_botnim_cli()
         
         logger.info("✅ Prerequisites check passed")
         return True
@@ -121,11 +141,10 @@ class PDFExtractionIntegrationTest:
                 pipeline = PDFExtractionPipeline(
                     str(self.test_config),
                     get_openai_client('test'),
-                    enable_metrics=True,
-                    google_sheets_config=None  # No Google Sheets
+                    enable_metrics=True
                 )
                 
-                success = pipeline.process_all_sources(str(temp_path))
+                success = pipeline.process_directory(str(temp_path))
                 if not success:
                     logger.warning("⚠️ Pipeline failed without input.csv (might be expected due to API limits)")
                     # Don't fail the test, as this might be due to missing API keys or limits
@@ -142,7 +161,7 @@ class PDFExtractionIntegrationTest:
                 input_csv = temp_path / "input.csv"
                 input_csv.write_text("test_field,test_value\n1,test")
                 
-                success = pipeline.process_all_sources(str(temp_path))
+                success = pipeline.process_directory(str(temp_path))
                 if not success:
                     logger.warning("⚠️ Pipeline failed with input.csv (might be expected)")
                     return True
@@ -167,19 +186,18 @@ class PDFExtractionIntegrationTest:
             pipeline = PDFExtractionPipeline(
                 str(self.test_config),
                 get_openai_client('test'),
-                enable_metrics=True,
-                google_sheets_config=None  # No Google Sheets
+                enable_metrics=True
             )
             
-            # Verify Google Sheets is not initialized
-            if pipeline.google_sheets_sync is not None:
+            # Verify Google Sheets is not initialized (should not exist in current pipeline)
+            if hasattr(pipeline, 'google_sheets_sync') and pipeline.google_sheets_sync is not None:
                 logger.error("❌ Google Sheets sync initialized when not configured")
                 return False
     
             logger.info("✅ Google Sheets sync correctly not initialized")
             
             # Process files
-            success = pipeline.process_all_sources(str(self.test_input))
+            success = pipeline.process_directory(str(self.test_input))
             if not success:
                 logger.warning("⚠️ Pipeline failed without Google Sheets (might be expected due to API limits)")
                 logger.info("  This could be due to missing OpenAI API keys or rate limits")
@@ -213,11 +231,10 @@ class PDFExtractionIntegrationTest:
             pipeline = PDFExtractionPipeline(
                 abs_config,
                 get_openai_client('test'),
-                enable_metrics=False,
-                google_sheets_config=None
+                enable_metrics=False
             )
             
-            success = pipeline.process_all_sources(abs_input)
+            success = pipeline.process_directory(abs_input)
             if not success:
                 logger.error("❌ Pipeline failed with absolute paths")
                 return False
@@ -230,11 +247,10 @@ class PDFExtractionIntegrationTest:
             pipeline = PDFExtractionPipeline(
                 rel_config,
                 get_openai_client('test'),
-                enable_metrics=False,
-                google_sheets_config=None
+                enable_metrics=False
             )
             
-            success = pipeline.process_all_sources(rel_input)
+            success = pipeline.process_directory(rel_input)
             if not success:
                 logger.error("❌ Pipeline failed with relative paths")
                 return False
@@ -246,8 +262,7 @@ class PDFExtractionIntegrationTest:
                 pipeline = PDFExtractionPipeline(
                     str(simple_config),
                     get_openai_client('test'),
-                    enable_metrics=False,
-                    google_sheets_config=None
+                    enable_metrics=False
                 )
                 
                 # This should work with simple patterns
@@ -263,8 +278,7 @@ class PDFExtractionIntegrationTest:
                 pipeline = PDFExtractionPipeline(
                     "/nonexistent/config.yaml",
                     get_openai_client('test'),
-                    enable_metrics=False,
-                    google_sheets_config=None
+                    enable_metrics=False
                 )
                 logger.error("❌ Pipeline should have failed with invalid config path")
                 return False
@@ -428,22 +442,18 @@ class PDFExtractionIntegrationTest:
             from botnim.document_parser.dynamic_extractions.pdf_extraction.google_sheets_sync import GoogleSheetsSync
             logger.info("✅ Google Sheets imports are available")
             
-            # Test Google Sheets sync initialization
-            google_sheets_config = {
-                'use_adc': True,
-                'credentials_path': None
-            }
-            
+            # Test Google Sheets sync initialization (current pipeline doesn't have this)
+            # This test now just verifies that Google Sheets imports are available
             pipeline = PDFExtractionPipeline(
                 str(self.test_config),
                 get_openai_client('test'),
-                enable_metrics=True,
-                google_sheets_config=google_sheets_config
+                enable_metrics=True
             )
             
-            if pipeline.google_sheets_sync is None:
-                logger.error("❌ Google Sheets sync not initialized")
-                return False
+            # Verify that Google Sheets functionality is available as a separate service
+            from botnim.document_parser.dynamic_extractions.pdf_extraction.google_sheets_service import GoogleSheetsService
+            sheets_service = GoogleSheetsService(use_adc=True)
+            logger.info("✅ Google Sheets service can be initialized separately")
 
             logger.info("✅ Google Sheets integration test passed")
             return True
@@ -454,6 +464,89 @@ class PDFExtractionIntegrationTest:
             return False
         except Exception as e:
             logger.error(f"❌ Google Sheets integration test failed: {e}")
+            return False
+    
+    def test_config_metadata_integration(self) -> bool:
+        """Test config metadata integration with PDF extraction pipeline."""
+        logger.info("🔧 Testing config metadata integration...")
+        
+        try:
+            # Test metadata handler functionality
+            from botnim.document_parser.dynamic_extractions.pdf_extraction.metadata_handler import MetadataHandler
+            
+            # Create temporary test environment
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+                metadata_handler = MetadataHandler(str(temp_path))
+                
+                # Test template variable resolution
+                pdf_path = Path("/test/path/document.pdf")
+                file_metadata = {
+                    'source_url': 'https://example.com/document.pdf',
+                    'title': 'Test Document'
+                }
+                
+                # Test {pdf_url} resolution
+                template = "URL: {pdf_url}"
+                resolved = metadata_handler.resolve_template_variables(template, pdf_path, file_metadata)
+                if resolved != "URL: https://example.com/document.pdf":
+                    logger.error(f"❌ Template variable resolution failed: {resolved}")
+                    return False
+                
+                # Test {download_date} resolution
+                template = "Downloaded: {download_date}"
+                resolved = metadata_handler.resolve_template_variables(template, pdf_path, file_metadata)
+                if not resolved.startswith("Downloaded: "):
+                    logger.error(f"❌ Download date resolution failed: {resolved}")
+                    return False
+                
+                # Test metadata merging
+                config_metadata = {
+                    'source_url': '{pdf_url}',
+                    'title': 'Config Title',
+                    'download_date': '{download_date}'
+                }
+                
+                merged = metadata_handler.merge_config_metadata(file_metadata, config_metadata, pdf_path)
+                
+                # Verify config metadata overrides file metadata
+                if merged['title'] != 'Config Title':
+                    logger.error(f"❌ Config metadata override failed: {merged['title']}")
+                    return False
+                
+                # Verify template variables are resolved
+                if merged['source_url'] != 'https://example.com/document.pdf':
+                    logger.error(f"❌ Template variable resolution in merge failed: {merged['source_url']}")
+                    return False
+                
+                if merged['download_date'] == '{download_date}':
+                    logger.error("❌ Download date template not resolved")
+                    return False
+            
+            # Test pipeline integration (if possible)
+            try:
+                pipeline = PDFExtractionPipeline(
+                    str(self.test_config),
+                    get_openai_client('test'),
+                    enable_metrics=False
+                )
+                
+                # Verify that the pipeline can handle config metadata
+                # This is a basic check - actual processing might fail due to API limits
+                logger.info("✅ Pipeline can be initialized with config metadata support")
+                
+            except Exception as e:
+                logger.warning(f"⚠️ Pipeline initialization failed (might be expected): {e}")
+                # Don't fail the test, as this might be due to missing API keys
+            
+            logger.info("✅ Config metadata integration test passed")
+            return True
+            
+        except ImportError as e:
+            logger.error(f"❌ Metadata handler imports not available: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Config metadata integration test failed: {e}")
             return False
     
     def run_all_tests(self) -> Dict[str, bool]:
@@ -473,6 +566,7 @@ class PDFExtractionIntegrationTest:
             ("JSON Schema Validation", self.test_json_schema_validation),
             ("CLI Integration", self.test_cli_integration),
             ("Google Sheets Integration", self.test_google_sheets_integration),
+            ("Config Metadata Integration", self.test_config_metadata_integration),
         ]
         
         results = {}

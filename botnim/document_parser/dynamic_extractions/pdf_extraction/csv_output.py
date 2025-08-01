@@ -1,83 +1,101 @@
 """
-CSV output functionality for PDF extraction pipeline.
+CSV input/output utilities for PDF extraction pipeline.
 
-This module provides functions for converting extracted PDF data into CSV format
-with proper UTF-8 encoding and Hebrew text handling. It includes functions for
-both local CSV file generation and Google Sheets data preparation.
+This module provides functions for reading and writing CSV files
+following the CSV contract pattern.
 """
 
 import csv
 import os
-from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Any
+from pathlib import Path
 
-def write_csv(data: List[Dict], fieldnames: List[str], source_name: str, output_dir: str = ".") -> str:
+def read_csv(csv_path: str) -> List[Dict[str, Any]]:
     """
-    Write a list of dicts to a CSV file with UTF-8 encoding and correct column order.
-    
-    Creates a source-specific CSV file with proper UTF-8 encoding for Hebrew text.
-    The file is written to the specified output directory.
+    Read data from a CSV file.
     
     Args:
-        data: List of dictionaries, each representing a document's extracted data
-        fieldnames: List of field names that define the column order
-        source_name: Name of the source (used for file naming)
-        output_dir: Directory to save the CSV file (default: current directory)
+        csv_path: Path to CSV file
         
     Returns:
-        Path to the saved CSV file
+        List of dictionaries representing rows
+    """
+    data = []
+    
+    if not os.path.exists(csv_path):
+        return data
+    
+    try:
+        with open(csv_path, 'r', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                data.append(row)
         
-    Raises:
-        OSError: If the output directory doesn't exist or is not writable
-        UnicodeEncodeError: If there are encoding issues with the data
-    """
-    # Create a safe filename from the source name
-    safe_source_name = source_name.replace('"', '').replace('/', '_').replace('\\', '_')
-    safe_source_name = safe_source_name.replace(':', '_').replace('?', '_').replace('*', '_')
-    safe_source_name = safe_source_name.replace('[', '_').replace(']', '_')
-    
-    output_path = os.path.join(output_dir, f"{safe_source_name}_output.csv")
-    
-    with open(output_path, "w", encoding="utf-8", newline="") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
-        writer.writeheader()
-        for row in data:
-            # Ensure all fields are present
-            row_out = {k: row.get(k, "") for k in fieldnames}
-            writer.writerow(row_out)
-    
-    return output_path
+        return data
+    except Exception as e:
+        print(f"Error reading CSV file {csv_path}: {e}")
+        return []
 
-def flatten_for_csv(doc: dict, fieldnames: List[str]) -> dict:
+def write_csv(data: List[Dict[str, Any]], output_path: str) -> str:
     """
-    Flatten a document dictionary for CSV output.
-    
-    Extracts field values from the document structure, prioritizing the 'fields'
-    section over 'metadata' section. This ensures consistent data structure
-    for CSV output.
+    Write data to a CSV file.
     
     Args:
-        doc: Document dictionary with 'fields' and 'metadata' sections
-        fieldnames: List of field names to extract
+        data: List of dictionaries to write
+        output_path: Path to output CSV file
         
     Returns:
-        Dictionary with field names as keys and extracted values as values
-        
-    Example:
-        >>> doc = {
-        ...     "fields": {"title": "Test Title", "content": "Test Content"},
-        ...     "metadata": {"source_url": "http://example.com"}
-        ... }
-        >>> flatten_for_csv(doc, ["title", "content", "source_url"])
-        {'title': 'Test Title', 'content': 'Test Content', 'source_url': 'http://example.com'}
+        Path to the written CSV file
     """
-    row = {}
+    if not data:
+        print("No data to write to CSV")
+        return output_path
+    
+    try:
+        # Get fieldnames from the first row
+        fieldnames = list(data[0].keys())
+        
+        # Ensure output directory exists
+        output_dir = os.path.dirname(output_path)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        
+        with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(data)
+        
+        print(f"Wrote {len(data)} records to {output_path}")
+        return output_path
+        
+    except Exception as e:
+        print(f"Error writing CSV file {output_path}: {e}")
+        return output_path
+
+def flatten_for_csv(data: Dict[str, Any], fieldnames: List[str]) -> Dict[str, Any]:
+    """
+    Flatten nested data structure for CSV output.
+    
+    Args:
+        data: Nested data structure
+        fieldnames: List of field names to include
+        
+    Returns:
+        Flattened dictionary
+    """
+    flattened = {}
+    
     for field in fieldnames:
-        # Prefer 'fields', fallback to 'metadata'
-        value = doc.get("fields", {}).get(field, "")
-        if not value:
-            value = doc.get("metadata", {}).get(field, "")
-        row[field] = value
-    return row
+        if field in data:
+            value = data[field]
+            # Convert complex types to strings
+            if isinstance(value, (dict, list)):
+                flattened[field] = str(value)
+            else:
+                flattened[field] = value
+        else:
+            flattened[field] = ""
+    
+    return flattened
 
  

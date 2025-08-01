@@ -1,453 +1,221 @@
+"""
+PDF extraction pipeline with CSV contract pattern.
+
+This module implements a clean separation of concerns:
+- PDF pipeline focuses only on PDF processing
+- Input: CSV file + PDF files + metadata
+- Output: Updated CSV file
+- No cloud storage coupling
+"""
+
 import logging
 import os
 import json
-import glob
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from datetime import datetime
-import time
 
 from .pdf_extraction_config import PDFExtractionConfig
 from .text_extraction import extract_text_from_pdf
 from .field_extraction import extract_fields_from_text
-from .csv_output import write_csv, flatten_for_csv
-from .metrics import MetricsCollector, ExtractionMetrics
+from .csv_output import write_csv, read_csv
+from .metrics import MetricsCollector
+from .metadata_handler import MetadataHandler
+from .exceptions import PDFExtractionError, PDFTextExtractionError, FieldExtractionError
 from .metrics import ExtractionMetrics
-from .google_sheets_sync import GoogleSheetsSync
-from botnim.config import get_logger
 
+from botnim.config import get_logger
 logger = get_logger(__name__)
 
 class PDFExtractionPipeline:
-    def __init__(self, config_path: str, openai_client, enable_metrics: bool = True, 
-                 google_sheets_config: Optional[Dict] = None):
+    """
+    PDF extraction pipeline following CSV contract pattern.
+    
+    Input Contract:
+    - input.csv: Existing data (optional)
+    - *.pdf: PDF files to process
+    - *.pdf.metadata.json: Metadata for each PDF (optional)
+    
+    Output Contract:
+    - output.csv: Updated data with extracted fields
         """
-        Initialize the PDF extraction pipeline.
+    
+    def __init__(self, config_path: str, openai_client, enable_metrics: bool = True):
+        """
+        Initialize PDF extraction pipeline.
         
         Args:
             config_path: Path to YAML configuration file
             openai_client: OpenAI client for field extraction
-            enable_metrics: Whether to enable performance metrics collection
-            google_sheets_config: Optional Google Sheets configuration for automatic upload
+            enable_metrics: Whether to collect performance metrics
         """
-        self.config_path = config_path
         self.config = PDFExtractionConfig.from_yaml(config_path)
         self.openai_client = openai_client
-        self.google_sheets_config = google_sheets_config
-        
-        # Initialize metrics collector
         self.metrics = MetricsCollector() if enable_metrics else None
-        
-        # Initialize Google Sheets sync if configured
-        self.google_sheets_sync = None
-        if google_sheets_config:
-            try:
-                self.google_sheets_sync = GoogleSheetsSync(
-                    credentials_path=google_sheets_config.get('credentials_path'),
-                    use_adc=google_sheets_config.get('use_adc', False)
-                )
-                logger.info("Google Sheets integration initialized")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Google Sheets integration: {e}")
         
         logger.info(f"Initialized pipeline with {len(self.config.sources)} sources")
     
-    def _extract_text_from_pdf(self, pdf_path: str) -> Optional[str]:
-        """Extract text from PDF file."""
-        logger.info("Extracting text from PDF...")
-        try:
-            text = extract_text_from_pdf(pdf_path, self.openai_client)
-            if not text.strip():
-                logger.error("No text extracted from PDF")
-                return None
+    def process_directory(self, input_dir: str) -> bool:
+        """
+        Process a directory following the CSV contract pattern.
+        
+        Args:
+            input_dir: Directory containing input.csv, PDF files, and metadata
             
-            logger.info(f"Extracted {len(text)} characters from PDF")
-            return text
-        except Exception as e:
-            logger.error(f"Text extraction failed for {pdf_path}: {e}")
-            return None
-
-    def _extract_fields_from_text(self, text: str, source_config) -> Optional[List[Dict]]:
-        """Extract structured fields from text using LLM."""
-        logger.info("Extracting structured fields...")
-        try:
-            extracted_fields_list = extract_fields_from_text(text, source_config, self.openai_client)
-            return extracted_fields_list
-        except Exception as e:
-            logger.error(f"Field extraction failed: {e}")
-            return None
-
-    def _prepare_metadata(self, source_config, pdf_path: str, entity_index: int, total_entities: int) -> Dict:
-        """Prepare metadata for an entity."""
-        metadata = {}
-        for key, value in source_config.metadata.items():
-            if value == "{pdf_url}":
-                metadata[key] = pdf_path  # For now, use file path as URL
-            elif value == "{download_date}":
-                metadata[key] = datetime.now().isoformat()
-            else:
-                metadata[key] = value
+        Returns:
+            True if processing was successful
+        """
+        input_path = Path(input_dir)
         
-        # Add entity-specific metadata
-        if total_entities > 1:
-            metadata["entity_number"] = entity_index + 1
-            metadata["total_entities"] = total_entities
+        # Initialize metadata handler
+        metadata_handler = MetadataHandler(str(input_path))
         
-        return metadata
-
-    def _create_result_object(self, extracted_fields: Dict, metadata: Dict, source_config, pdf_path: str, entity_index: int) -> Dict:
-        """Create a result object for an entity."""
-        return {
-            "fields": extracted_fields,
-            "metadata": metadata,
-            "source_name": source_config.name,
-            "pdf_path": pdf_path,
-            "entity_index": entity_index,
-            "processed_at": datetime.now().isoformat()
-        }
-
-    def process_pdf_file(self, pdf_path: str, source_config) -> Optional[List[Dict]]:
+        # Read existing data if available
+        input_csv_path = input_path / "input.csv"
+        existing_data = []
+        if input_csv_path.exists():
+            existing_data = read_csv(str(input_csv_path))
+            logger.info(f"Loaded {len(existing_data)} existing records from input.csv")
+        
+        # Process all sources
+        all_results = []
+        for source_config in self.config.sources:
+            logger.info(f"Processing source: {source_config.name}")
+            
+            # Find PDF files for this source
+            pdf_files = self._find_pdf_files(input_path, source_config.file_pattern)
+            if not pdf_files:
+                logger.warning(f"No PDF files found for source '{source_config.name}'")
+                continue
+            
+            # Process each PDF file
+            source_results = []
+            for pdf_file in pdf_files:
+                try:
+                    result = self._process_single_pdf(
+                        pdf_file, source_config, metadata_handler
+                    )
+                    if result:
+                        source_results.extend(result)
+                except Exception as e:
+                    logger.error(f"Failed to process {pdf_file}: {e}")
+                    if self.metrics:
+                        metrics = ExtractionMetrics(
+                            pdf_path=str(pdf_file),
+                            source_name=source_config.name,
+                            text_extraction_time=0.0,
+                            field_extraction_time=0.0,
+                            total_processing_time=0.0,
+                            text_length=0,
+                            entities_extracted=0,
+                            success=False,
+                            error_message=str(e)
+                        )
+                        self.metrics.record_extraction(metrics)
+            
+            # Merge with existing data
+            all_results.extend(source_results)
+            logger.info(f"Source '{source_config.name}': {len(source_results)} records processed")
+        
+        # Write output CSV
+        output_csv_path = input_path / "output.csv"
+        if all_results:
+            write_csv(all_results, str(output_csv_path))
+            logger.info(f"Wrote {len(all_results)} records to output.csv")
+        
+        # Save metrics if enabled
+        if self.metrics:
+            metrics_path = input_path / "pipeline_metrics.json"
+            self.metrics.save_metrics(str(metrics_path))
+            logger.info(f"Performance metrics saved to: {metrics_path}")
+        
+        return True
+    
+    def _find_pdf_files(self, input_path: Path, file_pattern: str) -> List[Path]:
+        """Find PDF files matching the pattern in the input directory."""
+        import glob
+        
+        # Resolve pattern relative to input directory
+        if not os.path.isabs(file_pattern):
+            pattern = str(input_path / file_pattern)
+        
+        pdf_files = []
+        for file_path in glob.glob(pattern):
+            if Path(file_path).suffix.lower() == '.pdf':
+                pdf_files.append(Path(file_path))
+        
+        logger.info(f"Found {len(pdf_files)} PDF files for pattern '{file_pattern}'")
+        return pdf_files
+    
+    def _process_single_pdf(self, pdf_path: Path, source_config, metadata_handler) -> List[Dict[str, Any]]:
         """
         Process a single PDF file and extract structured data.
         
         Args:
-            pdf_path: Path to the PDF file
-            source_config: Source configuration for extraction rules
+            pdf_path: Path to PDF file
+            source_config: Source configuration
+            metadata_handler: Metadata handler
             
         Returns:
-            List of extracted entities (documents) or None if processing failed
+            List of extracted records
         """
-        logger.info(f"Processing PDF file: {pdf_path}")
+        start_time = datetime.now()
         
-        # Start timing for metrics
-        start_time = time.time()
-        
-        # Extract text from PDF
-        text = self._extract_text_from_pdf(pdf_path)
-        if not text:
-            return None
-        
-        # Extract structured fields
-        extracted_fields_list = self._extract_fields_from_text(text, source_config)
-        if not extracted_fields_list:
-            return None
-        
-        # Process each extracted entity
-        results = []
-        for entity_index, extracted_fields in enumerate(extracted_fields_list):
-            # Prepare metadata
-            metadata = self._prepare_metadata(source_config, pdf_path, entity_index, len(extracted_fields_list))
+        try:
+            # Extract text from PDF
+            logger.info(f"Extracting text from PDF: {pdf_path}")
+            text = extract_text_from_pdf(str(pdf_path))
             
-            # Create result object
-            result = self._create_result_object(extracted_fields, metadata, source_config, pdf_path, entity_index)
-            results.append(result)
+            # Extract structured fields
+            logger.info("Extracting structured fields...")
+            extracted_data = extract_fields_from_text(
+                text, source_config, self.openai_client
+            )
+            
+            # Load file metadata
+            file_metadata = metadata_handler.load_metadata_for_pdf(pdf_path)
+            
+            # Merge with config metadata if available
+            config_metadata = getattr(source_config, 'metadata', {})
+            if config_metadata:
+                metadata = metadata_handler.merge_config_metadata(file_metadata, config_metadata, pdf_path)
+                logger.info(f"Merged config metadata for {pdf_path.name}")
+            else:
+                metadata = file_metadata
+            
+            # Build records with metadata
+            records = []
+            for data in extracted_data:
+                record = {
+                    'source_url': metadata.get('source_url', ''),
+                    'extraction_date': datetime.now().isoformat(),
+                    'input_file': str(pdf_path),
+                    **data
+                }
+                records.append(record)
             
             # Record metrics
             if self.metrics:
-                processing_time = time.time() - start_time
+                processing_time = (datetime.now() - start_time).total_seconds()
                 metrics = ExtractionMetrics(
-                    pdf_path=pdf_path,
+                    pdf_path=str(pdf_path),
                     source_name=source_config.name,
-                    text_extraction_time=0.0,  # We don't track this separately anymore
+                    text_extraction_time=0.0,  # We don't track this separately
                     field_extraction_time=processing_time,
                     total_processing_time=processing_time,
                     text_length=len(text),
-                    entities_extracted=len(extracted_fields_list),
+                    entities_extracted=len(records),
                     success=True
                 )
                 self.metrics.record_extraction(metrics)
-        
-        logger.info(f"Successfully extracted {len(results)} entities from {pdf_path}")
-        return results
-
-    def find_pdf_files(self, source_config, input_dir: str) -> List[str]:
-        """
-        Find PDF files matching the source pattern in the input directory.
-        
-        Args:
-            source_config: Source configuration with file pattern
-            input_dir: Directory to search for PDF files
             
-        Returns:
-            List of matching PDF file paths
-        """
-        input_path = Path(input_dir)
-        if not input_path.exists():
-            logger.error(f"Input directory does not exist: {input_dir}")
-            return []
-        
-        # Resolve pattern relative to input directory
-        pattern = source_config.file_pattern
-        if not os.path.isabs(pattern):
-            pattern = str(input_path / pattern)
-        
-        # Find matching files
-        pdf_files = []
-        try:
-            matching_files = glob.glob(pattern)
-            
-            for file_path in matching_files:
-                if os.path.isfile(file_path) and file_path.lower().endswith('.pdf'):
-                    pdf_files.append(file_path)
-                    logger.info(f"Found PDF file: {file_path}")
+            logger.info(f"Successfully extracted {len(records)} entities from {pdf_path}")
+            return records
             
         except Exception as e:
-            logger.error(f"Error finding PDF files with pattern '{pattern}': {e}")
-        
-        if not pdf_files:
-            logger.warning(f"No PDF files found for pattern '{pattern}' in directory '{input_dir}'")
-        
-        logger.info(f"Found {len(pdf_files)} PDF files for source '{source_config.name}'")
-        return pdf_files
-
-    def load_existing_data(self, input_dir: str) -> Dict[str, List[Dict]]:
-        """
-        Load existing data from input.csv if it exists.
-        
-        Args:
-            input_dir: Directory containing input.csv
-            
-        Returns:
-            Dictionary mapping source names to existing data
-        """
-        input_csv_path = Path(input_dir) / "input.csv"
-        if not input_csv_path.exists():
-            logger.info("No existing input.csv found, starting with empty data")
-            return {}
-        
-        try:
-            import csv
-            existing_data = {}
-            with open(input_csv_path, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    source_name = row.get('source_name', 'unknown')
-                    if source_name not in existing_data:
-                        existing_data[source_name] = []
-                    existing_data[source_name].append(row)
-            
-            logger.info(f"Loaded {sum(len(data) for data in existing_data.values())} existing records from input.csv")
-            return existing_data
-        except Exception as e:
-            logger.error(f"Error loading existing data from input.csv: {e}")
-            return {}
-
-    def process_source(self, source_name: str, input_dir: str) -> bool:
-        """
-        Process all PDF files for a specific source.
-        
-        Args:
-            source_name: Name of the source to process
-            input_dir: Directory containing input files
-            
-        Returns:
-            True if processing was successful, False otherwise
-        """
-        # Find source configuration
-        source_config = None
-        for source in self.config.sources:
-            if source.name == source_name:
-                source_config = source
-                break
-        
-        if not source_config:
-            logger.error(f"Source '{source_name}' not found in configuration")
-            return False
-        
-        logger.info(f"Processing source: {source_name}")
-        
-        # Find PDF files
-        pdf_files = self.find_pdf_files(source_config, input_dir)
-        if not pdf_files:
-            logger.warning(f"No PDF files found for source '{source_name}'")
-            return True  # Not an error, just no files to process
-        
-        # Load existing data
-        existing_data = self.load_existing_data(input_dir)
-        source_data = existing_data.get(source_name, [])
-        
-        # Process each PDF file
-        all_results = []
-        processed_count = 0
-        failed_count = 0
-        
-        for pdf_path in pdf_files:
-            results = self.process_pdf_file(pdf_path, source_config)
-            if results:
-                all_results.extend(results)
-                processed_count += 1
-            else:
-                failed_count += 1
-                logger.warning(f"Failed to process PDF: {pdf_path}")
-        
-        # Consider the source successful if we processed at least some files
-        success = processed_count > 0
-        if failed_count > 0:
-            logger.warning(f"Source '{source_name}': {processed_count} files processed successfully, {failed_count} files failed")
-        else:
-            logger.info(f"Source '{source_name}': All {processed_count} files processed successfully")
-        
-        # Combine existing and new data
-        combined_data = source_data + all_results
-        
-        # Write output CSV
-        if combined_data:
-            fieldnames = [field.name for field in source_config.fields]
-            # Add metadata fields
-            for key in source_config.metadata.keys():
-                if key not in fieldnames:
-                    fieldnames.append(key)
-            # Add processing metadata
-            for key in ['source_name', 'pdf_path', 'entity_index', 'processed_at']:
-                if key not in fieldnames:
-                    fieldnames.append(key)
-            
-            # Flatten data for CSV
-            flattened_data = [flatten_for_csv(result, fieldnames) for result in combined_data]
-            
-            # Write to source-specific CSV file
-            output_path = write_csv(flattened_data, fieldnames, source_name, input_dir)
-            logger.info(f"Wrote {len(flattened_data)} records to {output_path}")
-        
-        return success
-
-    def process_all_sources(self, input_dir: str) -> bool:
-        """
-        Process all sources defined in the configuration.
-        
-        Args:
-            input_dir: Directory containing input files
-            
-        Returns:
-            True if all sources processed successfully, False otherwise
-        """
-        success = True
-        for source in self.config.sources:
-            if not self.process_source(source.name, input_dir):
-                success = False
-        
-        return success
-
-    def save_metrics(self, output_path: Optional[str] = None):
-        """Save performance metrics to a JSON file."""
-        if self.metrics:
-            metrics_path = output_path or "pipeline_metrics.json"
-            self.metrics.save_metrics(metrics_path)
-            logger.info(f"Performance metrics saved to: {metrics_path}")
-    
-    def print_performance_summary(self):
-        """Print a human-readable performance summary."""
-        if self.metrics:
-            self.metrics.print_summary()
-        else:
-            logger.info("Metrics collection is disabled")
-    
-    def get_performance_summary(self) -> Optional[Dict]:
-        """Get performance summary as a dictionary."""
-        if self.metrics:
-            return self.metrics.get_pipeline_summary()
-        return None
-
-    def upload_to_google_sheets(self, csv_path: str, spreadsheet_id: str, sheet_name: str, 
-                               replace_existing: bool = False) -> bool:
-        """
-        Upload CSV results to Google Sheets.
-        
-        Args:
-            csv_path: Path to the CSV file to upload
-            spreadsheet_id: Google Sheets spreadsheet ID
-            sheet_name: Name of the sheet to create/update
-            replace_existing: If True, replace entire sheet. If False, append new rows.
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        if not self.google_sheets_sync:
-            logger.error("Google Sheets integration not configured")
-            return False
-        
-        try:
-            success = self.google_sheets_sync.upload_csv_to_sheet(
-                csv_path, spreadsheet_id, sheet_name, replace_existing
-            )
-            if success:
-                logger.info(f"Successfully uploaded CSV to Google Sheets: {sheet_name}")
-            else:
-                logger.error("Failed to upload CSV to Google Sheets")
-            return success
-        except Exception as e:
-            logger.error(f"Error uploading to Google Sheets: {e}")
-            return False
-
-    def upload_single_source_to_google_sheets(self, source_name: str, input_dir: str, spreadsheet_id: str, 
-                                            replace_existing: bool = False) -> bool:
-        """
-        Upload a single source to Google Sheets.
-        
-        Args:
-            source_name: Name of the source to upload
-            input_dir: Directory containing input files
-            spreadsheet_id: Google Sheets spreadsheet ID
-            replace_existing: If True, replace entire sheet. If False, append new rows.
-            
-        Returns:
-            True if upload was successful, False otherwise
-        """
-        if not self.google_sheets_sync:
-            logger.error("Google Sheets sync not configured")
-            return False
-            
-        # Find the source-specific CSV file
-        safe_source_name = source_name.replace('"', '').replace('/', '_').replace('\\', '_')
-        safe_source_name = safe_source_name.replace(':', '_').replace('?', '_').replace('*', '_')
-        safe_source_name = safe_source_name.replace('[', '_').replace(']', '_')
-        csv_filename = f"{safe_source_name}_output.csv"
-        csv_path = Path(input_dir) / csv_filename
-        
-        if not csv_path.exists():
-            logger.error(f"CSV file not found for source '{source_name}': {csv_path}")
-            return False
-            
-        try:
-            logger.info(f"Uploading source '{source_name}' to Google Sheets...")
-            success = self.google_sheets_sync.upload_csv_to_sheet(
-                str(csv_path),
-                spreadsheet_id,
-                source_name,  # Use source name as sheet name
-                replace_existing
-            )
-            
-            if success:
-                logger.info(f"✅ Successfully uploaded source '{source_name}' to Google Sheets")
-            else:
-                logger.error(f"❌ Failed to upload source '{source_name}' to Google Sheets")
-                
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error uploading source '{source_name}' to Google Sheets: {e}")
-            return False
-    
-    def _create_safe_sheet_name(self, source_name: str) -> str:
-        """
-        Create a safe sheet name for Google Sheets.
-        Google Sheets has restrictions on sheet names (max 31 chars, no special chars).
-        
-        Args:
-            source_name: Original source name
-            
-        Returns:
-            Safe sheet name that complies with Google Sheets restrictions
-        """
-        # Remove or replace problematic characters
-        safe_name = source_name.replace('"', '').replace('/', '_').replace('\\', '_')
-        safe_name = safe_name.replace(':', '_').replace('?', '_').replace('*', '_')
-        safe_name = safe_name.replace('[', '_').replace(']', '_')
-        
-        # Limit to 31 characters (Google Sheets limit)
-        if len(safe_name) > 31:
-            safe_name = safe_name[:28] + "..."
-        
-        return safe_name
+            logger.error(f"Failed to process {pdf_path}: {e}")
+            if self.metrics:
+                self.metrics.record_failure(str(pdf_path), source_config.name, str(e))
+            raise
 
  

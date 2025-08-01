@@ -138,10 +138,13 @@ python backend/es/demo-query-es.py "your query" local
     - `pdf_extraction/`: PDF extraction and Google Sheets sync pipeline
       - `pdf_pipeline.py`: Main orchestration pipeline (now accessible via `botnim pdf-extract`)
       - `text_extraction.py`: PDF text extraction with Hebrew RTL fixes
-      - `field_extraction.py`: LLM-based structured data extraction
-      - `google_sheets_sync.py`: Google Sheets upload functionality
+      - `field_extraction.py`: LLM-based structured data extraction with enhanced JSON schema validation
+      - `google_sheets_service.py`: High-level Google Sheets service wrapper
+      - `google_sheets_sync.py`: Low-level Google Sheets API operations
       - `csv_output.py`: CSV generation and data flattening
       - `metrics.py`: Performance metrics and structured logging
+      - `metadata_handler.py`: Metadata management for PDF files
+      - `pdf_extraction_config.py`: Configuration models and YAML loading
       - `exceptions.py`: Custom exception classes for error handling
       - `test/`: Comprehensive test suite with sample PDFs
     - `logs/`: Intermediate and output files (structure.json, pipeline metadata, markdown chunks)
@@ -358,6 +361,7 @@ The PDF extraction pipeline provides comprehensive tools for extracting structur
 - **Performance metrics and structured logging**
 - **Robust error handling** with custom exception types
 - **DRY architecture** - clean separation of concerns and reusable components
+- **Modular design** - each component has a single responsibility and can be used independently
 
 ### Google Sheets Setup
 

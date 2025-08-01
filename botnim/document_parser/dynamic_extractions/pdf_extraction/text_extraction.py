@@ -1,3 +1,9 @@
+"""
+Text extraction module.
+
+This module is responsible for extracting text from PDF files using pdfplumber and pdfminer.six.
+"""
+
 import logging
 import os
 from typing import Optional
