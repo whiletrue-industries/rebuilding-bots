@@ -70,7 +70,6 @@ class QueryClient:
             config=config,
             config_dir=Path('.'),
             es_timeout=30,
-            production=is_production(self.environment),
             environment=self.environment,
         )
 
