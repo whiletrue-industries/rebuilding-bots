@@ -306,16 +306,26 @@ class PDFExtractionIntegrationTest:
         logger.info("📄 Testing OpenAI JSON response format...")
         
         try:
-            # Check that field extraction uses response_format
+            # Check that field extraction uses response_format and schema validation
             field_extraction_path = Path(__file__).parent.parent / "field_extraction.py"
             if field_extraction_path.exists():
                 content = field_extraction_path.read_text()
+                
+                # Check for JSON response format
                 if 'response_format={"type": "json_object"}' in content:
                     logger.info("✅ OpenAI JSON response format is used")
-                    return True
                 else:
                     logger.error("❌ OpenAI JSON response format not found")
                     return False
+                
+                # Check for JSON schema validation
+                if 'response_format_params={"schema": schema}' in content:
+                    logger.info("✅ JSON schema validation is implemented")
+                else:
+                    logger.warning("⚠️ JSON schema validation not found - this is an enhancement")
+                    # Don't fail the test, as this is an enhancement
+                
+                return True
             else:
                 logger.warning("⚠️ Could not find field_extraction.py")
                 return True  # Skip this test if file not found

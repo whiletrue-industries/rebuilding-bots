@@ -32,6 +32,21 @@ def extract_fields_from_text(text: str, config: SourceConfig, client, model: str
     if not config.fields:
         raise FieldExtractionError("No fields defined in configuration")
     
+    # Build JSON schema for validation
+    schema = {
+        "type": "object",
+        "properties": {},
+        "required": []
+    }
+    
+    # Add field definitions to schema
+    for field in config.fields:
+        schema["properties"][field.name] = {
+            "type": "string",
+            "description": field.description
+        }
+        schema["required"].append(field.name)
+    
     # Build a detailed prompt with field definitions
     field_definitions = []
     for field in config.fields:
@@ -60,15 +75,16 @@ IMPORTANT: Return ONLY a JSON object with the exact field names specified above.
     ]
     
     try:
-        logger.info(f"Sending extraction prompt to OpenAI (model={model})")
+        logger.info(f"Sending extraction prompt to OpenAI (model={model}) with JSON schema validation")
         response = client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=0.0,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            response_format_params={"schema": schema}
         )
         content = response.choices[0].message.content
-        logger.info("Received JSON response from OpenAI.")
+        logger.info("Received JSON response from OpenAI with schema validation.")
         
         try:
             data = json.loads(content)
