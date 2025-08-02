@@ -4,15 +4,15 @@
     "successful_extractions": 22,
     "failed_extractions": 2,
     "total_entities_extracted": 22,
-    "total_processing_time": 504.5436198711395,
-    "average_processing_time": 19.111388166666668,
-    "start_time": "2025-08-02T22:22:39.768768",
-    "end_time": "2025-08-02T22:31:04.312388",
+    "total_processing_time": 542.6050522327423,
+    "average_processing_time": 20.993581374999998,
+    "start_time": "2025-08-02T23:16:19.259719",
+    "end_time": "2025-08-02T23:25:21.864771",
     "sources_processed": [
-      "חוות דעת והנחיות של היועצת המשפטית לכנסת",
       "החלטות ועדת האתיקה",
+      "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת",
       "החלטות ועדת הכנסת",
-      "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת"
+      "חוות דעת והנחיות של היועצת המשפטית לכנסת"
     ],
     "errors": [
       "JSON schema validation failed:\n  - deque([]): 'שם_החלטה' is a required property",
@@ -24,37 +24,37 @@
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/ethic_commitee_decisions/23-2.pdf",
       "source_name": "החלטות ועדת האתיקה",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 24.754514,
-      "total_processing_time": 24.754514,
+      "field_extraction_time": 20.38389,
+      "total_processing_time": 20.38389,
       "text_length": 4010,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:23:04.523994"
+      "timestamp": "2025-08-02T23:16:39.646343"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/ethic_commitee_decisions/23-5 (1).pdf",
       "source_name": "החלטות ועדת האתיקה",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 22.259364,
-      "total_processing_time": 22.259364,
+      "field_extraction_time": 25.024451,
+      "total_processing_time": 25.024451,
       "text_length": 4396,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:23:26.783490"
+      "timestamp": "2025-08-02T23:17:04.670991"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/ethic_commitee_decisions/23-4 (1).pdf",
       "source_name": "החלטות ועדת האתיקה",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 32.295749,
-      "total_processing_time": 32.295749,
+      "field_extraction_time": 27.224424,
+      "total_processing_time": 27.224424,
       "text_length": 6509,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:23:59.079441"
+      "timestamp": "2025-08-02T23:17:31.895564"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/ethic_commitee_decisions/hachlatot15_7.pdf",
@@ -66,7 +66,7 @@
       "entities_extracted": 0,
       "success": false,
       "error_message": "JSON schema validation failed:\n  - deque([]): 'שם_החלטה' is a required property",
-      "timestamp": "2025-08-02T22:24:44.933977"
+      "timestamp": "2025-08-02T23:18:10.638668"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/ethic_commitee_decisions/hachlatot15_7.pdf",
@@ -78,236 +78,236 @@
       "entities_extracted": 0,
       "success": false,
       "error_message": "JSON schema validation failed:\n  - deque([]): 'שם_החלטה' is a required property",
-      "timestamp": "2025-08-02T22:24:44.934155"
+      "timestamp": "2025-08-02T23:18:10.638862"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/ethic_commitee_decisions/23-3.pdf",
       "source_name": "החלטות ועדת האתיקה",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 21.391582,
-      "total_processing_time": 21.391582,
+      "field_extraction_time": 21.895997,
+      "total_processing_time": 21.895997,
       "text_length": 4133,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:25:06.325822"
+      "timestamp": "2025-08-02T23:18:32.535009"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/ethic_commitee_decisions/Decisions23-1.pdf",
       "source_name": "החלטות ועדת האתיקה",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 10.13046,
-      "total_processing_time": 10.13046,
+      "field_extraction_time": 11.461519,
+      "total_processing_time": 11.461519,
       "text_length": 1557,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:25:16.456486"
+      "timestamp": "2025-08-02T23:18:43.996729"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_answers/מענה לחברת הכנסת נעמה לזימי - פנייתך מיום 28.1.2025.pdf",
       "source_name": "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 16.934861,
-      "total_processing_time": 16.934861,
+      "field_extraction_time": 7.320519,
+      "total_processing_time": 7.320519,
       "text_length": 1486,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:25:33.391947"
+      "timestamp": "2025-08-02T23:18:51.318052"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_answers/מכתב לחבר הכנסת אביחי בוארון- בקשתך להפסקת חברותו של חבר הכנסת איימן עודה.pdf",
       "source_name": "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 13.151682,
-      "total_processing_time": 13.151682,
+      "field_extraction_time": 10.052223,
+      "total_processing_time": 10.052223,
       "text_length": 3150,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:25:46.543782"
+      "timestamp": "2025-08-02T23:19:01.370498"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_answers/20.pdf",
       "source_name": "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 15.702021,
-      "total_processing_time": 15.702021,
+      "field_extraction_time": 15.119027,
+      "total_processing_time": 15.119027,
       "text_length": 4938,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:26:02.245991"
+      "timestamp": "2025-08-02T23:19:16.489825"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_answers/1.pdf",
       "source_name": "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 8.500632,
-      "total_processing_time": 8.500632,
+      "field_extraction_time": 8.429999,
+      "total_processing_time": 8.429999,
       "text_length": 2568,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:26:10.746816"
+      "timestamp": "2025-08-02T23:19:24.919957"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_answers/12.pdf",
       "source_name": "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 22.194504,
-      "total_processing_time": 22.194504,
+      "field_extraction_time": 17.464652,
+      "total_processing_time": 17.464652,
       "text_length": 6871,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:26:32.941466"
+      "timestamp": "2025-08-02T23:19:42.384769"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_answers/5.pdf",
       "source_name": "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 13.416247,
-      "total_processing_time": 13.416247,
+      "field_extraction_time": 11.078808,
+      "total_processing_time": 11.078808,
       "text_length": 3986,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:26:46.358241"
+      "timestamp": "2025-08-02T23:19:53.463790"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_answers/מענה למכתבו של עוד אסי מסינג בענין סעיף 3ג לחוק-יסוד משק המדינה.pdf",
       "source_name": "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 32.353676,
-      "total_processing_time": 32.353676,
+      "field_extraction_time": 33.337377,
+      "total_processing_time": 33.337377,
       "text_length": 10321,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:27:18.712089"
+      "timestamp": "2025-08-02T23:20:26.801440"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/knesset_committee/25_cs_dec_7790702.pdf",
       "source_name": "החלטות ועדת הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 13.929299,
-      "total_processing_time": 13.929299,
+      "field_extraction_time": 14.329598,
+      "total_processing_time": 14.329598,
       "text_length": 1467,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:27:32.641682"
+      "timestamp": "2025-08-02T23:20:41.131443"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/knesset_committee/25_cs_dec_7724265.pdf",
       "source_name": "החלטות ועדת הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 17.853404,
-      "total_processing_time": 17.853404,
+      "field_extraction_time": 17.700531,
+      "total_processing_time": 17.700531,
       "text_length": 4011,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:27:50.495243"
+      "timestamp": "2025-08-02T23:20:58.832205"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/knesset_committee/25_cs_dec_7595110.pdf",
       "source_name": "החלטות ועדת הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 4.138278,
-      "total_processing_time": 4.138278,
+      "field_extraction_time": 3.611344,
+      "total_processing_time": 3.611344,
       "text_length": 298,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:27:54.633840"
+      "timestamp": "2025-08-02T23:21:02.443734"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/knesset_committee/25_cs_dec_7724265 (1).pdf",
       "source_name": "החלטות ועדת הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 17.655749,
-      "total_processing_time": 17.655749,
+      "field_extraction_time": 26.05651,
+      "total_processing_time": 26.05651,
       "text_length": 4011,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:28:12.289872"
+      "timestamp": "2025-08-02T23:21:28.500471"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/knesset_committee/25_cs_dec_7486953.pdf",
       "source_name": "החלטות ועדת הכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 9.96979,
-      "total_processing_time": 9.96979,
+      "field_extraction_time": 7.998319,
+      "total_processing_time": 7.998319,
       "text_length": 704,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:28:22.259967"
+      "timestamp": "2025-08-02T23:21:36.498932"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_letters/32.pdf",
       "source_name": "חוות דעת והנחיות של היועצת המשפטית לכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 31.689076,
-      "total_processing_time": 31.689076,
+      "field_extraction_time": 40.576831,
+      "total_processing_time": 40.576831,
       "text_length": 9948,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:28:53.949816"
+      "timestamp": "2025-08-02T23:22:17.076185"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_letters/leg020424.pdf",
       "source_name": "חוות דעת והנחיות של היועצת המשפטית לכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 48.223733,
-      "total_processing_time": 48.223733,
+      "field_extraction_time": 66.211415,
+      "total_processing_time": 66.211415,
       "text_length": 14451,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:29:42.173796"
+      "timestamp": "2025-08-02T23:23:23.287715"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_letters/מכתב ליושב ראש הכנסת ולסגנים- זמן הדיבור לחבר הכנסת שדבריו נקטעים.pdf",
       "source_name": "חוות דעת והנחיות של היועצת המשפטית לכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 8.13231,
-      "total_processing_time": 8.13231,
+      "field_extraction_time": 9.681671,
+      "total_processing_time": 9.681671,
       "text_length": 1521,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:29:50.306280"
+      "timestamp": "2025-08-02T23:23:32.969508"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_letters/הנחיה בענין איסור עיסוק נוסף של חברי הכנסת.pdf",
       "source_name": "חוות דעת והנחיות של היועצת המשפטית לכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 40.976035,
-      "total_processing_time": 40.976035,
+      "field_extraction_time": 67.805933,
+      "total_processing_time": 67.805933,
       "text_length": 11829,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:30:31.282520"
+      "timestamp": "2025-08-02T23:24:40.775581"
     },
     {
       "pdf_path": "botnim/document_parser/dynamic_extractions/pdf_extraction/test/input/../input/legal_advisor_letters/הנחיה בדבר חובת התייעצות בוועדות לעניין חקיקת משנה.pdf",
       "source_name": "חוות דעת והנחיות של היועצת המשפטית לכנסת",
       "text_extraction_time": 0.0,
-      "field_extraction_time": 33.02035,
-      "total_processing_time": 33.02035,
+      "field_extraction_time": 41.080915,
+      "total_processing_time": 41.080915,
       "text_length": 9314,
       "entities_extracted": 1,
       "success": true,
       "error_message": null,
-      "timestamp": "2025-08-02T22:31:04.303299"
+      "timestamp": "2025-08-02T23:25:21.856649"
     }
   ],
-  "generated_at": "2025-08-02T22:31:04.312740"
+  "generated_at": "2025-08-02T23:25:21.865411"
 }

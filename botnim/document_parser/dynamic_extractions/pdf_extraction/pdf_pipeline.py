@@ -55,7 +55,7 @@ class PDFExtractionPipeline:
         
         logger.info(f"Initialized pipeline with {len(self.config.sources)} sources")
     
-    def process_directory(self, input_dir: str) -> bool:
+    def process_directory(self, input_dir: str, source_filter: str = None) -> bool:
         """
         Process a directory following the CSV contract pattern.
         
@@ -77,9 +77,18 @@ class PDFExtractionPipeline:
             existing_data = read_csv(str(input_csv_path))
             logger.info(f"Loaded {len(existing_data)} existing records from input.csv")
         
-        # Process all sources
+        # Process sources (filtered if specified)
         all_results = []
-        for source_config in self.config.sources:
+        sources_to_process = self.config.sources
+        
+        if source_filter:
+            sources_to_process = [s for s in self.config.sources if s.name == source_filter]
+            if not sources_to_process:
+                logger.error(f"Source '{source_filter}' not found in configuration")
+                return False
+            logger.info(f"Processing only source: {source_filter}")
+        
+        for source_config in sources_to_process:
             logger.info(f"Processing source: {source_config.name}")
             
             # Find PDF files for this source

@@ -311,7 +311,7 @@ def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_met
         if pdfs_only:
             # PDF processing only - CSV contract pattern
             click.echo("🚀 PDF processing only (CSV contract pattern)")
-            success = _process_pdfs_only(config_file, input_dir, environment, verbose, no_metrics)
+            success = _process_pdfs_only(config_file, input_dir, environment, verbose, no_metrics, source)
         elif upload_only:
             # Google Sheets upload only
             if not spreadsheet_id:
@@ -346,7 +346,7 @@ def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_met
         click.echo(f"Error: {str(e)}", err=True)
         sys.exit(1)
 
-def _process_pdfs_only(config_file: str, input_dir: str, environment: str, verbose: bool, no_metrics: bool) -> bool:
+def _process_pdfs_only(config_file: str, input_dir: str, environment: str, verbose: bool, no_metrics: bool, source: str = None) -> bool:
     """
     Process PDFs only - CSV contract pattern.
     
@@ -361,7 +361,7 @@ def _process_pdfs_only(config_file: str, input_dir: str, environment: str, verbo
         pipeline = PDFExtractionPipeline(config_file, openai_client, enable_metrics=not no_metrics)
         
         # Process directory following CSV contract
-        success = pipeline.process_directory(input_dir)
+        success = pipeline.process_directory(input_dir, source_filter=source)
         
         if success:
             click.echo("✅ PDF processing completed successfully")
@@ -427,7 +427,7 @@ def _process_and_upload(config_file: str, input_dir: str, source: str, environme
     try:
         # Step 1: Process PDFs
         click.echo("📄 Step 1: Processing PDFs...")
-        pdf_success = _process_pdfs_only(config_file, input_dir, environment, verbose, no_metrics)
+        pdf_success = _process_pdfs_only(config_file, input_dir, environment, verbose, no_metrics, source)
         
         if not pdf_success:
             click.echo("❌ PDF processing failed, skipping Google Sheets upload", err=True)
