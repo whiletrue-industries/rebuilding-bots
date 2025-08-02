@@ -321,6 +321,11 @@ def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_met
             success = _upload_to_sheets_only(input_dir, spreadsheet_id, use_adc, credentials_path, replace_sheet, verbose)
         else:
             # Complete workflow with separation of concerns
+            # Auto-enable upload if spreadsheet_id is provided
+            if spreadsheet_id and not upload_to_sheets:
+                upload_to_sheets = True
+                click.echo("📊 Auto-enabling Google Sheets upload (spreadsheet-id provided)")
+            
             if upload_to_sheets and not spreadsheet_id:
                 click.echo("Error: --spreadsheet-id is required when --upload-to-sheets is specified", err=True)
                 sys.exit(1)

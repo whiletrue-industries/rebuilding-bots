@@ -68,7 +68,7 @@ class GoogleSheetsService:
             directory_path: Directory containing CSV files
             spreadsheet_id: Google Sheets spreadsheet ID
             replace_existing: If True, replace entire sheets. If False, append new rows.
-            prefer_output_csv: If True, split output.csv by source and create separate sheets
+            prefer_output_csv: If True, prefer source-specific CSV files over output.csv
         
         Returns:
             Dictionary mapping sheet names to success status
@@ -76,7 +76,38 @@ class GoogleSheetsService:
         results = {}
         directory = Path(directory_path)
         
-        # Find all CSV files
+        # Look for source-specific CSV files first (preferred)
+        source_csv_files = []
+        for pattern in ["*החלטות*.csv", "*מכתבי*.csv", "*חוות*.csv"]:
+            source_csv_files.extend(directory.glob(pattern))
+        
+        if source_csv_files:
+            logger.info(f"Found {len(source_csv_files)} source-specific CSV files to upload")
+            
+            for csv_file in source_csv_files:
+                # Use filename (without extension) as sheet name
+                sheet_name = csv_file.stem
+                
+                # Create safe sheet name
+                safe_sheet_name = self._create_safe_sheet_name(sheet_name)
+                
+                success = self.upload_csv_to_sheet(
+                    str(csv_file), spreadsheet_id, safe_sheet_name, replace_existing
+                )
+                results[safe_sheet_name] = success
+                
+                logger.info(f"Uploaded {csv_file.name} to sheet '{safe_sheet_name}'")
+            
+            return results
+        
+        # Fallback to output.csv if no source-specific files found
+        if prefer_output_csv:
+            output_csv = directory / "output.csv"
+            if output_csv.exists():
+                logger.info("No source-specific CSV files found, using output.csv and splitting by source")
+                return self._upload_output_csv_by_source(str(output_csv), spreadsheet_id, replace_existing)
+        
+        # Otherwise, upload any CSV files
         csv_files = list(directory.glob("*.csv"))
         
         if not csv_files:
@@ -85,14 +116,6 @@ class GoogleSheetsService:
         
         logger.info(f"Found {len(csv_files)} CSV files to upload")
         
-        # If prefer_output_csv is True, split output.csv by source
-        if prefer_output_csv:
-            output_csv = directory / "output.csv"
-            if output_csv in csv_files:
-                logger.info("Splitting output.csv by source for separate sheets")
-                return self._upload_output_csv_by_source(str(output_csv), spreadsheet_id, replace_existing)
-        
-        # Otherwise, upload all CSV files
         for csv_file in csv_files:
             # Use filename (without extension) as sheet name
             sheet_name = csv_file.stem
@@ -218,17 +241,12 @@ class GoogleSheetsService:
                 values.append([row.get(field, '') for field in fieldnames])
             
             # Upload to Google Sheets using the existing sync functionality
-            from .google_sheets_sync import GoogleSheetsSync
-            
-            sync = GoogleSheetsSync(self.credentials)
-            
             if replace_existing:
-                # Clear existing sheet and upload new data
-                sync.clear_sheet(spreadsheet_id, sheet_name)
-                success = sync.append_rows(spreadsheet_id, sheet_name, values)
+                # Replace entire sheet with new data
+                success = self.sync.create_or_update_sheet(spreadsheet_id, sheet_name, values, replace_existing=True)
             else:
-                # Just append new data
-                success = sync.append_rows(spreadsheet_id, sheet_name, values)
+                # Append new data to existing sheet
+                success = self.sync.append_data_rows(values[1:], spreadsheet_id, sheet_name, replace_existing=False, headers=values[0])
             
             return success
             

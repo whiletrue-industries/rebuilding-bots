@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
 from botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_extraction_config import PDFExtractionConfig, FieldConfig, SourceConfig
-from botnim.document_parser.dynamic_extractions.pdf_extraction.csv_output import flatten_for_csv, write_csv
+from botnim.document_parser.dynamic_extractions.pdf_extraction.csv_output import flatten_for_csv, write_csv, write_csv_by_source
 from botnim.document_parser.dynamic_extractions.pdf_extraction.field_extraction import extract_fields_from_text
 
 @pytest.fixture
@@ -115,20 +115,89 @@ def test_write_csv():
         {"title": "Doc 1", "content": "Content 1"},
         {"title": "Doc 2", "content": "Content 2"}
     ]
-    fieldnames = ["title", "content"]
     
     with tempfile.TemporaryDirectory() as temp_dir:
-        csv_path = write_csv(data, fieldnames, "Test Source", temp_dir)
+        csv_path = os.path.join(temp_dir, "test_output.csv")
+        result_path = write_csv(data, csv_path)
         
         # Check file exists
-        assert os.path.exists(csv_path)
+        assert os.path.exists(result_path)
         
         # Check file content
-        with open(csv_path, 'r', encoding='utf-8') as f:
+        with open(result_path, 'r', encoding='utf-8') as f:
             content = f.read()
-            assert "title,content" in content
-            assert "Doc 1,Content 1" in content
-            assert "Doc 2,Content 2" in content
+            # Check that both fields are present (order may vary due to sorting)
+            assert '"content"' in content
+            assert '"title"' in content
+            assert '"Doc 1"' in content
+            assert '"Content 1"' in content
+            assert '"Doc 2"' in content
+            assert '"Content 2"' in content
+
+def test_write_csv_by_source():
+    """Test writing separate CSV files by source."""
+    data = [
+        {"source_name": "Source A", "title": "Doc 1", "content": "Content 1", "extra_field": "extra1"},
+        {"source_name": "Source A", "title": "Doc 2", "content": "Content 2", "extra_field": "extra2"},
+        {"source_name": "Source B", "title": "Doc 3", "content": "Content 3", "different_field": "diff1"},
+    ]
+    
+    source_configs = [
+        {
+            "name": "Source A",
+            "fields": [
+                {"name": "title"},
+                {"name": "content"}
+            ]
+        },
+        {
+            "name": "Source B", 
+            "fields": [
+                {"name": "title"},
+                {"name": "different_field"}
+            ]
+        }
+    ]
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        csv_files = write_csv_by_source(data, temp_dir, source_configs)
+        
+        # Check that files were created
+        assert len(csv_files) == 2
+        assert "Source A" in csv_files
+        assert "Source B" in csv_files
+        
+        # Check Source A file
+        source_a_path = csv_files["Source A"]
+        assert os.path.exists(source_a_path)
+        with open(source_a_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            # Check that required fields are present (order may vary)
+            assert '"source_name"' in content
+            assert '"title"' in content
+            assert '"content"' in content
+            assert '"Doc 1"' in content
+            assert '"Content 1"' in content
+            assert '"Doc 2"' in content
+            assert '"Content 2"' in content
+            # Should not include extra_field or different_field
+            assert "extra_field" not in content
+            assert "different_field" not in content
+        
+        # Check Source B file
+        source_b_path = csv_files["Source B"]
+        assert os.path.exists(source_b_path)
+        with open(source_b_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            # Check that required fields are present (order may vary)
+            assert '"source_name"' in content
+            assert '"title"' in content
+            assert '"different_field"' in content
+            assert '"Doc 3"' in content
+            assert '"diff1"' in content
+            # Should not include content or extra_field
+            assert "Content 3" not in content
+            assert "extra_field" not in content
 
 @patch('botnim.document_parser.dynamic_extractions.pdf_extraction.field_extraction.logger')
 def test_extract_fields_from_text_mock(mock_logger):

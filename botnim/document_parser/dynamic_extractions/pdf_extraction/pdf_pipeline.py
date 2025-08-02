@@ -18,7 +18,7 @@ from datetime import datetime
 from .pdf_extraction_config import PDFExtractionConfig
 from .text_extraction import extract_text_from_pdf
 from .field_extraction import extract_fields_from_text
-from .csv_output import write_csv, read_csv
+from .csv_output import write_csv, read_csv, write_csv_by_source
 from .metrics import MetricsCollector
 from .metadata_handler import MetadataHandler
 from .exceptions import PDFExtractionError, PDFTextExtractionError, FieldExtractionError
@@ -117,9 +117,32 @@ class PDFExtractionPipeline:
             all_results.extend(source_results)
             logger.info(f"Source '{source_config.name}': {len(source_results)} records processed")
         
-        # Write output CSV
-        output_csv_path = input_path / "output.csv"
+        # Write output CSV files by source
         if all_results:
+            # Get source configurations for field definitions
+            source_configs = []
+            for source_config in self.config.sources:
+                # Convert FieldConfig objects to dictionaries
+                fields_dict = []
+                for field in source_config.fields:
+                    fields_dict.append({
+                        'name': field.name,
+                        'description': getattr(field, 'description', ''),
+                        'example': getattr(field, 'example', ''),
+                        'hint': getattr(field, 'hint', '')
+                    })
+                
+                source_configs.append({
+                    'name': source_config.name,
+                    'fields': fields_dict
+                })
+            
+            # Write separate CSV files for each source
+            csv_files = write_csv_by_source(all_results, str(input_path), source_configs)
+            logger.info(f"Wrote {len(csv_files)} source-specific CSV files")
+            
+            # Also write combined CSV for backward compatibility
+            output_csv_path = input_path / "output.csv"
             write_csv(all_results, str(output_csv_path))
             logger.info(f"Wrote {len(all_results)} records to output.csv")
         
@@ -187,6 +210,7 @@ class PDFExtractionPipeline:
             records = []
             for data in extracted_data:
                 record = {
+                    'source_name': source_config.name,
                     'source_url': metadata.get('source_url', ''),
                     'extraction_date': datetime.now().isoformat(),
                     'input_file': str(pdf_path),

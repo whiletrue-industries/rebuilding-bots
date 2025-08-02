@@ -356,12 +356,14 @@ The PDF extraction pipeline provides comprehensive tools for extracting structur
 - **Enhanced JSON Schema Validation** - robust client-side validation using jsonschema library with detailed error messages
 - **Source-specific Google Sheets integration** - each source automatically gets its own sheet
 - **Hebrew text handling** with RTL (right-to-left) text direction fixes
+- **OCR Support** - automatic fallback to OCR for image-based PDFs using Tesseract
 - **LLM-based field extraction** using OpenAI GPT-4.1 with JSON response format
 - **Comprehensive testing framework** with unit tests and integration tests
 - **Performance metrics and structured logging**
 - **Robust error handling** with custom exception types
 - **DRY architecture** - clean separation of concerns and reusable components
 - **Modular design** - each component has a single responsibility and can be used independently
+- **Metadata Management** - hash-based filenames for long PDF names to prevent filesystem issues
 
 ### Google Sheets Setup
 
@@ -414,6 +416,9 @@ botnim pdf-extract config.yaml input_dir --source "Ethics Committee Decisions"
 # With Google Sheets integration (ADC) - each source gets its own sheet
 botnim pdf-extract config.yaml input_dir --upload-to-sheets --spreadsheet-id "your-spreadsheet-id" --use-adc
 
+# Complete pipeline example (process PDFs + upload to Google Sheets)
+botnim pdf-extract config.yaml input_dir --spreadsheet-id "your-spreadsheet-id" --use-adc
+
 # With Google Sheets integration (Service Account) - each source gets its own sheet
 botnim pdf-extract config.yaml input_dir --upload-to-sheets --spreadsheet-id "your-spreadsheet-id" --credentials-path "credentials.json"
 
@@ -444,6 +449,14 @@ sources:
 ### Enhanced JSON Schema Validation
 
 The pipeline includes robust client-side JSON schema validation using the `jsonschema` library:
+
+### CSV Field Handling
+
+The pipeline automatically handles different field schemas from multiple sources:
+- **Dynamic Field Collection**: Collects all unique field names from all records across different sources
+- **Proper CSV Quoting**: Uses `csv.QUOTE_ALL` to handle Hebrew text with commas correctly
+- **Source Splitting**: Automatically splits data by `source_name` for separate Google Sheets
+- **Unified Output**: Combines records from different sources with different field schemas into a single CSV
 
 - **Comprehensive Validation**: Validates field types, required fields, and prevents unexpected fields
 - **Detailed Error Messages**: Provides specific field-level error information for debugging
@@ -483,13 +496,16 @@ python run_tests.py
 
 **Test Coverage:**
 - ✅ **Prerequisites** - Environment and dependencies check
-- ✅ **CSV Contract** - Input/output CSV file handling  
+- ✅ **CSV Contract** - Input/output CSV file handling with proper quoting
 - ✅ **Separation of Concerns** - Pipeline without Google Sheets
 - ✅ **Path Resolution** - Absolute, relative, and invalid paths
 - ✅ **OpenAI JSON Format** - JSON response format validation
 - ✅ **JSON Schema Validation** - Enhanced client-side validation with jsonschema
 - ✅ **CLI Integration** - Command-line interface testing
 - ✅ **Google Sheets Integration** - Authentication and upload testing
+- ✅ **OCR Processing** - Image-based PDF handling with Tesseract
+- ✅ **CSV Field Handling** - Multi-source field schema management
+- ✅ **Metadata Management** - Hash-based filename generation
 
 ### Troubleshooting Google Sheets Authentication
 
