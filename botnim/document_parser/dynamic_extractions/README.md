@@ -1,6 +1,6 @@
-# Document Processing Tool
+# Document Processing Pipeline
 
-> **Note:** All main functionality is now accessible via the `botnim` CLI. See the project root `README.md` for high-level usage and examples.
+> **Note:** All main functionality accessible via the `botnim` CLI. See the project root `README.md` for comprehensive usage and examples.
 
 A tool for extracting structured content from HTML legal documents and converting them to individual markdown files.
 
@@ -12,7 +12,7 @@ This tool processes HTML legal documents through three automated stages:
 2. **Content Extraction** - Extracts full content for specified section types (like clauses, chapters, etc.)
 3. **File Generation** - Creates individual markdown files for each content section
 
-## Getting Started
+## Quick Start
 
 The simplest way to process a document:
 
@@ -35,7 +35,7 @@ This will:
 - **`extract_content.py`** - Content extraction (now accessible via `botnim extract-content`)
 - **`generate_markdown_files.py`** - Markdown file generation (now accessible via `botnim generate-markdown-files`)
 
-## Usage
+## CLI Usage
 
 ### Quick Start
 
@@ -86,7 +86,7 @@ botnim/document_parser/dynamic_extractions/logs/
     תקנון הכנסת_structure.json
     תקנון הכנסת_pipeline_metadata.json
     חוק_רציפות_הדיון_בהצעות_חוק_structure.json
-    חוק_רציפות_הדיון_בהצעות_חוק_pipeline_metadata.json
+    חוק_רציפות_הדיון_בהצעות_חוק_structure_pipeline_metadata.json
     chunks/
         תקנון הכנסת_סעיף_1.md
         חוק_רציפות_הדיון_בהצעות_חוק_סעיף_1.md
@@ -105,18 +105,19 @@ botnim/document_parser/dynamic_extractions/logs/
       source: extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
   ```
 
-## Error Handling, Logging, and Advanced Options
-
-See the project root `README.md` for details on error handling, logging, configuration, and advanced usage.
-
 ## Python API (Advanced Use)
 
 While the CLI is preferred for most users, you can also use the Python API directly for advanced workflows:
 
 ```python
-from botnim.document_parser.dynamic_extractions.generate_markdown_files import generate_markdown_from_json
+from .generate_markdown_files import generate_markdown_from_json
 markdown_dict = generate_markdown_from_json("specs/takanon/extraction/your_document_structure_content.json")
 ```
+
+## Related Components
+
+- **PDF Extraction Pipeline**: See `pdf_extraction/` directory for PDF processing capabilities
+- **Testing**: See `pdf_extraction/test/` for comprehensive test suites
 
 ---
 

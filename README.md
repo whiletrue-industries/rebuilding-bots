@@ -4,6 +4,16 @@
 
 This is a repository for the rebuilding anew bots (bot-nim).
 
+### Recent Improvements
+
+The PDF extraction pipeline has been significantly enhanced with:
+- **Enhanced JSON Schema Validation** - robust client-side validation using jsonschema library with detailed error messages
+- **Source-specific Google Sheets integration** - each source automatically gets its own sheet
+- **DRY architecture** - clean separation of concerns and reusable components  
+- **Comprehensive testing** - full test suite covering all aspects of the pipeline
+- **Robust error handling** - graceful handling of edge cases and API limits
+- **Performance monitoring** - detailed metrics and structured logging
+
 ## Getting Started
 
 ```bash
@@ -125,6 +135,18 @@ python backend/es/demo-query-es.py "your query" local
     - `extract_structure.py`: Structure extraction (now accessible via `botnim extract-structure`)
     - `extract_content.py`: Content extraction (now accessible via `botnim extract-content`)
     - `generate_markdown_files.py`: Markdown generation (now accessible via `botnim generate-markdown-files`)
+    - `pdf_extraction/`: PDF extraction and Google Sheets sync pipeline
+      - `pdf_pipeline.py`: Main orchestration pipeline (now accessible via `botnim pdf-extract`)
+      - `text_extraction.py`: PDF text extraction with Hebrew RTL fixes
+      - `field_extraction.py`: LLM-based structured data extraction with enhanced JSON schema validation
+      - `google_sheets_service.py`: High-level Google Sheets service wrapper
+      - `google_sheets_sync.py`: Low-level Google Sheets API operations
+      - `csv_output.py`: CSV generation and data flattening
+      - `metrics.py`: Performance metrics and structured logging
+      - `metadata_handler.py`: Metadata management for PDF files
+      - `pdf_extraction_config.py`: Configuration models and YAML loading
+      - `exceptions.py`: Custom exception classes for error handling
+      - `test/`: Comprehensive test suite with sample PDFs
     - `logs/`: Intermediate and output files (structure.json, pipeline metadata, markdown chunks)
 - `ui/`: DEPRECATED: User interface for the bots.
 
@@ -268,28 +290,43 @@ Running the benchmark in production is best done using the action in the GitHub 
 For running locally:
 `botnim benchmarks {staging/production} {budgetkey/takanon} {TRUE/FALSE whether to save results locally}`
 
-## Document Extraction and Sync (Updated)
+## Document Processing Pipeline
 
-- The document processing pipeline now saves only the final `*_structure_content.json` files in the `specs/takanon/extraction/` folder. These are the only files required for sync/ingestion.
-- All intermediate files (structure.json, pipeline metadata, and markdown files if generated) are saved in `botnim/document_parser/dynamic_extractions/logs/`.
-- Markdown files are **not required** for sync—they are only for manual inspection.
-- To generate markdown files for manual inspection, use the `--generate-markdown` flag with the pipeline:
+The document processing pipeline extracts structured content from HTML legal documents and converts them to individual markdown files.
 
-```bash
-botnim process-document botnim/document_parser/extract_sources/חוק הכנסת.html specs/takanon/extraction/ --generate-markdown
-```
-
-- For advanced/manual markdown generation, you can use the CLI directly:
+### Quick Start
 
 ```bash
-botnim generate-markdown-files specs/takanon/extraction/חוק הכנסת_structure_content.json --write-files --output-dir botnim/document_parser/dynamic_extractions/logs/chunks/
+# Process a document with markdown generation
+botnim process-document botnim/document_parser/extract_sources/your_document.html specs/takanon/extraction/ --generate-markdown
 ```
 
-  - Use `--write-files` to actually write files to disk.
-  - Use `--dry-run` to preview what would be generated, without writing files.
-  - If neither flag is provided, markdown content is generated in memory (for programmatic use).
+### Advanced Usage
 
-- The pipeline and CLI both support in-memory markdown generation for direct ingestion or further processing in automated workflows.
+- Structure extraction only:
+  ```bash
+  botnim extract-structure "botnim/document_parser/extract_sources/your_document.html" "botnim/document_parser/dynamic_extractions/logs/your_document_structure.json"
+  ```
+- Content extraction only:
+  ```bash
+  botnim extract-content "botnim/document_parser/extract_sources/your_document.html" "botnim/document_parser/dynamic_extractions/logs/your_document_structure.json" "סעיף" --output specs/takanon/extraction/your_document_structure_content.json
+  ```
+- Markdown generation only:
+  ```bash
+  botnim generate-markdown-files specs/takanon/extraction/your_document_structure_content.json --write-files --output-dir botnim/document_parser/dynamic_extractions/logs/chunks/
+  ```
+
+### Output Structure
+
+The pipeline produces outputs as follows:
+
+- **In the output directory you specify:**
+  - Only the final `*_structure_content.json` file is saved here. This is the file used for downstream sync/ingestion.
+- **In the logs directory (`botnim/document_parser/dynamic_extractions/logs/`):**
+  - All intermediate files, including:
+    - `*_structure.json` (document structure)
+    - `*_pipeline_metadata.json` (execution metadata)
+    - `chunks/` (markdown files, if generated)
 
 ### Example Directory Layout
 
@@ -302,12 +339,190 @@ botnim/document_parser/dynamic_extractions/logs/
     תקנון הכנסת_structure.json
     תקנון הכנסת_pipeline_metadata.json
     חוק_רציפות_הדיון_בהצעות_חוק_structure.json
-    חוק_רציפות_הדיון_בהצעות_חוק_pipeline_metadata.json
+    חוק_רציפות_הדיון_בהצעות_חוק_structure_pipeline_metadata.json
     chunks/
         תקנון הכנסת_סעיף_1.md
         חוק_רציפות_הדיון_בהצעות_חוק_סעיף_1.md
         ...
 ```
+
+## PDF Extraction Pipeline
+
+The PDF extraction pipeline provides comprehensive tools for extracting structured data from Hebrew PDFs and syncing to Google Sheets.
+
+### Features
+
+- **Multi-source PDF processing** with configurable extraction schemas
+- **Enhanced JSON Schema Validation** - robust client-side validation using jsonschema library with detailed error messages
+- **Source-specific Google Sheets integration** - each source automatically gets its own sheet
+- **Hebrew text handling** with RTL (right-to-left) text direction fixes
+- **LLM-based field extraction** using OpenAI GPT-4.1 with JSON response format
+- **Comprehensive testing framework** with unit tests and integration tests
+- **Performance metrics and structured logging**
+- **Robust error handling** with custom exception types
+- **DRY architecture** - clean separation of concerns and reusable components
+- **Modular design** - each component has a single responsibility and can be used independently
+
+### Google Sheets Setup
+
+To use Google Sheets integration, you need to set up authentication:
+
+#### Method 1: Application Default Credentials (Recommended)
+
+```bash
+# Install Google Cloud CLI
+gcloud auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/spreadsheets
+```
+
+**Important**: The `cloud-platform` scope is required by Google Cloud, and the `spreadsheets` scope is needed for Google Sheets API access.
+
+#### Method 2: Service Account Key
+
+1. **Create a Google Cloud Project** (or use an existing one)
+2. **Enable the Google Sheets API**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Navigate to "APIs & Services" > "Library"
+   - Search for "Google Sheets API" and enable it
+
+3. **Create a Service Account**:
+   - Go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "Service Account"
+   - Fill in the service account details
+   - Click "Create and Continue"
+
+4. **Generate JSON Key**:
+   - In the service account list, click on your new service account
+   - Go to the "Keys" tab
+   - Click "Add Key" > "Create New Key"
+   - Choose "JSON" format
+   - Download the JSON file
+
+5. **Share Your Spreadsheet**:
+   - Open your Google Spreadsheet
+   - Click "Share" and add your service account email (found in the JSON file)
+   - Give it "Editor" permissions
+
+### Usage
+
+```bash
+# Process PDFs using a configuration file
+botnim pdf-extract config.yaml input_dir
+
+# Process specific source only
+botnim pdf-extract config.yaml input_dir --source "Ethics Committee Decisions"
+
+# With Google Sheets integration (ADC) - each source gets its own sheet
+botnim pdf-extract config.yaml input_dir --upload-to-sheets --spreadsheet-id "your-spreadsheet-id" --use-adc
+
+# With Google Sheets integration (Service Account) - each source gets its own sheet
+botnim pdf-extract config.yaml input_dir --upload-to-sheets --spreadsheet-id "your-spreadsheet-id" --credentials-path "credentials.json"
+
+# With additional options (--sheet-name is deprecated, each source gets its own sheet)
+botnim pdf-extract config.yaml input_dir --verbose --no-metrics --replace-sheet
+```
+
+### Configuration
+
+The pipeline uses YAML configuration files to define PDF sources and extraction schemas. Each source will automatically get its own sheet in Google Sheets when using the `--upload-to-sheets` option:
+
+```yaml
+sources:
+  - name: "Ethics Committee Decisions"
+    description: "Decisions of the Knesset Ethics Committee"
+    file_pattern: "ethics_decisions/*.pdf"
+    unique_id_field: "source_url"
+    fields:
+      - name: "decision_date"
+        description: "Date of the ethics decision"
+        example: "2023-05-12"
+      - name: "member_name"
+        description: "Name of the Knesset member"
+        example: "יוסי כהן"
+    extraction_instructions: "Extract the specified fields from the document text..."
+```
+
+### Enhanced JSON Schema Validation
+
+The pipeline includes robust client-side JSON schema validation using the `jsonschema` library:
+
+- **Comprehensive Validation**: Validates field types, required fields, and prevents unexpected fields
+- **Detailed Error Messages**: Provides specific field-level error information for debugging
+- **Required Dependency**: jsonschema is now a required dependency for robust validation
+- **Performance Optimized**: Minimal overhead with fast validation processing
+
+**Validation Features**:
+- ✅ Field type validation (all fields must be strings)
+- ✅ Required field validation (all configured fields must be present)
+- ✅ Unexpected field prevention (`additionalProperties: false`)
+- ✅ Array and single object support
+- ✅ Detailed error reporting with field paths
+
+**Example Validation Error**:
+```
+JSON schema validation failed:
+  - content: 'content' is a required property
+  - extra_field: Additional properties are not allowed ('extra_field' was unexpected)
+```
+
+### Testing
+
+```bash
+# Run comprehensive integration tests (covers all PR feedback points)
+cd botnim/document_parser/dynamic_extractions/pdf_extraction/test
+python test_integration.py
+
+# Run unit tests for field extraction with schema validation
+python test_field_extraction.py
+
+# Run unit tests only
+python -m pytest test_pdf_extraction.py -v
+
+# Run specific test components
+python run_tests.py
+```
+
+**Test Coverage:**
+- ✅ **Prerequisites** - Environment and dependencies check
+- ✅ **CSV Contract** - Input/output CSV file handling  
+- ✅ **Separation of Concerns** - Pipeline without Google Sheets
+- ✅ **Path Resolution** - Absolute, relative, and invalid paths
+- ✅ **OpenAI JSON Format** - JSON response format validation
+- ✅ **JSON Schema Validation** - Enhanced client-side validation with jsonschema
+- ✅ **CLI Integration** - Command-line interface testing
+- ✅ **Google Sheets Integration** - Authentication and upload testing
+
+### Troubleshooting Google Sheets Authentication
+
+If you encounter authentication errors like "Request had insufficient authentication scopes":
+
+1. **Re-authenticate with proper scopes**:
+   ```bash
+   gcloud auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/spreadsheets
+   ```
+
+2. **Verify your Google Cloud project has Google Sheets API enabled**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Navigate to "APIs & Services" > "Library"
+   - Search for "Google Sheets API" and ensure it's enabled
+
+3. **Check spreadsheet permissions**:
+   - Ensure your Google account has "Editor" access to the target spreadsheet
+   - If using a service account, make sure the service account email is added as an editor
+
+4. **Common error messages and solutions**:
+   - `ACCESS_TOKEN_SCOPE_INSUFFICIENT`: Re-authenticate with the correct scopes
+   - `PERMISSION_DENIED`: Check spreadsheet sharing permissions
+   - `API not enabled`: Enable Google Sheets API in your Google Cloud project
+
+### Performance Monitoring
+
+The pipeline automatically collects performance metrics:
+- Processing time per PDF
+- Text extraction vs field extraction time
+- Success rates and error tracking
+- Detailed logs in JSON format
+
+Results are saved to `pipeline_metrics.json` and displayed as a summary at the end of processing.
 
 ## Configuration for Sync
 
@@ -319,14 +534,6 @@ botnim/document_parser/dynamic_extractions/logs/
     - type: split
       source: extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
   ```
-
-## Manual Markdown Generation
-
-- To generate markdown files for manual review, run:
-  ```bash
-  botnim process-document botnim/document_parser/extract_sources/חוק הכנסת.html specs/takanon/extraction/ --generate-markdown
-  ```
-- Markdown files will be written to `botnim/document_parser/dynamic_extractions/logs/chunks/`.
 
 ## Context Specification
 
@@ -345,24 +552,28 @@ botnim/document_parser/dynamic_extractions/logs/
   ```
 
 ## Tools
+
 ### CLI Assistant
-- `botnim/cli_assistant.py`: Interactive CLI tool for chatting with OpenAI assistants (supports RTL languages)
 
 The botnim assistant command provides an interactive chat interface with OpenAI assistants:
 
+```bash
 # Basic usage - will show list of available assistants
-```bash
 botnim assistant
-```
+
 # Start chat with a specific assistant
-```bash
 botnim assistant --assistant-id <assistant-id>
-```
+
 # Enable RTL support for Hebrew
-```bash
 botnim assistant --rtl
-```
+
 # Choose environment for vector search
-```bash
 botnim assistant --environment production  # or staging (default)
 ```
+
+## Additional Documentation
+
+For more detailed information about specific components:
+
+- **PDF Extraction Testing**: See `botnim/document_parser/dynamic_extractions/pdf_extraction/test/README.md` for detailed testing procedures
+- **Document Processing**: See `botnim/document_parser/dynamic_extractions/README.md` for advanced document processing workflows

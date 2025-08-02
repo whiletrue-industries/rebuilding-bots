@@ -2,9 +2,10 @@ import click
 import sys
 from pathlib import Path
 import json
+import logging
 
-from botnim.vector_store.vector_store_es import VectorStoreES
-from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
+from .vector_store.vector_store_es import VectorStoreES
+from .vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 from .sync import sync_agents
 from .benchmark.runner import run_benchmarks
 from .benchmark.evaluate_metrics_cli import evaluate
@@ -17,6 +18,8 @@ from .document_parser.dynamic_extractions.extract_structure import extract_struc
 from .document_parser.dynamic_extractions.extract_content import extract_content_from_html
 from .document_parser.dynamic_extractions.generate_markdown_files import generate_markdown_from_json
 from .document_parser.dynamic_extractions.pipeline_config import Environment
+from .document_parser.dynamic_extractions.pdf_extraction.pdf_pipeline import PDFExtractionPipeline
+from .document_parser.dynamic_extractions.pdf_extraction.google_sheets_service import GoogleSheetsService
 
 logger = get_logger(__name__)
 
@@ -255,6 +258,192 @@ def generate_markdown_files_cmd(json_file, output_dir, write_files, dry_run):
         write_files=write_files,
         dry_run=dry_run
     )
+
+@cli.command(name='pdf-extract')
+@click.argument('config_file')
+@click.argument('input_dir')
+@click.option('--source', help='Process specific source (default: process all)')
+@click.option('--environment', default='staging', help='API environment (default: staging)')
+@click.option('--verbose', is_flag=True, help='Enable verbose logging')
+@click.option('--no-metrics', is_flag=True, help='Disable performance metrics collection')
+@click.option('--upload-to-sheets', is_flag=True, help='Upload results to Google Sheets after processing')
+@click.option('--spreadsheet-id', help='Google Sheets spreadsheet ID for upload')
+@click.option('--replace-sheet', is_flag=True, help='Replace existing sheet instead of appending')
+@click.option('--use-adc', is_flag=True, help='Use Application Default Credentials instead of service account key')
+@click.option('--credentials-path', help='Path to service account credentials file (if not using ADC)')
+@click.option('--pdfs-only', is_flag=True, help='Process PDFs only, no Google Sheets upload')
+@click.option('--upload-only', is_flag=True, help='Upload CSV files only, no PDF processing')
+def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_metrics, 
+                   upload_to_sheets, spreadsheet_id, replace_sheet, use_adc, credentials_path,
+                   pdfs_only, upload_only):
+    """Extract structured data from PDFs using LLM with CSV-based contract.
+    
+    Input directory should contain:
+    - input.csv (optional, existing data)
+    - *.pdf files
+    - *.pdf.metadata.json files (optional)
+    
+    Output will be written to output.csv in the same directory.
+    
+    MODES:
+    - Default: Process PDFs and optionally upload to Google Sheets
+    - --pdfs-only: Process PDFs only, no cloud storage
+    - --upload-only: Upload existing CSV files to Google Sheets only
+    """
+    # Setup logging
+    log_level = logging.INFO if verbose else logging.WARNING
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    try:
+        # Validate arguments
+        if not Path(config_file).exists():
+            click.echo(f"Error: Configuration file not found: {config_file}", err=True)
+            sys.exit(1)
+        
+        if not Path(input_dir).exists():
+            click.echo(f"Error: Input directory not found: {input_dir}", err=True)
+            sys.exit(1)
+        
+        # Determine workflow mode
+        if pdfs_only:
+            # PDF processing only - CSV contract pattern
+            click.echo("🚀 PDF processing only (CSV contract pattern)")
+            success = _process_pdfs_only(config_file, input_dir, environment, verbose, no_metrics)
+        elif upload_only:
+            # Google Sheets upload only
+            if not spreadsheet_id:
+                click.echo("Error: --spreadsheet-id is required for upload-only mode", err=True)
+                sys.exit(1)
+            click.echo("📊 Google Sheets upload only")
+            success = _upload_to_sheets_only(input_dir, spreadsheet_id, use_adc, credentials_path, replace_sheet, verbose)
+        else:
+            # Complete workflow with separation of concerns
+            if upload_to_sheets and not spreadsheet_id:
+                click.echo("Error: --spreadsheet-id is required when --upload-to-sheets is specified", err=True)
+                sys.exit(1)
+            
+            click.echo("🔄 Complete workflow (PDF processing + optional Google Sheets upload)")
+            success = _process_and_upload(
+                config_file, input_dir, source, environment, verbose, no_metrics,
+                upload_to_sheets, spreadsheet_id, replace_sheet, use_adc, credentials_path
+            )
+        
+        if success:
+            click.echo("✅ Operation completed successfully")
+        else:
+            click.echo("❌ Operation completed with errors")
+            sys.exit(1)
+            
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        sys.exit(1)
+
+def _process_pdfs_only(config_file: str, input_dir: str, environment: str, verbose: bool, no_metrics: bool) -> bool:
+    """
+    Process PDFs only - CSV contract pattern.
+    
+    This demonstrates the separation of concerns:
+    - Input: input.csv (optional) + PDF files + metadata
+    - Output: output.csv
+    - No cloud storage coupling
+    """
+    try:
+        # Initialize pipeline (no Google Sheets coupling)
+        openai_client = get_openai_client(environment)
+        pipeline = PDFExtractionPipeline(config_file, openai_client, enable_metrics=not no_metrics)
+        
+        # Process directory following CSV contract
+        success = pipeline.process_directory(input_dir)
+        
+        if success:
+            click.echo("✅ PDF processing completed successfully")
+            click.echo("📁 Output: output.csv")
+            click.echo("📊 Metrics: pipeline_metrics.json")
+        else:
+            click.echo("❌ PDF processing failed")
+        
+        return success
+        
+    except Exception as e:
+        click.echo(f"❌ PDF processing error: {e}", err=True)
+        return False
+
+def _upload_to_sheets_only(input_dir: str, spreadsheet_id: str, use_adc: bool, 
+                          credentials_path: str, replace_sheet: bool, verbose: bool) -> bool:
+    """
+    Upload CSV files to Google Sheets only - no PDF processing.
+    
+    This demonstrates the separation of concerns:
+    - Input: CSV files in directory
+    - Output: Google Sheets upload
+    """
+    try:
+        # Initialize Google Sheets service (no PDF coupling)
+        sheets_service = GoogleSheetsService(
+            credentials_path=credentials_path,
+            use_adc=use_adc
+        )
+        
+        # Upload CSV files (prioritizing output.csv from CSV contract pattern)
+        results = sheets_service.upload_directory_csvs(
+            input_dir, spreadsheet_id, replace_existing=replace_sheet, prefer_output_csv=True
+        )
+        
+        # Report results
+        successful = sum(1 for success in results.values() if success)
+        total = len(results)
+        
+        click.echo(f"📈 Upload results: {successful}/{total} files uploaded successfully")
+        
+        for sheet_name, success in results.items():
+            status = "✅" if success else "❌"
+            click.echo(f"{status} {sheet_name}")
+        
+        return successful == total
+        
+    except Exception as e:
+        click.echo(f"❌ Google Sheets upload error: {e}", err=True)
+        return False
+
+def _process_and_upload(config_file: str, input_dir: str, source: str, environment: str, 
+                       verbose: bool, no_metrics: bool, upload_to_sheets: bool, 
+                       spreadsheet_id: str, replace_sheet: bool, use_adc: bool, 
+                       credentials_path: str) -> bool:
+    """
+    Process PDFs and optionally upload to Google Sheets as separate steps.
+    
+    This demonstrates the complete workflow with separation of concerns:
+    1. Process PDFs -> output.csv
+    2. Upload output.csv -> Google Sheets (if requested)
+    """
+    try:
+        # Step 1: Process PDFs
+        click.echo("📄 Step 1: Processing PDFs...")
+        pdf_success = _process_pdfs_only(config_file, input_dir, environment, verbose, no_metrics)
+        
+        if not pdf_success:
+            click.echo("❌ PDF processing failed, skipping Google Sheets upload", err=True)
+            return False
+        
+        # Step 2: Upload to Google Sheets (if requested)
+        if upload_to_sheets:
+            click.echo("📊 Step 2: Uploading to Google Sheets...")
+            sheets_success = _upload_to_sheets_only(
+                input_dir, spreadsheet_id, use_adc, credentials_path, replace_sheet, verbose
+            )
+            
+            if not sheets_success:
+                click.echo("❌ Google Sheets upload failed", err=True)
+                return False
+        
+        return True
+        
+    except Exception as e:
+        click.echo(f"❌ Complete workflow error: {e}", err=True)
+        return False
 
 def main():
     cli()

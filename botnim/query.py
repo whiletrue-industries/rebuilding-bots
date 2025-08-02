@@ -2,10 +2,10 @@ import os
 from pathlib import Path
 from typing import List, Dict, Union, Optional, Any
 from dataclasses import dataclass
-from botnim.vector_store.vector_store_es import VectorStoreES
-from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, is_production
-from botnim.vector_store.search_config import SearchModeConfig
-from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
+from .vector_store.vector_store_es import VectorStoreES
+from .config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, is_production
+from .vector_store.search_config import SearchModeConfig
+from .vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 import yaml
 import json
 
