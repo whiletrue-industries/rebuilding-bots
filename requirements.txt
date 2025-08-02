@@ -17,3 +17,8 @@ pydantic>=2.0.0
 click>=8.0.0
 jsonschema>=4.17.0
 markdownify
+
+# OCR dependencies for image-based PDFs (optional)
+pytesseract
+Pillow
+PyMuPDF

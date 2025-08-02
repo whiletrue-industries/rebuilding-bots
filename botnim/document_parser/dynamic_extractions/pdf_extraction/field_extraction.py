@@ -83,8 +83,12 @@ IMPORTANT: Return ONLY a JSON object with the exact field names specified above.
         content = response.choices[0].message.content
         logger.info("Received JSON response from OpenAI.")
         
+        # Log the raw response for debugging
+        logger.debug(f"Raw LLM response: {content}")
+        
         try:
             data = json.loads(content)
+            logger.debug(f"Parsed JSON data: {data}")
         except json.JSONDecodeError as e:
             raise FieldExtractionError(f"Failed to parse JSON from LLM response: {e}\nResponse was: {content}")
         except Exception as e:
@@ -246,7 +250,25 @@ def fix_validation_issues(item: Dict[str, Any], schema: Dict[str, Any], config: 
     required_fields = schema.get("required", [])
     properties = schema.get("properties", {})
     
-    # Fix missing required fields
+    # Check if this is an empty response (serious LLM failure)
+    if not item or len(item) == 0:
+        raise PDFValidationError("LLM returned empty response - this indicates a serious extraction failure")
+    
+    # Count how many fields are missing
+    missing_fields = []
+    for field_name in required_fields:
+        if field_name not in fixed_item or fixed_item[field_name] is None:
+            missing_fields.append(field_name)
+    
+    # If ALL fields are missing, this is likely an LLM failure
+    if len(missing_fields) == len(required_fields):
+        raise PDFValidationError(f"LLM failed to extract any fields. All {len(required_fields)} required fields are missing: {missing_fields}")
+    
+    # If most fields are missing (>80%), this is suspicious
+    if len(missing_fields) > len(required_fields) * 0.8:
+        logger.warning(f"LLM extracted very few fields. Missing {len(missing_fields)}/{len(required_fields)} fields: {missing_fields}")
+    
+    # Fix missing required fields (only for reasonable cases)
     for field_name in required_fields:
         if field_name not in fixed_item or fixed_item[field_name] is None:
             # Try to find a similar field name

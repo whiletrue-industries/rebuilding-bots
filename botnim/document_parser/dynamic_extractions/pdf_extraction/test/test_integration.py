@@ -55,7 +55,7 @@ class PDFExtractionIntegrationTest:
         """Check if botnim CLI is available."""
         try:
             result = subprocess.run(
-                ["python", "-m", "botnim", "--help"],
+                ["botnim", "--help"],
                 capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
@@ -375,7 +375,7 @@ class PDFExtractionIntegrationTest:
         try:
             # Test CLI help
             result = subprocess.run(
-                ["python", "-m", "botnim", "pdf-extract", "--help"],
+                ["botnim", "pdf-extract", "--help"],
                 capture_output=True, text=True, timeout=10
             )
             
@@ -408,7 +408,7 @@ class PDFExtractionIntegrationTest:
             logger.info("  Testing CLI command execution...")
             result = subprocess.run(
                 [
-                    "python", "-m", "botnim", "pdf-extract",
+                    "botnim", "pdf-extract",
                     str(self.test_config),
                     str(self.test_input),
                     "--no-metrics"

@@ -38,7 +38,8 @@ class MetadataHandler:
             Dictionary containing metadata
         """
         # Look for metadata file with same name as PDF
-        metadata_path = self.input_directory / f"{pdf_path.stem}.pdf.metadata.json"
+        # Use hash for long filenames to avoid filesystem limits
+        metadata_path = self._get_metadata_path(pdf_path)
         
         if metadata_path.exists():
             try:
@@ -85,6 +86,33 @@ class MetadataHandler:
             return True
         
         return False
+    
+    def _get_metadata_path(self, pdf_path: Path) -> Path:
+        """
+        Get the metadata file path for a PDF, using hash for long filenames.
+        
+        Args:
+            pdf_path: Path to PDF file
+            
+        Returns:
+            Path to metadata file
+        """
+        import hashlib
+        
+        # Create metadata file in the same directory as the PDF
+        pdf_directory = pdf_path.parent
+        
+        # Check if filename is too long (>50 characters) - be more conservative
+        if len(pdf_path.stem) > 50:
+            # Use hash of the filename to create a shorter metadata filename
+            filename_hash = hashlib.md5(pdf_path.stem.encode('utf-8')).hexdigest()[:16]
+            metadata_filename = f"{filename_hash}.pdf.metadata.json"
+            logger.info(f"Using hash-based metadata filename for long PDF name: {metadata_filename}")
+        else:
+            # Use original filename for shorter names
+            metadata_filename = f"{pdf_path.stem}.pdf.metadata.json"
+        
+        return pdf_directory / metadata_filename
     
     def resolve_template_variables(self, template: str, pdf_path: Path, file_metadata: Dict[str, Any]) -> str:
         """
@@ -224,7 +252,7 @@ class MetadataHandler:
         Returns:
             True if update was successful, False otherwise
         """
-        metadata_path = self.input_directory / f"{pdf_path.stem}.pdf.metadata.json"
+        metadata_path = self._get_metadata_path(pdf_path)
         
         try:
             # Load existing metadata or create new

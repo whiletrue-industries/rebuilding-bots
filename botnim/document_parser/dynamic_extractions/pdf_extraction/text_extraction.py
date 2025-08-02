@@ -6,12 +6,17 @@ This module is responsible for extracting text from PDF files using pdfplumber a
 
 import logging
 import os
+import io
 from typing import Optional
 from pathlib import Path
 from .exceptions import PDFTextExtractionError
 import pdfplumber
 from pdfminer.high_level import extract_text
 from botnim.config import get_logger
+
+import pytesseract
+from PIL import Image
+import fitz  # PyMuPDF
 
 logger = get_logger(__name__)
 
@@ -39,6 +44,58 @@ def extract_text_with_pdfplumber(pdf_path: Path) -> str:
         if isinstance(e, PDFTextExtractionError):
             raise
         raise PDFTextExtractionError(f"Failed to extract text from PDF {pdf_path}: {str(e)}")
+
+def extract_text_with_ocr(pdf_path: Path) -> str:
+    """
+    Extract text from image-based PDFs using OCR (Optical Character Recognition).
+    
+    Args:
+        pdf_path: Path to PDF file
+        
+    Returns:
+        Extracted text from OCR
+        
+    Raises:
+        PDFTextExtractionError: When OCR extraction fails
+    """
+    try:
+        text = ""
+        doc = fitz.open(str(pdf_path))
+        
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            
+            # Get page as image
+            mat = fitz.Matrix(2, 2)  # Scale up for better OCR
+            pix = page.get_pixmap(matrix=mat)
+            img_data = pix.tobytes("png")
+            
+            # Convert to PIL Image
+            img = Image.open(io.BytesIO(img_data))
+            
+            # Extract text using OCR with Hebrew language support
+            page_text = pytesseract.image_to_string(
+                img, 
+                lang='heb+eng',  # Hebrew + English
+                config='--psm 6'  # Assume uniform block of text
+            )
+            
+            logger.info(f"Extracted {len(page_text)} characters from page {page_num+1} using OCR")
+            text += page_text + "\n"
+        
+        doc.close()
+        
+        if not text.strip():
+            raise PDFTextExtractionError(f"OCR extraction returned no text from PDF {pdf_path}")
+        
+        # Fix Hebrew text direction issues
+        text = fix_hebrew_text_direction(text)
+        return text
+        
+    except Exception as e:
+        if isinstance(e, PDFTextExtractionError):
+            raise
+        raise PDFTextExtractionError(f"Failed to extract text with OCR from PDF {pdf_path}: {str(e)}")
 
 def fix_hebrew_text_direction(text: str) -> str:
     """
@@ -141,10 +198,23 @@ def extract_text_from_pdf(pdf_path: str, client=None, model: str = "gpt-4.1", en
             logger.info("Successfully extracted text with pdfminer.six.")
             return text
         else:
-            logger.error("pdfminer.six also returned empty text.")
-            raise ValueError(f"Both pdfplumber and pdfminer.six returned empty text for {pdf_path}. The PDF might be password-protected, contain only images, or be corrupted.")
+            logger.warning("pdfminer.six also returned empty text. Trying OCR...")
     except Exception as e:
-        logger.error(f"pdfminer.six failed: {e}")
-        raise ValueError(f"Failed to extract text from {pdf_path} with both pdfplumber and pdfminer.six. Error: {e}")
+        logger.warning(f"pdfminer.six failed: {e}. Trying OCR...")
+    
+    # Final fallback to OCR for image-based PDFs
+    try:
+        logger.info("Attempting OCR extraction for image-based PDF...")
+        text = extract_text_with_ocr(pdf_path)
+        if text.strip():
+            logger.info("Successfully extracted text with OCR.")
+            return text
+        else:
+            logger.error("OCR also returned empty text.")
+    except Exception as e:
+        logger.error(f"OCR extraction failed: {e}")
+    
+    # If all methods failed
+    raise PDFTextExtractionError(f"Failed to extract text from {pdf_path} with pdfplumber, pdfminer.six, and OCR. The PDF might be password-protected, corrupted, or contain no extractable content.")
 
  
