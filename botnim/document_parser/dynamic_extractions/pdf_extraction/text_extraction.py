@@ -88,8 +88,8 @@ def extract_text_with_ocr(pdf_path: Path) -> str:
         if not text.strip():
             raise PDFTextExtractionError(f"OCR extraction returned no text from PDF {pdf_path}")
         
-        # Fix Hebrew text direction issues
-        text = fix_hebrew_text_direction(text)
+        # Fix Hebrew text direction issues (OCR-specific handling)
+        text = fix_hebrew_text_direction(text, is_ocr=True)
         return text
         
     except Exception as e:
@@ -97,10 +97,14 @@ def extract_text_with_ocr(pdf_path: Path) -> str:
             raise
         raise PDFTextExtractionError(f"Failed to extract text with OCR from PDF {pdf_path}: {str(e)}")
 
-def fix_hebrew_text_direction(text: str) -> str:
+def fix_hebrew_text_direction(text: str, is_ocr: bool = False) -> str:
     """
     Fix Hebrew text direction issues that commonly occur in PDF extraction.
     This handles cases where Hebrew text appears reversed or with incorrect character ordering.
+    
+    Args:
+        text: The text to fix
+        is_ocr: Whether this text was extracted using OCR (affects the fixing strategy)
     """
     if not text:
         return text
@@ -110,10 +114,53 @@ def fix_hebrew_text_direction(text: str) -> str:
     if hebrew_chars < len(text) * 0.1:  # Less than 10% Hebrew, probably not Hebrew text
         return text
     
-    # First, fix line-level word ordering (reverse words in Hebrew lines)
-    text = reverse_hebrew_line_order(text)
-    
-    # Then, fix character-level ordering within words
+    if is_ocr:
+        # For OCR text, only fix character-level ordering within words
+        # OCR usually gets word order and line order correct, but characters within words are reversed
+        return fix_ocr_hebrew_text(text)
+    else:
+        # For regular PDF extraction, apply both line-level and character-level fixes
+        # First, fix line-level word ordering (reverse words in Hebrew lines)
+        text = reverse_hebrew_line_order(text)
+        
+        # Then, fix character-level ordering within words
+        lines = text.split('\n')
+        fixed_lines = []
+        
+        for line in lines:
+            if not line.strip():
+                fixed_lines.append(line)
+                continue
+            
+            # Check if line contains Hebrew
+            hebrew_in_line = sum(1 for c in line if '\u0590' <= c <= '\u05FF')
+            if hebrew_in_line < len(line) * 0.3:  # Less than 30% Hebrew in line
+                fixed_lines.append(line)
+                continue
+            
+            # For Hebrew-heavy lines, try to fix character ordering
+            words = line.split()
+            fixed_words = []
+            
+            for word in words:
+                # Check if word is primarily Hebrew
+                hebrew_in_word = sum(1 for c in word if '\u0590' <= c <= '\u05FF')
+                if hebrew_in_word > len(word) * 0.5:  # More than 50% Hebrew
+                    # Reverse the word to fix character ordering
+                    fixed_words.append(word[::-1])
+                else:
+                    fixed_words.append(word)
+            
+            fixed_lines.append(' '.join(fixed_words))
+        
+        return '\n'.join(fixed_lines)
+
+
+def fix_ocr_hebrew_text(text: str) -> str:
+    """
+    Fix Hebrew text direction issues specifically for OCR-extracted text.
+    OCR text typically has correct word order and line order, but characters within Hebrew words are reversed.
+    """
     lines = text.split('\n')
     fixed_lines = []
     
@@ -128,8 +175,8 @@ def fix_hebrew_text_direction(text: str) -> str:
             fixed_lines.append(line)
             continue
         
-        # For Hebrew-heavy lines, try to fix character ordering
-        # This is a simple approach - in practice, you might need more sophisticated RTL handling
+        # For OCR text, only fix character ordering within Hebrew words
+        # Don't reverse word order or line order
         words = line.split()
         fixed_words = []
         
