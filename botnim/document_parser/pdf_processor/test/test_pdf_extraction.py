@@ -5,9 +5,9 @@ import json
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_extraction_config import PDFExtractionConfig, FieldConfig, SourceConfig
-from botnim.document_parser.dynamic_extractions.pdf_extraction.csv_output import flatten_for_csv, write_csv, write_csv_by_source
-from botnim.document_parser.dynamic_extractions.pdf_extraction.field_extraction import extract_fields_from_text
+from botnim.document_parser.pdf_processor.pdf_extraction_config import PDFExtractionConfig, FieldConfig, SourceConfig
+from botnim.document_parser.pdf_processor.csv_output import flatten_for_csv, write_csv, write_csv_by_source
+from botnim.document_parser.pdf_processor.field_extraction import extract_fields_from_text
 
 @pytest.fixture
 def sample_config():
@@ -199,7 +199,7 @@ def test_write_csv_by_source():
             assert "Content 3" not in content
             assert "extra_field" not in content
 
-@patch('botnim.document_parser.dynamic_extractions.pdf_extraction.field_extraction.logger')
+@patch('botnim.document_parser.pdf_processor.field_extraction.logger')
 def test_extract_fields_from_text_mock(mock_logger):
     """Test field extraction with mocked OpenAI client."""
     # Create mock source config
@@ -233,10 +233,10 @@ def test_extract_fields_from_text_mock(mock_logger):
     # Verify OpenAI was called
     mock_client.chat.completions.create.assert_called_once()
 
-@patch('botnim.document_parser.dynamic_extractions.pdf_extraction.field_extraction.logger')
+@patch('botnim.document_parser.pdf_processor.field_extraction.logger')
 def test_extract_fields_from_text_error(mock_logger):
     """Test field extraction with error handling."""
-    from botnim.document_parser.dynamic_extractions.pdf_extraction.exceptions import FieldExtractionError
+    from botnim.document_parser.pdf_processor.exceptions import FieldExtractionError
     
     source_config = SourceConfig(
         name="Test Source",
@@ -276,7 +276,7 @@ def sample_pipeline_config():
         ]
     }
 
-@patch('botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_pipeline.PDFExtractionConfig')
+@patch('botnim.document_parser.pdf_processor.pdf_pipeline.PDFExtractionConfig')
 def test_pipeline_initialization(mock_config_class, sample_pipeline_config):
     """Test pipeline initialization."""
     mock_config = Mock()
@@ -285,7 +285,7 @@ def test_pipeline_initialization(mock_config_class, sample_pipeline_config):
     
     mock_openai_client = Mock()
     
-    from botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_pipeline import PDFExtractionPipeline
+    from botnim.document_parser.pdf_processor.pdf_pipeline import PDFExtractionPipeline
     
     pipeline = PDFExtractionPipeline("config.yaml", mock_openai_client)
     

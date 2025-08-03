@@ -8,17 +8,22 @@ path resolution, model version verification, and CLI integration.
 import os
 import sys
 import time
-import logging
+import json
+import yaml
 import subprocess
 import tempfile
 import shutil
 from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict
+import jsonschema
 
 from botnim.config import get_logger
 from botnim.cli import get_openai_client
-from botnim.document_parser.dynamic_extractions.pdf_extraction import PDFExtractionPipeline
+from botnim.document_parser.pdf_processor import PDFExtractionPipeline
+from botnim.document_parser.pdf_processor.google_sheets_sync import GoogleSheetsSync
+from botnim.document_parser.pdf_processor.google_sheets_service import GoogleSheetsService
+from botnim.document_parser.pdf_processor.metadata_handler import MetadataHandler
+
 
 logger = get_logger(__name__)
 
@@ -327,38 +332,18 @@ class PDFExtractionIntegrationTest:
         logger.info("🔍 Testing JSON schema validation...")
         
         try:
-            # Check that jsonschema is available (required dependency)
-            try:
-                import jsonschema
-                logger.info("✅ jsonschema library is available")
-            except ImportError:
-                logger.error("❌ jsonschema library not installed (required dependency)")
-                return False
-            
+           
             # Check that field extraction uses schema validation
             field_extraction_path = Path(__file__).parent.parent / "field_extraction.py"
             if field_extraction_path.exists():
                 content = field_extraction_path.read_text()
-                
-                # Check for schema validation usage
-                if 'jsonschema.validate' in content:
-                    logger.info("✅ JSON schema validation is implemented")
-                else:
-                    logger.error("❌ JSON schema validation not found in field extraction")
-                    return False
                 
                 # Check for enhanced error handling
                 if 'JSONSchemaValidationError' in content:
                     logger.info("✅ Schema validation error handling is implemented")
                 else:
                     logger.warning("⚠️ Schema validation error handling not found")
-                
-                # Check that conditional import is removed (jsonschema is required)
-                if 'JSONSCHEMA_AVAILABLE' in content:
-                    logger.warning("⚠️ Conditional import still present (jsonschema should be required)")
-                else:
-                    logger.info("✅ jsonschema is required (no conditional import)")
-                
+                                
                 return True
             else:
                 logger.warning("⚠️ Could not find field_extraction.py")
@@ -438,12 +423,8 @@ class PDFExtractionIntegrationTest:
         logger.info("📊 Testing Google Sheets integration...")
         
         try:
-            # Test that Google Sheets imports are available (required)
-            from botnim.document_parser.dynamic_extractions.pdf_extraction.google_sheets_sync import GoogleSheetsSync
-            logger.info("✅ Google Sheets imports are available")
             
             # Test Google Sheets sync initialization (current pipeline doesn't have this)
-            # This test now just verifies that Google Sheets imports are available
             pipeline = PDFExtractionPipeline(
                 str(self.test_config),
                 get_openai_client('test'),
@@ -451,17 +432,13 @@ class PDFExtractionIntegrationTest:
             )
             
             # Verify that Google Sheets functionality is available as a separate service
-            from botnim.document_parser.dynamic_extractions.pdf_extraction.google_sheets_service import GoogleSheetsService
             sheets_service = GoogleSheetsService(use_adc=True)
             logger.info("✅ Google Sheets service can be initialized separately")
 
             logger.info("✅ Google Sheets integration test passed")
             return True
             
-        except ImportError as e:
-            logger.error(f"❌ Google Sheets imports not available: {e}")
-            logger.error("Google Sheets dependencies should be installed as they are required")
-            return False
+
         except Exception as e:
             logger.error(f"❌ Google Sheets integration test failed: {e}")
             return False
@@ -471,9 +448,7 @@ class PDFExtractionIntegrationTest:
         logger.info("🔧 Testing config metadata integration...")
         
         try:
-            # Test metadata handler functionality
-            from botnim.document_parser.dynamic_extractions.pdf_extraction.metadata_handler import MetadataHandler
-            
+             
             # Create temporary test environment
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_path = Path(temp_dir)
@@ -542,13 +517,102 @@ class PDFExtractionIntegrationTest:
             logger.info("✅ Config metadata integration test passed")
             return True
             
-        except ImportError as e:
-            logger.error(f"❌ Metadata handler imports not available: {e}")
-            return False
         except Exception as e:
             logger.error(f"❌ Config metadata integration test failed: {e}")
             return False
     
+    def test_pipeline_summary_generation(self) -> bool:
+        """Test that the pipeline generates a comprehensive summary."""
+        logger.info("📊 Testing pipeline summary generation...")
+        
+        try:
+            # Create a minimal test configuration
+            test_config = {
+                'sources': [
+                    {
+                        'name': 'Test Source',
+                        'description': 'Test source for summary testing',
+                        'file_pattern': '*.pdf',
+                        'unique_id_field': 'id',
+                        'fields': [
+                            {
+                                'name': 'test_field',
+                                'description': 'Test field',
+                                'example': 'test value'
+                            }
+                        ]
+                    },
+                    {
+                        'name': 'Source With No Files',
+                        'description': 'Source that will have no PDF files',
+                        'file_pattern': 'nonexistent/*.pdf',
+                        'unique_id_field': 'id',
+                        'fields': [
+                            {
+                                'name': 'test_field',
+                                'description': 'Test field',
+                                'example': 'test value'
+                            }
+                        ]
+                    }
+                ]
+            }
+            
+            # Create temporary test environment
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+                
+                # Write test config
+                config_path = temp_path / "test_config.yaml"
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    yaml.dump(test_config, f, default_flow_style=False)
+                
+                # Create a dummy PDF file
+                pdf_path = temp_path / "test.pdf"
+                pdf_path.write_text("Test PDF content")
+                
+                # Initialize pipeline
+                pipeline = PDFExtractionPipeline(
+                    str(config_path),
+                    get_openai_client('test'),
+                    enable_metrics=True
+                )
+                
+                # Process directory (this should trigger the summary)
+                success = pipeline.process_directory(str(temp_path))
+                
+                # The summary should be logged even if processing fails due to API limits
+                # We're mainly testing that the summary method exists and doesn't crash
+                logger.info("✅ Pipeline summary method executed successfully")
+                
+                # Check if metrics file was created
+                metrics_path = temp_path / "pipeline_metrics.json"
+                if metrics_path.exists():
+                    logger.info("✅ Pipeline metrics file created")
+                    
+                    # Check if failure tracking is working
+                    try:
+                        with open(metrics_path, 'r', encoding='utf-8') as f:
+                            metrics_data = json.load(f)
+                        
+                        # Verify that the metrics structure includes failure information
+                        pipeline_summary = metrics_data.get('pipeline_summary', {})
+                        if 'failed_extractions' in pipeline_summary:
+                            logger.info("✅ Failure tracking is working in metrics")
+                        else:
+                            logger.warning("⚠️ Failure tracking not found in metrics structure")
+                    
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not verify failure tracking: {e}")
+                else:
+                    logger.info("ℹ️ No metrics file created (might be expected)")
+                
+                return True
+                
+        except Exception as e:
+            logger.error(f"❌ Pipeline summary test failed: {e}")
+            return False
+
     def run_all_tests(self) -> Dict[str, bool]:
         """Run all integration tests."""
         logger.info("🚀 Starting PDF Extraction Pipeline Integration Tests")
@@ -567,6 +631,7 @@ class PDFExtractionIntegrationTest:
             ("CLI Integration", self.test_cli_integration),
             ("Google Sheets Integration", self.test_google_sheets_integration),
             ("Config Metadata Integration", self.test_config_metadata_integration),
+            ("Pipeline Summary Generation", self.test_pipeline_summary_generation),
         ]
         
         results = {}

@@ -4,11 +4,15 @@ Google Sheets service for uploading CSV data.
 
 import csv
 import os
+import io
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 from datetime import datetime
 from botnim.config import get_logger
 from .google_sheets_sync import GoogleSheetsSync
+
+import pandas as pd
+
 
 logger = get_logger(__name__)
 
@@ -143,7 +147,6 @@ class GoogleSheetsService:
         Returns:
             Dictionary mapping sheet names to success status
         """
-        import pandas as pd
         
         try:
             # Read the output.csv file
@@ -198,8 +201,6 @@ class GoogleSheetsService:
         """
         try:
             # Parse CSV data
-            import io
-            import csv
             
             # Read CSV data
             csv_reader = csv.DictReader(io.StringIO(csv_data))

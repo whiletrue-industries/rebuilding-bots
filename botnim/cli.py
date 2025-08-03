@@ -13,13 +13,13 @@ from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT, is_
 from .query import run_query, get_available_indexes, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
 from .config import SPECS, get_logger
-from .document_parser.dynamic_extractions.process_document import PipelineRunner, PipelineConfig
-from .document_parser.dynamic_extractions.extract_structure import extract_structure_from_html, build_nested_structure, get_openai_client
-from .document_parser.dynamic_extractions.extract_content import extract_content_from_html
-from .document_parser.dynamic_extractions.generate_markdown_files import generate_markdown_from_json
-from .document_parser.dynamic_extractions.pipeline_config import Environment
-from .document_parser.dynamic_extractions.pdf_extraction.pdf_pipeline import PDFExtractionPipeline
-from .document_parser.dynamic_extractions.pdf_extraction.google_sheets_service import GoogleSheetsService
+from .document_parser.html_processor.process_document import PipelineRunner, PipelineConfig
+from .document_parser.html_processor.extract_structure import extract_structure_from_html, build_nested_structure, get_openai_client
+from .document_parser.html_processor.extract_content import extract_content_from_html
+from .document_parser.html_processor.generate_markdown_files import generate_markdown_from_json
+from .document_parser.html_processor.pipeline_config import Environment
+from .document_parser.pdf_processor.pdf_pipeline import PDFExtractionPipeline
+from .document_parser.pdf_processor.google_sheets_service import GoogleSheetsService
 
 logger = get_logger(__name__)
 
@@ -367,6 +367,54 @@ def _process_pdfs_only(config_file: str, input_dir: str, environment: str, verbo
             click.echo("✅ PDF processing completed successfully")
             click.echo("📁 Output: output.csv")
             click.echo("📊 Metrics: pipeline_metrics.json")
+            
+            # Show brief summary even in non-verbose mode
+            if not verbose:
+                # Try to get basic stats from output file
+                output_csv_path = Path(input_dir) / "output.csv"
+                if output_csv_path.exists():
+                    try:
+                        import csv
+                        with open(output_csv_path, 'r', encoding='utf-8') as f:
+                            reader = csv.DictReader(f)
+                            records = list(reader)
+                            click.echo(f"📈 Extracted {len(records)} records")
+                            
+                            # Show source breakdown if available
+                            if records and 'source_name' in records[0]:
+                                source_counts = {}
+                                for record in records:
+                                    source_name = record.get('source_name', 'Unknown')
+                                    source_counts[source_name] = source_counts.get(source_name, 0) + 1
+                                
+                                if len(source_counts) > 1:
+                                    click.echo("📋 Sources processed:")
+                                    for source_name, count in source_counts.items():
+                                        click.echo(f"   • {source_name}: {count} records")
+                    
+                    except Exception:
+                        # If we can't read the CSV, just show the basic success message
+                        pass
+                
+                # Check for failure indicators in logs or metrics
+                metrics_path = Path(input_dir) / "pipeline_metrics.json"
+                if metrics_path.exists():
+                    try:
+                        import json
+                        with open(metrics_path, 'r', encoding='utf-8') as f:
+                            metrics_data = json.load(f)
+                        
+                        # Check for failures in metrics
+                        failed_extractions = metrics_data.get('pipeline_summary', {}).get('failed_extractions', 0)
+                        if failed_extractions > 0:
+                            click.echo(f"⚠️ {failed_extractions} files failed to process")
+                            click.echo("   Use --verbose for detailed failure information")
+                    
+                    except Exception:
+                        # If we can't read metrics, continue without failure info
+                        pass
+            else:
+                click.echo("🔍 Detailed summary available in logs above")
         else:
             click.echo("❌ PDF processing failed")
         

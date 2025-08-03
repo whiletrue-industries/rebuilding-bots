@@ -152,7 +152,7 @@ def flatten_for_csv(data: Dict[str, Any], fieldnames: List[str]) -> Dict[str, An
     Flatten nested data structure for CSV output.
     
     Args:
-        data: Nested data structure
+        data: Nested data structure with 'fields' and 'metadata' keys
         fieldnames: List of field names to include
         
     Returns:
@@ -160,16 +160,24 @@ def flatten_for_csv(data: Dict[str, Any], fieldnames: List[str]) -> Dict[str, An
     """
     flattened = {}
     
+    # Extract fields from nested structure
+    fields = data.get("fields", {})
+    metadata = data.get("metadata", {})
+    
     for field in fieldnames:
-        if field in data:
-            value = data[field]
-            # Convert complex types to strings
-            if isinstance(value, (dict, list)):
-                flattened[field] = str(value)
-            else:
-                flattened[field] = value
+        # Check in fields first, then metadata
+        if field in fields:
+            value = fields[field]
+        elif field in metadata:
+            value = metadata[field]
         else:
-            flattened[field] = ""
+            value = ""
+        
+        # Convert complex types to strings
+        if isinstance(value, (dict, list)):
+            flattened[field] = str(value)
+        else:
+            flattened[field] = value
     
     return flattened
 

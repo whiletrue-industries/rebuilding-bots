@@ -64,7 +64,7 @@ def run_pipeline_test():
     
     # Build the pipeline command - process all sources
     cmd = [
-        sys.executable, "-m", "botnim.document_parser.dynamic_extractions.pdf_extraction.pdf_pipeline",
+        sys.executable, "-m", "botnim.document_parser.pdf_processor.pdf_pipeline",
         "--config", str(config_file),
         "--output-dir", str(output_dir),
         "--verbose"

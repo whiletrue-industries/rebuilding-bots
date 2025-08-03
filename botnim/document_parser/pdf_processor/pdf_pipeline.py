@@ -8,9 +8,8 @@ This module implements a clean separation of concerns:
 - No cloud storage coupling
 """
 
-import logging
 import os
-import json
+import glob
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 from datetime import datetime
@@ -88,6 +87,11 @@ class PDFExtractionPipeline:
                 return False
             logger.info(f"Processing only source: {source_filter}")
         
+        # Track failures for detailed reporting
+        failed_files = []
+        failed_sources = []
+        sources_with_no_files = []
+        
         for source_config in sources_to_process:
             logger.info(f"Processing source: {source_config.name}")
             
@@ -95,10 +99,13 @@ class PDFExtractionPipeline:
             pdf_files = self._find_pdf_files(input_path, source_config.file_pattern)
             if not pdf_files:
                 logger.warning(f"No PDF files found for source '{source_config.name}'")
+                sources_with_no_files.append(source_config.name)
                 continue
             
             # Process each PDF file
             source_results = []
+            source_failed_files = []
+            
             for pdf_file in pdf_files:
                 try:
                     result = self._process_single_pdf(
@@ -107,6 +114,14 @@ class PDFExtractionPipeline:
                     if result:
                         source_results.extend(result)
                 except Exception as e:
+                    error_info = {
+                        'file_path': str(pdf_file),
+                        'source_name': source_config.name,
+                        'error_message': str(e),
+                        'file_name': pdf_file.name
+                    }
+                    failed_files.append(error_info)
+                    source_failed_files.append(error_info)
                     logger.error(f"Failed to process {pdf_file}: {e}")
                     if self.metrics:
                         metrics = ExtractionMetrics(
@@ -121,6 +136,15 @@ class PDFExtractionPipeline:
                             error_message=str(e)
                         )
                         self.metrics.record_extraction(metrics)
+            
+            # Track sources with failures
+            if source_failed_files:
+                failed_sources.append({
+                    'source_name': source_config.name,
+                    'failed_files': source_failed_files,
+                    'total_files': len(pdf_files),
+                    'successful_files': len(pdf_files) - len(source_failed_files)
+                })
             
             # Merge with existing data
             all_results.extend(source_results)
@@ -161,11 +185,13 @@ class PDFExtractionPipeline:
             self.metrics.save_metrics(str(metrics_path))
             logger.info(f"Performance metrics saved to: {metrics_path}")
         
+        # Generate and log final pipeline summary
+        self._log_pipeline_summary(all_results, sources_to_process, input_path, failed_files, failed_sources, sources_with_no_files)
+        
         return True
     
     def _find_pdf_files(self, input_path: Path, file_pattern: str) -> List[Path]:
         """Find PDF files matching the pattern in the input directory."""
-        import glob
         
         # Resolve pattern relative to input directory
         if not os.path.isabs(file_pattern):
@@ -261,5 +287,147 @@ class PDFExtractionPipeline:
             if self.metrics:
                 self.metrics.record_failure(str(pdf_path), source_config.name, str(e))
             raise
+
+    def _log_pipeline_summary(self, all_results: List[Dict[str, Any]], sources_processed: List, input_path: Path, failed_files: List[Dict[str, Any]], failed_sources: List[Dict[str, Any]], sources_with_no_files: List[str]):
+        """
+        Generate and log a comprehensive final pipeline summary.
+        
+        Args:
+            all_results: All extracted records from the pipeline
+            sources_processed: List of source configurations that were processed
+            input_path: Input directory path
+            failed_files: List of failed file processing attempts
+            failed_sources: List of sources with processing failures
+            sources_with_no_files: List of sources that had no PDF files
+        """
+        logger.info("=" * 80)
+        logger.info("📊 PDF EXTRACTION PIPELINE - FINAL SUMMARY")
+        logger.info("=" * 80)
+        
+        # Basic statistics
+        total_records = len(all_results)
+        total_sources = len(sources_processed)
+        
+        logger.info(f"📈 OVERALL STATISTICS:")
+        logger.info(f"   • Total records extracted: {total_records}")
+        logger.info(f"   • Sources processed: {total_sources}")
+        logger.info(f"   • Input directory: {input_path}")
+        
+        # Source breakdown
+        if all_results:
+            source_counts = {}
+            for record in all_results:
+                source_name = record.get('source_name', 'Unknown')
+                source_counts[source_name] = source_counts.get(source_name, 0) + 1
+            
+            logger.info(f"📋 SOURCE BREAKDOWN:")
+            for source_name, count in source_counts.items():
+                logger.info(f"   • {source_name}: {count} records")
+        
+        # File output summary
+        output_files = []
+        if all_results:
+            output_files.append("output.csv")
+            
+            # Check for source-specific files
+            for source_config in sources_processed:
+                source_name = source_config.name
+                # Look for source-specific CSV files (they follow a pattern with timestamp)
+                source_files = list(input_path.glob(f"{source_name.replace(' ', '_')}_*.csv"))
+                if source_files:
+                    output_files.extend([f.name for f in source_files])
+        
+        logger.info(f"📁 OUTPUT FILES:")
+        for file_name in output_files:
+            logger.info(f"   • {file_name}")
+        
+        # FAILURE DETAILS - NEW SECTION
+        total_failures = len(failed_files) + len(sources_with_no_files)
+        if total_failures > 0:
+            logger.info(f"❌ FAILURE DETAILS:")
+            logger.info(f"   • Total failures: {total_failures}")
+            
+            # Sources with no files
+            if sources_with_no_files:
+                logger.info(f"   📂 Sources with no PDF files:")
+                for source_name in sources_with_no_files:
+                    logger.info(f"      • {source_name}")
+            
+            # Failed files by source
+            if failed_files:
+                logger.info(f"   📄 Failed files by source:")
+                failed_by_source = {}
+                for failure in failed_files:
+                    source_name = failure['source_name']
+                    if source_name not in failed_by_source:
+                        failed_by_source[source_name] = []
+                    failed_by_source[source_name].append(failure)
+                
+                for source_name, failures in failed_by_source.items():
+                    logger.info(f"      • {source_name}: {len(failures)} failed files")
+                    for failure in failures[:3]:  # Show first 3 failures per source
+                        logger.info(f"        - {failure['file_name']}: {failure['error_message'][:100]}...")
+                    if len(failures) > 3:
+                        logger.info(f"        - ... and {len(failures) - 3} more failures")
+            
+            # Detailed failure list for handling later
+            logger.info(f"   🔧 DETAILED FAILURE LIST (for manual handling):")
+            for i, failure in enumerate(failed_files, 1):
+                logger.info(f"      {i}. {failure['source_name']} - {failure['file_name']}")
+                logger.info(f"         Path: {failure['file_path']}")
+                logger.info(f"         Error: {failure['error_message']}")
+            
+            # Recommendations for handling failures
+            logger.info(f"   💡 RECOMMENDATIONS:")
+            if sources_with_no_files:
+                logger.info(f"      • Check file patterns for sources: {', '.join(sources_with_no_files)}")
+            if failed_files:
+                logger.info(f"      • Review {len(failed_files)} failed files above for manual processing")
+                logger.info(f"      • Common issues: OCR problems, corrupted PDFs, API rate limits")
+        
+        # Metrics summary if available
+        if self.metrics:
+            try:
+                summary = self.metrics.get_pipeline_summary()
+                logger.info(f"⏱️ PERFORMANCE METRICS:")
+                logger.info(f"   • Total PDFs processed: {summary.total_pdfs_processed}")
+                logger.info(f"   • Successful extractions: {summary.successful_extractions}")
+                logger.info(f"   • Failed extractions: {summary.failed_extractions}")
+                
+                if summary.total_pdfs_processed > 0:
+                    success_rate = (summary.successful_extractions / summary.total_pdfs_processed) * 100
+                    logger.info(f"   • Success rate: {success_rate:.1f}%")
+                
+                logger.info(f"   • Total processing time: {summary.total_processing_time:.2f} seconds")
+                if summary.average_processing_time > 0:
+                    logger.info(f"   • Average time per PDF: {summary.average_processing_time:.2f} seconds")
+                
+                # Error summary if any
+                if summary.errors:
+                    logger.info(f"❌ ERRORS ENCOUNTERED:")
+                    for error in summary.errors[:5]:  # Show first 5 errors
+                        logger.info(f"   • {error}")
+                    if len(summary.errors) > 5:
+                        logger.info(f"   • ... and {len(summary.errors) - 5} more errors")
+                
+            except Exception as e:
+                logger.warning(f"⚠️ Could not generate detailed metrics summary: {e}")
+        
+        # Processing status
+        if total_records > 0:
+            if total_failures > 0:
+                logger.info(f"⚠️ PIPELINE COMPLETED WITH ISSUES")
+                logger.info(f"   • Extracted {total_records} records from {total_sources} sources")
+                logger.info(f"   • {total_failures} failures need attention (see details above)")
+            else:
+                logger.info(f"✅ PIPELINE COMPLETED SUCCESSFULLY")
+                logger.info(f"   • Extracted {total_records} records from {total_sources} sources")
+        else:
+            logger.warning(f"❌ PIPELINE COMPLETED WITH NO RECORDS")
+            logger.warning(f"   • No records were extracted - check input files and configuration")
+            if total_failures > 0:
+                logger.warning(f"   • {total_failures} failures prevented successful extraction")
+        
+        logger.info("=" * 80)
 
  
