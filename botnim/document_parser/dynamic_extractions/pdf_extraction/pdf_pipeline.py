@@ -16,7 +16,7 @@ from typing import List, Dict, Optional, Any
 from datetime import datetime
 
 from .pdf_extraction_config import PDFExtractionConfig
-from .text_extraction import extract_text_from_pdf
+from .text_extraction import extract_text_from_pdf, fix_ocr_full_content
 from .field_extraction import extract_fields_from_text
 from .csv_output import write_csv, read_csv, write_csv_by_source
 from .metrics import MetricsCollector
@@ -196,13 +196,24 @@ class PDFExtractionPipeline:
         try:
             # Extract text from PDF
             logger.info(f"Extracting text from PDF: {pdf_path}")
-            text = extract_text_from_pdf(str(pdf_path))
+            text, is_ocr = extract_text_from_pdf(str(pdf_path))
             
             # Extract structured fields
             logger.info("Extracting structured fields...")
             extracted_data = extract_fields_from_text(
                 text, source_config, self.openai_client
             )
+            
+            # Apply special OCR fix for full content field if OCR was used
+            if is_ocr and isinstance(extracted_data, dict) and 'טקסט_מלא' in extracted_data:
+                logger.info("Applying OCR full content fix for טקסט_מלא field")
+                extracted_data['טקסט_מלא'] = fix_ocr_full_content(extracted_data['טקסט_מלא'])
+            elif is_ocr and isinstance(extracted_data, list):
+                # Handle case where extracted_data is a list
+                for item in extracted_data:
+                    if isinstance(item, dict) and 'טקסט_מלא' in item:
+                        logger.info("Applying OCR full content fix for טקסט_מלא field")
+                        item['טקסט_מלא'] = fix_ocr_full_content(item['טקסט_מלא'])
             
             # Load file metadata
             file_metadata = metadata_handler.load_metadata_for_pdf(pdf_path)
