@@ -6,7 +6,7 @@ import logging
 
 from .vector_store.vector_store_es import VectorStoreES
 from .vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
-from .sync import sync_agents
+from . import sync
 from .benchmark.runner import run_benchmarks
 from .benchmark.evaluate_metrics_cli import evaluate
 from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT, is_production
@@ -20,6 +20,9 @@ from .document_parser.html_processor.generate_markdown_files import generate_mar
 from .document_parser.html_processor.pipeline_config import Environment
 from .document_parser.pdf_processor.pdf_pipeline import PDFExtractionPipeline
 from .document_parser.pdf_processor.google_sheets_service import GoogleSheetsService
+from .sync import HTMLFetcher, HTMLProcessor, fetch_and_parse_html
+from .sync.cache import SyncCache
+from .sync.config import SyncConfig, ContentSource
 
 logger = get_logger(__name__)
 
@@ -38,7 +41,7 @@ def cli():
 def sync(environment, bots, replace_context, backend, reindex):
     """Sync bots to Airtable."""
     click.echo(f"Syncing {bots} to {environment}")
-    sync_agents(environment, bots, backend=backend, replace_context=replace_context, reindex=reindex)
+    sync.sync_agents(environment, bots, backend=backend, replace_context=replace_context, reindex=reindex)
 
 # Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command(name='benchmarks')
@@ -162,6 +165,167 @@ def assistant(assistant_id, openapi_spec, rtl, environment):
 
 # Add evaluate command to main CLI
 cli.add_command(evaluate)
+
+@cli.group(name='sync')
+def sync_group():
+    """Automated sync infrastructure commands."""
+    pass
+
+@sync_group.group(name='html')
+def html_group():
+    """HTML content fetching and processing commands."""
+    pass
+
+@html_group.command(name='fetch')
+@click.argument('url')
+@click.option('--selector', help='CSS selector to extract specific content')
+@click.option('--encoding', default='utf-8', help='Content encoding')
+@click.option('--timeout', type=int, default=30, help='Request timeout in seconds')
+@click.option('--retry-attempts', type=int, default=3, help='Number of retry attempts')
+def html_fetch(url, selector, encoding, timeout, retry_attempts):
+    """Fetch and parse HTML content from a URL."""
+    try:
+        # Create a temporary source configuration
+        from .sync.config import HTMLSourceConfig
+        html_config = HTMLSourceConfig(
+            url=url,
+            selector=selector,
+            encoding=encoding,
+            timeout=timeout,
+            retry_attempts=retry_attempts
+        )
+        
+        source = ContentSource(
+            id="temp-source",
+            name="Temporary Source",
+            description="Temporary source for CLI testing",
+            type="html",
+            html_config=html_config,
+            versioning_strategy="hash",
+            fetch_strategy="direct",
+            enabled=True,
+            priority=1,
+            tags=[]
+        )
+        
+        # Initialize cache and fetcher
+        cache = SyncCache()
+        fetcher = HTMLFetcher(cache)
+        
+        # Fetch and process
+        success, parsed_content, version_info = fetcher.process_html_source(source)
+        
+        if success:
+            click.echo("✅ Successfully fetched and parsed HTML content")
+            click.echo(f"📄 Content size: {version_info.content_size} bytes")
+            click.echo(f"🔗 Version hash: {version_info.version_hash}")
+            click.echo(f"📝 Text content preview: {parsed_content['text_content'][:200]}...")
+        else:
+            click.echo("❌ Failed to fetch HTML content", err=True)
+            
+        fetcher.close()
+        
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+
+@html_group.command(name='process')
+@click.argument('config_file')
+@click.option('--source-ids', multiple=True, help='Process specific source IDs (default: all enabled sources)')
+@click.option('--verbose', is_flag=True, help='Enable verbose logging')
+def html_process(config_file, source_ids, verbose):
+    """Process HTML sources from a configuration file."""
+    try:
+        # Load configuration
+        config = SyncConfig.from_yaml(config_file)
+        
+        # Filter sources
+        html_sources = [s for s in config.sources if s.type == "html" and s.enabled]
+        
+        if source_ids:
+            html_sources = [s for s in html_sources if s.id in source_ids]
+        
+        if not html_sources:
+            click.echo("No enabled HTML sources found in configuration")
+            return
+        
+        # Initialize processor
+        cache = SyncCache()
+        processor = HTMLProcessor(cache)
+        
+        # Process sources
+        results = processor.process_sources(html_sources)
+        
+        # Display results
+        click.echo(f"📊 Processing Summary:")
+        click.echo(f"   Total sources: {results['summary']['total_sources']}")
+        click.echo(f"   Processed: {results['summary']['processed_count']}")
+        click.echo(f"   Skipped: {results['summary']['skipped_count']}")
+        click.echo(f"   Errors: {results['summary']['error_count']}")
+        
+        if results['processed']:
+            click.echo("\n✅ Successfully processed:")
+            for result in results['processed']:
+                click.echo(f"   • {result['source_id']}: {result['content_size']} bytes")
+        
+        if results['skipped']:
+            click.echo("\n⏭️ Skipped:")
+            for result in results['skipped']:
+                click.echo(f"   • {result['source_id']}: {result['reason']}")
+        
+        if results['errors']:
+            click.echo("\n❌ Errors:")
+            for result in results['errors']:
+                click.echo(f"   • {result['source_id']}: {result['error']}")
+        
+        processor.close()
+        
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+
+@sync_group.group(name='cache')
+def cache_group():
+    """Sync cache management commands."""
+    pass
+
+@cache_group.command(name='stats')
+def cache_stats():
+    """Show sync cache statistics."""
+    try:
+        cache = SyncCache()
+        stats = cache.get_cache_statistics()
+        
+        click.echo("📊 Sync Cache Statistics:")
+        click.echo(f"   Total sources: {stats['total_sources']}")
+        click.echo(f"   Processed sources: {stats['processed_sources']}")
+        click.echo(f"   Error sources: {stats['error_sources']}")
+        click.echo(f"   Success rate: {stats['success_rate']:.1f}%")
+        click.echo(f"   Total duplicates: {stats['total_duplicates']}")
+        click.echo(f"   High duplicate count: {stats['high_duplicate_count']}")
+        click.echo(f"   Cache size: {stats['cache_size_mb']:.2f} MB")
+        
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+
+@cache_group.command(name='cleanup')
+@click.option('--older-than', type=int, help='Remove entries older than N days')
+@click.option('--dry-run', is_flag=True, help='Show what would be removed without actually removing')
+def cache_cleanup(older_than, dry_run):
+    """Clean up old cache entries."""
+    try:
+        cache = SyncCache()
+        
+        if older_than:
+            if dry_run:
+                click.echo(f"🔍 Dry run: Would remove entries older than {older_than} days")
+                click.echo("Note: Dry run mode not implemented in cache cleanup")
+            else:
+                removed_count = cache.cleanup_old_entries(older_than)
+                click.echo(f"🗑️ Removed {removed_count} entries older than {older_than} days")
+        else:
+            click.echo("Please specify --older-than to clean up old entries")
+        
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
 
 @cli.command(name='process-document')
 @click.argument('input_html_file')

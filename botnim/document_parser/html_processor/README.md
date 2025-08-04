@@ -118,6 +118,7 @@ markdown_dict = generate_markdown_from_json("specs/takanon/extraction/your_docum
 
 - **PDF Extraction Pipeline**: See `pdf_extraction/` directory for PDF processing capabilities
 - **Testing**: See `pdf_extraction/test/` for comprehensive test suites
+- **Automated Sync Infrastructure**: See `botnim/sync/` for automated HTML content fetching and versioning capabilities
 
 ---
 

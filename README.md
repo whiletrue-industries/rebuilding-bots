@@ -14,6 +14,50 @@ The PDF extraction pipeline has been significantly enhanced with:
 - **Robust error handling** - graceful handling of edge cases and API limits
 - **Performance monitoring** - detailed metrics and structured logging
 
+### Automated Sync Infrastructure
+
+A new automated, versioned, cloud-native sync system has been implemented for content sources (HTML & PDF) to vector store:
+
+- **Unified Configuration Schema** - YAML-based configuration for all content source types (HTML, PDF, spreadsheets)
+- **Versioning & Change Detection** - Content hash-based versioning with incremental updates
+- **Caching Layer** - SQLite-based duplicate detection and content tracking
+- **HTML Content Fetching** - Automated fetching and parsing of HTML sources with version tracking
+- **Cloud-Native Design** - Designed for CI/CD workflows with no local dependencies
+- **Comprehensive Logging** - Structured logging with the project's standard logging mechanism
+
+#### Quick Start with Sync Infrastructure
+
+```bash
+# Test HTML fetching from a single URL
+botnim sync html fetch https://example.com --selector "#content"
+
+# Process HTML sources from configuration
+botnim sync html process specs/takanon/sync_config.yaml --source-ids knesset-lexicon-html
+
+# Manage sync cache
+botnim sync cache stats
+botnim sync cache cleanup --older-than 30
+```
+
+#### Configuration
+
+Sync sources are configured in YAML files (e.g., `specs/takanon/sync_config.yaml`):
+
+```yaml
+sources:
+  - id: "knesset-lexicon-html"
+    name: "לקסיקון הכנסת (Knesset Lexicon)"
+    type: "html"
+    html_config:
+      url: "https://main.knesset.gov.il/about/lexicon/pages/default.aspx"
+      selector: "#content"
+    versioning_strategy: "combined"
+    enabled: true
+    priority: 1
+```
+
+For more details, see the sync infrastructure documentation in `docs/`.
+
 ## Getting Started
 
 ```bash
@@ -109,6 +153,14 @@ python backend/es/demo-query-es.py "your query" local
   - `cli.py`: Command line interface for the bots.
   - `sync.py`: Script for syncing the specifications with the OpenAI account.
   - `collect_sources.py`: Module to collect and process the sources for the bots.
+  - `sync/`: Automated sync infrastructure package
+    - `__init__.py`: Package initialization
+    - `config.py`: Unified configuration schema and versioning management
+    - `cache.py`: SQLite-based caching layer and duplicate detection
+    - `html_fetcher.py`: HTML content fetching and parsing
+    - `cli.py`: Cache management CLI tools
+    - `html_cli.py`: HTML fetching CLI tools
+    - `tests/`: Comprehensive test suite for sync components
   - `vector_store/`: Vector store management package.
     - `__init__.py`: Package initialization.
     - `vector_store_base.py`: Abstract base class for vector store implementations.

@@ -17,6 +17,10 @@ from .cache import (
     SyncCache, CacheEntry, DuplicateInfo, DuplicateDetector
 )
 
+from .html_fetcher import (
+    HTMLFetcher, HTMLProcessor, fetch_and_parse_html
+)
+
 __all__ = [
     # Configuration
     'SyncConfig',
@@ -36,4 +40,9 @@ __all__ = [
     'CacheEntry',
     'DuplicateInfo',
     'DuplicateDetector',
+    
+    # HTML Processing
+    'HTMLFetcher',
+    'HTMLProcessor',
+    'fetch_and_parse_html',
 ] 
