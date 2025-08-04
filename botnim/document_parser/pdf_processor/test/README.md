@@ -8,13 +8,13 @@ Due to the use of relative imports in the test files, you need to run pytest wit
 
 ```bash
 # From the project root
-python -m pytest --import-mode=importlib botnim/document_parser/dynamic_extractions/pdf_extraction/test/
+python -m pytest --import-mode=importlib botnim/document_parser/pdf_processor/test/
 
 # Or run a specific test file
-python -m pytest --import-mode=importlib botnim/document_parser/dynamic_extractions/pdf_extraction/test/test_field_extraction.py
+python -m pytest --import-mode=importlib botnim/document_parser/pdf_processor/test/test_field_extraction.py
 
 # Or run a specific test
-python -m pytest --import-mode=importlib botnim/document_parser/dynamic_extractions/pdf_extraction/test/test_field_extraction.py::TestFieldExtraction::test_build_extraction_schema
+python -m pytest --import-mode=importlib botnim/document_parser/pdf_processor/test/test_field_extraction.py::TestFieldExtraction::test_build_extraction_schema
 ```
 
 ## Pipeline Summary Feature
@@ -110,10 +110,10 @@ The enhanced summary provides detailed failure information to help you:
 ### **Testing the Summary**
 ```bash
 # Run the summary test
-python -m pytest --import-mode=importlib botnim/document_parser/dynamic_extractions/pdf_extraction/test/test_integration.py::PDFExtractionIntegrationTest::test_pipeline_summary_generation
+python -m pytest --import-mode=importlib botnim/document_parser/pdf_processor/test/test_integration.py::PDFExtractionIntegrationTest::test_pipeline_summary_generation
 
 # Or run the demo script
-python botnim/document_parser/dynamic_extractions/pdf_extraction/test/demo_summary.py
+python botnim/document_parser/pdf_processor/test/demo_summary.py
 ```
 
 ## Why Relative Imports?

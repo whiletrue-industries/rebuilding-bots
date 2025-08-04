@@ -129,25 +129,31 @@ python backend/es/demo-query-es.py "your query" local
     - `agent.txt`: Agent instructions.
     - `extraction/`: Extracted and processed text from the Knesset Takanon
   - `openapi/`: OpenAPI definitions of the BudgetKey (and other deprecated) APIs.
-- `botnim/document_parser/`: Document extraction and processing tools (formerly takanon_extractions/)
-  - `dynamic_extractions/`: Main extraction pipeline and utilities
+- `botnim/document_parser/`: Document extraction and processing tools
+  - `html_processor/`: HTML document processing pipeline
     - `process_document.py`: Full document processing pipeline (now accessible via `botnim process-document`)
     - `extract_structure.py`: Structure extraction (now accessible via `botnim extract-structure`)
     - `extract_content.py`: Content extraction (now accessible via `botnim extract-content`)
     - `generate_markdown_files.py`: Markdown generation (now accessible via `botnim generate-markdown-files`)
-    - `pdf_extraction/`: PDF extraction and Google Sheets sync pipeline
-      - `pdf_pipeline.py`: Main orchestration pipeline (now accessible via `botnim pdf-extract`)
-      - `text_extraction.py`: PDF text extraction with Hebrew RTL fixes
-      - `field_extraction.py`: LLM-based structured data extraction with enhanced JSON schema validation
-      - `google_sheets_service.py`: High-level Google Sheets service wrapper
-      - `google_sheets_sync.py`: Low-level Google Sheets API operations
-      - `csv_output.py`: CSV generation and data flattening
-      - `metrics.py`: Performance metrics and structured logging
-      - `metadata_handler.py`: Metadata management for PDF files
-      - `pdf_extraction_config.py`: Configuration models and YAML loading
-      - `exceptions.py`: Custom exception classes for error handling
-      - `test/`: Comprehensive test suite with sample PDFs
+    - `pipeline_config.py`: Configuration management and validation
     - `logs/`: Intermediate and output files (structure.json, pipeline metadata, markdown chunks)
+  - `pdf_processor/`: PDF extraction and Google Sheets sync pipeline
+    - `pdf_pipeline.py`: Main orchestration pipeline (now accessible via `botnim pdf-extract`)
+    - `text_extraction.py`: PDF text extraction with Hebrew RTL fixes
+    - `field_extraction.py`: LLM-based structured data extraction with enhanced JSON schema validation
+    - `google_sheets_service.py`: High-level Google Sheets service wrapper
+    - `google_sheets_sync.py`: Low-level Google Sheets API operations
+    - `csv_output.py`: CSV generation and data flattening
+    - `metrics.py`: Performance metrics and structured logging
+    - `metadata_handler.py`: Metadata management for PDF files
+    - `pdf_extraction_config.py`: Configuration models and YAML loading
+    - `exceptions.py`: Custom exception classes for error handling
+    - `test/`: Comprehensive test suite with sample PDFs
+  - `data/`: Shared data files
+    - `sources/`: Input documents (HTML and PDF files)
+    - `lexicon/`: Lexicon data
+    - `outputs/`: Processing outputs
+  - `tests/`: Shared test files
 - `ui/`: DEPRECATED: User interface for the bots.
 
 ## Common Tasks
@@ -298,22 +304,22 @@ The document processing pipeline extracts structured content from HTML legal doc
 
 ```bash
 # Process a document with markdown generation
-botnim process-document botnim/document_parser/extract_sources/your_document.html specs/takanon/extraction/ --generate-markdown
+botnim process-document botnim/document_parser/data/sources/html/your_document.html specs/takanon/extraction/ --generate-markdown
 ```
 
 ### Advanced Usage
 
 - Structure extraction only:
   ```bash
-  botnim extract-structure "botnim/document_parser/extract_sources/your_document.html" "botnim/document_parser/dynamic_extractions/logs/your_document_structure.json"
+  botnim extract-structure "botnim/document_parser/data/sources/html/your_document.html" "botnim/document_parser/html_processor/logs/your_document_structure.json"
   ```
 - Content extraction only:
   ```bash
-  botnim extract-content "botnim/document_parser/extract_sources/your_document.html" "botnim/document_parser/dynamic_extractions/logs/your_document_structure.json" "סעיף" --output specs/takanon/extraction/your_document_structure_content.json
+  botnim extract-content "botnim/document_parser/data/sources/html/your_document.html" "botnim/document_parser/html_processor/logs/your_document_structure.json" "סעיף" --output specs/takanon/extraction/your_document_structure_content.json
   ```
 - Markdown generation only:
   ```bash
-  botnim generate-markdown-files specs/takanon/extraction/your_document_structure_content.json --write-files --output-dir botnim/document_parser/dynamic_extractions/logs/chunks/
+  botnim generate-markdown-files specs/takanon/extraction/your_document_structure_content.json --write-files --output-dir botnim/document_parser/html_processor/logs/chunks/
   ```
 
 ### Output Structure
@@ -322,7 +328,7 @@ The pipeline produces outputs as follows:
 
 - **In the output directory you specify:**
   - Only the final `*_structure_content.json` file is saved here. This is the file used for downstream sync/ingestion.
-- **In the logs directory (`botnim/document_parser/dynamic_extractions/logs/`):**
+- **In the logs directory (`botnim/document_parser/html_processor/logs/`):**
   - All intermediate files, including:
     - `*_structure.json` (document structure)
     - `*_pipeline_metadata.json` (execution metadata)
@@ -335,7 +341,7 @@ specs/takanon/extraction/
     תקנון הכנסת_structure_content.json
     חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
 
-botnim/document_parser/dynamic_extractions/logs/
+botnim/document_parser/html_processor/logs/
     תקנון הכנסת_structure.json
     תקנון הכנסת_pipeline_metadata.json
     חוק_רציפות_הדיון_בהצעות_חוק_structure.json
@@ -591,5 +597,5 @@ botnim assistant --environment production  # or staging (default)
 
 For more detailed information about specific components:
 
-- **PDF Extraction Testing**: See `botnim/document_parser/dynamic_extractions/pdf_extraction/test/README.md` for detailed testing procedures
-- **Document Processing**: See `botnim/document_parser/dynamic_extractions/README.md` for advanced document processing workflows
+- **PDF Extraction Testing**: See `botnim/document_parser/pdf_processor/test/README.md` for detailed testing procedures
+- **Document Processing**: See `botnim/document_parser/html_processor/README.md` for advanced document processing workflows

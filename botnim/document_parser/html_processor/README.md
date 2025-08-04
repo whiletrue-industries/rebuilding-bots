@@ -17,13 +17,13 @@ This tool processes HTML legal documents through three automated stages:
 The simplest way to process a document:
 
 ```bash
-botnim process-document botnim/document_parser/extract_sources/your_document.html specs/takanon/extraction/ --generate-markdown
+botnim process-document botnim/document_parser/data/sources/html/your_document.html specs/takanon/extraction/ --generate-markdown
 ```
 
 This will:
 - Analyze the document structure
 - Extract content from sections (default: "סעיף" - Hebrew clauses)
-- Generate individual markdown files in `botnim/document_parser/dynamic_extractions/logs/chunks/`
+- Generate individual markdown files in `botnim/document_parser/html_processor/logs/chunks/`
 
 ## Architecture
 
@@ -40,22 +40,22 @@ This will:
 ### Quick Start
 
 ```bash
-botnim process-document botnim/document_parser/extract_sources/your_document.html specs/takanon/extraction/ --generate-markdown
+botnim process-document botnim/document_parser/data/sources/html/your_document.html specs/takanon/extraction/ --generate-markdown
 ```
 
 ### Advanced Usage
 
 - Structure extraction only:
   ```bash
-  botnim extract-structure "botnim/document_parser/extract_sources/your_document.html" "botnim/document_parser/dynamic_extractions/logs/your_document_structure.json"
+  botnim extract-structure "botnim/document_parser/data/sources/html/your_document.html" "botnim/document_parser/html_processor/logs/your_document_structure.json"
   ```
 - Content extraction only:
   ```bash
-  botnim extract-content "botnim/document_parser/extract_sources/your_document.html" "botnim/document_parser/dynamic_extractions/logs/your_document_structure.json" "סעיף" --output specs/takanon/extraction/your_document_structure_content.json
+  botnim extract-content "botnim/document_parser/data/sources/html/your_document.html" "botnim/document_parser/html_processor/logs/your_document_structure.json" "סעיף" --output specs/takanon/extraction/your_document_structure_content.json
   ```
 - Markdown generation only:
   ```bash
-  botnim generate-markdown-files specs/takanon/extraction/your_document_structure_content.json --write-files --output-dir botnim/document_parser/dynamic_extractions/logs/chunks/
+  botnim generate-markdown-files specs/takanon/extraction/your_document_structure_content.json --write-files --output-dir botnim/document_parser/html_processor/logs/chunks/
   ```
 
 ### In-Memory Markdown Generation for Sync/Automation
@@ -69,7 +69,7 @@ The pipeline produces outputs as follows:
 
 - **In the output directory you specify:**
   - Only the final `*_structure_content.json` file is saved here. This is the file used for downstream sync/ingestion.
-- **In the logs directory (`botnim/document_parser/dynamic_extractions/logs/`):**
+- **In the logs directory (`botnim/document_parser/html_processor/logs/`):**
   - All intermediate files, including:
     - `*_structure.json` (document structure)
     - `*_pipeline_metadata.json` (execution metadata)
@@ -82,7 +82,7 @@ specs/takanon/extraction/
     תקנון הכנסת_structure_content.json
     חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
 
-botnim/document_parser/dynamic_extractions/logs/
+botnim/document_parser/html_processor/logs/
     תקנון הכנסת_structure.json
     תקנון הכנסת_pipeline_metadata.json
     חוק_רציפות_הדיון_בהצעות_חוק_structure.json
