@@ -1,0 +1,267 @@
+version: "1.0.0"
+name: "Takanon Bot Sync Configuration"
+description: "Automated sync configuration for Knesset legal content sources"
+
+# Global settings
+default_versioning_strategy: "hash"
+default_fetch_strategy: "direct"
+
+# Storage configuration
+cache_directory: "./cache"
+embedding_cache_path: "./cache/embeddings.sqlite"
+version_cache_path: "./cache/versions.json"
+
+# Processing configuration
+max_concurrent_sources: 5
+timeout_per_source: 300
+
+# Logging configuration
+log_level: "INFO"
+log_file: "./logs/sync.log"
+
+# Content sources
+sources:
+  # Google Spreadsheet Sources
+  - id: "oral-knowledge-spreadsheet"
+    name: "ידע שבעל פה (Oral Knowledge)"
+    description: "ידע שבעל פה על עבודת הכנסת והתקנון"
+    type: "spreadsheet"
+    spreadsheet_config:
+      url: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=0#gid=0"
+      sheet_name: "תושב״ע"
+      range: "A1:Z1000"
+      use_adc: true
+    versioning_strategy: "timestamp"
+    fetch_strategy: "async"
+    fetch_interval: 3600  # 1 hour
+    enabled: true
+    priority: 1
+    tags: ["משפטי", "ידע-בעל-פה", "google-spreadsheet"]
+
+  - id: "committee-decisions-spreadsheet"
+    name: "Committee Decisions (Spreadsheet)"
+    description: "החלטות של ועדת האתיקה"
+    type: "spreadsheet"
+    spreadsheet_config:
+      url: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=656974237#gid=656974237"
+      sheet_name: "Committee Decisions"
+      range: "A1:F500"
+      use_adc: true
+    versioning_strategy: "timestamp"
+    fetch_strategy: "async"
+    fetch_interval: 7200  # 2 hours
+    enabled: true
+    priority: 2
+    tags: ["משפטי", "ועדות", "החלטות", "google-spreadsheet"]
+
+  - id: "ethics-decisions-spreadsheet"
+    name: "Ethics Committee Decisions (Spreadsheet)"
+    description: "החלטות של ועדת האתיקה"
+    type: "spreadsheet"
+    spreadsheet_config:
+      url: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=328434674#gid=328434674"
+      sheet_name: "Ethics Decisions"
+      range: "A1:D1000"
+      use_adc: true
+    versioning_strategy: "timestamp"
+    fetch_strategy: "async"
+    fetch_interval: 7200  # 2 hours
+    enabled: true
+    priority: 3
+    tags: ["משפטי", "אתיקה", "החלטות", "google-spreadsheet"]
+
+  # HTML Sources - Knesset Lexicon
+  - id: "knesset-lexicon-html"
+    name: "לקסיקון הכנסת (Knesset Lexicon)"
+    description: "לקסיקון הכנסת - דף אינדקס עם דפי HTML מחוברים"
+    type: "html"
+    html_config:
+      url: "https://main.knesset.gov.il/about/lexicon/pages/default.aspx"
+      selector: "#content"
+      encoding: "utf-8"
+      timeout: 60
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"
+    enabled: true
+    priority: 4
+    tags: ["משפטי", "כנסת", "לקסיקון", "html"]
+
+  # PDF Sources - Ethics Committee Decisions
+  - id: "ethics-committee-decisions-pdf"
+    name: "החלטות ועדת האתיקה (Ethics Committee Decisions)"
+    description: "החלטות PDF מוועדת האתיקה במספר מושבי כנסת"
+    type: "pdf"
+    pdf_config:
+      url: "https://main.knesset.gov.il/Activity/committees/Ethics/Pages/CommitteeDecisionsPast.aspx"
+      is_index_page: true
+      file_pattern: "*.pdf"
+      download_directory: "./downloads/ethics-committee"
+      timeout: 120
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"
+    enabled: true
+    priority: 5
+    tags: ["משפטי", "אתיקה", "החלטות", "pdf"]
+
+  # Individual Knesset Ethics Committee Index Pages
+  - id: "ethics-committee-25-pdf"
+    name: "החלטות ועדת האתיקה - הכנסת ה-25"
+    description: "החלטות PDF מוועדת האתיקה של הכנסת ה-25"
+    type: "pdf"
+    pdf_config:
+      url: "https://main.knesset.gov.il/activity/committees/ethics/pages/committeedecisions25.aspx"
+      is_index_page: true
+      file_pattern: "*.pdf"
+      download_directory: "./downloads/ethics-committee/25"
+      timeout: 60
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"
+    enabled: true
+    priority: 6
+    tags: ["משפטי", "אתיקה", "החלטות", "pdf", "כנסת-25"]
+
+  - id: "ethics-committee-23-pdf"
+    name: "החלטות ועדת האתיקה - הכנסת ה-23"
+    description: "החלטות PDF מוועדת האתיקה של הכנסת ה-23"
+    type: "pdf"
+    pdf_config:
+      url: "https://main.knesset.gov.il/activity/committees/ethics/pages/committeedecisions23.aspx"
+      is_index_page: true
+      file_pattern: "*.pdf"
+      download_directory: "./downloads/ethics-committee/23"
+      timeout: 60
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"
+    enabled: true
+    priority: 7
+    tags: ["משפטי", "אתיקה", "החלטות", "pdf", "כנסת-23"]
+
+  - id: "ethics-committee-20-pdf"
+    name: "החלטות ועדת האתיקה - הכנסת ה-20"
+    description: "החלטות PDF מוועדת האתיקה של הכנסת ה-20"
+    type: "pdf"
+    pdf_config:
+      url: "https://main.knesset.gov.il/activity/committees/ethics/pages/committeedecisions20.aspx"
+      is_index_page: true
+      file_pattern: "*.pdf"
+      download_directory: "./downloads/ethics-committee/20"
+      timeout: 60
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"
+    enabled: true
+    priority: 8
+    tags: ["משפטי", "אתיקה", "החלטות", "pdf", "כנסת-20"]
+
+  # Wikisource HTML Sources
+  - id: "knesset-law-wikisource"
+    name: "חוק הכנסת (Knesset Law)"
+    description: "חוק הכנסת מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_הכנסת"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 9
+    tags: ["משפטי", "כנסת", "חוק", "ויקיטקסט", "html"]
+
+  - id: "knesset-building-law-wikisource"
+    name: "חוק משכן הכנסת, רחבתו ומשמר הכנסת"
+    description: "חוק משכן הכנסת מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_משכן_הכנסת,_רחבתו_ומשמר_הכנסת"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 10
+    tags: ["משפטי", "כנסת", "משכן", "ויקיטקסט", "html"]
+
+  - id: "knesset-basic-law-wikisource"
+    name: "חוק יסוד הכנסת (Basic Law: Knesset)"
+    description: "חוק יסוד הכנסת מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק-יסוד:_הכנסת"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 11
+    tags: ["משפטי", "כנסת", "חוק-יסוד", "ויקיטקסט", "html"]
+
+  - id: "knesset-immunity-law-wikisource"
+    name: "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם"
+    description: "חוק חסינות חברי הכנסת מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_חסינות_חברי_הכנסת,_זכויותיהם_וחובותיהם"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 12
+    tags: ["משפטי", "כנסת", "חסינות", "ויקיטקסט", "html"]
+
+  - id: "continuity-law-wikisource"
+    name: "חוק רציפות הדיון בהצעות חוק"
+    description: "חוק רציפות הדיון בהצעות חוק מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_רציפות_הדיון_בהצעות_חוק"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 13
+    tags: ["משפטי", "כנסת", "רציפות", "ויקיטקסט", "html"]
+
+  - id: "knesset-bylaws-wikisource"
+    name: "תקנון הכנסת (Knesset Bylaws)"
+    description: "תקנון הכנסת מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/תקנון_הכנסת"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 14
+    tags: ["משפטי", "כנסת", "תקנון", "ויקיטקסט", "html"]
+
+  - id: "interpretation-law-wikisource"
+    name: "חוק הפרשנות (Interpretation Law)"
+    description: "חוק הפרשנות מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_הפרשנות"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 15
+    tags: ["משפטי", "כנסת", "פרשנות", "ויקיטקסט", "html"] 
