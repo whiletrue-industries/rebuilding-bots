@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from datetime import datetime, timezone
 
-from .sync_config import (
+from ..config import (
     SyncConfig, ContentSource, VersionManager, VersionInfo,
     SourceType, VersioningStrategy, FetchStrategy,
     HTMLSourceConfig, PDFSourceConfig, SpreadsheetSourceConfig,
