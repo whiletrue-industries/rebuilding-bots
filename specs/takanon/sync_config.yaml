@@ -115,6 +115,45 @@ sources:
       file_pattern: "*.pdf"
       download_directory: "./downloads/ethics-committee/25"
       timeout: 60
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "committee_name"
+            type: "string"
+            description: "Name of the committee that made the decision"
+            required: true
+          - name: "decision_date"
+            type: "date"
+            description: "Date when the decision was made"
+            required: true
+          - name: "decision_number"
+            type: "string"
+            description: "Decision number or identifier"
+            required: false
+          - name: "decision_title"
+            type: "string"
+            description: "Title or subject of the decision"
+            required: true
+          - name: "decision_summary"
+            type: "text"
+            description: "Summary of the decision content"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content of the decision"
+            required: true
+          - name: "keywords"
+            type: "array"
+            description: "Key terms and topics mentioned in the decision"
+            required: false
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
     versioning_strategy: "combined"
     fetch_strategy: "index_page"
     enabled: true
@@ -131,6 +170,45 @@ sources:
       file_pattern: "*.pdf"
       download_directory: "./downloads/ethics-committee/23"
       timeout: 60
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "committee_name"
+            type: "string"
+            description: "Name of the committee that made the decision"
+            required: true
+          - name: "decision_date"
+            type: "date"
+            description: "Date when the decision was made"
+            required: true
+          - name: "decision_number"
+            type: "string"
+            description: "Decision number or identifier"
+            required: false
+          - name: "decision_title"
+            type: "string"
+            description: "Title or subject of the decision"
+            required: true
+          - name: "decision_summary"
+            type: "text"
+            description: "Summary of the decision content"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content of the decision"
+            required: true
+          - name: "keywords"
+            type: "array"
+            description: "Key terms and topics mentioned in the decision"
+            required: false
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
     versioning_strategy: "combined"
     fetch_strategy: "index_page"
     enabled: true
@@ -147,6 +225,45 @@ sources:
       file_pattern: "*.pdf"
       download_directory: "./downloads/ethics-committee/20"
       timeout: 60
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "committee_name"
+            type: "string"
+            description: "Name of the committee that made the decision"
+            required: true
+          - name: "decision_date"
+            type: "date"
+            description: "Date when the decision was made"
+            required: true
+          - name: "decision_number"
+            type: "string"
+            description: "Decision number or identifier"
+            required: false
+          - name: "decision_title"
+            type: "string"
+            description: "Title or subject of the decision"
+            required: true
+          - name: "decision_summary"
+            type: "text"
+            description: "Summary of the decision content"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content of the decision"
+            required: true
+          - name: "keywords"
+            type: "array"
+            description: "Key terms and topics mentioned in the decision"
+            required: false
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
     versioning_strategy: "combined"
     fetch_strategy: "index_page"
     enabled: true

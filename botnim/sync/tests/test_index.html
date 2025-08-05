@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <title>Test PDF Index - Knesset Documents</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .document-list { list-style: none; padding: 0; }
+        .document-item { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .document-link { color: #0066cc; text-decoration: none; }
+        .document-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Test PDF Documents - Knesset Ethics Committee</h1>
+    <p>This is a test index page for PDF discovery functionality.</p>
+    
+    <h2>Committee Decisions</h2>
+    <ul class="document-list">
+        <li class="document-item">
+            <a href="test_document_1.pdf" class="document-link">החלטה מספר 1 - ועדת האתיקה</a>
+            <br><small>תאריך: 15 בינואר 2024</small>
+        </li>
+        <li class="document-item">
+            <a href="test_document_2.pdf" class="document-link">החלטה מספר 2 - ועדת האתיקה</a>
+            <br><small>תאריך: 20 בינואר 2024</small>
+        </li>
+        <li class="document-item">
+            <a href="test_document_3.pdf" class="document-link">החלטה מספר 3 - ועדת האתיקה</a>
+            <br><small>תאריך: 25 בינואר 2024</small>
+        </li>
+    </ul>
+    
+    <h2>Additional Documents</h2>
+    <ul class="document-list">
+        <li class="document-item">
+            <a href="report_2024.pdf" class="document-link">דוח שנתי 2024</a>
+            <br><small>תאריך: 1 בפברואר 2024</small>
+        </li>
+        <li class="document-item">
+            <a href="guidelines.pdf" class="document-link">הנחיות אתיקה</a>
+            <br><small>תאריך: 10 בפברואר 2024</small>
+        </li>
+    </ul>
+    
+    <h2>Non-PDF Links (Should be ignored)</h2>
+    <ul class="document-list">
+        <li class="document-item">
+            <a href="document.txt">Text Document (should be ignored)</a>
+        </li>
+        <li class="document-item">
+            <a href="image.jpg">Image File (should be ignored)</a>
+        </li>
+        <li class="document-item">
+            <a href="https://external-site.com/document.pdf">External PDF (should be ignored)</a>
+        </li>
+    </ul>
+</body>
+</html> 

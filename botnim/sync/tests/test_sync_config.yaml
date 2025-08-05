@@ -1,0 +1,76 @@
+version: "1.0.0"
+name: "Test PDF Discovery Configuration"
+description: "Configuration for testing PDF discovery locally"
+
+sources:
+  - id: "test-pdf-source"
+    name: "Test PDF Source"
+    description: "Test source for PDF discovery"
+    type: "pdf"
+    pdf_config:
+      url: "http://localhost:8000/test_index.html"
+      is_index_page: true
+      file_pattern: "*.pdf"
+      timeout: 30
+      processing:
+        model: "gpt-4o-mini"
+        max_tokens: 2000
+        temperature: 0.1
+        fields:
+          - name: "document_title"
+            type: "string"
+            description: "Title of the document"
+            required: true
+          - name: "content_summary"
+            type: "text"
+            description: "Summary of document content"
+            required: true
+          - name: "document_type"
+            type: "string"
+            description: "Type of document (decision, report, guidelines)"
+            required: false
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 500
+          chunk_overlap: 100
+          max_file_size_mb: 10
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"
+    enabled: true
+    priority: 1
+    tags: ["test", "local"]
+
+  - id: "test-pdf-source-filtered"
+    name: "Test PDF Source with Filter"
+    description: "Test source with specific file pattern filter"
+    type: "pdf"
+    pdf_config:
+      url: "http://localhost:8000/test_index.html"
+      is_index_page: true
+      file_pattern: "test_document_*.pdf"
+      timeout: 30
+      processing:
+        model: "gpt-4o-mini"
+        max_tokens: 2000
+        temperature: 0.1
+        fields:
+          - name: "document_title"
+            type: "string"
+            description: "Title of the document"
+            required: true
+          - name: "content_summary"
+            type: "text"
+            description: "Summary of document content"
+            required: true
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 500
+          chunk_overlap: 100
+          max_file_size_mb: 10
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"
+    enabled: true
+    priority: 2
+    tags: ["test", "local", "filtered"] 

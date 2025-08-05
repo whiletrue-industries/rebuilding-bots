@@ -64,6 +64,32 @@ class HTMLSourceConfig(BaseModel):
             raise ValueError('Invalid URL format')
 
 
+class PDFProcessingField(BaseModel):
+    """Configuration for a PDF processing field."""
+    name: str = Field(..., description="Field name")
+    type: str = Field(..., description="Field type (string, date, text, array)")
+    description: str = Field(..., description="Field description")
+    required: bool = Field(default=False, description="Whether field is required")
+
+
+class PDFProcessingOptions(BaseModel):
+    """Configuration for PDF processing options."""
+    enable_ocr: bool = Field(default=True, description="Enable OCR for image-based PDFs")
+    ocr_language: str = Field(default="heb+eng", description="OCR language")
+    chunk_size: int = Field(default=1000, description="Text chunk size")
+    chunk_overlap: int = Field(default=200, description="Text chunk overlap")
+    max_file_size_mb: int = Field(default=50, description="Maximum file size in MB")
+
+
+class PDFProcessingConfig(BaseModel):
+    """Configuration for PDF processing."""
+    model: str = Field(default="gpt-4o-mini", description="OpenAI model to use")
+    max_tokens: int = Field(default=4000, description="Maximum tokens for processing")
+    temperature: float = Field(default=0.1, description="Processing temperature")
+    fields: List[PDFProcessingField] = Field(default_factory=list, description="Fields to extract")
+    options: PDFProcessingOptions = Field(default_factory=PDFProcessingOptions, description="Processing options")
+
+
 class PDFSourceConfig(BaseModel):
     """Configuration for PDF content sources."""
     url: str = Field(..., description="Source URL or index page URL")
@@ -72,6 +98,7 @@ class PDFSourceConfig(BaseModel):
     download_directory: Optional[str] = Field(None, description="Directory to store downloaded PDFs")
     headers: Dict[str, str] = Field(default_factory=dict, description="HTTP headers")
     timeout: int = Field(default=60, description="Request timeout in seconds")
+    processing: Optional[PDFProcessingConfig] = Field(None, description="PDF processing configuration")
     
     @field_validator('url')
     @classmethod
