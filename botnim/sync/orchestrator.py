@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 from openai import OpenAI
 
-from ..config import get_logger, DEFAULT_ENVIRONMENT
+from ..config import get_logger, DEFAULT_ENVIRONMENT, get_openai_client
 from .config import SyncConfig, ContentSource, SourceType, VersionManager
 from .cache import SyncCache
 from .html_fetcher import HTMLProcessor
@@ -27,7 +27,7 @@ from .pdf_discovery import PDFDiscoveryProcessor
 from .spreadsheet_fetcher import AsyncSpreadsheetProcessor
 from .embedding_processor import SyncEmbeddingProcessor
 from ..vector_store.vector_store_es import VectorStoreES
-from ..cli import get_openai_client
+
 
 
 logger = get_logger(__name__)
@@ -378,25 +378,32 @@ class SyncOrchestrator:
     def _process_spreadsheet_source(self, source: ContentSource, start_time: float) -> SyncResult:
         """Process a spreadsheet source."""
         try:
-            # Process spreadsheet source asynchronously
-            # Note: This is a simplified version - in practice, we'd need to handle async properly
-            # For now, we'll simulate the processing
+            # Process spreadsheet source asynchronously by running the async function
+            # in the current event loop, which is managed by the ThreadPoolExecutor.
+            results = asyncio.run(self.spreadsheet_processor.process_spreadsheet_source(source))
             
             processing_time = time.time() - start_time
             
-            # Simulate processing (in real implementation, this would be async)
-            processed_count = 1  # Placeholder
-            failed_count = 0
+            # Translate the async processor's result dictionary into a SyncResult object
+            status = results.get('status', 'failed')
+            error_message = results.get('error_message')
             
+            # Since the async processor handles one source as one task, we can map the status
+            documents_processed = 1 if status == 'submitted' or status == 'completed' else 0
+            documents_failed = 1 if status == 'failed' or status == 'error' else 0
+
+            if status == 'submitted' or status == 'completed':
+                status = 'success' # Remap to the orchestrator's status enum
+
             return SyncResult(
                 source_id=source.id,
                 source_type=source.type.value,
-                status='success',
+                status=status,
                 processing_time=processing_time,
-                documents_processed=processed_count,
-                documents_failed=failed_count,
-                error_message=None,
-                metadata={'spreadsheet_results': {'status': 'processed'}}
+                documents_processed=documents_processed,
+                documents_failed=documents_failed,
+                error_message=error_message,
+                metadata={'spreadsheet_results': results}
             )
             
         except Exception as e:
@@ -406,7 +413,7 @@ class SyncOrchestrator:
                 status='failed',
                 processing_time=time.time() - start_time,
                 documents_processed=0,
-                documents_failed=0,
+                documents_failed=1,
                 error_message=str(e)
             )
     
