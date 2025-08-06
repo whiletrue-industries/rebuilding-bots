@@ -629,17 +629,33 @@ class TestIntegration:
     
     def test_orchestrator_integration(self, temp_config_file):
         """Test orchestrator integration with mocked components."""
-        with patch.multiple(
-            'botnim.sync.orchestrator',
-            SyncCache=Mock,
-            VectorStoreES=Mock,
-            get_openai_client=Mock,
-            VersionManager=Mock,
-            HTMLProcessor=Mock,
-            PDFDiscoveryProcessor=Mock,
-            AsyncSpreadsheetProcessor=Mock,
-            SyncEmbeddingProcessor=Mock
-        ):
+        with patch('botnim.sync.orchestrator.SyncCache') as mock_cache_class, \
+             patch('botnim.sync.orchestrator.VectorStoreES') as mock_vector_store_class, \
+             patch('botnim.sync.orchestrator.get_openai_client') as mock_openai_client, \
+             patch('botnim.sync.orchestrator.VersionManager') as mock_version_manager_class, \
+             patch('botnim.sync.orchestrator.HTMLProcessor') as mock_html_processor_class, \
+             patch('botnim.sync.orchestrator.PDFDiscoveryProcessor') as mock_pdf_processor_class, \
+             patch('botnim.sync.orchestrator.AsyncSpreadsheetProcessor') as mock_spreadsheet_processor_class, \
+             patch('botnim.sync.orchestrator.SyncEmbeddingProcessor') as mock_embedding_processor_class:
+            
+            # Configure mock return values
+            mock_cache = Mock()
+            mock_vector_store = Mock()
+            mock_version_manager = Mock()
+            mock_html_processor = Mock()
+            mock_pdf_processor = Mock()
+            mock_spreadsheet_processor = Mock()
+            mock_embedding_processor = Mock()
+            
+            mock_cache_class.return_value = mock_cache
+            mock_vector_store_class.return_value = mock_vector_store
+            mock_openai_client.return_value = Mock()
+            mock_version_manager_class.return_value = mock_version_manager
+            mock_html_processor_class.return_value = mock_html_processor
+            mock_pdf_processor_class.return_value = mock_pdf_processor
+            mock_spreadsheet_processor_class.return_value = mock_spreadsheet_processor
+            mock_embedding_processor_class.return_value = mock_embedding_processor
+            
             # Load config
             config = SyncConfig.from_yaml(temp_config_file)
             
@@ -664,17 +680,33 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_full_sync_workflow_mock(self, temp_config_file):
         """Test the full sync workflow with mocked components."""
-        with patch.multiple(
-            'botnim.sync.orchestrator',
-            SyncCache=Mock,
-            VectorStoreES=Mock,
-            get_openai_client=Mock,
-            VersionManager=Mock,
-            HTMLProcessor=Mock,
-            PDFDiscoveryProcessor=Mock,
-            AsyncSpreadsheetProcessor=Mock,
-            SyncEmbeddingProcessor=Mock
-        ):
+        with patch('botnim.sync.orchestrator.SyncCache') as mock_cache_class, \
+             patch('botnim.sync.orchestrator.VectorStoreES') as mock_vector_store_class, \
+             patch('botnim.sync.orchestrator.get_openai_client') as mock_openai_client, \
+             patch('botnim.sync.orchestrator.VersionManager') as mock_version_manager_class, \
+             patch('botnim.sync.orchestrator.HTMLProcessor') as mock_html_processor_class, \
+             patch('botnim.sync.orchestrator.PDFDiscoveryProcessor') as mock_pdf_processor_class, \
+             patch('botnim.sync.orchestrator.AsyncSpreadsheetProcessor') as mock_spreadsheet_processor_class, \
+             patch('botnim.sync.orchestrator.SyncEmbeddingProcessor') as mock_embedding_processor_class:
+            
+            # Configure mock return values
+            mock_cache = Mock()
+            mock_vector_store = Mock()
+            mock_version_manager = Mock()
+            mock_html_processor = Mock()
+            mock_pdf_processor = Mock()
+            mock_spreadsheet_processor = Mock()
+            mock_embedding_processor = Mock()
+            
+            mock_cache_class.return_value = mock_cache
+            mock_vector_store_class.return_value = mock_vector_store
+            mock_openai_client.return_value = Mock()
+            mock_version_manager_class.return_value = mock_version_manager
+            mock_html_processor_class.return_value = mock_html_processor
+            mock_pdf_processor_class.return_value = mock_pdf_processor
+            mock_spreadsheet_processor_class.return_value = mock_spreadsheet_processor
+            mock_embedding_processor_class.return_value = mock_embedding_processor
+            
             # Load config
             config = SyncConfig.from_yaml(temp_config_file)
             
