@@ -16,12 +16,14 @@ The PDF extraction pipeline has been significantly enhanced with:
 
 ### Automated Sync Infrastructure
 
-A new automated, versioned, cloud-native sync system has been implemented for content sources (HTML & PDF) to vector store:
+A new automated, versioned, cloud-native sync system has been implemented for content sources (HTML, PDF, and spreadsheets) to vector store:
 
 - **Unified Configuration Schema** - YAML-based configuration for all content source types (HTML, PDF, spreadsheets)
 - **Versioning & Change Detection** - Content hash-based versioning with incremental updates
 - **Caching Layer** - SQLite-based duplicate detection and content tracking
 - **HTML Content Fetching** - Automated fetching and parsing of HTML sources with version tracking
+- **Asynchronous Spreadsheet Processing** - Background processing of Google Sheets data with task queue management
+- **PDF Discovery & Processing** - Automated discovery and processing of PDF files from remote sources
 - **Cloud-Native Design** - Designed for CI/CD workflows with no local dependencies
 - **Comprehensive Logging** - Structured logging with the project's standard logging mechanism
 
@@ -34,6 +36,12 @@ botnim sync html fetch https://example.com --selector "#content"
 # Process HTML sources from configuration
 botnim sync html process specs/takanon/sync_config.yaml --source-ids knesset-lexicon-html
 
+# Process spreadsheet sources asynchronously
+botnim sync spreadsheet process specs/takanon/sync_config.yaml
+
+# Check spreadsheet processing status
+botnim sync spreadsheet status specs/takanon/sync_config.yaml
+
 # Manage sync cache
 botnim sync cache stats
 botnim sync cache cleanup --older-than 30
@@ -45,6 +53,7 @@ Sync sources are configured in YAML files (e.g., `specs/takanon/sync_config.yaml
 
 ```yaml
 sources:
+  # HTML Sources
   - id: "knesset-lexicon-html"
     name: "לקסיקון הכנסת (Knesset Lexicon)"
     type: "html"
@@ -54,9 +63,50 @@ sources:
     versioning_strategy: "combined"
     enabled: true
     priority: 1
+
+  # Spreadsheet Sources (Async Processing)
+  - id: "oral-knowledge-spreadsheet"
+    name: "ידע שבעל פה (Oral Knowledge)"
+    type: "spreadsheet"
+    spreadsheet_config:
+      url: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=0#gid=0"
+      sheet_name: "תושב״ע"
+      range: "A1:Z1000"
+      use_adc: true
+    versioning_strategy: "timestamp"
+    fetch_strategy: "async"  # Required for background processing
+    fetch_interval: 3600  # 1 hour
+    enabled: true
+    priority: 1
 ```
 
 For more details, see the sync infrastructure documentation in `docs/`.
+
+#### Spreadsheet Processing Features
+
+The new asynchronous spreadsheet processing system provides:
+
+- **Background Processing**: Spreadsheet operations run in background threads without blocking main sync
+- **Task Queue Management**: Comprehensive task tracking with status monitoring and error handling
+- **Google Sheets Integration**: Leverages existing Google Sheets API infrastructure
+- **Intermediate Storage**: Stores fetched data in Elasticsearch for later processing
+- **CLI Commands**: Full command-line interface for processing, monitoring, and data retrieval
+
+```bash
+# Process all spreadsheet sources
+botnim sync spreadsheet process config.yaml
+
+# Check processing status
+botnim sync spreadsheet status config.yaml
+
+# Retrieve stored data
+botnim sync spreadsheet data source-id
+
+# Clean up completed tasks
+botnim sync spreadsheet cleanup
+```
+
+For detailed documentation, see `docs/spreadsheet_processing_documentation.md`.
 
 ## Getting Started
 

@@ -23,6 +23,7 @@ from .document_parser.pdf_processor.google_sheets_service import GoogleSheetsSer
 from .sync import HTMLFetcher, HTMLProcessor, fetch_and_parse_html
 from .sync.cache import SyncCache
 from .sync.config import SyncConfig, ContentSource
+from .sync.spreadsheet_fetcher import AsyncSpreadsheetProcessor, get_spreadsheet_data_from_storage
 
 logger = get_logger(__name__)
 
@@ -286,6 +287,226 @@ def html_process(config_file, source_ids, verbose):
 def cache_group():
     """Sync cache management commands."""
     pass
+
+@sync_group.group(name='spreadsheet')
+def spreadsheet_group():
+    """Spreadsheet processing commands."""
+    pass
+
+@spreadsheet_group.command(name='process')
+@click.argument('config_file')
+@click.option('--source-ids', multiple=True, help='Process specific source IDs (default: all enabled spreadsheet sources)')
+@click.option('--environment', default='staging', help='Environment for vector store')
+@click.option('--max-workers', type=int, default=3, help='Maximum number of worker threads')
+@click.option('--verbose', is_flag=True, help='Enable verbose logging')
+def spreadsheet_process(config_file, source_ids, environment, max_workers, verbose):
+    """Process spreadsheet sources asynchronously from a configuration file."""
+    try:
+        # Load configuration
+        config = SyncConfig.from_yaml(config_file)
+        
+        # Filter sources
+        spreadsheet_sources = [s for s in config.sources if s.type == "spreadsheet" and s.enabled]
+        
+        if source_ids:
+            spreadsheet_sources = [s for s in spreadsheet_sources if s.id in source_ids]
+        
+        if not spreadsheet_sources:
+            click.echo("No enabled spreadsheet sources found in configuration")
+            return
+        
+        # Initialize components
+        cache = SyncCache()
+        vector_store = VectorStoreES('', '.', environment=environment)
+        processor = AsyncSpreadsheetProcessor(cache, vector_store, max_workers=max_workers)
+        
+        # Process sources asynchronously
+        import asyncio
+        
+        async def process_sources():
+            results = []
+            for source in spreadsheet_sources:
+                result = await processor.process_spreadsheet_source(source)
+                results.append(result)
+            return results
+        
+        # Run async processing
+        results = asyncio.run(process_sources())
+        
+        # Display results
+        click.echo(f"📊 Spreadsheet Processing Summary:")
+        click.echo(f"   Total sources: {len(results)}")
+        
+        submitted = sum(1 for r in results if r['status'] == 'submitted')
+        skipped = sum(1 for r in results if r['status'] == 'skipped')
+        errors = sum(1 for r in results if r['status'] == 'error')
+        
+        click.echo(f"   Submitted: {submitted}")
+        click.echo(f"   Skipped: {skipped}")
+        click.echo(f"   Errors: {errors}")
+        
+        if results:
+            click.echo("\n📋 Processing Results:")
+            for result in results:
+                status_icon = "✅" if result['status'] == 'submitted' else "⏭️" if result['status'] == 'skipped' else "❌"
+                click.echo(f"   {status_icon} {result['source_id']}: {result['status']}")
+                if result.get('task_id'):
+                    click.echo(f"      Task ID: {result['task_id']}")
+                if result.get('error_message'):
+                    click.echo(f"      Error: {result['error_message']}")
+        
+        # Show task status
+        pending_tasks = processor.get_pending_tasks()
+        processing_tasks = processor.get_processing_tasks()
+        
+        if pending_tasks or processing_tasks:
+            click.echo(f"\n🔄 Background Tasks:")
+            click.echo(f"   Pending: {len(pending_tasks)}")
+            click.echo(f"   Processing: {len(processing_tasks)}")
+            
+            if pending_tasks:
+                click.echo("   Pending tasks:")
+                for task in pending_tasks:
+                    click.echo(f"      • {task.source_id} (created: {task.created_at.strftime('%H:%M:%S')})")
+            
+            if processing_tasks:
+                click.echo("   Processing tasks:")
+                for task in processing_tasks:
+                    click.echo(f"      • {task.source_id} (started: {task.started_at.strftime('%H:%M:%S')})")
+        
+        processor.shutdown()
+        
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+
+@spreadsheet_group.command(name='status')
+@click.argument('config_file')
+@click.option('--task-id', help='Check status of specific task ID')
+@click.option('--source-id', help='Check status of tasks for specific source')
+@click.option('--environment', default='staging', help='Environment for vector store')
+@click.option('--limit', type=int, default=10, help='Maximum number of tasks to show')
+def spreadsheet_status(config_file, task_id, source_id, environment, limit):
+    """Check status of spreadsheet processing tasks."""
+    try:
+        # Initialize components
+        cache = SyncCache()
+        vector_store = VectorStoreES('', '.', environment=environment)
+        processor = AsyncSpreadsheetProcessor(cache, vector_store)
+        
+        if task_id:
+            # Check specific task
+            task = processor.get_task_status(task_id)
+            if task:
+                click.echo(f"📋 Task Status: {task_id}")
+                click.echo(f"   Source: {task.source_id}")
+                click.echo(f"   Status: {task.status}")
+                click.echo(f"   Created: {task.created_at}")
+                if task.started_at:
+                    click.echo(f"   Started: {task.started_at}")
+                if task.completed_at:
+                    click.echo(f"   Completed: {task.completed_at}")
+                if task.error_message:
+                    click.echo(f"   Error: {task.error_message}")
+                if task.result:
+                    click.echo(f"   Result: {task.result}")
+            else:
+                click.echo(f"Task {task_id} not found")
+        else:
+            # Show all tasks
+            pending_tasks = processor.get_pending_tasks()
+            processing_tasks = processor.get_processing_tasks()
+            
+            if source_id:
+                pending_tasks = [t for t in pending_tasks if t.source_id == source_id]
+                processing_tasks = [t for t in processing_tasks if t.source_id == source_id]
+            
+            click.echo(f"📊 Task Status Summary:")
+            click.echo(f"   Pending: {len(pending_tasks)}")
+            click.echo(f"   Processing: {len(processing_tasks)}")
+            
+            if pending_tasks:
+                click.echo(f"\n⏳ Pending Tasks (showing up to {limit}):")
+                for task in pending_tasks[:limit]:
+                    click.echo(f"   • {task.task_id}: {task.source_id} (created: {task.created_at.strftime('%H:%M:%S')})")
+            
+            if processing_tasks:
+                click.echo(f"\n🔄 Processing Tasks (showing up to {limit}):")
+                for task in processing_tasks[:limit]:
+                    click.echo(f"   • {task.task_id}: {task.source_id} (started: {task.started_at.strftime('%H:%M:%S')})")
+        
+        processor.shutdown()
+        
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+
+@spreadsheet_group.command(name='data')
+@click.argument('source_id')
+@click.option('--environment', default='staging', help='Environment for vector store')
+@click.option('--content-hash', help='Filter by specific content hash')
+@click.option('--limit', type=int, default=5, help='Maximum number of rows to show')
+def spreadsheet_data(source_id, environment, content_hash, limit):
+    """Retrieve spreadsheet data from intermediate storage."""
+    try:
+        # Initialize components
+        vector_store = VectorStoreES('', '.', environment=environment)
+        
+        # Get data from storage
+        data = get_spreadsheet_data_from_storage(source_id, vector_store, content_hash)
+        
+        if not data:
+            click.echo(f"No data found for source {source_id}")
+            return
+        
+        # Display data
+        click.echo(f"📊 Spreadsheet Data: {source_id}")
+        click.echo(f"   Row count: {data['metadata']['row_count']}")
+        click.echo(f"   Content hash: {data['metadata']['content_hash']}")
+        click.echo(f"   Fetch timestamp: {data['metadata']['fetch_timestamp']}")
+        
+        # Parse and display sample data
+        try:
+            import json
+            content_data = json.loads(data['content'])
+            
+            if content_data:
+                click.echo(f"\n📋 Sample Data (showing up to {limit} rows):")
+                headers = data['metadata']['headers']
+                click.echo(f"   Headers: {', '.join(headers)}")
+                
+                for i, row in enumerate(content_data[:limit]):
+                    click.echo(f"   Row {i+1}: {row}")
+                
+                if len(content_data) > limit:
+                    click.echo(f"   ... and {len(content_data) - limit} more rows")
+            else:
+                click.echo("   No data rows found")
+                
+        except Exception as e:
+            click.echo(f"   Error parsing data: {e}")
+        
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+
+@spreadsheet_group.command(name='cleanup')
+@click.option('--max-age-hours', type=int, default=24, help='Clean up tasks older than N hours')
+@click.option('--environment', default='staging', help='Environment for vector store')
+def spreadsheet_cleanup(max_age_hours, environment):
+    """Clean up completed spreadsheet processing tasks."""
+    try:
+        # Initialize components
+        cache = SyncCache()
+        vector_store = VectorStoreES('', '.', environment=environment)
+        processor = AsyncSpreadsheetProcessor(cache, vector_store)
+        
+        # Clean up tasks
+        cleaned_count = processor.cleanup_completed_tasks(max_age_hours)
+        
+        click.echo(f"🧹 Cleaned up {cleaned_count} completed tasks older than {max_age_hours} hours")
+        
+        processor.shutdown()
+        
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
 
 @cache_group.command(name='stats')
 def cache_stats():

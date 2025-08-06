@@ -98,6 +98,14 @@ sources:
     range: "A1:D1000"
     use_adc: true
   versioning_strategy: "timestamp"
+  fetch_strategy: "async"  # Required for background processing
+  fetch_interval: 3600  # 1 hour between fetches
+  enabled: true
+  priority: 2
+  tags: ["legal", "ethics", "spreadsheet"]
+```
+
+**Note**: Spreadsheet sources support asynchronous processing with background task queues. Set `fetch_strategy: "async"` to enable background processing that doesn't block the main sync workflow.
   fetch_strategy: "async"
   fetch_interval: 3600  # 1 hour
   enabled: true
@@ -326,6 +334,60 @@ To migrate from existing bot configurations:
 3. **Configure Versioning**: Choose appropriate versioning strategies
 4. **Test Migration**: Validate migrated configurations
 5. **Update Orchestration**: Update sync orchestration to use new schema
+
+## Spreadsheet Processing
+
+### Asynchronous Processing
+
+Spreadsheet sources support asynchronous processing with background task queues:
+
+- **Background Processing**: Operations run in background threads without blocking main sync
+- **Task Queue Management**: Comprehensive task tracking with status monitoring
+- **Intermediate Storage**: Data stored in Elasticsearch for later processing
+- **Error Handling**: Robust error handling and retry logic
+
+### CLI Commands
+
+```bash
+# Process spreadsheet sources
+botnim sync spreadsheet process config.yaml
+
+# Check processing status
+botnim sync spreadsheet status config.yaml
+
+# Retrieve stored data
+botnim sync spreadsheet data source-id
+
+# Clean up completed tasks
+botnim sync spreadsheet cleanup
+```
+
+### Programmatic Usage
+
+```python
+from botnim.sync.spreadsheet_fetcher import AsyncSpreadsheetProcessor
+from botnim.sync.config import SyncConfig
+from botnim.sync.cache import SyncCache
+from botnim.vector_store.vector_store_es import VectorStoreES
+
+# Initialize components
+config = SyncConfig.from_yaml("config.yaml")
+source = config.get_source_by_id("spreadsheet-source")
+cache = SyncCache()
+vector_store = VectorStoreES(environment="staging")
+processor = AsyncSpreadsheetProcessor(cache, vector_store)
+
+# Process asynchronously
+import asyncio
+result = asyncio.run(processor.process_spreadsheet_source(source))
+print(f"Task submitted: {result['task_id']}")
+
+# Check status
+task = processor.get_task_status(result['task_id'])
+print(f"Status: {task.status}")
+```
+
+For detailed documentation, see `docs/spreadsheet_processing_documentation.md`.
 
 ## Future Extensions
 

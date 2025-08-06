@@ -11,6 +11,7 @@ from ..config import get_logger
 from .cache import SyncCache, DuplicateDetector
 from .config import SyncConfig, VersionManager
 from .pdf_discovery import process_pdf_source
+from .spreadsheet_fetcher import AsyncSpreadsheetProcessor, get_spreadsheet_data_from_storage
 
 
 def cache_stats_command(args):

@@ -25,3 +25,6 @@ chardet>=5.0.0
 pytesseract
 Pillow
 PyMuPDF
+
+# Async HTTP client for spreadsheet processing
+aiohttp>=3.8.0
