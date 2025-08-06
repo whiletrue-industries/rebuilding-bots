@@ -9,21 +9,18 @@ This module provides:
 5. Download/upload mechanisms for embedding cache
 """
 
-import asyncio
 import hashlib
 import json
-import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple, Union
+from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 
 from openai import OpenAI
-from elasticsearch import Elasticsearch
 
 from ..config import get_logger, DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE, DEFAULT_BATCH_SIZE
-from .config import ContentSource, VersionInfo
+from .config import VersionInfo
 from .cache import SyncCache
 from ..vector_store.vector_store_es import VectorStoreES
 

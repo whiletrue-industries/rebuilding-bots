@@ -14,11 +14,11 @@ import hashlib
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Any, Union
-from dataclasses import dataclass, asdict
+from typing import Dict, List, Optional, Tuple, Any, Union
+from dataclasses import dataclass
 
 from ..config import get_logger
-from .config import ContentSource, VersionInfo, VersionManager
+from .config import ContentSource
 
 
 @dataclass

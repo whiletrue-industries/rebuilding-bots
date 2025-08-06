@@ -8,7 +8,7 @@ This module defines the unified configuration format for all content sources
 import hashlib
 import json
 import yaml
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any

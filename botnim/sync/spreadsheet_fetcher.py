@@ -16,12 +16,12 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor, Future
+from concurrent.futures import ThreadPoolExecutor
 import threading
 from dataclasses import dataclass
 
 from ..config import get_logger
-from .config import ContentSource, SpreadsheetSourceConfig, VersionInfo
+from .config import ContentSource
 from .cache import SyncCache
 from ..vector_store.vector_store_es import VectorStoreES
 from ..document_parser.pdf_processor.google_sheets_service import GoogleSheetsService

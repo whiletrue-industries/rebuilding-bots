@@ -16,13 +16,13 @@ import tempfile
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any, Set
+from typing import Dict, List, Optional, Tuple, Any
 from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 
 from ..config import get_logger
-from .config import ContentSource, PDFSourceConfig, FetchStrategy
+from .config import ContentSource
 from .cache import SyncCache
 from botnim.document_parser.pdf_processor.pdf_pipeline import PDFExtractionPipeline
 from botnim.vector_store.vector_store_es import VectorStoreES

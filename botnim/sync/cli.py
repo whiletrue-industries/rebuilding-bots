@@ -4,14 +4,11 @@ CLI commands for managing the sync cache and duplicate detection.
 
 import argparse
 import json
-from pathlib import Path
-from typing import Optional
 
 from ..config import get_logger
 from .cache import SyncCache, DuplicateDetector
-from .config import SyncConfig, VersionManager
+from .config import SyncConfig
 from .pdf_discovery import process_pdf_source
-from .spreadsheet_fetcher import AsyncSpreadsheetProcessor, get_spreadsheet_data_from_storage
 
 
 def cache_stats_command(args):

@@ -10,14 +10,14 @@ and version tracking for change detection.
 import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union, Any
+from typing import Dict, List, Optional, Tuple, Any
 from urllib.parse import unquote
 
 import requests
 from bs4 import BeautifulSoup
 
 from ..config import get_logger
-from .config import ContentSource, HTMLSourceConfig, VersioningStrategy, VersionInfo
+from .config import ContentSource, HTMLSourceConfig, VersionInfo
 from .cache import SyncCache
 
 logger = get_logger(__name__)
