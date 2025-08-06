@@ -12,9 +12,9 @@ from .benchmark.evaluate_metrics_cli import evaluate
 from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT, is_production
 from .query import run_query, get_available_indexes, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
-from .config import SPECS, get_logger
+from .config import SPECS, get_logger, get_openai_client
 from .document_parser.html_processor.process_document import PipelineRunner, PipelineConfig
-from .document_parser.html_processor.extract_structure import extract_structure_from_html, build_nested_structure, get_openai_client
+from .document_parser.html_processor.extract_structure import extract_structure_from_html, build_nested_structure
 from .document_parser.html_processor.extract_content import extract_content_from_html
 from .document_parser.html_processor.generate_markdown_files import generate_markdown_from_json
 from .document_parser.html_processor.pipeline_config import Environment

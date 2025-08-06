@@ -147,7 +147,8 @@ class TestCloudEmbeddingStorage:
         
         assert result is None
     
-    def test_batch_store_embeddings(self, embedding_storage):
+    @patch('botnim.sync.embedding_processor.bulk')
+    def test_batch_store_embeddings(self, mock_bulk, embedding_storage):
         """Test batch storage of embeddings."""
         embeddings = [
             EmbeddingInfo(
@@ -161,14 +162,10 @@ class TestCloudEmbeddingStorage:
             )
             for i in range(3)
         ]
-        
-        with patch('elasticsearch.helpers.bulk') as mock_bulk:
-            mock_bulk.return_value = (3, [])  # 3 successful, 0 failed
-            
-            result = embedding_storage.batch_store_embeddings(embeddings)
-            
-            assert result == 3
-            mock_bulk.assert_called_once()
+        mock_bulk.return_value = (3, [])
+        result = embedding_storage.batch_store_embeddings(embeddings)
+        assert result == 3
+        mock_bulk.assert_called_once()
 
 
 class TestEmbeddingChangeDetector:
