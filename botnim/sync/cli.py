@@ -9,6 +9,11 @@ from ..config import get_logger
 from .cache import SyncCache, DuplicateDetector
 from .config import SyncConfig
 from .pdf_discovery import process_pdf_source
+from .embedding_processor import SyncEmbeddingProcessor
+from .orchestrator import SyncOrchestratorCLI, SyncOrchestrator
+
+from botnim.vector_store.vector_store_es import VectorStoreES
+from botnim.cli import get_openai_client
 
 
 def cache_stats_command(args):
@@ -122,11 +127,9 @@ def pdf_discover_command(args):
         cache = SyncCache(cache_directory=args.cache_dir)
         
         # Initialize vector store
-        from botnim.vector_store.vector_store_es import VectorStoreES
         vector_store = VectorStoreES('', '.', environment=args.environment)
         
         # Initialize OpenAI client
-        from botnim.cli import get_openai_client
         openai_client = get_openai_client()
         
         # Process the PDF source
@@ -163,7 +166,6 @@ def pdf_status_command(args):
     
     try:
         # Initialize vector store
-        from botnim.vector_store.vector_store_es import VectorStoreES
         vector_store = VectorStoreES('', '.', environment=args.environment)
         
         # Query the tracking index
@@ -263,25 +265,20 @@ def embedding_process_command(args):
     
     try:
         # Load sync configuration
-        from .config import SyncConfig
         config = SyncConfig.from_yaml(args.config_file)
         
         logger.info(f"🔮 Processing embeddings for configuration: {config.name}")
         
         # Initialize components
-        from .cache import SyncCache
         cache = SyncCache(cache_directory=args.cache_dir)
         
         # Initialize vector store
-        from ..vector_store.vector_store_es import VectorStoreES
         vector_store = VectorStoreES('', '.', environment=args.environment)
         
         # Initialize OpenAI client
-        from ..cli import get_openai_client
         openai_client = get_openai_client()
         
         # Initialize embedding processor
-        from .embedding_processor import SyncEmbeddingProcessor
         embedding_processor = SyncEmbeddingProcessor(
             vector_store=vector_store,
             openai_client=openai_client,
@@ -335,17 +332,13 @@ def embedding_stats_command(args):
     
     try:
         # Initialize vector store
-        from ..vector_store.vector_store_es import VectorStoreES
         vector_store = VectorStoreES('', '.', environment=args.environment)
         
         # Initialize embedding processor
-        from .cache import SyncCache
         cache = SyncCache(cache_directory=args.cache_dir)
         
-        from ..cli import get_openai_client
         openai_client = get_openai_client()
         
-        from .embedding_processor import SyncEmbeddingProcessor
         embedding_processor = SyncEmbeddingProcessor(
             vector_store=vector_store,
             openai_client=openai_client,
@@ -382,16 +375,12 @@ def embedding_download_command(args):
     
     try:
         # Initialize components
-        from ..vector_store.vector_store_es import VectorStoreES
         vector_store = VectorStoreES('', '.', environment=args.environment)
         
-        from .cache import SyncCache
         cache = SyncCache(cache_directory=args.cache_dir)
         
-        from ..cli import get_openai_client
         openai_client = get_openai_client()
         
-        from .embedding_processor import SyncEmbeddingProcessor
         embedding_processor = SyncEmbeddingProcessor(
             vector_store=vector_store,
             openai_client=openai_client,
@@ -420,16 +409,12 @@ def embedding_upload_command(args):
     
     try:
         # Initialize components
-        from ..vector_store.vector_store_es import VectorStoreES
         vector_store = VectorStoreES('', '.', environment=args.environment)
         
-        from .cache import SyncCache
         cache = SyncCache(cache_directory=args.cache_dir)
         
-        from ..cli import get_openai_client
         openai_client = get_openai_client()
         
-        from .embedding_processor import SyncEmbeddingProcessor
         embedding_processor = SyncEmbeddingProcessor(
             vector_store=vector_store,
             openai_client=openai_client,
@@ -449,6 +434,92 @@ def embedding_upload_command(args):
         
     except Exception as e:
         logger.error(f"Failed to upload embedding cache: {e}")
+
+
+def sync_orchestrate_command(args):
+    """Run comprehensive sync orchestration."""
+    logger = get_logger("orchestrator_cli")
+    
+    try:
+        cli = SyncOrchestratorCLI()
+        
+        # Run sync orchestration
+        logger.info(f"🚀 Starting sync orchestration for config: {args.config_file}")
+        logger.info(f"Environment: {args.environment}")
+        
+        summary = cli.run_sync_from_config(args.config_file, args.environment)
+        
+        # Print comprehensive summary
+        cli.print_summary(summary)
+        
+        # Exit with appropriate code
+        if summary.failed_sources > 0:
+            logger.warning(f"⚠️ Sync completed with {summary.failed_sources} failed sources")
+            exit(1)
+        else:
+            logger.info("✅ Sync orchestration completed successfully")
+            
+    except Exception as e:
+        logger.error(f"❌ Sync orchestration failed: {e}")
+        exit(1)
+
+
+def sync_stats_command(args):
+    """Show comprehensive sync statistics."""
+    logger = get_logger("orchestrator_cli")
+    
+    try:
+        config = SyncConfig.from_yaml(args.config_file)
+        logger.info(f"📊 Sync Statistics for: {config.name}")
+        
+        orchestrator = SyncOrchestrator(config, args.environment)
+        
+        try:
+            # Get comprehensive statistics
+            stats = orchestrator.get_sync_statistics()
+            
+            # Display statistics
+            logger.info("=" * 50)
+            logger.info("📈 COMPREHENSIVE SYNC STATISTICS")
+            logger.info("=" * 50)
+            
+            # Configuration info
+            logger.info(f"Configuration: {stats.get('config_name', 'N/A')}")
+            logger.info(f"Environment: {stats.get('environment', 'N/A')}")
+            logger.info(f"Total Sources: {stats.get('total_sources', 0)}")
+            logger.info(f"Enabled Sources: {stats.get('enabled_sources', 0)}")
+            
+            # Cache statistics
+            cache_stats = stats.get('cache_statistics', {})
+            if cache_stats:
+                logger.info(f"\n💾 Cache Statistics:")
+                logger.info(f"  Total Sources: {cache_stats.get('total_sources', 0)}")
+                logger.info(f"  Processed Sources: {cache_stats.get('processed_sources', 0)}")
+                logger.info(f"  Success Rate: {cache_stats.get('success_rate', 0):.1f}%")
+                logger.info(f"  Cache Size: {cache_stats.get('cache_size_mb', 0):.2f} MB")
+            
+            # Embedding statistics
+            embedding_stats = stats.get('embedding_statistics', {})
+            if embedding_stats:
+                logger.info(f"\n🔮 Embedding Statistics:")
+                logger.info(f"  Total Embeddings: {embedding_stats.get('total_embeddings', 0):,}")
+                logger.info(f"  Storage Size: {embedding_stats.get('storage_size_mb', 0):.2f} MB")
+                
+                model_dist = embedding_stats.get('model_distribution', {})
+                if model_dist:
+                    logger.info(f"  Model Distribution:")
+                    for model, count in model_dist.items():
+                        logger.info(f"    {model}: {count:,} embeddings")
+            
+            # Version statistics
+            logger.info(f"\n📝 Version Statistics:")
+            logger.info(f"  Tracked Versions: {stats.get('version_count', 0)}")
+            
+        finally:
+            orchestrator.cleanup()
+            
+    except Exception as e:
+        logger.error(f"Failed to get sync statistics: {e}")
 
 
 def main():
@@ -505,6 +576,15 @@ def main():
     embed_upload_parser.add_argument("--cache-file", required=True, help="Local cache file path")
     embed_upload_parser.add_argument("--environment", default="staging", choices=["staging", "production", "local"], help="Environment")
     
+    # Orchestrator commands
+    sync_orchestrate_parser = subparsers.add_parser("orchestrate", help="Run comprehensive sync orchestration")
+    sync_orchestrate_parser.add_argument("--config-file", required=True, help="Sync configuration file")
+    sync_orchestrate_parser.add_argument("--environment", default="staging", choices=["staging", "production", "local"], help="Environment")
+    
+    sync_stats_parser = subparsers.add_parser("sync-stats", help="Show comprehensive sync statistics")
+    sync_stats_parser.add_argument("--config-file", required=True, help="Sync configuration file")
+    sync_stats_parser.add_argument("--environment", default="staging", choices=["staging", "production", "local"], help="Environment")
+    
     args = parser.parse_args()
     
     if not args.command:
@@ -534,6 +614,10 @@ def main():
         embedding_download_command(args)
     elif args.command == "embedding-upload":
         embedding_upload_command(args)
+    elif args.command == "orchestrate":
+        sync_orchestrate_command(args)
+    elif args.command == "sync-stats":
+        sync_stats_command(args)
 
 
 if __name__ == "__main__":

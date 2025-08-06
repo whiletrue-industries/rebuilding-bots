@@ -14,7 +14,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, Union
 from dataclasses import dataclass
 
 from openai import OpenAI
@@ -23,6 +23,7 @@ from ..config import get_logger, DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
 from .config import VersionInfo
 from .cache import SyncCache
 from ..vector_store.vector_store_es import VectorStoreES
+from elasticsearch.helpers import bulk
 
 
 logger = get_logger(__name__)
@@ -220,7 +221,6 @@ class CloudEmbeddingStorage:
                 actions.append(action)
             
             # Execute bulk operation
-            from elasticsearch.helpers import bulk
             success_count, failed_items = bulk(
                 self.es_client,
                 actions,

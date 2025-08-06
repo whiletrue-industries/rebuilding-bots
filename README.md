@@ -25,6 +25,8 @@ A new automated, versioned, cloud-native sync system has been implemented for co
 - **Asynchronous Spreadsheet Processing** - Background processing of Google Sheets data with task queue management
 - **PDF Discovery & Processing** - Automated discovery and processing of PDF files from remote sources
 - **Cloud-Based Embedding Processing** - Elasticsearch-based embedding storage with intelligent change detection and batch processing
+- **Advanced Document Parsing & Chunking** - AI-powered document structure analysis with intelligent chunking for large documents
+- **Comprehensive Sync Orchestration** - Main orchestration engine that coordinates all sync operations with CI integration
 - **Cloud-Native Design** - Designed for CI/CD workflows with no local dependencies
 - **Comprehensive Logging** - Structured logging with the project's standard logging mechanism
 
@@ -52,6 +54,13 @@ botnim sync embedding-process --config-file specs/takanon/sync_config.yaml
 botnim sync embedding-stats
 botnim sync embedding-download --cache-file ./cache/embeddings.json
 botnim sync embedding-upload --cache-file ./cache/embeddings.json
+
+# Run comprehensive sync orchestration
+botnim sync orchestrate --config-file specs/takanon/sync_config.yaml --environment staging
+botnim sync sync-stats --config-file specs/takanon/sync_config.yaml --environment staging
+
+# Test document parsing and chunking
+botnim sync orchestrate --config-file specs/test-sync-config.yaml --environment staging
 ```
 
 #### Configuration
@@ -70,6 +79,18 @@ sources:
     versioning_strategy: "combined"
     enabled: true
     priority: 1
+
+  # HTML Sources with Advanced Document Parsing
+  - id: "knesset-law-wikisource"
+    name: "חוק הכנסת (Knesset Law)"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_הכנסת"
+      selector: "#mw-content-text"
+    versioning_strategy: "combined"
+    enabled: true
+    priority: 9
+    use_document_parser: true  # Enable AI-powered chunking
 
   # Spreadsheet Sources (Async Processing)
   - id: "oral-knowledge-spreadsheet"
@@ -114,6 +135,39 @@ botnim sync spreadsheet cleanup
 ```
 
 For detailed documentation, see `docs/spreadsheet_processing_documentation.md`.
+
+#### Document Parsing & Chunking Features
+
+The sync system now includes advanced document parsing and chunking capabilities:
+
+- **AI-Powered Structure Analysis** - Uses OpenAI models to analyze document hierarchy and identify sections
+- **Intelligent Chunking** - Automatically splits large documents into manageable chunks based on document structure
+- **Hebrew Language Support** - Optimized for Hebrew legal documents with section detection (סעיף/clauses)
+- **Markdown Generation** - Creates individual markdown files for each chunk with hierarchical context
+- **Token Limit Optimization** - Prevents embedding API token limit errors by processing smaller chunks
+
+**Example Configuration:**
+```yaml
+sources:
+  - id: "legal-document"
+    name: "Legal Document"
+    type: "html"
+    html_config:
+      url: "https://example.com/legal-document"
+      selector: "#content"
+    use_document_parser: true  # Enable advanced parsing
+    versioning_strategy: "combined"
+    enabled: true
+```
+
+**Benefits:**
+- ✅ **Handles Large Documents** - Processes documents of any size by chunking
+- ✅ **Maintains Context** - Preserves document structure and hierarchy
+- ✅ **Optimizes Embeddings** - Creates chunks that fit within API token limits
+- ✅ **Improves Search Quality** - More granular search results with better relevance
+- ✅ **Reduces API Costs** - More efficient embedding generation
+
+For detailed documentation, see `docs/sync_orchestration_documentation.md`.
 
 ## Getting Started
 

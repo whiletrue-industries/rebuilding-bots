@@ -8,7 +8,6 @@ This module provides:
 4. Cache persistence and management
 """
 
-import os
 import json
 import hashlib
 import sqlite3
@@ -188,6 +187,28 @@ class SyncCache:
                 )
         
         return None
+    
+    def get_all_cached_content(self) -> List[CacheEntry]:
+        """Get all cached content entries."""
+        entries = []
+        with sqlite3.connect(self.content_cache_path) as conn:
+            cursor = conn.execute(
+                "SELECT source_id, content_hash, content_size, timestamp, metadata, processed, error_message FROM content_cache"
+            )
+            
+            for row in cursor.fetchall():
+                entry = CacheEntry(
+                    source_id=row[0],
+                    content_hash=row[1],
+                    content_size=row[2],
+                    timestamp=datetime.fromisoformat(row[3]),
+                    metadata=json.loads(row[4]),
+                    processed=bool(row[5]),
+                    error_message=row[6]
+                )
+                entries.append(entry)
+        
+        return entries
     
     def cache_content(self, source_id: str, content_hash: str, content_size: int, 
                      metadata: Dict[str, Any], processed: bool = False, 

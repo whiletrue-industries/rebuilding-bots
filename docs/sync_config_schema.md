@@ -208,6 +208,7 @@ sources:
 | `enabled` | boolean | no | Whether source is enabled |
 | `priority` | int | no | Processing priority (lower = higher) |
 | `max_retries` | int | no | Maximum retry attempts |
+| `use_document_parser` | boolean | no | Enable AI-powered document parsing and chunking |
 | `tags` | array | no | Source tags for categorization |
 | `metadata` | object | no | Additional metadata |
 

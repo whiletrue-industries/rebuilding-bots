@@ -1,0 +1,59 @@
+version: "1.0.0"
+name: "Test PDF Sync Configuration"
+description: "Test configuration for verifying PDF processing with document parsing"
+
+sources:
+  # Test PDF source with document parsing enabled
+  - id: "test-pdf-document-parsing"
+    name: "Test PDF with Document Parsing"
+    description: "Test PDF source with advanced document parsing and chunking"
+    type: "pdf"
+    pdf_config:
+      url: "file://botnim/document_parser/pdf_processor/test/input/legal_advisor_answers/1.pdf"
+      is_index_page: false
+      file_pattern: "*.pdf"
+      download_directory: "./downloads/test-pdf"
+      timeout: 60
+      processing:
+        model: "gpt-4o-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "document_title"
+            type: "string"
+            description: "Title of the document"
+            required: true
+          - name: "document_date"
+            type: "date"
+            description: "Date of the document"
+            required: false
+          - name: "document_summary"
+            type: "text"
+            description: "Brief summary of the document content"
+            required: false
+          - name: "key_points"
+            type: "array"
+            description: "Key points or findings from the document"
+            required: false
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
+    versioning_strategy: "hash"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 1
+    tags: ["test", "pdf", "document-parsing"]
+    use_document_parser: true  # Enable advanced document parsing
+
+# Global settings
+default_versioning_strategy: "hash"
+default_fetch_strategy: "direct"
+cache_directory: "./cache"
+embedding_cache_path: "./cache/embeddings.sqlite"
+version_cache_path: "./cache/versions.json"
+max_concurrent_sources: 3
+timeout_per_source: 300
+log_level: "INFO" 

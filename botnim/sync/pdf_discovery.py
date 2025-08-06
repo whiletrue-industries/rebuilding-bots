@@ -24,8 +24,11 @@ from bs4 import BeautifulSoup
 from ..config import get_logger
 from .config import ContentSource
 from .cache import SyncCache
-from botnim.document_parser.pdf_processor.pdf_pipeline import PDFExtractionPipeline
 from botnim.vector_store.vector_store_es import VectorStoreES
+from ..document_parser.pdf_processor.text_extraction import extract_text_from_pdf
+from ..document_parser.pdf_processor.field_extraction import extract_fields_from_text
+
+from ..document_parser.pdf_processor.pdf_extraction_config import SourceConfig
 
 
 logger = get_logger(__name__)
@@ -228,29 +231,47 @@ class PDFDownloadManager:
             url = pdf_info['url']
             filename = pdf_info['filename']
             
-            logger.info(f"Downloading PDF: {filename} from {url}")
+            logger.info(f"Processing PDF: {filename} from {url}")
             
-            # Create session for this download
-            session = requests.Session()
-            if headers:
-                session.headers.update(headers)
+            # Handle local files
+            if url.startswith('file://'):
+                file_path = url.replace('file://', '')
+                source_path = Path(file_path).resolve()
+                
+                if not source_path.exists():
+                    logger.error(f"Local file does not exist: {source_path}")
+                    return None
+                
+                # Copy to temporary location
+                temp_file_path = self.temp_directory / filename
+                shutil.copy2(source_path, temp_file_path)
+                
+                logger.info(f"Successfully copied local file: {temp_file_path}")
+                return temp_file_path
             
-            # Download file
-            response = session.get(url, timeout=timeout, stream=True)
-            response.raise_for_status()
-            
-            # Save to temporary file
-            temp_file_path = self.temp_directory / filename
-            
-            with open(temp_file_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            
-            logger.info(f"Successfully downloaded: {temp_file_path}")
-            return temp_file_path
+            # Handle remote files
+            else:
+                # Create session for this download
+                session = requests.Session()
+                if headers:
+                    session.headers.update(headers)
+                
+                # Download file
+                response = session.get(url, timeout=timeout, stream=True)
+                response.raise_for_status()
+                
+                # Save to temporary file
+                temp_file_path = self.temp_directory / filename
+                
+                with open(temp_file_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                
+                logger.info(f"Successfully downloaded: {temp_file_path}")
+                return temp_file_path
             
         except Exception as e:
-            logger.error(f"Failed to download PDF {pdf_info.get('filename', 'unknown')}: {e}")
+            logger.error(f"Failed to process PDF {pdf_info.get('filename', 'unknown')}: {e}")
             return None
     
     def cleanup_temp_files(self) -> int:
@@ -443,8 +464,13 @@ class PDFDiscoveryProcessor:
         }
         
         try:
-            # Step 1: Discover PDFs
-            pdf_links = self.discovery_service.discover_pdfs_from_index_page(source)
+            # Step 1: Discover PDFs (either from index page or single file)
+            if source.pdf_config and source.pdf_config.is_index_page:
+                pdf_links = self.discovery_service.discover_pdfs_from_index_page(source)
+            else:
+                # Handle single PDF file
+                pdf_links = self._create_single_pdf_info(source)
+            
             results['discovered_pdfs'] = len(pdf_links)
             
             if not pdf_links:
@@ -562,7 +588,7 @@ class PDFDiscoveryProcessor:
     def _process_pdf_with_pipeline(self, pdf_path: Path, source: ContentSource, 
                                   pdf_info: Dict[str, Any]) -> Tuple[bool, Optional[str], Optional[str]]:
         """
-        Process PDF using the existing pipeline.
+        Process PDF using direct text extraction and field processing.
         
         Args:
             pdf_path: Path to PDF file
@@ -575,54 +601,165 @@ class PDFDiscoveryProcessor:
         try:
             # Get processing configuration from source
             processing_config = source.pdf_config.processing if source.pdf_config else None
-            if not processing_config:
-                logger.warning(f"No processing config for source {source.id}, skipping advanced processing")
+            
+            # Extract text from PDF
+            from ..document_parser.pdf_processor.text_extraction import extract_text_from_pdf
+            text_content, extraction_success = extract_text_from_pdf(str(pdf_path))
+            
+            if not extraction_success:
+                logger.warning(f"Text extraction may have failed for {pdf_path.name}")
+            
+            if not text_content or not text_content.strip():
+                logger.error(f"No text content extracted from {pdf_path.name}")
                 return False, None, None
-
-            # Initialize the PDF extraction pipeline
-            pipeline = PDFExtractionPipeline(
-                config_path=None, # Not needed when providing config directly
-                model_name=processing_config.model,
-                openai_client=self.openai_client,
-                vector_store=self.vector_store
-            )
-
-            # Create a temporary directory for pipeline outputs
-            with tempfile.TemporaryDirectory() as temp_dir:
-                output_dir = Path(temp_dir)
-                
-                # Run the pipeline for the single PDF
-                processed_data, _ = pipeline.run_pipeline(
-                    input_dir=str(pdf_path.parent),
-                    output_dir=str(output_dir),
-                    gcs_bucket_name=None, # Not using GCS for this flow
-                    metadata_override={
-                        'source_id': source.id,
-                        'source_name': source.name,
-                        'pdf_url': pdf_info['url'],
-                        'pdf_filename': pdf_info['filename'],
-                    }
-                )
-
-                if processed_data:
-                    # Assume one document per PDF for now
-                    doc = processed_data[0]
-                    content_hash = hashlib.sha256(doc.page_content.encode()).hexdigest()
+            
+            # If we have processing config, try advanced field extraction using the PDF pipeline
+            if processing_config and source.use_document_parser:
+                try:
+                    from .config_adapters import PDFConfigAdapter, ConfigValidator
+                    from ..document_parser.pdf_processor.pdf_pipeline import PDFExtractionPipeline
+                    from ..document_parser.pdf_processor.text_extraction import extract_text_from_pdf, fix_ocr_full_content
+                    from ..document_parser.pdf_processor.field_extraction import extract_fields_from_text
                     
-                    # The pipeline already adds to vector store, so we just get the ID
-                    # This assumes the pipeline returns the vector store ID in the metadata
-                    vector_store_id = doc.metadata.get("vector_store_id")
-
-                    logger.info(f"Successfully processed and indexed PDF: {pdf_path.name}")
-                    return True, content_hash, vector_store_id
-                else:
-                    logger.warning(f"PDF processing returned no data: {pdf_path.name}")
-                    return False, None, None
+                    # Validate the sync config
+                    validation_errors = ConfigValidator.validate_sync_pdf_config(processing_config)
+                    if validation_errors:
+                        logger.warning(f"PDF processing config validation errors: {validation_errors}")
+                        logger.info("Falling back to basic text extraction")
+                    else:
+                        # Convert sync config to processor config
+                        processor_config = PDFConfigAdapter.sync_to_processor_config(
+                            processing_config, source.name
+                        )
+                        
+                        # Use the PDF pipeline's field extraction method
+                        extracted_fields = extract_fields_from_text(
+                            text_content,
+                            processor_config,
+                            self.openai_client
+                        )
+                        
+                        # Apply OCR fix if needed (following PDF pipeline pattern)
+                        if isinstance(extracted_fields, dict) and 'טקסט_מלא' in extracted_fields:
+                            logger.info("Applying OCR full content fix for טקסט_מלא field")
+                            extracted_fields['טקסט_מלא'] = fix_ocr_full_content(extracted_fields['טקסט_מלא'])
+                        
+                        # Combine text and fields for storage
+                        full_content = f"Text: {text_content}\n\nExtracted Fields: {extracted_fields}"
+                        content_hash = hashlib.sha256(full_content.encode()).hexdigest()
+                        
+                        # Store in cache for later embedding processing
+                        vector_store_id = self._store_pdf_content(
+                            source, pdf_info, full_content, content_hash, extracted_fields
+                        )
+                        
+                        logger.info(f"Successfully processed PDF with field extraction: {pdf_path.name}")
+                        return True, content_hash, vector_store_id
+                        
+                except Exception as e:
+                    logger.warning(f"Advanced field extraction failed for {pdf_path.name}: {e}")
+                    logger.info("Falling back to basic text extraction")
+            
+            # Basic text extraction (fallback or when no processing config)
+            content_hash = hashlib.sha256(text_content.encode()).hexdigest()
+            
+            # Store in vector store
+            vector_store_id = self._store_pdf_content(
+                source, pdf_info, text_content, content_hash
+            )
+            
+            logger.info(f"Successfully processed PDF with text extraction: {pdf_path.name}")
+            return True, content_hash, vector_store_id
         
         except Exception as e:
-            logger.error(f"Pipeline processing failed for {pdf_path.name}: {e}")
+            logger.error(f"PDF processing failed for {pdf_path.name}: {e}")
             return False, None, None
     
+    def _store_pdf_content(self, source: ContentSource, pdf_info: Dict[str, Any], 
+                          content: str, content_hash: str, 
+                          extracted_fields: Optional[Dict[str, Any]] = None) -> Optional[str]:
+        """
+        Store PDF content in cache for later embedding processing.
+        
+        Args:
+            source: Source configuration
+            pdf_info: PDF information
+            content: Extracted content
+            content_hash: Content hash
+            extracted_fields: Extracted fields (optional)
+            
+        Returns:
+            Content hash as identifier
+        """
+        try:
+            # Create metadata for caching
+            metadata = {
+                'source_id': source.id,
+                'source_name': source.name,
+                'pdf_url': pdf_info['url'],
+                'pdf_filename': pdf_info['filename'],
+                'content_hash': content_hash,
+                'content_type': 'pdf',
+                'processing_timestamp': datetime.now(timezone.utc).isoformat(),
+                'use_document_parser': source.use_document_parser,
+                'parsed_content': {
+                    'text_content': content,
+                    'extracted_fields': extracted_fields,
+                    'parsing_method': 'pdf_processor'
+                }
+            }
+            
+            # Store in cache for later embedding processing
+            self.cache.cache_content(
+                source_id=source.id,
+                content_hash=content_hash,
+                content_size=len(content.encode('utf-8')),
+                metadata=metadata,
+                processed=True
+            )
+            
+            logger.info(f"Cached PDF content: {content_hash[:8]}...")
+            logger.info(f"Content length: {len(content)} characters")
+            
+            return content_hash
+            
+        except Exception as e:
+            logger.error(f"Failed to cache PDF content: {e}")
+            return None
+    
+    def _create_single_pdf_info(self, source: ContentSource) -> List[Dict[str, Any]]:
+        """
+        Create PDF info for a single PDF file.
+        
+        Args:
+            source: PDF source configuration
+            
+        Returns:
+            List containing single PDF info
+        """
+        if not source.pdf_config:
+            return []
+        
+        # Extract filename from URL
+        url = source.pdf_config.url
+        if url.startswith('file://'):
+            # Handle local file
+            file_path = url.replace('file://', '')
+            filename = Path(file_path).name
+            url_hash = hashlib.sha256(file_path.encode()).hexdigest()
+        else:
+            # Handle remote file
+            filename = self.discovery_service._extract_filename(url)
+            url_hash = hashlib.sha256(url.encode()).hexdigest()
+        
+        return [{
+            'url': url,
+            'filename': filename,
+            'url_hash': url_hash,
+            'size': 0,  # Will be determined during download
+            'last_modified': None  # Will be determined during download
+        }]
+
     def cleanup(self):
         """Clean up resources."""
         try:

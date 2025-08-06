@@ -11,6 +11,7 @@ This directory contains comprehensive documentation for the automated sync infra
 - **[PDF Discovery & Processing](pdf_discovery_documentation.md)** - Automated discovery and processing of PDF files from remote sources
 - **[Caching Layer](caching_layer_documentation.md)** - Duplicate detection and content tracking system
 - **[Embedding Processing](embedding_processing_documentation.md)** - Cloud-based embedding storage and change detection system
+- **[Sync Orchestration](sync_orchestration_documentation.md)** - Comprehensive sync orchestration with CI integration
 
 ### Development Documentation
 
@@ -67,6 +68,7 @@ botnim sync cache cleanup --older-than 30
 ### HTML Sources
 - Direct HTML content fetching
 - CSS selector-based content extraction
+- **Advanced document parsing and chunking** with AI-powered structure analysis
 - Version tracking with content hashing
 
 ### PDF Sources
@@ -86,6 +88,7 @@ botnim sync cache cleanup --older-than 30
 - **Versioning & Change Detection**: Content hash-based versioning with incremental updates
 - **Caching Layer**: SQLite-based duplicate detection and content tracking
 - **Asynchronous Processing**: Background processing for spreadsheet sources
+- **Advanced Document Parsing**: AI-powered document structure analysis and intelligent chunking
 - **Cloud-Native Design**: Designed for CI/CD workflows with no local dependencies
 - **Comprehensive Logging**: Structured logging with detailed error reporting
 

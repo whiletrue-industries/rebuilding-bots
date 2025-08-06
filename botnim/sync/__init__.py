@@ -26,6 +26,11 @@ from .embedding_processor import (
     EmbeddingCacheManager, SyncEmbeddingProcessor, EmbeddingInfo, EmbeddingBatch
 )
 
+from .orchestrator import (
+    SyncOrchestrator, SyncOrchestratorCLI, SyncResult, SyncSummary,
+    run_sync_orchestration, run_sync_orchestration_sync
+)
+
 __all__ = [
     # Configuration
     'SyncConfig',
@@ -59,4 +64,12 @@ __all__ = [
     'SyncEmbeddingProcessor',
     'EmbeddingInfo',
     'EmbeddingBatch',
+    
+    # Orchestration
+    'SyncOrchestrator',
+    'SyncOrchestratorCLI',
+    'SyncResult',
+    'SyncSummary',
+    'run_sync_orchestration',
+    'run_sync_orchestration_sync',
 ] 

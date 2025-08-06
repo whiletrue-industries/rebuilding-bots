@@ -286,6 +286,7 @@ sources:
     enabled: true
     priority: 9
     tags: ["משפטי", "כנסת", "חוק", "ויקיטקסט", "html"]
+    use_document_parser: true
 
   - id: "knesset-building-law-wikisource"
     name: "חוק משכן הכנסת, רחבתו ומשמר הכנסת"

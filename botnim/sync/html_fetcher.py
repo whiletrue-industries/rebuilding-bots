@@ -8,7 +8,10 @@ and version tracking for change detection.
 """
 
 import hashlib
+import shutil
+import time
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 from urllib.parse import unquote
@@ -17,6 +20,9 @@ import requests
 from bs4 import BeautifulSoup
 
 from ..config import get_logger
+from ..document_parser.html_processor.extract_structure import extract_structure_from_html, get_openai_client, build_nested_structure
+from ..document_parser.html_processor.extract_content import extract_content_for_sections
+from ..document_parser.html_processor.generate_markdown_files import generate_markdown_dict
 from .config import ContentSource, HTMLSourceConfig, VersionInfo
 from .cache import SyncCache
 
@@ -76,31 +82,78 @@ class HTMLFetcher:
             try:
                 logger.info(f"Fetching HTML content from {source.html_config.url} (Attempt {attempt + 1}/{retries})")
                 
-                response = self.session.get(
-                    source.html_config.url,
-                    headers=source.html_config.headers,
-                    timeout=source.html_config.timeout,
-                    stream=True
-                )
-                response.raise_for_status()
-                
-                response.encoding = source.html_config.encoding
-                content = response.text
+                # Handle file:// URLs for local files
+                if source.html_config.url.startswith('file://'):
+                    content = self._fetch_local_file(source.html_config.url)
+                    if content is None:
+                        raise Exception("Failed to read local file")
+                    
+                    # Create a mock response for version info
+                    class MockResponse:
+                        def __init__(self, content):
+                            self.content = content.encode('utf-8')
+                            self.headers = {}
+                            self.status_code = 200
+                    
+                    response = MockResponse(content)
+                    response.encoding = source.html_config.encoding
+                else:
+                    response = self.session.get(
+                        source.html_config.url,
+                        headers=source.html_config.headers,
+                        timeout=source.html_config.timeout,
+                        stream=True
+                    )
+                    response.raise_for_status()
+                    response.encoding = source.html_config.encoding
+                    content = response.text
                 
                 version_info = self._compute_version_info(source, content, response)
                 
                 logger.info(f"Successfully fetched {len(content)} characters from {source.html_config.url}")
                 return True, content, version_info
                 
-            except requests.RequestException as e:
+            except Exception as e:
                 logger.warning(f"Failed to fetch HTML from {source.html_config.url} on attempt {attempt + 1}: {e}")
                 if attempt < retries - 1:
-                    import time
                     time.sleep(2 ** attempt)  # Exponential backoff
                 else:
                     logger.error(f"All {retries} retry attempts failed for {source.html_config.url}")
                     return False, None, None
         return False, None, None
+    
+    def _fetch_local_file(self, file_url: str) -> Optional[str]:
+        """
+        Fetch content from a local file using file:// URL.
+        
+        Args:
+            file_url: file:// URL pointing to local file
+            
+        Returns:
+            File content as string, or None if failed
+        """
+        try:
+            # Remove file:// prefix and decode URL
+            file_path = file_url.replace('file://', '')
+            file_path = decode_url(file_path)
+            
+            # Convert to Path object and resolve
+            path = Path(file_path).resolve()
+            
+            if not path.exists():
+                logger.error(f"Local file does not exist: {path}")
+                return None
+            
+            # Read file content
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            logger.info(f"Successfully read {len(content)} characters from local file: {path}")
+            return content
+            
+        except Exception as e:
+            logger.error(f"Failed to read local file {file_url}: {e}")
+            return None
     
     def parse_html_content(self, source: ContentSource, content: str) -> Dict[str, Any]:
         """
@@ -116,29 +169,12 @@ class HTMLFetcher:
         try:
             logger.info(f"Parsing HTML content for source {source.id}")
             
-            soup = BeautifulSoup(content, 'html.parser')
+            # Check if this source should use advanced document parsing
+            if hasattr(source, 'use_document_parser') and source.use_document_parser:
+                return self._parse_with_document_parser(source, content)
             
-            # Extract content based on selector if specified
-            if source.html_config.selector:
-                selected_content = soup.select(source.html_config.selector)
-                if selected_content:
-                    # Use the first matching element
-                    main_content = selected_content[0]
-                else:
-                    logger.warning(f"Selector '{source.html_config.selector}' not found, using full content")
-                    main_content = soup
-            else:
-                main_content = soup
-            
-            # Extract only what we need for sync
-            parsed_content = {
-                'raw_html': str(main_content),
-                'text_content': self._extract_text_content(main_content),
-                'metadata': self._extract_basic_metadata(soup, source)
-            }
-            
-            logger.info(f"Successfully parsed HTML content for {source.id}")
-            return parsed_content
+            # Fall back to simple parsing
+            return self._parse_simple_html(source, content)
             
         except Exception as e:
             logger.error(f"Failed to parse HTML content for {source.id}: {e}")
@@ -148,6 +184,136 @@ class HTMLFetcher:
                 'metadata': {},
                 'error': str(e)
             }
+    
+    def _parse_with_document_parser(self, source: ContentSource, content: str) -> Dict[str, Any]:
+        """
+        Parse HTML content using the advanced document parser for proper chunking.
+        
+        Args:
+            source: Content source configuration
+            content: Raw HTML content
+            
+        Returns:
+            Parsed content with structure and chunks
+        """
+        try:
+            logger.info(f"Using advanced document parser for {source.id}")
+            
+            # Get OpenAI client
+            client = get_openai_client("staging")  # TODO: Make environment configurable
+            
+            # Extract document structure
+            structure_items = extract_structure_from_html(
+                content,
+                client,
+                "gpt-4o-mini",  # TODO: Make model configurable
+                4000,  # TODO: Make max_tokens configurable
+                "סעיף"  # Default to Hebrew clauses
+            )
+            
+            # Build nested structure
+            nested_structure = build_nested_structure(structure_items)
+            
+            # Extract content for sections
+            structure_with_content = extract_content_for_sections(
+                content, 
+                {"structure": nested_structure}, 
+                "סעיף",  # Extract clauses
+                mediawiki_mode=True  # For Wikisource
+            )
+            
+            # Generate markdown chunks
+            document_name = source.name or source.id
+            markdown_chunks = generate_markdown_dict(
+                structure_with_content.get("structure", []), 
+                document_name
+            )
+            
+            # Prepare result with chunks
+            result = {
+                'raw_html': content,
+                'text_content': self._extract_text_content_from_structure(structure_with_content),
+                'metadata': self._extract_basic_metadata_from_structure(structure_with_content, source),
+                'chunks': markdown_chunks,
+                'structure': structure_with_content,
+                'chunk_count': len(markdown_chunks),
+                'parsing_method': 'document_parser'
+            }
+            
+            logger.info(f"Advanced parsing completed for {source.id}: {len(markdown_chunks)} chunks generated")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Advanced document parsing failed for {source.id}: {e}")
+            # Fall back to simple parsing
+            return self._parse_simple_html(source, content)
+    
+    def _parse_simple_html(self, source: ContentSource, content: str) -> Dict[str, Any]:
+        """
+        Simple HTML parsing (original method).
+        
+        Args:
+            source: Content source configuration
+            content: Raw HTML content
+            
+        Returns:
+            Parsed content with minimal structure
+        """
+        soup = BeautifulSoup(content, 'html.parser')
+        
+        # Extract content based on selector if specified
+        if source.html_config.selector:
+            selected_content = soup.select(source.html_config.selector)
+            if selected_content:
+                # Use the first matching element
+                main_content = selected_content[0]
+            else:
+                logger.warning(f"Selector '{source.html_config.selector}' not found, using full content")
+                main_content = soup
+        else:
+            main_content = soup
+        
+        # Extract only what we need for sync
+        parsed_content = {
+            'raw_html': str(main_content),
+            'text_content': self._extract_text_content(main_content),
+            'metadata': self._extract_basic_metadata(soup, source),
+            'parsing_method': 'simple'
+        }
+        
+        logger.info(f"Simple parsing completed for {source.id}")
+        return parsed_content
+    
+    def _extract_text_content_from_structure(self, structure_data: Dict[str, Any]) -> str:
+        """Extract text content from structured data."""
+        text_parts = []
+        
+        def extract_from_items(items):
+            for item in items:
+                if item.get('content'):
+                    text_parts.append(item['content'])
+                if 'children' in item:
+                    extract_from_items(item['children'])
+        
+        extract_from_items(structure_data.get('structure', []))
+        return '\n\n'.join(text_parts)
+    
+    def _extract_basic_metadata_from_structure(self, structure_data: Dict[str, Any], source: ContentSource) -> Dict[str, Any]:
+        """Extract metadata from structured data."""
+        metadata = {
+            'source_id': source.id,
+            'source_name': source.name,
+            'source_type': source.type,
+            'parsing_method': 'document_parser',
+            'structure_items': len(structure_data.get('structure', [])),
+            'has_content': bool(structure_data.get('structure'))
+        }
+        
+        # Add structure metadata if available
+        if 'metadata' in structure_data:
+            metadata.update(structure_data['metadata'])
+        
+        return metadata
     
     def _compute_version_info(self, source: ContentSource, content: str, response: requests.Response) -> VersionInfo:
         """Compute version information for the content."""
@@ -182,7 +348,6 @@ class HTMLFetcher:
         last_modified = response.headers.get('Last-Modified')
         if last_modified:
             try:
-                from email.utils import parsedate_to_datetime
                 return parsedate_to_datetime(last_modified)
             except Exception:
                 pass
@@ -191,7 +356,6 @@ class HTMLFetcher:
         date_header = response.headers.get('Date')
         if date_header:
             try:
-                from email.utils import parsedate_to_datetime
                 return parsedate_to_datetime(date_header)
             except Exception:
                 pass
@@ -422,7 +586,6 @@ def fetch_and_parse_html(url: str, selector: Optional[str] = None,
     finally:
         processor.close()
         # Clean up temp cache
-        import shutil
         if Path("./temp_cache").exists():
             shutil.rmtree("./temp_cache")
 

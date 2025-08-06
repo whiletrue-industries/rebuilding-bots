@@ -9,6 +9,7 @@ import hashlib
 import json
 import yaml
 from datetime import datetime
+from email.utils import parsedate_to_datetime
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any
@@ -158,6 +159,9 @@ class ContentSource(BaseModel):
     # Metadata
     tags: List[str] = Field(default_factory=list, description="Source tags for categorization")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    
+    # Processing options
+    use_document_parser: bool = Field(default=False, description="Use advanced document parser for chunking")
     
     @model_validator(mode='after')
     def validate_source_type_config(self):
@@ -346,7 +350,6 @@ class VersionManager:
                 last_modified = response.headers.get('Last-Modified')
                 if last_modified:
                     # Parse RFC 2822 date format
-                    from email.utils import parsedate_to_datetime
                     return parsedate_to_datetime(last_modified)
         except Exception:
             pass
