@@ -260,6 +260,200 @@ def test_cache_command(args):
     logger.info(f"Success Rate: {stats['success_rate']:.1f}%")
 
 
+def embedding_process_command(args):
+    """Process documents for embedding generation."""
+    logger = get_logger("embedding_cli")
+    
+    try:
+        # Load sync configuration
+        from .config import SyncConfig
+        config = SyncConfig.from_yaml(args.config_file)
+        
+        logger.info(f"🔮 Processing embeddings for configuration: {config.name}")
+        
+        # Initialize components
+        from .cache import SyncCache
+        cache = SyncCache(cache_directory=args.cache_dir)
+        
+        # Initialize vector store
+        from ..vector_store.vector_store_es import VectorStoreES
+        vector_store = VectorStoreES('', '.', environment=args.environment)
+        
+        # Initialize OpenAI client
+        from ..cli import get_openai_client
+        openai_client = get_openai_client()
+        
+        # Initialize embedding processor
+        from .embedding_processor import SyncEmbeddingProcessor
+        embedding_processor = SyncEmbeddingProcessor(
+            vector_store=vector_store,
+            openai_client=openai_client,
+            sync_cache=cache,
+            embedding_cache_path=config.embedding_cache_path
+        )
+        
+        # Load processed documents (this would come from sync workflow)
+        # For now, we'll simulate with cached content
+        processed_content = []
+        
+        # Get cached content for processing
+        cache_entries = cache.get_all_cached_content()
+        for entry in cache_entries:
+            if entry.processed and not entry.error_message:
+                processed_content.append({
+                    'source_id': entry.source_id,
+                    'content': entry.metadata.get('parsed_content', {}).get('text_content', ''),
+                    'version_info': entry.metadata.get('version_info', {})
+                })
+        
+        if not processed_content:
+            logger.info("No processed content found for embedding")
+            return
+        
+        # Process embeddings
+        results = embedding_processor.process_sync_content(processed_content)
+        
+        # Display results
+        logger.info("🔮 Embedding Processing Results")
+        logger.info("=" * 40)
+        logger.info(f"Total Documents: {results['total_documents']}")
+        logger.info(f"Documents Needing Embedding: {results['documents_needing_embedding']}")
+        logger.info(f"Successfully Processed: {results['processed_documents']}")
+        
+        embedding_results = results.get('embedding_results', {})
+        if embedding_results.get('errors'):
+            logger.info("\n❌ Errors:")
+            for error in embedding_results['errors']:
+                logger.info(f"  - {error}")
+        
+        logger.info("✅ Embedding processing completed")
+        
+    except Exception as e:
+        logger.error(f"Embedding processing failed: {e}")
+
+
+def embedding_stats_command(args):
+    """Show embedding storage statistics."""
+    logger = get_logger("embedding_cli")
+    
+    try:
+        # Initialize vector store
+        from ..vector_store.vector_store_es import VectorStoreES
+        vector_store = VectorStoreES('', '.', environment=args.environment)
+        
+        # Initialize embedding processor
+        from .cache import SyncCache
+        cache = SyncCache(cache_directory=args.cache_dir)
+        
+        from ..cli import get_openai_client
+        openai_client = get_openai_client()
+        
+        from .embedding_processor import SyncEmbeddingProcessor
+        embedding_processor = SyncEmbeddingProcessor(
+            vector_store=vector_store,
+            openai_client=openai_client,
+            sync_cache=cache,
+            embedding_cache_path=args.cache_dir + "/embeddings.sqlite"
+        )
+        
+        # Get statistics
+        stats = embedding_processor.get_embedding_statistics()
+        
+        # Display statistics
+        logger.info("🔮 Embedding Storage Statistics")
+        logger.info("=" * 40)
+        logger.info(f"Total Embeddings: {stats.get('total_embeddings', 0):,}")
+        logger.info(f"Storage Size: {stats.get('storage_size_mb', 0):.2f} MB")
+        logger.info(f"Index Name: {stats.get('index_name', 'N/A')}")
+        
+        model_dist = stats.get('model_distribution', {})
+        if model_dist:
+            logger.info("\nModel Distribution:")
+            for model, count in model_dist.items():
+                logger.info(f"  {model}: {count:,} embeddings")
+        
+        if 'error' in stats:
+            logger.error(f"❌ Error: {stats['error']}")
+        
+    except Exception as e:
+        logger.error(f"Failed to get embedding statistics: {e}")
+
+
+def embedding_download_command(args):
+    """Download embedding cache from cloud storage."""
+    logger = get_logger("embedding_cli")
+    
+    try:
+        # Initialize components
+        from ..vector_store.vector_store_es import VectorStoreES
+        vector_store = VectorStoreES('', '.', environment=args.environment)
+        
+        from .cache import SyncCache
+        cache = SyncCache(cache_directory=args.cache_dir)
+        
+        from ..cli import get_openai_client
+        openai_client = get_openai_client()
+        
+        from .embedding_processor import SyncEmbeddingProcessor
+        embedding_processor = SyncEmbeddingProcessor(
+            vector_store=vector_store,
+            openai_client=openai_client,
+            sync_cache=cache,
+            embedding_cache_path=args.cache_file
+        )
+        
+        # Download cache
+        logger.info("⬇️ Downloading embedding cache from cloud storage...")
+        results = embedding_processor.download_embedding_cache()
+        
+        # Display results
+        if results['success']:
+            logger.info(f"✅ Downloaded {results['embeddings_downloaded']:,} embeddings")
+            logger.info(f"Cache file: {results['cache_file']}")
+        else:
+            logger.error(f"❌ Download failed: {results.get('error', 'Unknown error')}")
+        
+    except Exception as e:
+        logger.error(f"Failed to download embedding cache: {e}")
+
+
+def embedding_upload_command(args):
+    """Upload embedding cache to cloud storage."""
+    logger = get_logger("embedding_cli")
+    
+    try:
+        # Initialize components
+        from ..vector_store.vector_store_es import VectorStoreES
+        vector_store = VectorStoreES('', '.', environment=args.environment)
+        
+        from .cache import SyncCache
+        cache = SyncCache(cache_directory=args.cache_dir)
+        
+        from ..cli import get_openai_client
+        openai_client = get_openai_client()
+        
+        from .embedding_processor import SyncEmbeddingProcessor
+        embedding_processor = SyncEmbeddingProcessor(
+            vector_store=vector_store,
+            openai_client=openai_client,
+            sync_cache=cache,
+            embedding_cache_path=args.cache_file
+        )
+        
+        # Upload cache
+        logger.info("⬆️ Uploading embedding cache to cloud storage...")
+        results = embedding_processor.upload_embedding_cache()
+        
+        # Display results
+        if results['success']:
+            logger.info(f"✅ Uploaded {results['embeddings_uploaded']:,} embeddings")
+        else:
+            logger.error(f"❌ Upload failed: {results.get('error', 'Unknown error')}")
+        
+    except Exception as e:
+        logger.error(f"Failed to upload embedding cache: {e}")
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(description="Sync Cache Management CLI")
@@ -298,6 +492,22 @@ def main():
     # Test command
     test_parser = subparsers.add_parser("test", help="Test cache functionality")
     
+    # Embedding commands
+    embed_process_parser = subparsers.add_parser("embedding-process", help="Process documents for embedding generation")
+    embed_process_parser.add_argument("--config-file", required=True, help="Sync configuration file")
+    embed_process_parser.add_argument("--environment", default="staging", choices=["staging", "production", "local"], help="Environment")
+    
+    embed_stats_parser = subparsers.add_parser("embedding-stats", help="Show embedding storage statistics")
+    embed_stats_parser.add_argument("--environment", default="staging", choices=["staging", "production", "local"], help="Environment")
+    
+    embed_download_parser = subparsers.add_parser("embedding-download", help="Download embedding cache from cloud")
+    embed_download_parser.add_argument("--cache-file", required=True, help="Local cache file path")
+    embed_download_parser.add_argument("--environment", default="staging", choices=["staging", "production", "local"], help="Environment")
+    
+    embed_upload_parser = subparsers.add_parser("embedding-upload", help="Upload embedding cache to cloud")
+    embed_upload_parser.add_argument("--cache-file", required=True, help="Local cache file path")
+    embed_upload_parser.add_argument("--environment", default="staging", choices=["staging", "production", "local"], help="Environment")
+    
     args = parser.parse_args()
     
     if not args.command:
@@ -319,6 +529,14 @@ def main():
         pdf_status_command(args)
     elif args.command == "test":
         test_cache_command(args)
+    elif args.command == "embedding-process":
+        embedding_process_command(args)
+    elif args.command == "embedding-stats":
+        embedding_stats_command(args)
+    elif args.command == "embedding-download":
+        embedding_download_command(args)
+    elif args.command == "embedding-upload":
+        embedding_upload_command(args)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,7 @@ A new automated, versioned, cloud-native sync system has been implemented for co
 - **HTML Content Fetching** - Automated fetching and parsing of HTML sources with version tracking
 - **Asynchronous Spreadsheet Processing** - Background processing of Google Sheets data with task queue management
 - **PDF Discovery & Processing** - Automated discovery and processing of PDF files from remote sources
+- **Cloud-Based Embedding Processing** - Elasticsearch-based embedding storage with intelligent change detection and batch processing
 - **Cloud-Native Design** - Designed for CI/CD workflows with no local dependencies
 - **Comprehensive Logging** - Structured logging with the project's standard logging mechanism
 
@@ -45,6 +46,12 @@ botnim sync spreadsheet status specs/takanon/sync_config.yaml
 # Manage sync cache
 botnim sync cache stats
 botnim sync cache cleanup --older-than 30
+
+# Process embeddings for cloud storage
+botnim sync embedding-process --config-file specs/takanon/sync_config.yaml
+botnim sync embedding-stats
+botnim sync embedding-download --cache-file ./cache/embeddings.json
+botnim sync embedding-upload --cache-file ./cache/embeddings.json
 ```
 
 #### Configuration

@@ -10,6 +10,7 @@ This directory contains comprehensive documentation for the automated sync infra
 - **[Spreadsheet Processing](spreadsheet_processing_documentation.md)** - Asynchronous spreadsheet processing with background task queues
 - **[PDF Discovery & Processing](pdf_discovery_documentation.md)** - Automated discovery and processing of PDF files from remote sources
 - **[Caching Layer](caching_layer_documentation.md)** - Duplicate detection and content tracking system
+- **[Embedding Processing](embedding_processing_documentation.md)** - Cloud-based embedding storage and change detection system
 
 ### Development Documentation
 

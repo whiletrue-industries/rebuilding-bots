@@ -21,6 +21,11 @@ from .html_fetcher import (
     HTMLFetcher, HTMLProcessor, fetch_and_parse_html
 )
 
+from .embedding_processor import (
+    CloudEmbeddingStorage, EmbeddingChangeDetector, BatchEmbeddingProcessor,
+    EmbeddingCacheManager, SyncEmbeddingProcessor, EmbeddingInfo, EmbeddingBatch
+)
+
 __all__ = [
     # Configuration
     'SyncConfig',
@@ -45,4 +50,13 @@ __all__ = [
     'HTMLFetcher',
     'HTMLProcessor',
     'fetch_and_parse_html',
+    
+    # Embedding Processing
+    'CloudEmbeddingStorage',
+    'EmbeddingChangeDetector', 
+    'BatchEmbeddingProcessor',
+    'EmbeddingCacheManager',
+    'SyncEmbeddingProcessor',
+    'EmbeddingInfo',
+    'EmbeddingBatch',
 ] 
