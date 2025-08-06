@@ -217,24 +217,18 @@ class SyncCache:
             )
     
     def should_process_source(self, source: ContentSource, content_hash: str, 
-                            content_size: int, version_manager: VersionManager) -> Tuple[bool, str]:
+                            content_size: int) -> Tuple[bool, str]:
         """
-        Determine if a source should be processed based on caching and versioning.
+        Determine if a source should be processed based on caching.
         
         Args:
             source: Content source configuration
             content_hash: Hash of the content
             content_size: Size of content in bytes
-            version_manager: Version manager instance
             
         Returns:
             Tuple of (should_process, reason)
         """
-        # Check if content has changed
-        has_changed = version_manager.has_changed(source.id, content_hash)
-        if not has_changed:
-            return False, f"Content unchanged for source {source.id}"
-        
         # Check for duplicates
         duplicate_info = self.is_duplicate(source.id, content_hash, content_size)
         if duplicate_info.is_duplicate:
@@ -245,7 +239,7 @@ class SyncCache:
         if cached and cached.processed and cached.content_hash == content_hash:
             return False, f"Already processed successfully: {source.id}"
         
-        return True, f"Processing required: content changed or new"
+        return True, "Processing required: content changed or new"
     
     def get_cache_statistics(self) -> Dict[str, Any]:
         """Get cache statistics."""

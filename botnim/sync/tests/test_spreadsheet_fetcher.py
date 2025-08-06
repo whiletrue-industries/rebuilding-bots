@@ -229,7 +229,8 @@ class TestAsyncSpreadsheetProcessor:
         """Clean up test fixtures."""
         self.processor.shutdown()
     
-    def test_should_process_source_enabled(self):
+    @pytest.mark.asyncio
+    async def test_should_process_source_enabled(self):
         """Test source processing decision for enabled source."""
         source = ContentSource(
             id="test-source",
@@ -243,12 +244,14 @@ class TestAsyncSpreadsheetProcessor:
             enabled=True
         )
         
-        should_process, reason = self.processor._should_process_source(source)
+        with patch.object(SpreadsheetFetcher, 'fetch_spreadsheet_data', return_value=MagicMock(spec=SpreadsheetData, content_hash='new_hash')):
+            should_process, reason, data = await self.processor._should_process_source(source)
         
         assert should_process is True
         assert reason is None
-    
-    def test_should_process_source_disabled(self):
+
+    @pytest.mark.asyncio
+    async def test_should_process_source_disabled(self):
         """Test source processing decision for disabled source."""
         source = ContentSource(
             id="test-source",
@@ -262,12 +265,13 @@ class TestAsyncSpreadsheetProcessor:
             enabled=False
         )
         
-        should_process, reason = self.processor._should_process_source(source)
+        should_process, reason, data = await self.processor._should_process_source(source)
         
         assert should_process is False
         assert reason == "Source is disabled"
-    
-    def test_should_process_source_wrong_strategy(self):
+
+    @pytest.mark.asyncio
+    async def test_should_process_source_wrong_strategy(self):
         """Test source processing decision for wrong fetch strategy."""
         source = ContentSource(
             id="test-source",
@@ -281,7 +285,7 @@ class TestAsyncSpreadsheetProcessor:
             enabled=True
         )
         
-        should_process, reason = self.processor._should_process_source(source)
+        should_process, reason, data = await self.processor._should_process_source(source)
         
         assert should_process is False
         assert reason == "Source is not configured for async processing"

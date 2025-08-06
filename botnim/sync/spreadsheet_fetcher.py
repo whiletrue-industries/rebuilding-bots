@@ -608,12 +608,6 @@ class AsyncSpreadsheetProcessor:
     async def process_spreadsheet_source(self, source: ContentSource) -> Dict[str, Any]:
         """
         Process a spreadsheet source asynchronously.
-        
-        Args:
-            source: Spreadsheet source configuration
-            
-        Returns:
-            Processing results summary
         """
         self.logger.info(f"Processing spreadsheet source: {source.id}")
         
@@ -621,14 +615,12 @@ class AsyncSpreadsheetProcessor:
             'source_id': source.id,
             'task_id': None,
             'status': 'pending',
-            'data_fetched': False,
-            'data_stored': False,
             'error_message': None
         }
         
         try:
-            # Check if source should be processed
-            should_process, reason = self._should_process_source(source)
+            # Check if source should be processed and get data if new
+            should_process, reason, spreadsheet_data = await self._should_process_source(source)
             if not should_process:
                 results['status'] = 'skipped'
                 results['error_message'] = reason
@@ -639,12 +631,12 @@ class AsyncSpreadsheetProcessor:
             task_id = f"spreadsheet_{source.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             results['task_id'] = task_id
             
-            # Submit task for background processing
+            # Submit task with already fetched data
             self.task_queue.submit_task(
                 task_id=task_id,
                 source_id=source.id,
                 func=self._process_spreadsheet_task,
-                source=source
+                spreadsheet_data=spreadsheet_data
             )
             
             results['status'] = 'submitted'
@@ -658,19 +650,13 @@ class AsyncSpreadsheetProcessor:
             self.logger.error(f"Failed to process spreadsheet source {source.id}: {e}")
             return results
     
-    def _process_spreadsheet_task(self, source: ContentSource) -> Dict[str, Any]:
+    def _process_spreadsheet_task(self, spreadsheet_data: SpreadsheetData) -> Dict[str, Any]:
         """
         Process spreadsheet task in background thread.
-        
-        Args:
-            source: Spreadsheet source configuration
-            
-        Returns:
-            Processing results
         """
+        source_id = spreadsheet_data.source_id
         results = {
-            'source_id': source.id,
-            'data_fetched': False,
+            'source_id': source_id,
             'data_stored': False,
             'row_count': 0,
             'content_hash': None,
@@ -678,22 +664,6 @@ class AsyncSpreadsheetProcessor:
         }
         
         try:
-            # Fetch spreadsheet data
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            async def fetch_data():
-                async with SpreadsheetFetcher(self.cache, self.vector_store) as fetcher:
-                    return await fetcher.fetch_spreadsheet_data(source)
-            
-            spreadsheet_data = loop.run_until_complete(fetch_data())
-            loop.close()
-            
-            if not spreadsheet_data:
-                results['error_message'] = "Failed to fetch spreadsheet data"
-                return results
-            
-            results['data_fetched'] = True
             results['row_count'] = spreadsheet_data.row_count
             results['content_hash'] = spreadsheet_data.content_hash
             
@@ -704,7 +674,7 @@ class AsyncSpreadsheetProcessor:
             if stored:
                 # Update cache
                 self.cache.cache_content(
-                    source_id=source.id,
+                    source_id=source_id,
                     content_hash=spreadsheet_data.content_hash,
                     content_size=len(json.dumps(spreadsheet_data.data)),
                     metadata={
@@ -715,7 +685,7 @@ class AsyncSpreadsheetProcessor:
                     processed=True
                 )
                 
-                self.logger.info(f"Successfully processed spreadsheet {source.id}: {spreadsheet_data.row_count} rows")
+                self.logger.info(f"Successfully processed spreadsheet {source_id}: {spreadsheet_data.row_count} rows")
             else:
                 results['error_message'] = "Failed to store spreadsheet data"
             
@@ -723,32 +693,39 @@ class AsyncSpreadsheetProcessor:
             
         except Exception as e:
             results['error_message'] = str(e)
-            self.logger.error(f"Failed to process spreadsheet task for {source.id}: {e}")
+            self.logger.error(f"Failed to process spreadsheet task for {source_id}: {e}")
             return results
     
-    def _should_process_source(self, source: ContentSource) -> Tuple[bool, Optional[str]]:
+    async def _should_process_source(self, source: ContentSource) -> Tuple[bool, Optional[str], Optional[SpreadsheetData]]:
         """
-        Check if source should be processed.
-        
-        Args:
-            source: Source configuration
-            
-        Returns:
-            Tuple of (should_process, reason)
+        Check if source should be processed and return data if it should.
         """
-        # Check if source is enabled
+        # Basic validation
         if not source.enabled:
-            return False, "Source is disabled"
-        
-        # Check if source has spreadsheet config
+            return False, "Source is disabled", None
         if not source.spreadsheet_config:
-            return False, "Missing spreadsheet configuration"
-        
-        # Check if source uses async strategy
+            return False, "Missing spreadsheet configuration", None
         if source.fetch_strategy != "async":
-            return False, "Source is not configured for async processing"
-        
-        return True, None
+            return False, "Source is not configured for async processing", None
+
+        # Version check
+        try:
+            async with SpreadsheetFetcher(self.cache, self.vector_store) as fetcher:
+                spreadsheet_data = await fetcher.fetch_spreadsheet_data(source)
+            
+            if not spreadsheet_data:
+                return False, "Failed to fetch spreadsheet data for version check", None
+
+            # Check if content has changed
+            cached_entry = self.cache.get_cached_content(source.id)
+            if cached_entry and cached_entry.content_hash == spreadsheet_data.content_hash:
+                return False, f"Spreadsheet content unchanged (hash: {spreadsheet_data.content_hash[:8]})", None
+            
+            return True, None, spreadsheet_data
+            
+        except Exception as e:
+            self.logger.error(f"Failed to check version for {source.id}: {e}")
+            return False, "Failed to check version", None
     
     def get_task_status(self, task_id: str) -> Optional[ProcessingTask]:
         """

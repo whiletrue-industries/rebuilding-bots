@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 import pytest
+import requests
 from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 
@@ -123,10 +124,7 @@ class TestHTMLFetcher:
     def test_fetch_html_content_http_error(self, mock_get, html_fetcher, sample_html_source):
         """Test HTML fetching with HTTP error."""
         # Mock HTTP error
-        mock_response = Mock()
-        mock_response.status_code = 404
-        mock_response.raise_for_status.side_effect = Exception("404 Not Found")
-        mock_get.return_value = mock_response
+        mock_get.side_effect = requests.RequestException("404 Not Found")
         
         # Fetch content
         success, content, version_info = html_fetcher.fetch_html_content(sample_html_source)
@@ -140,7 +138,7 @@ class TestHTMLFetcher:
     def test_fetch_html_content_network_error(self, mock_get, html_fetcher, sample_html_source):
         """Test HTML fetching with network error."""
         # Mock network error
-        mock_get.side_effect = Exception("Network error")
+        mock_get.side_effect = requests.RequestException("Network error")
         
         # Fetch content
         success, content, version_info = html_fetcher.fetch_html_content(sample_html_source)
@@ -330,22 +328,36 @@ class TestHTMLProcessor:
         assert processor.cache == temp_cache
         assert processor.fetcher is not None
     
-    @patch.object(HTMLFetcher, 'process_html_source')
+    @patch.object(HTMLFetcher, 'fetch_html_content')
     def test_process_sources_success(self, mock_process, html_processor, sample_sources):
         """Test processing multiple sources successfully."""
         # Mock successful processing for all sources
         from ..config import VersionInfo
         from datetime import datetime, timezone
         
-        mock_version_info = VersionInfo(
-            source_id="test",
-            version_hash="test_hash",
+        mock_version_info_1 = VersionInfo(
+            source_id="source-1",
+            version_hash="hash1",
             version_timestamp=datetime.now(timezone.utc),
             content_size=100,
             last_fetch=datetime.now(timezone.utc),
             fetch_status="success"
         )
-        mock_process.return_value = (True, {'test': 'content'}, mock_version_info)
+        mock_version_info_2 = VersionInfo(
+            source_id="source-2",
+            version_hash="hash2",
+            version_timestamp=datetime.now(timezone.utc),
+            content_size=200,
+            last_fetch=datetime.now(timezone.utc),
+            fetch_status="success"
+        )
+        def mock_process_side_effect(source):
+            if source.id == "source-1":
+                return (True, "<html></html>", mock_version_info_1)
+            else:
+                return (True, "<html>different</html>", mock_version_info_2)
+        
+        mock_process.side_effect = mock_process_side_effect
         
         results = html_processor.process_sources(sample_sources)
         
@@ -362,7 +374,7 @@ class TestHTMLProcessor:
         assert summary['skipped_count'] == 0
         assert summary['error_count'] == 0
     
-    @patch.object(HTMLFetcher, 'process_html_source')
+    @patch.object(HTMLFetcher, 'fetch_html_content')
     def test_process_sources_with_errors(self, mock_process, html_processor, sample_sources):
         """Test processing sources with some errors."""
         # Mock mixed results
@@ -397,7 +409,18 @@ class TestHTMLProcessor:
     
     def test_should_process_source(self, html_processor, sample_sources):
         """Test source processing decision logic."""
-        should_process, reason = html_processor._should_process_source(sample_sources[0])
+        from ..config import VersionInfo
+        from datetime import datetime, timezone
+
+        version_info = VersionInfo(
+            source_id="test",
+            version_hash="test_hash",
+            version_timestamp=datetime.now(timezone.utc),
+            content_size=100,
+            last_fetch=datetime.now(timezone.utc),
+            fetch_status="success"
+        )
+        should_process, reason = html_processor._should_process_source(sample_sources[0], version_info)
         
         # Currently always returns True
         assert should_process is True
@@ -412,22 +435,24 @@ class TestHTMLProcessor:
 class TestFetchAndParseHTML:
     """Test convenience function."""
     
-    @patch('botnim.sync.html_fetcher.HTMLFetcher.process_html_source')
-    def test_fetch_and_parse_html_success(self, mock_process):
+    @patch('botnim.sync.html_fetcher.HTMLFetcher.fetch_html_content')
+    @patch('botnim.sync.html_fetcher.HTMLFetcher.parse_html_content')
+    def test_fetch_and_parse_html_success(self, mock_parse, mock_fetch):
         """Test successful HTML fetching and parsing."""
         # Mock successful processing
-        mock_process.return_value = (True, {'test': 'content'}, Mock())
+        mock_fetch.return_value = (True, '<html></html>', Mock())
+        mock_parse.return_value = {'metadata': {'test': 'content'}}
         
         result = fetch_and_parse_html("https://example.com", "#content")
         
         # Verify result
-        assert result == {'test': 'content'}
-    
-    @patch('botnim.sync.html_fetcher.HTMLFetcher.process_html_source')
-    def test_fetch_and_parse_html_failure(self, mock_process):
+        assert result['metadata'] == {'test': 'content'}
+
+    @patch('botnim.sync.html_fetcher.HTMLFetcher.fetch_html_content')
+    def test_fetch_and_parse_html_failure(self, mock_fetch):
         """Test failed HTML fetching and parsing."""
         # Mock failed processing
-        mock_process.return_value = (False, None, None)
+        mock_fetch.return_value = (False, None, None)
         
         result = fetch_and_parse_html("https://example.com", "#content")
         

@@ -573,63 +573,52 @@ class PDFDiscoveryProcessor:
             Tuple of (success, content_hash, vector_store_id)
         """
         try:
-            # Create temporary processing directory
+            # Get processing configuration from source
+            processing_config = source.pdf_config.processing if source.pdf_config else None
+            if not processing_config:
+                logger.warning(f"No processing config for source {source.id}, skipping advanced processing")
+                return False, None, None
+
+            # Initialize the PDF extraction pipeline
+            pipeline = PDFExtractionPipeline(
+                config_path=None, # Not needed when providing config directly
+                model_name=processing_config.model,
+                openai_client=self.openai_client,
+                vector_store=self.vector_store
+            )
+
+            # Create a temporary directory for pipeline outputs
             with tempfile.TemporaryDirectory() as temp_dir:
-                temp_dir_path = Path(temp_dir)
+                output_dir = Path(temp_dir)
                 
-                # Copy PDF to processing directory
-                processing_pdf_path = temp_dir_path / pdf_path.name
-                shutil.copy2(pdf_path, processing_pdf_path)
-                
-                # Process the PDF using the processing configuration from the source
-                logger.info(f"Processing PDF with source configuration: {pdf_path.name}")
-                
-                # Extract text using the existing pipeline
-                from botnim.document_parser.pdf_processor.text_extraction import extract_text_from_pdf
-                
-                text, is_ocr = extract_text_from_pdf(str(processing_pdf_path))
-                
-                if text.strip():
-                    # For now, we'll just extract and store the text content
-                    # The actual vector store integration will be handled by the existing pipeline
-                    # when it processes the CSV output
-                    
-                    # Compute content hash
-                    content_hash = hashlib.sha256(text.encode()).hexdigest()
-                    
-                    # Store extracted text in a temporary CSV for later processing
-                    # This follows the existing pipeline pattern
-                    csv_data = [{
+                # Run the pipeline for the single PDF
+                processed_data, _ = pipeline.run_pipeline(
+                    input_dir=str(pdf_path.parent),
+                    output_dir=str(output_dir),
+                    gcs_bucket_name=None, # Not using GCS for this flow
+                    metadata_override={
                         'source_id': source.id,
                         'source_name': source.name,
                         'pdf_url': pdf_info['url'],
                         'pdf_filename': pdf_info['filename'],
-                        'url_hash': pdf_info['url_hash'],
-                        'extracted_text': text,
-                        'is_ocr': is_ocr,
-                        'processing_timestamp': datetime.now(timezone.utc).isoformat(),
-                        'processing_model': source.pdf_config.processing.model if source.pdf_config and source.pdf_config.processing else 'default'
-                    }]
+                    }
+                )
+
+                if processed_data:
+                    # Assume one document per PDF for now
+                    doc = processed_data[0]
+                    content_hash = hashlib.sha256(doc.page_content.encode()).hexdigest()
                     
-                    # Write to temporary CSV file
-                    csv_path = temp_dir_path / f"{pdf_path.stem}_extracted.csv"
-                    import csv
-                    with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
-                        if csv_data:
-                            fieldnames = csv_data[0].keys()
-                            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                            writer.writeheader()
-                            writer.writerows(csv_data)
-                    
-                    logger.info(f"Extracted text stored in CSV: {csv_path}")
-                    
-                    # Return success with a placeholder vector_store_id
-                    # The actual vector store integration will happen when the CSV is processed
-                    return True, content_hash, f"csv_{content_hash[:8]}"
+                    # The pipeline already adds to vector store, so we just get the ID
+                    # This assumes the pipeline returns the vector store ID in the metadata
+                    vector_store_id = doc.metadata.get("vector_store_id")
+
+                    logger.info(f"Successfully processed and indexed PDF: {pdf_path.name}")
+                    return True, content_hash, vector_store_id
                 else:
-                    logger.warning(f"Extracted text is empty for: {pdf_path.name}")
+                    logger.warning(f"PDF processing returned no data: {pdf_path.name}")
                     return False, None, None
-                    
+        
         except Exception as e:
             logger.error(f"Pipeline processing failed for {pdf_path.name}: {e}")
             return False, None, None
