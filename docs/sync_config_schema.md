@@ -9,6 +9,7 @@ This document describes the unified configuration format for the automated sync 
 - **Unified Configuration**: Single YAML format for all source types
 - **Versioning Strategies**: Multiple versioning approaches (hash, timestamp, ETag, etc.)
 - **Fetch Strategies**: Different fetching methods (direct, index page, async, etc.)
+- **Pre-processing Pipelines**: Support for multi-step pre-processing workflows (e.g., PDF-to-Spreadsheet).
 - **Validation**: Comprehensive validation with Pydantic models
 - **Extensible**: Easy to add new source types and strategies
 
@@ -106,11 +107,34 @@ sources:
 ```
 
 **Note**: Spreadsheet sources support asynchronous processing with background task queues. Set `fetch_strategy: "async"` to enable background processing that doesn't block the main sync workflow.
-  fetch_strategy: "async"
-  fetch_interval: 3600  # 1 hour
+
+#### 4. PDF-to-Spreadsheet Pipeline Sources (`pdf_pipeline`)
+
+This source type defines a pre-processing step that discovers and processes multiple PDFs, extracts structured data, and uploads the result to a Google Spreadsheet. This spreadsheet then becomes a standard source for the main sync process.
+
+```yaml
+- id: "committee-decisions-pipeline"
+  name: "Committee Decisions PDF to Spreadsheet Pipeline"
+  type: "pdf_pipeline"
   enabled: true
-  priority: 5
-  tags: ["legal", "ethics", "rules", "spreadsheet"]
+  pdf_pipeline_config:
+    input_config:
+      url: "https://main.knesset.gov.il/Activity/Committees/Finance/Pages/default.aspx"
+      is_index_page: true
+      file_pattern: ".*decision.*\\.pdf"
+    output_config:
+      spreadsheet_id: "your-google-spreadsheet-id"
+      sheet_name: "Committee Decisions"
+      use_adc: true
+    processing_config:
+      model: "gpt-4o-mini"
+      fields:
+        - name: "decision_date"
+          type: "date"
+          description: "The date of the committee decision"
+        - name: "summary"
+          type: "text"
+          description: "A summary of the decision"
 ```
 
 ## Versioning Strategies
@@ -197,10 +221,11 @@ sources:
 | `id` | string | yes | Unique source identifier |
 | `name` | string | yes | Human-readable source name |
 | `description` | string | no | Source description |
-| `type` | enum | yes | Source type (html, pdf, spreadsheet) |
+| `type` | enum | yes | Source type (html, pdf, spreadsheet, pdf_pipeline) |
 | `html_config` | object | conditional | HTML source configuration |
 | `pdf_config` | object | conditional | PDF source configuration |
 | `spreadsheet_config` | object | conditional | Spreadsheet source configuration |
+| `pdf_pipeline_config` | object | conditional | PDF Pipeline source configuration |
 | `versioning_strategy` | enum | no | Versioning strategy |
 | `version_string` | string | no | Explicit version string |
 | `fetch_strategy` | enum | no | Fetch strategy |
@@ -243,6 +268,32 @@ sources:
 | `range` | string | optional | Cell range (e.g., 'A1:D100') |
 | `credentials_path` | string | optional | Path to service account credentials |
 | `use_adc` | boolean | false | Use Application Default Credentials |
+
+### PDF Pipeline Configuration (`pdf_pipeline_config`)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `input_config` | object | yes | Configuration for discovering input PDFs. See `PDF Configuration` table. |
+| `output_config`| object | yes | Configuration for the output Google Sheet. |
+| `processing_config` | object | yes | Configuration for processing the PDFs. |
+
+#### PDF Pipeline Output Configuration (`output_config`)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `spreadsheet_id` | string | yes | The ID of the Google Spreadsheet to upload to. |
+| `sheet_name` | string | yes | The name of the sheet to create or update. |
+| `credentials_path` | string | no | Path to service account credentials for upload. |
+| `use_adc` | boolean | yes | Use Application Default Credentials for upload (defaults to true). |
+
+#### PDF Pipeline Processing Configuration (`processing_config`)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `model` | string | yes | The OpenAI model to use for extraction (e.g., `gpt-4o-mini`). |
+| `max_tokens`| int | no | Maximum tokens for processing. |
+| `temperature`| float | no | Processing temperature. |
+| `fields` | array | yes | A list of field objects to extract from the PDFs. |
 
 ## Version Management
 
@@ -397,4 +448,4 @@ The schema is designed to be extensible:
 - **New Source Types**: Easy to add new source types (e.g., RSS feeds, APIs)
 - **New Versioning Strategies**: Can add custom versioning logic
 - **New Fetch Strategies**: Can implement custom fetching methods
-- **Plugin System**: Could support plugin-based extensions 
+- **Plugin System**: Could support plugin-based extensions

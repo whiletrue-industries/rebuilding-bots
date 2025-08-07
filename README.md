@@ -19,6 +19,7 @@ The PDF extraction pipeline has been significantly enhanced with:
 A new automated, versioned, cloud-native sync system has been implemented for content sources (HTML, PDF, and spreadsheets) to vector store:
 
 - **Unified Configuration Schema** - YAML-based configuration for all content source types (HTML, PDF, spreadsheets)
+- **PDF-to-Spreadsheet Pipeline** - A pre-processing pipeline to extract structured data from multiple PDFs into a Google Spreadsheet, which then acts as a standard source for vectorization. Supports dynamic splitting (multiple decisions per PDF) and automatic spreadsheet source creation for seamless integration with the main sync process.
 - **Versioning & Change Detection** - Content hash-based versioning with incremental updates
 - **Caching Layer** - SQLite-based duplicate detection and content tracking
 - **HTML Content Fetching** - Automated fetching and parsing of HTML sources with version tracking
@@ -106,9 +107,67 @@ sources:
     fetch_interval: 3600  # 1 hour
     enabled: true
     priority: 1
+
+  # PDF Pipeline Sources (Pre-processing)
+  - id: "ethics-committee-decisions"
+    name: "Ethics Committee Decisions"
+    type: "pdf_pipeline"
+    enabled: true
+    priority: 1
+    pdf_pipeline_config:
+      input_config:
+        url: "https://example.com/ethics-decisions/"
+        is_index_page: true
+        file_pattern: "*.pdf"
+      output_config:
+        spreadsheet_id: "your-spreadsheet-id"
+        sheet_name: "Ethics_Committee_Decisions"
+        use_adc: true
+      processing_config:
+        model: "gpt-4o-mini"
+        fields:
+          - name: "decision_number"
+            type: "string"
+            description: "Number of the ethics decision"
+          - name: "decision_date"
+            type: "date"
+            description: "Date of the decision"
+          - name: "member_name"
+            type: "string"
+            description: "Name of the Knesset member"
+        extraction_instructions: "Extract structured data from ethics committee decisions. Each decision should be extracted as a separate record."
 ```
 
 For more details, see the sync infrastructure documentation in `docs/`.
+
+#### PDF Pipeline Processing Features
+
+The PDF-to-Spreadsheet pipeline provides pre-processing capabilities for PDF sources:
+
+- **Automatic PDF Discovery** - Discovers PDFs from URLs or index pages with pattern matching
+- **Structured Data Extraction** - Uses AI to extract structured data from PDFs with configurable schemas
+- **Dynamic Splitting** - Supports extracting multiple records (e.g., decisions) from single PDFs
+- **Google Sheets Integration** - Automatically uploads extracted data to Google Sheets
+- **Seamless Sync Integration** - Creates new spreadsheet sources that are automatically processed by the main sync
+- **Comprehensive Testing** - Full test suite covering all scenarios (single/multiple PDFs, single/multiple decisions)
+
+**How it works:**
+1. **Pre-processing Phase**: PDF pipelines run first, processing PDFs and creating Google Sheets
+2. **Automatic Source Creation**: New spreadsheet sources are automatically added to the sync queue
+3. **Main Sync Phase**: The generated spreadsheets are processed like any other spreadsheet source
+4. **Vectorization**: Content is embedded and indexed in the vector store
+
+**Example Usage:**
+```bash
+# Run complete sync with PDF pipelines
+botnim sync orchestrate --config-file sync_config.yaml --environment staging
+
+# The orchestrator will:
+# 1. Run PDF pipelines (discover → extract → upload to sheets)
+# 2. Create new spreadsheet sources automatically
+# 3. Process all sources including the newly created ones
+# 4. Generate embeddings and index in vector store
+```
 
 #### Spreadsheet Processing Features
 

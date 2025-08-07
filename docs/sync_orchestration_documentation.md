@@ -7,39 +7,44 @@ This document describes the comprehensive sync orchestration system that coordin
 The sync orchestration system provides:
 
 1. **Main Orchestration Engine** - Coordinates all sync operations
-2. **Cloud Cache Management** - Download/upload embedding cache from Elasticsearch
-3. **Version Control** - Track changes and process only new content
-4. **Document Processing Integration** - Unified interface for HTML, PDF, and spreadsheet processing
-5. **Advanced Document Parsing & Chunking** - AI-powered document structure analysis with intelligent chunking
-6. **CI/CD Integration** - GitHub Actions workflow with robust error handling
-7. **Comprehensive Monitoring** - Detailed logging, reporting, and health checks
+2. **Pre-processing Pipelines** - Executes multi-step workflows like PDF-to-Spreadsheet before the main sync.
+3. **Cloud Cache Management** - Download/upload embedding cache from Elasticsearch
+4. **Version Control** - Track changes and process only new content
+5. **Document Processing Integration** - Unified interface for HTML, PDF, and spreadsheet processing
+6. **Advanced Document Parsing & Chunking** - AI-powered document structure analysis with intelligent chunking
+7. **CI/CD Integration** - GitHub Actions workflow with robust error handling
+8. **Comprehensive Monitoring** - Detailed logging, reporting, and health checks
 
 ## Architecture
 
 ```mermaid
-graph TD
-    A[Sync Orchestrator] --> B[Download Embedding Cache]
-    A --> C[Process Content Sources]
-    A --> D[Generate Embeddings]
-    A --> E[Upload Embedding Cache]
+flowchart TD
+    A["Start CI Sync Job"] --> B["Download Caches from Cloud<br/>(Embeddings & Sync Cache)"]
     
-    C --> F[HTML Processor]
-    C --> G[PDF Processor]
-    C --> H[Spreadsheet Processor]
-    C --> P[Document Parser]
+    B --> PRE["Run Pre-processing Pipelines<br/>(e.g., PDF-to-Spreadsheet)"]
     
-    P --> Q[Structure Analysis]
-    P --> R[Content Chunking]
-    P --> S[Markdown Generation]
+    PRE --> C["For Each Content Source"]
     
-    D --> I[Change Detection]
-    D --> J[Batch Processing]
-    D --> K[Cloud Storage]
+    C --> D["Fetch Latest Content<br/>(HTML/PDF/Spreadsheet)"]
+    D --> E["Compute Content Version ID"]
+    E --> F{"Version Changed?"}
+    F -- "No" --> G["Skip Sync for Source"]
+    F -- "Yes" --> H["Process & Embed Content"]
     
-    L[GitHub Actions] --> A
-    L --> M[Validation]
-    L --> N[Monitoring]
-    L --> O[Notifications]
+    H --> I["Sync to Elasticsearch<br/>(add source_id, timestamp)"]
+    I --> J["Delete Outdated Docs by Query"]
+    J --> K["Update Version ID in Store"]
+    
+    K --> C
+    G --> C
+    
+    C --> M["Upload Caches to Cloud<br/>(Embeddings & Sync Cache)"]
+    M --> N["End"]
+
+    subgraph "Async Fetching During Main Loop"
+        D --> O["If Spreadsheet: Fetch Asynchronously"]
+        D --> P["If Wikisource: Fetch Asynchronously, Write to Cloud"]
+    end
 ```
 
 ## Core Components
@@ -51,6 +56,7 @@ Main orchestration engine that coordinates all sync operations.
 **Key Features:**
 - Coordinates all sync components (HTML, PDF, spreadsheet, embedding)
 - Manages cloud cache download/upload
+- Executes pre-processing pipelines before the main sync loop.
 - Provides comprehensive error handling and logging
 - Generates detailed sync summaries
 - Supports parallel processing with configurable concurrency
@@ -177,35 +183,112 @@ class SyncSummary:
 
 The orchestrator follows a structured workflow:
 
-### Step 1: Download Embedding Cache
+### Step 1: Pre-processing Pipelines
+```python
+# Run all configured pre-processing pipelines (e.g., PDF-to-Spreadsheet)
+await orchestrator._run_preprocessing_pipelines()
+```
+
+### Step 2: Download Embedding Cache
 ```python
 # Download existing embeddings from cloud storage
 cache_downloaded = await orchestrator._download_embedding_cache()
 ```
 
-### Step 2: Process Content Sources
+### Step 3: Process Content Sources
 ```python
 # Process all enabled sources in parallel
 await orchestrator._process_all_sources()
 ```
 
-### Step 3: Generate Embeddings
+### Step 4: Generate Embeddings
 ```python
 # Generate embeddings for new/changed content
 await orchestrator._process_embeddings()
 ```
 
-### Step 4: Upload Embedding Cache
+### Step 5: Upload Embedding Cache
 ```python
 # Upload updated embeddings to cloud storage
 cache_uploaded = await orchestrator._upload_embedding_cache()
 ```
 
-### Step 5: Generate Summary
+### Step 6: Generate Summary
 ```python
 # Generate comprehensive summary
 summary = orchestrator._generate_summary(cache_downloaded, cache_uploaded)
 ```
+
+## Pre-processing Pipelines
+
+The sync orchestration system supports pre-processing pipelines that run before the main sync loop. These pipelines can perform complex multi-step operations and create new sources for the main sync to process.
+
+### PDF-to-Spreadsheet Pipeline
+
+The PDF-to-Spreadsheet pipeline is a pre-processing workflow that:
+
+1. **Discovers PDFs** from URLs or index pages
+2. **Extracts structured data** using AI-powered field extraction
+3. **Creates Google Sheets** with the extracted data
+4. **Generates new spreadsheet sources** for the main sync to process
+
+**How it integrates with the sync workflow:**
+
+```python
+# Step 1: Run pre-processing pipelines
+await orchestrator._run_preprocessing_pipelines()
+
+# This step:
+# - Identifies PDF_PIPELINE sources in the configuration
+# - Executes each pipeline (discover → extract → upload to sheets)
+# - Creates new ContentSource objects for the generated spreadsheets
+# - Adds these new sources to the config.sources list
+
+# Step 2: Process all sources (including newly created ones)
+await orchestrator._process_all_sources()
+```
+
+**Example Configuration:**
+```yaml
+sources:
+  - id: "ethics-committee-decisions"
+    name: "Ethics Committee Decisions"
+    type: "pdf_pipeline"
+    enabled: true
+    priority: 1
+    pdf_pipeline_config:
+      input_config:
+        url: "https://example.com/ethics-decisions/"
+        is_index_page: true
+        file_pattern: "*.pdf"
+      output_config:
+        spreadsheet_id: "your-spreadsheet-id"
+        sheet_name: "Ethics_Committee_Decisions"
+        use_adc: true
+      processing_config:
+        model: "gpt-4o-mini"
+        fields:
+          - name: "decision_number"
+            type: "string"
+            description: "Number of the ethics decision"
+          - name: "decision_date"
+            type: "date"
+            description: "Date of the decision"
+        extraction_instructions: "Extract structured data from ethics committee decisions."
+```
+
+**Pipeline Results:**
+- **Generated Spreadsheet**: Data uploaded to Google Sheets
+- **New Source Created**: `ethics-committee-decisions-generated-spreadsheet` source added to config
+- **Main Sync Processing**: The new spreadsheet source is processed like any other spreadsheet source
+- **Vectorization**: Content is embedded and indexed in the vector store
+
+**Benefits:**
+- ✅ **Seamless Integration**: Generated spreadsheets automatically become part of the sync workflow
+- ✅ **Dynamic Splitting**: Supports extracting multiple records from single PDFs
+- ✅ **Reusable Components**: Uses existing Google Sheets service and PDF processing infrastructure
+- ✅ **Comprehensive Testing**: Full test suite covering all scenarios
+- ✅ **Traceability**: Generated sources are tagged with metadata about their origin
 
 ## CLI Commands
 
@@ -223,15 +306,17 @@ botnim sync orchestrate --config-file specs/takanon/sync_config.yaml --environme
 # Example output
 🚀 Starting sync orchestration for config: specs/takanon/sync_config.yaml
 Environment: staging
-📥 Step 1: Downloading embedding cache from cloud
+🛠️ Step 1: Running pre-processing pipelines
+INFO:botnim.sync.orchestrator:No pre-processing pipelines to run.
+📥 Step 2: Downloading embedding cache from cloud
 ✅ Downloaded 1,250 embeddings from cloud
-📄 Step 2: Processing content sources
+📄 Step 3: Processing content sources
 ✅ Test HTML Source (html): 5 documents processed
 ✅ Test PDF Source (pdf): 3 documents processed
-🔮 Step 3: Generating embeddings
+🔮 Step 4: Generating embeddings
 Generating embeddings for 8 documents
 Embedding processing completed: 8 documents processed
-📤 Step 4: Uploading embedding cache to cloud
+📤 Step 5: Uploading embedding cache to cloud
 ✅ Uploaded 1,258 embeddings to cloud
 ✅ Sync operation completed successfully
 
@@ -733,4 +818,4 @@ botnim sync orchestrate --config-file specs/takanon/sync_config.yaml --cache-dir
     fi
 ```
 
-This sync orchestration system provides a robust, scalable, and maintainable solution for coordinating all sync operations with comprehensive CI/CD integration, monitoring, and error handling. 
+This sync orchestration system provides a robust, scalable, and maintainable solution for coordinating all sync operations with comprehensive CI/CD integration, monitoring, and error handling.

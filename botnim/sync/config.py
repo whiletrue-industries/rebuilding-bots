@@ -24,6 +24,7 @@ class SourceType(str, Enum):
     PDF = "pdf"
     SPREADSHEET = "spreadsheet"
     WIKISOURCE = "wikisource"
+    PDF_PIPELINE = "pdf_pipeline"
 
 
 class VersioningStrategy(str, Enum):
@@ -130,6 +131,19 @@ class SpreadsheetSourceConfig(BaseModel):
             raise ValueError('Must be a Google Sheets URL')
         return v
 
+class PDFPipelineOutputConfig(BaseModel):
+    """Configuration for the output of a PDF pipeline."""
+    spreadsheet_id: str = Field(..., description="Google Sheets spreadsheet ID")
+    sheet_name: str = Field(..., description="Name of the sheet to create/update")
+    credentials_path: Optional[str] = Field(None, description="Path to service account credentials for upload")
+    use_adc: bool = Field(default=True, description="Use Application Default Credentials for upload")
+
+class PDFPipelineConfig(BaseModel):
+    """Configuration for a PDF-to-Spreadsheet pipeline source."""
+    input_config: PDFSourceConfig = Field(..., description="Configuration for discovering and fetching input PDFs")
+    output_config: PDFPipelineOutputConfig = Field(..., description="Configuration for the output Google Sheet")
+    processing_config: PDFProcessingConfig = Field(..., description="Configuration for processing the PDFs")
+
 
 class ContentSource(BaseModel):
     """Configuration for a single content source."""
@@ -142,7 +156,8 @@ class ContentSource(BaseModel):
     html_config: Optional[HTMLSourceConfig] = Field(None, description="HTML source configuration")
     pdf_config: Optional[PDFSourceConfig] = Field(None, description="PDF source configuration")
     spreadsheet_config: Optional[SpreadsheetSourceConfig] = Field(None, description="Spreadsheet source configuration")
-    
+    pdf_pipeline_config: Optional[PDFPipelineConfig] = Field(None, description="PDF pipeline source configuration")
+
     # Versioning configuration
     versioning_strategy: VersioningStrategy = Field(default=VersioningStrategy.HASH, description="Versioning strategy")
     version_string: Optional[str] = Field(None, description="Explicit version string (for VERSION_STRING strategy)")
@@ -172,6 +187,8 @@ class ContentSource(BaseModel):
             raise ValueError('PDF source requires pdf_config')
         elif self.type == SourceType.SPREADSHEET and not self.spreadsheet_config:
             raise ValueError('Spreadsheet source requires spreadsheet_config')
+        elif self.type == SourceType.PDF_PIPELINE and not self.pdf_pipeline_config:
+            raise ValueError('PDF_PIPELINE source requires pdf_pipeline_config')
         return self
 
 
@@ -406,4 +423,4 @@ if __name__ == "__main__":
     # Create and save example configuration
     config = create_example_config()
     config.to_yaml("example_sync_config.yaml")
-    print("Example configuration saved to example_sync_config.yaml") 
+    print("Example configuration saved to example_sync_config.yaml")

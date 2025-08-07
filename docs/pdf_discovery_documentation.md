@@ -4,6 +4,8 @@
 
 The PDF discovery and processing system automatically discovers new PDFs from remote sources, downloads them temporarily, processes them using the existing pipeline, and stores the results in the vector store. This system is designed to work as part of the automated sync infrastructure.
 
+> **Note:** This document describes the direct-to-vector-store PDF processing workflow. For more advanced use cases involving structured data extraction from PDFs into a Google Spreadsheet before vectorization, please see the `pdf_pipeline` source type in the [Sync Configuration Schema](./sync_config_schema.md).
+
 ## Key Features
 
 - **Automated Discovery**: Scans remote index pages for new PDF files
@@ -389,4 +391,4 @@ logging.getLogger('botnim.sync.pdf_discovery').setLevel(logging.DEBUG)
 1. **Caching**: Cache discovered PDF lists
 2. **Parallel Downloads**: Download multiple PDFs simultaneously
 3. **Streaming Processing**: Process PDFs as they download
-4. **Compression**: Compress temporary files 
+4. **Compression**: Compress temporary files

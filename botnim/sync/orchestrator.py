@@ -26,6 +26,7 @@ from .html_fetcher import HTMLProcessor
 from .pdf_discovery import PDFDiscoveryProcessor
 from .spreadsheet_fetcher import AsyncSpreadsheetProcessor
 from .embedding_processor import SyncEmbeddingProcessor
+from .pdf_pipeline_processor import PDFPipelineProcessor
 from ..vector_store.vector_store_es import VectorStoreES
 
 
@@ -129,7 +130,11 @@ class SyncOrchestrator:
                 sync_cache=self.cache,
                 embedding_cache_path=self.config.embedding_cache_path
             )
-            
+            self.pdf_pipeline_processor = PDFPipelineProcessor(
+                cache=self.cache,
+                openai_client=self.openai_client
+            )
+
             self.logger.info("All sync components initialized successfully")
             
         except Exception as e:
@@ -147,23 +152,27 @@ class SyncOrchestrator:
         self.logger.info("🚀 Starting comprehensive sync operation")
         
         try:
-            # Step 1: Download embedding cache from cloud
-            self.logger.info("📥 Step 1: Downloading embedding cache from cloud")
+            # Step 1: Pre-processing pipelines
+            self.logger.info("🛠️ Step 1: Running pre-processing pipelines")
+            await self._run_preprocessing_pipelines()
+
+            # Step 2: Download embedding cache from cloud
+            self.logger.info("📥 Step 2: Downloading embedding cache from cloud")
             cache_downloaded = await self._download_embedding_cache()
             
-            # Step 2: Process all content sources
-            self.logger.info("📄 Step 2: Processing content sources")
+            # Step 3: Process all content sources
+            self.logger.info("📄 Step 3: Processing content sources")
             await self._process_all_sources()
             
-            # Step 3: Generate embeddings for new/changed content
-            self.logger.info("🔮 Step 3: Generating embeddings")
+            # Step 4: Generate embeddings for new/changed content
+            self.logger.info("🔮 Step 4: Generating embeddings")
             await self._process_embeddings()
             
-            # Step 4: Upload embedding cache to cloud
-            self.logger.info("📤 Step 4: Uploading embedding cache to cloud")
+            # Step 5: Upload embedding cache to cloud
+            self.logger.info("📤 Step 5: Uploading embedding cache to cloud")
             cache_uploaded = await self._upload_embedding_cache()
             
-            # Step 5: Generate summary
+            # Step 6: Generate summary
             summary = self._generate_summary(cache_downloaded, cache_uploaded)
             
             self.logger.info("✅ Sync operation completed successfully")
@@ -171,12 +180,57 @@ class SyncOrchestrator:
             
         except Exception as e:
             error_msg = f"Sync operation failed: {e}"
-            self.logger.error(error_msg)
+            self.logger.error(error_msg, exc_info=True)
             self.sync_errors.append(error_msg)
             
             # Return partial summary even on failure
             return self._generate_summary(False, False)
-    
+
+    async def _run_preprocessing_pipelines(self):
+        """Run all configured pre-processing pipelines."""
+        pipeline_sources = self.config.get_sources_by_type(SourceType.PDF_PIPELINE)
+        if not pipeline_sources:
+            self.logger.info("No pre-processing pipelines to run.")
+            return
+
+        self.logger.info(f"Found {len(pipeline_sources)} PDF pre-processing pipelines to run.")
+        
+        # Track newly created spreadsheet sources
+        created_spreadsheet_sources = []
+        
+        for source in pipeline_sources:
+            if not source.enabled:
+                self.logger.info(f"Skipping disabled pipeline: {source.id}")
+                continue
+
+            try:
+                self.logger.info(f"Running pipeline: {source.id}")
+                result = self.pdf_pipeline_processor.process_pipeline_source(source)
+                
+                # Check if the pipeline created a new spreadsheet source
+                if result.get("status") == "completed" and result.get("created_spreadsheet_source"):
+                    created_source = result["created_spreadsheet_source"]
+                    created_spreadsheet_sources.append(created_source)
+                    self.logger.info(f"Pipeline {source.id} created new spreadsheet source: {created_source.id}")
+                
+                # Log the result
+                if result.get("status") == "failed":
+                    error_message = f"PDF Pipeline '{source.id}' failed: {result.get('errors')}"
+                    self.logger.error(error_message)
+                    self.sync_errors.append(error_message)
+                else:
+                    self.logger.info(f"Pipeline {source.id} completed with status: {result.get('status')}")
+
+            except Exception as e:
+                error_message = f"An unexpected error occurred in pipeline '{source.id}': {e}"
+                self.logger.error(error_message, exc_info=True)
+                self.sync_errors.append(error_message)
+        
+        # Add newly created spreadsheet sources to the config for processing
+        if created_spreadsheet_sources:
+            self.logger.info(f"Adding {len(created_spreadsheet_sources)} newly created spreadsheet sources to processing queue")
+            self.config.sources.extend(created_spreadsheet_sources)
+
     async def _download_embedding_cache(self) -> bool:
         """Download embedding cache from cloud storage."""
         try:
@@ -196,16 +250,19 @@ class SyncOrchestrator:
     
     async def _process_all_sources(self):
         """Process all configured content sources."""
-        enabled_sources = self.config.get_enabled_sources()
+        # Get all enabled sources, excluding PDF_PIPELINE sources (which are processed in pre-processing)
+        # Note: PDF pipeline sources that complete successfully create new spreadsheet sources
+        # which are automatically added to the config.sources list during pre-processing
+        enabled_sources = [s for s in self.config.get_enabled_sources() if s.type != SourceType.PDF_PIPELINE]
         
         if not enabled_sources:
-            self.logger.warning("No enabled sources found in configuration")
+            self.logger.warning("No enabled sources found for main processing loop.")
             return
         
         # Sort sources by priority (lower number = higher priority)
         enabled_sources.sort(key=lambda s: s.priority)
         
-        self.logger.info(f"Processing {len(enabled_sources)} enabled sources")
+        self.logger.info(f"Processing {len(enabled_sources)} enabled sources in main loop")
         
         # Process sources in parallel with thread pool
         with ThreadPoolExecutor(max_workers=self.config.max_concurrent_sources) as executor:
@@ -260,12 +317,12 @@ class SyncOrchestrator:
             elif source.type == SourceType.SPREADSHEET:
                 return self._process_spreadsheet_source(source, start_time)
             else:
-                error_msg = f"Unsupported source type: {source.type.value}"
-                self.logger.error(error_msg)
+                error_msg = f"Unsupported source type for main processing: {source.type.value}"
+                self.logger.warning(error_msg)
                 return SyncResult(
                     source_id=source.id,
                     source_type=source.type.value,
-                    status='failed',
+                    status='skipped',
                     processing_time=time.time() - start_time,
                     documents_processed=0,
                     documents_failed=0,
@@ -678,4 +735,4 @@ def run_sync_orchestration_sync(config_path: str, environment: str = DEFAULT_ENV
     Returns:
         SyncSummary with results
     """
-    return asyncio.run(run_sync_orchestration(config_path, environment)) 
+    return asyncio.run(run_sync_orchestration(config_path, environment))
