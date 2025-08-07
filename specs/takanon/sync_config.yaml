@@ -303,6 +303,7 @@ sources:
     enabled: true
     priority: 10
     tags: ["משפטי", "כנסת", "משכן", "ויקיטקסט", "html"]
+    use_document_parser: true
 
   - id: "knesset-basic-law-wikisource"
     name: "חוק יסוד הכנסת (Basic Law: Knesset)"
@@ -319,6 +320,7 @@ sources:
     enabled: true
     priority: 11
     tags: ["משפטי", "כנסת", "חוק-יסוד", "ויקיטקסט", "html"]
+    use_document_parser: true
 
   - id: "knesset-immunity-law-wikisource"
     name: "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם"
@@ -335,6 +337,7 @@ sources:
     enabled: true
     priority: 12
     tags: ["משפטי", "כנסת", "חסינות", "ויקיטקסט", "html"]
+    use_document_parser: true
 
   - id: "continuity-law-wikisource"
     name: "חוק רציפות הדיון בהצעות חוק"
@@ -351,6 +354,7 @@ sources:
     enabled: true
     priority: 13
     tags: ["משפטי", "כנסת", "רציפות", "ויקיטקסט", "html"]
+    use_document_parser: true
 
   - id: "knesset-bylaws-wikisource"
     name: "תקנון הכנסת (Knesset Bylaws)"
@@ -367,6 +371,7 @@ sources:
     enabled: true
     priority: 14
     tags: ["משפטי", "כנסת", "תקנון", "ויקיטקסט", "html"]
+    use_document_parser: true
 
   - id: "interpretation-law-wikisource"
     name: "חוק הפרשנות (Interpretation Law)"
@@ -382,4 +387,5 @@ sources:
     fetch_strategy: "direct"
     enabled: true
     priority: 15
-    tags: ["משפטי", "כנסת", "פרשנות", "ויקיטקסט", "html"] 
+    tags: ["משפטי", "כנסת", "פרשנות", "ויקיטקסט", "html"]
+    use_document_parser: true 
