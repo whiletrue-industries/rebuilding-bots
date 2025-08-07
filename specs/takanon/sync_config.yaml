@@ -78,6 +78,7 @@ sources:
     html_config:
       url: "https://main.knesset.gov.il/about/lexicon/pages/default.aspx"
       selector: "#content"
+      link_pattern: ".*lexicon.*"
       encoding: "utf-8"
       timeout: 60
       retry_attempts: 3
@@ -389,3 +390,21 @@ sources:
     priority: 15
     tags: ["משפטי", "כנסת", "פרשנות", "ויקיטקסט", "html"]
     use_document_parser: true 
+
+  - id: "knesset-members-salary-decision-wikisource"
+    name: "החלטת שכר חברי הכנסת (הענקות ותשלומים)"
+    description: "החלטת שכר חברי הכנסת (הענקות ותשלומים) מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.m.wikisource.org/wiki/החלטת_שכר_חברי_הכנסת_(הענקות_ותשלומים)"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 16
+    tags: ["משפטי", "כנסת", "שכר", "החלטה", "ויקיטקסט", "html"]
+    use_document_parser: true
+

@@ -290,6 +290,61 @@ sources:
 - ✅ **Comprehensive Testing**: Full test suite covering all scenarios
 - ✅ **Traceability**: Generated sources are tagged with metadata about their origin
 
+### HTML Index Page Discovery
+
+The HTML discovery system automatically discovers and processes multiple HTML pages linked from index pages:
+
+1. **Discovers HTML links** from index pages using pattern filtering
+2. **Tracks processed pages** to avoid duplicates
+3. **Processes each page individually** using the existing HTML processing pipeline
+4. **Integrates seamlessly** with the main sync workflow
+
+**How it integrates with the sync workflow:**
+
+```python
+# During source processing, HTML sources with fetch_strategy: "index_page" are handled specially
+if source.fetch_strategy == FetchStrategy.INDEX_PAGE:
+    # Use HTML discovery processor
+    results = self.html_discovery_processor.process_html_source(source)
+    # Results include discovered pages that are processed individually
+else:
+    # Use regular HTML processor
+    results = self.html_processor.process_sources([source])
+```
+
+**Example Configuration:**
+```yaml
+sources:
+  - id: "example-html-index"
+    name: "Example HTML Index Page"
+    type: "html"
+    html_config:
+      url: "https://example.com/index.html"
+      selector: "#content"
+      link_pattern: ".*relevant.*"  # Filter links containing "relevant"
+      encoding: "utf-8"
+      timeout: 60
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"  # Triggers HTML discovery
+    enabled: true
+    priority: 1
+    tags: ["example", "html", "index"]
+```
+
+**Discovery Results:**
+- **Discovered Pages**: Multiple HTML pages found and filtered by pattern
+- **Individual Processing**: Each discovered page is processed as a separate source
+- **Duplicate Prevention**: Processed pages are tracked in Elasticsearch to avoid re-processing
+- **Integration**: Works with existing HTML processing pipeline and advanced document parsing
+
+**Benefits:**
+- ✅ **Automated Discovery**: Automatically finds relevant HTML pages from index pages
+- ✅ **Pattern Filtering**: Supports regex patterns to filter relevant links
+- ✅ **Duplicate Prevention**: Tracks processed pages to avoid re-processing
+- ✅ **Seamless Integration**: Works with existing HTML processing pipeline
+- ✅ **Comprehensive Testing**: Full test suite covering discovery and processing workflows
+
 ## CLI Commands
 
 ### Orchestrate Command

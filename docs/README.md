@@ -68,6 +68,7 @@ botnim sync cache cleanup --older-than 30
 ### HTML Sources
 - Direct HTML content fetching
 - CSS selector-based content extraction
+- **HTML index page discovery** with automated link discovery and pattern filtering
 - **Advanced document parsing and chunking** with AI-powered structure analysis
 - Version tracking with content hashing
 
@@ -88,6 +89,7 @@ botnim sync cache cleanup --older-than 30
 - **Versioning & Change Detection**: Content hash-based versioning with incremental updates
 - **Caching Layer**: SQLite-based duplicate detection and content tracking
 - **Asynchronous Processing**: Background processing for spreadsheet sources
+- **HTML Index Page Discovery**: Automated discovery and processing of multiple HTML pages from index pages
 - **Advanced Document Parsing**: AI-powered document structure analysis and intelligent chunking
 - **Cloud-Native Design**: Designed for CI/CD workflows with no local dependencies
 - **Comprehensive Logging**: Structured logging with detailed error reporting

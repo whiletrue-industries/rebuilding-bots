@@ -48,6 +48,7 @@ class HTMLSourceConfig(BaseModel):
     """Configuration for HTML content sources."""
     url: str = Field(..., description="Source URL")
     selector: Optional[str] = Field(None, description="CSS selector for content extraction")
+    link_pattern: Optional[str] = Field(None, description="Regex pattern to filter HTML links for index page discovery")
     encoding: Optional[str] = Field(None, description="Content encoding (auto-detected if not specified)")
     headers: Dict[str, str] = Field(default_factory=dict, description="HTTP headers")
     timeout: int = Field(default=30, description="Request timeout in seconds")

@@ -20,10 +20,11 @@ from dataclasses import dataclass
 from openai import OpenAI
 
 from ..config import get_logger, DEFAULT_ENVIRONMENT, get_openai_client
-from .config import SyncConfig, ContentSource, SourceType, VersionManager
+from .config import SyncConfig, ContentSource, SourceType, VersionManager, FetchStrategy
 from .cache import SyncCache
 from .html_fetcher import HTMLProcessor
 from .pdf_discovery import PDFDiscoveryProcessor
+from .html_discovery import HTMLDiscoveryProcessor
 from .spreadsheet_fetcher import AsyncSpreadsheetProcessor
 from .embedding_processor import SyncEmbeddingProcessor
 from .pdf_pipeline_processor import PDFPipelineProcessor
@@ -114,6 +115,11 @@ class SyncOrchestrator:
             
             # Initialize processors
             self.html_processor = HTMLProcessor(self.cache)
+            self.html_discovery_processor = HTMLDiscoveryProcessor(
+                cache=self.cache,
+                vector_store=self.vector_store,
+                openai_client=self.openai_client
+            )
             self.pdf_processor = PDFDiscoveryProcessor(
                 cache=self.cache,
                 vector_store=self.vector_store,
@@ -345,36 +351,69 @@ class SyncOrchestrator:
     def _process_html_source(self, source: ContentSource, start_time: float) -> SyncResult:
         """Process an HTML source."""
         try:
-            # Process HTML source
-            results = self.html_processor.process_sources([source])
-            
-            processing_time = time.time() - start_time
-            
-            # Extract results
-            summary = results['summary']
-            processed_count = summary['processed_count']
-            error_count = summary['error_count']
-            
-            if error_count > 0:
-                status = 'failed'
-                error_message = f"{error_count} errors occurred during processing"
-            elif processed_count == 0:
-                status = 'skipped'
-                error_message = None
+            # Check if this is an index page discovery source
+            if source.fetch_strategy == FetchStrategy.INDEX_PAGE:
+                # Use HTML discovery processor
+                results = self.html_discovery_processor.process_html_source(source)
+                
+                processing_time = time.time() - start_time
+                
+                # Extract results
+                processed_pages = results.get('processed_pages', 0)
+                failed_pages = results.get('failed_pages', 0)
+                errors = results.get('errors', [])
+                
+                if failed_pages > 0 or errors:
+                    status = 'failed'
+                    error_message = f"{failed_pages} HTML pages failed, {len(errors)} errors"
+                elif processed_pages == 0:
+                    status = 'skipped'
+                    error_message = None
+                else:
+                    status = 'success'
+                    error_message = None
+                
+                return SyncResult(
+                    source_id=source.id,
+                    source_type=source.type.value,
+                    status=status,
+                    processing_time=processing_time,
+                    documents_processed=processed_pages,
+                    documents_failed=failed_pages,
+                    error_message=error_message,
+                    metadata={'html_discovery_results': results}
+                )
             else:
-                status = 'success'
-                error_message = None
-            
-            return SyncResult(
-                source_id=source.id,
-                source_type=source.type.value,
-                status=status,
-                processing_time=processing_time,
-                documents_processed=processed_count,
-                documents_failed=error_count,
-                error_message=error_message,
-                metadata={'html_results': results}
-            )
+                # Use regular HTML processor
+                results = self.html_processor.process_sources([source])
+                
+                processing_time = time.time() - start_time
+                
+                # Extract results
+                summary = results['summary']
+                processed_count = summary['processed_count']
+                error_count = summary['error_count']
+                
+                if error_count > 0:
+                    status = 'failed'
+                    error_message = f"{error_count} errors occurred during processing"
+                elif processed_count == 0:
+                    status = 'skipped'
+                    error_message = None
+                else:
+                    status = 'success'
+                    error_message = None
+                
+                return SyncResult(
+                    source_id=source.id,
+                    source_type=source.type.value,
+                    status=status,
+                    processing_time=processing_time,
+                    documents_processed=processed_count,
+                    documents_failed=error_count,
+                    error_message=error_message,
+                    metadata={'html_results': results}
+                )
             
         except Exception as e:
             return SyncResult(
@@ -605,6 +644,9 @@ class SyncOrchestrator:
             # Clean up processors
             if hasattr(self, 'html_processor'):
                 self.html_processor.close()
+            
+            if hasattr(self, 'html_discovery_processor'):
+                self.html_discovery_processor.cleanup()
             
             if hasattr(self, 'pdf_processor'):
                 self.pdf_processor.cleanup()

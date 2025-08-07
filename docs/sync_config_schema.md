@@ -48,6 +48,9 @@ sources:
 
 #### 1. HTML Sources
 
+HTML sources support both direct fetching and index page discovery for processing multiple linked pages.
+
+**Direct HTML Fetching:**
 ```yaml
 - id: "knesset-laws-html"
   name: "Knesset Laws (HTML)"
@@ -65,6 +68,28 @@ sources:
   priority: 1
   tags: ["legal", "knesset", "laws", "html"]
 ```
+
+**HTML Index Page Discovery:**
+```yaml
+- id: "example-html-index"
+  name: "Example HTML Index Page"
+  description: "HTML index page with multiple linked pages"
+  type: "html"
+  html_config:
+    url: "https://example.com/index.html"
+    selector: "#content"
+    link_pattern: ".*relevant.*"  # Regex pattern to filter relevant links
+    encoding: "utf-8"
+    timeout: 60
+    retry_attempts: 3
+  versioning_strategy: "combined"
+  fetch_strategy: "index_page"  # Triggers HTML discovery
+  enabled: true
+  priority: 1
+  tags: ["example", "html", "index"]
+```
+
+**Note**: HTML sources support index page discovery with `fetch_strategy: "index_page"`. This automatically discovers and processes multiple HTML pages linked from a single index page. Use `link_pattern` to filter relevant links using regex patterns.
 
 #### 2. PDF Sources
 
@@ -243,6 +268,7 @@ This source type defines a pre-processing step that discovers and processes mult
 |-------|------|---------|-------------|
 | `url` | string | required | Source URL |
 | `selector` | string | optional | CSS selector for content extraction |
+| `link_pattern` | string | optional | Regex pattern to filter HTML links for index page discovery |
 | `encoding` | string | "utf-8" | Content encoding |
 | `headers` | object | {} | HTTP headers |
 | `timeout` | int | 30 | Request timeout in seconds |
