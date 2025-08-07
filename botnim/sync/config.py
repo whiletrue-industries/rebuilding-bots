@@ -18,6 +18,13 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 import requests
 
 
+class HealthThresholds(BaseModel):
+    """Configuration for health check thresholds."""
+    min_success_rate_percent: float = Field(default=80.0, description="Minimum success rate for the sync to be considered healthy")
+    max_failed_sources_percent: float = Field(default=10.0, description="Maximum percentage of failed sources for the sync to be considered healthy")
+    max_processing_time_per_source_seconds: int = Field(default=600, description="Maximum processing time for a single source to be considered healthy")
+
+
 class SourceType(str, Enum):
     """Supported content source types."""
     HTML = "html"
@@ -261,6 +268,9 @@ class SyncConfig(BaseModel):
     # Logging configuration
     log_level: str = Field(default="INFO", description="Logging level")
     log_file: Optional[str] = Field(None, description="Log file path")
+    
+    # Health check configuration
+    health_thresholds: Optional[HealthThresholds] = Field(None, description="Health check thresholds")
     
     @classmethod
     def from_yaml(cls, path: Union[str, Path]) -> 'SyncConfig':

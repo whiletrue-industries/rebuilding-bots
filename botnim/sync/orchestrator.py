@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 from openai import OpenAI
 
-from ..config import get_logger, DEFAULT_ENVIRONMENT, get_openai_client
+from ..config import DEFAULT_ENVIRONMENT, get_openai_client
 from .config import SyncConfig, ContentSource, SourceType, VersionManager, FetchStrategy
 from .cache import SyncCache
 from .html_fetcher import HTMLProcessor
@@ -29,10 +29,11 @@ from .spreadsheet_fetcher import AsyncSpreadsheetProcessor
 from .embedding_processor import SyncEmbeddingProcessor
 from .pdf_pipeline_processor import PDFPipelineProcessor
 from ..vector_store.vector_store_es import VectorStoreES
+from .logging_manager import LoggingManager
+from .error_tracker import ErrorTracker, SyncException, ConfigurationError, ErrorSeverity
+from .external_monitor import get_monitor_from_config
 
-
-
-logger = get_logger(__name__)
+logger = LoggingManager.get_logger(__name__)
 
 
 @dataclass
@@ -86,17 +87,27 @@ class SyncOrchestrator:
         """
         self.config = config
         self.environment = environment
-        self.logger = get_logger(__name__)
+        
+        # Initialize logging and error tracking
+        self.logging_manager = LoggingManager(log_level=config.log_level, log_file=config.log_file)
+        self.error_tracker = ErrorTracker()
+        self.logger = self.logging_manager.get_logger(__name__)
         
         # Initialize core components
-        self._init_components()
+        try:
+            self._init_components()
+        except Exception as e:
+            raise ConfigurationError(f"Failed to initialize sync components: {e}")
         
+        # Initialize external monitor
+        self.monitor = get_monitor_from_config(config)
+
         # Track sync state
         self.sync_start_time = None
         self.sync_results: List[SyncResult] = []
-        self.sync_errors: List[str] = []
+        self.performance_metrics: Dict[str, Any] = {}
         
-        self.logger.info(f"Sync orchestrator initialized for environment: {environment}")
+        self.logger.info(f"Sync orchestrator initialized for environment: {environment}", extra={'details': {'config_name': config.name}})
     
     def _init_components(self):
         """Initialize all sync components."""
@@ -144,7 +155,8 @@ class SyncOrchestrator:
             self.logger.info("All sync components initialized successfully")
             
         except Exception as e:
-            self.logger.error(f"Failed to initialize sync components: {e}")
+            self.error_tracker.report("Failed to initialize sync components", severity=ErrorSeverity.CRITICAL, details={"exception": str(e)})
+            self.logger.error(f"Failed to initialize sync components: {e}", extra={'details': {'exception': str(e)}})
             raise
     
     async def run_sync(self) -> SyncSummary:
@@ -181,13 +193,24 @@ class SyncOrchestrator:
             # Step 6: Generate summary
             summary = self._generate_summary(cache_downloaded, cache_uploaded)
             
+            # Step 7: Collect performance metrics
+            self._collect_performance_metrics()
+            
+            # Step 8: Send report to external monitor
+            if self.monitor:
+                report = {
+                    "summary": summary.__dict__,
+                    "statistics": self.get_sync_statistics()
+                }
+                self.monitor.send_report(report)
+            
             self.logger.info("✅ Sync operation completed successfully")
             return summary
             
         except Exception as e:
             error_msg = f"Sync operation failed: {e}"
-            self.logger.error(error_msg, exc_info=True)
-            self.sync_errors.append(error_msg)
+            self.error_tracker.report(error_msg, severity=ErrorSeverity.CRITICAL, details={"exception": str(e)})
+            self.logger.error(error_msg, extra={'details': {'exception': str(e)}})
             
             # Return partial summary even on failure
             return self._generate_summary(False, False)
@@ -222,15 +245,13 @@ class SyncOrchestrator:
                 # Log the result
                 if result.get("status") == "failed":
                     error_message = f"PDF Pipeline '{source.id}' failed: {result.get('errors')}"
-                    self.logger.error(error_message)
-                    self.sync_errors.append(error_message)
+                    self.error_tracker.report(error_message, source_id=source.id, severity=ErrorSeverity.ERROR, details={'pipeline_errors': result.get('errors')})
                 else:
                     self.logger.info(f"Pipeline {source.id} completed with status: {result.get('status')}")
 
             except Exception as e:
                 error_message = f"An unexpected error occurred in pipeline '{source.id}': {e}"
-                self.logger.error(error_message, exc_info=True)
-                self.sync_errors.append(error_message)
+                self.error_tracker.report(error_message, source_id=source.id, severity=ErrorSeverity.ERROR, details={'exception': str(e)})
         
         # Add newly created spreadsheet sources to the config for processing
         if created_spreadsheet_sources:
@@ -246,19 +267,18 @@ class SyncOrchestrator:
                 self.logger.info(f"✅ Downloaded {download_results['embeddings_downloaded']:,} embeddings from cloud")
                 return True
             else:
-                self.logger.warning(f"⚠️ Failed to download embedding cache: {download_results.get('error', 'Unknown error')}")
+                error_msg = f"Failed to download embedding cache: {download_results.get('error', 'Unknown error')}"
+                self.error_tracker.report(error_msg, severity=ErrorSeverity.WARNING, details=download_results)
                 return False
                 
         except Exception as e:
-            self.logger.error(f"❌ Error downloading embedding cache: {e}")
-            self.sync_errors.append(f"Embedding cache download failed: {e}")
+            error_msg = f"Error downloading embedding cache: {e}"
+            self.error_tracker.report(error_msg, severity=ErrorSeverity.ERROR, details={'exception': str(e)})
             return False
     
     async def _process_all_sources(self):
         """Process all configured content sources."""
         # Get all enabled sources, excluding PDF_PIPELINE sources (which are processed in pre-processing)
-        # Note: PDF pipeline sources that complete successfully create new spreadsheet sources
-        # which are automatically added to the config.sources list during pre-processing
         enabled_sources = [s for s in self.config.get_enabled_sources() if s.type != SourceType.PDF_PIPELINE]
         
         if not enabled_sources:
@@ -272,13 +292,11 @@ class SyncOrchestrator:
         
         # Process sources in parallel with thread pool
         with ThreadPoolExecutor(max_workers=self.config.max_concurrent_sources) as executor:
-            # Submit all source processing tasks
             future_to_source = {
                 executor.submit(self._process_single_source, source): source
                 for source in enabled_sources
             }
             
-            # Collect results as they complete
             for future in as_completed(future_to_source):
                 source = future_to_source[future]
                 try:
@@ -290,12 +308,11 @@ class SyncOrchestrator:
                     elif result.status == 'skipped':
                         self.logger.info(f"⏭️ {source.name} ({source.type.value}): skipped")
                     else:
-                        self.logger.error(f"❌ {source.name} ({source.type.value}): {result.error_message}")
+                        self.error_tracker.report(result.error_message, source_id=source.id, severity=ErrorSeverity.ERROR)
                         
                 except Exception as e:
                     error_msg = f"Failed to process source {source.id}: {e}"
-                    self.logger.error(error_msg)
-                    self.sync_errors.append(error_msg)
+                    self.error_tracker.report(error_msg, source_id=source.id, severity=ErrorSeverity.ERROR, details={'exception': str(e)})
                     
                     # Create failed result
                     failed_result = SyncResult(
@@ -324,7 +341,7 @@ class SyncOrchestrator:
                 return self._process_spreadsheet_source(source, start_time)
             else:
                 error_msg = f"Unsupported source type for main processing: {source.type.value}"
-                self.logger.warning(error_msg)
+                self.error_tracker.report(error_msg, source_id=source.id, severity=ErrorSeverity.WARNING)
                 return SyncResult(
                     source_id=source.id,
                     source_type=source.type.value,
@@ -337,7 +354,7 @@ class SyncOrchestrator:
                 
         except Exception as e:
             error_msg = f"Failed to process source {source.id}: {e}"
-            self.logger.error(error_msg)
+            self.error_tracker.report(error_msg, source_id=source.id, severity=ErrorSeverity.ERROR, details={'exception': str(e)})
             return SyncResult(
                 source_id=source.id,
                 source_type=source.type.value,
@@ -351,14 +368,10 @@ class SyncOrchestrator:
     def _process_html_source(self, source: ContentSource, start_time: float) -> SyncResult:
         """Process an HTML source."""
         try:
-            # Check if this is an index page discovery source
             if source.fetch_strategy == FetchStrategy.INDEX_PAGE:
-                # Use HTML discovery processor
                 results = self.html_discovery_processor.process_html_source(source)
-                
                 processing_time = time.time() - start_time
                 
-                # Extract results
                 processed_pages = results.get('processed_pages', 0)
                 failed_pages = results.get('failed_pages', 0)
                 errors = results.get('errors', [])
@@ -384,12 +397,9 @@ class SyncOrchestrator:
                     metadata={'html_discovery_results': results}
                 )
             else:
-                # Use regular HTML processor
                 results = self.html_processor.process_sources([source])
-                
                 processing_time = time.time() - start_time
                 
-                # Extract results
                 summary = results['summary']
                 processed_count = summary['processed_count']
                 error_count = summary['error_count']
@@ -429,12 +439,9 @@ class SyncOrchestrator:
     def _process_pdf_source(self, source: ContentSource, start_time: float) -> SyncResult:
         """Process a PDF source."""
         try:
-            # Process PDF source
             results = self.pdf_processor.process_pdf_source(source)
-            
             processing_time = time.time() - start_time
             
-            # Extract results
             processed_pdfs = results.get('processed_pdfs', 0)
             failed_pdfs = results.get('failed_pdfs', 0)
             errors = results.get('errors', [])
@@ -474,22 +481,17 @@ class SyncOrchestrator:
     def _process_spreadsheet_source(self, source: ContentSource, start_time: float) -> SyncResult:
         """Process a spreadsheet source."""
         try:
-            # Process spreadsheet source asynchronously by running the async function
-            # in the current event loop, which is managed by the ThreadPoolExecutor.
             results = asyncio.run(self.spreadsheet_processor.process_spreadsheet_source(source))
-            
             processing_time = time.time() - start_time
             
-            # Translate the async processor's result dictionary into a SyncResult object
             status = results.get('status', 'failed')
             error_message = results.get('error_message')
             
-            # Since the async processor handles one source as one task, we can map the status
             documents_processed = 1 if status == 'submitted' or status == 'completed' else 0
             documents_failed = 1 if status == 'failed' or status == 'error' else 0
 
             if status == 'submitted' or status == 'completed':
-                status = 'success' # Remap to the orchestrator's status enum
+                status = 'success'
 
             return SyncResult(
                 source_id=source.id,
@@ -516,20 +518,16 @@ class SyncOrchestrator:
     async def _process_embeddings(self):
         """Process embeddings for all processed content."""
         try:
-            # Get all processed content from cache
             processed_content = []
             cache_entries = self.cache.get_all_cached_content()
             
             for entry in cache_entries:
                 if entry.processed and not entry.error_message:
-                    # Extract content from metadata
                     metadata = entry.metadata
                     if 'parsed_content' in metadata:
                         parsed_content = metadata['parsed_content']
                         
-                        # Check if document parsing was used and chunks are available
                         if parsed_content.get('parsing_method') == 'document_parser' and 'chunks' in parsed_content:
-                            # Use individual chunks for embedding
                             chunks = parsed_content['chunks']
                             for chunk_name, chunk_content in chunks.items():
                                 processed_content.append({
@@ -543,7 +541,6 @@ class SyncOrchestrator:
                                     }
                                 })
                         else:
-                            # Use full text content (fallback)
                             text_content = parsed_content.get('text_content', '')
                             if text_content:
                                 processed_content.append({
@@ -558,15 +555,13 @@ class SyncOrchestrator:
             
             self.logger.info(f"Generating embeddings for {len(processed_content)} documents")
             
-            # Process embeddings
             embedding_results = self.embedding_processor.process_sync_content(processed_content)
             
             self.logger.info(f"Embedding processing completed: {embedding_results['processed_documents']} documents processed")
             
         except Exception as e:
             error_msg = f"Failed to process embeddings: {e}"
-            self.logger.error(error_msg)
-            self.sync_errors.append(error_msg)
+            self.error_tracker.report(error_msg, severity=ErrorSeverity.ERROR, details={'exception': str(e)})
     
     async def _upload_embedding_cache(self) -> bool:
         """Upload embedding cache to cloud storage."""
@@ -577,24 +572,23 @@ class SyncOrchestrator:
                 self.logger.info(f"✅ Uploaded {upload_results['embeddings_uploaded']:,} embeddings to cloud")
                 return True
             else:
-                self.logger.warning(f"⚠️ Failed to upload embedding cache: {upload_results.get('error', 'Unknown error')}")
+                error_msg = f"Failed to upload embedding cache: {upload_results.get('error', 'Unknown error')}"
+                self.error_tracker.report(error_msg, severity=ErrorSeverity.WARNING, details=upload_results)
                 return False
                 
         except Exception as e:
-            self.logger.error(f"❌ Error uploading embedding cache: {e}")
-            self.sync_errors.append(f"Embedding cache upload failed: {e}")
+            error_msg = f"Error uploading embedding cache: {e}"
+            self.error_tracker.report(error_msg, severity=ErrorSeverity.ERROR, details={'exception': str(e)})
             return False
     
     def _generate_summary(self, cache_downloaded: bool, cache_uploaded: bool) -> SyncSummary:
         """Generate comprehensive sync summary."""
         total_processing_time = time.time() - self.sync_start_time if self.sync_start_time else 0.0
         
-        # Count results by status
         successful_sources = sum(1 for r in self.sync_results if r.status == 'success')
         failed_sources = sum(1 for r in self.sync_results if r.status == 'failed')
         skipped_sources = sum(1 for r in self.sync_results if r.status == 'skipped')
         
-        # Sum document counts
         total_documents_processed = sum(r.documents_processed for r in self.sync_results)
         total_documents_failed = sum(r.documents_failed for r in self.sync_results)
         
@@ -608,9 +602,26 @@ class SyncOrchestrator:
             total_processing_time=total_processing_time,
             embedding_cache_downloaded=cache_downloaded,
             embedding_cache_uploaded=cache_uploaded,
-            errors=self.sync_errors,
+            errors=[e.to_dict() for e in self.error_tracker.get_errors()],
             results=self.sync_results
         )
+    
+    def _collect_performance_metrics(self):
+        """Collect performance metrics during the sync run."""
+        if not self.sync_start_time:
+            return
+
+        total_time = time.time() - self.sync_start_time
+        total_docs = sum(r.documents_processed for r in self.sync_results)
+        
+        self.performance_metrics = {
+            "total_sync_time": total_time,
+            "total_sources_processed": len(self.sync_results),
+            "total_documents_processed": total_docs,
+            "documents_per_second": total_docs / total_time if total_time > 0 else 0,
+            "cache_stats": self.cache.get_cache_statistics(),
+            "embedding_stats": self.embedding_processor.get_embedding_statistics()
+        }
     
     def get_sync_statistics(self) -> Dict[str, Any]:
         """Get comprehensive sync statistics."""
@@ -624,7 +635,37 @@ class SyncOrchestrator:
             # Get version statistics
             version_count = len(self.version_manager.versions)
             
+            # Health Check Logic
+            health_status = {"status": "healthy", "message": "No health thresholds configured."}
+            if hasattr(self.config, 'health_thresholds') and self.config.health_thresholds:
+                summary = self._generate_summary(False, False)
+                thresholds = self.config.health_thresholds
+                
+                success_rate = (summary.successful_sources / summary.total_sources * 100) if summary.total_sources > 0 else 100
+                if success_rate < thresholds.min_success_rate_percent:
+                    health_status = {
+                        "status": "unhealthy",
+                        "message": f"Success rate {success_rate:.1f}% is below threshold of {thresholds.min_success_rate_percent}%"
+                    }
+                
+                failed_percent = (summary.failed_sources / summary.total_sources * 100) if summary.total_sources > 0 else 0
+                if failed_percent > thresholds.max_failed_sources_percent:
+                    health_status = {
+                        "status": "unhealthy",
+                        "message": f"Failed sources percentage {failed_percent:.1f}% is above threshold of {thresholds.max_failed_sources_percent}%"
+                    }
+                
+                for result in summary.results:
+                    if result.processing_time > thresholds.max_processing_time_per_source_seconds:
+                        health_status = {
+                            "status": "degraded",
+                            "message": f"Source {result.source_id} processing time {result.processing_time:.2f}s is above threshold of {thresholds.max_processing_time_per_source_seconds}s"
+                        }
+                        break # Stop at first degraded source
+            
             return {
+                'health_status': health_status,
+                'performance_metrics': self.performance_metrics,
                 'cache_statistics': cache_stats,
                 'embedding_statistics': embedding_stats,
                 'version_count': version_count,
@@ -664,7 +705,7 @@ class SyncOrchestratorCLI:
     """CLI interface for the sync orchestrator."""
     
     def __init__(self):
-        self.logger = get_logger(__name__)
+        self.logger = LoggingManager.get_logger(__name__)
     
     def run_sync_from_config(self, config_path: str, environment: str = DEFAULT_ENVIRONMENT) -> SyncSummary:
         """

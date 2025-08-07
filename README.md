@@ -14,6 +14,33 @@ The PDF extraction pipeline has been significantly enhanced with:
 - **Robust error handling** - graceful handling of edge cases and API limits
 - **Performance monitoring** - detailed metrics and structured logging
 
+### Enhanced Logging, Monitoring & Error Reporting
+
+A comprehensive logging, monitoring, and error reporting system has been implemented:
+
+- **Structured JSON Logging** - All logs are output in JSON format for easy parsing and analysis
+- **Centralized Error Tracking** - Custom exception classes with actionable error messages and recovery suggestions
+- **Performance Monitoring** - Key performance indicators (KPIs) including processing times and document counts
+- **Health Checks** - Configurable thresholds for success rates, failure percentages, and processing times
+- **External Monitoring Integration** - Webhook-based integration with monitoring platforms (Datadog, Slack, PagerDuty, etc.)
+- **CI/CD Integration** - Designed for automated workflows with comprehensive failure reporting
+
+#### Quick Start with Enhanced Logging
+
+```bash
+# Test the enhanced logging system
+botnim monitoring test-logging
+
+# Run sync orchestration with enhanced logging
+botnim monitoring orchestrate specs/takanon/sync_config.yaml --environment staging
+
+# Analyze structured log files
+botnim monitoring log-analysis ./logs/sync.log --limit 50
+
+# Run with custom log level and file
+botnim monitoring orchestrate specs/takanon/sync_config.yaml --log-level DEBUG --log-file ./logs/debug.log
+```
+
 ### Automated Sync Infrastructure
 
 A new automated, versioned, cloud-native sync system has been implemented for content sources (HTML, PDF, and spreadsheets) to vector store:

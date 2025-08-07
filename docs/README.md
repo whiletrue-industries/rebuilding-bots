@@ -12,6 +12,7 @@ This directory contains comprehensive documentation for the automated sync infra
 - **[Caching Layer](caching_layer_documentation.md)** - Duplicate detection and content tracking system
 - **[Embedding Processing](embedding_processing_documentation.md)** - Cloud-based embedding storage and change detection system
 - **[Sync Orchestration](sync_orchestration_documentation.md)** - Comprehensive sync orchestration with CI integration
+- **[Enhanced Logging & Monitoring](enhanced_logging_monitoring.md)** - Comprehensive logging, monitoring, and error reporting system
 
 ### Development Documentation
 
@@ -93,6 +94,8 @@ botnim sync cache cleanup --older-than 30
 - **Advanced Document Parsing**: AI-powered document structure analysis and intelligent chunking
 - **Cloud-Native Design**: Designed for CI/CD workflows with no local dependencies
 - **Comprehensive Logging**: Structured logging with detailed error reporting
+- **Enhanced Monitoring**: Structured JSON logging, error tracking, performance monitoring, and health checks
+- **External Integration**: Webhook-based monitoring integration with external platforms
 
 ## 📖 Detailed Guides
 

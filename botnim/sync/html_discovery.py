@@ -211,7 +211,7 @@ class HTMLProcessingTracker:
     def _ensure_index_exists(self):
         """Ensure the tracking index exists."""
         try:
-            if not self.vector_store.es.indices.exists(index=self.index_name):
+            if not self.vector_store.es_client.indices.exists(index=self.index_name):
                 mapping = {
                     "mappings": {
                         "properties": {
@@ -226,7 +226,7 @@ class HTMLProcessingTracker:
                         }
                     }
                 }
-                self.vector_store.es.indices.create(index=self.index_name, body=mapping)
+                self.vector_store.es_client.indices.create(index=self.index_name, body=mapping)
                 logger.info(f"Created HTML processing tracker index: {self.index_name}")
         except Exception as e:
             logger.error(f"Failed to ensure HTML processing tracker index exists: {e}")
@@ -261,7 +261,7 @@ class HTMLProcessingTracker:
                 "vector_store_id": vector_store_id
             }
             
-            self.vector_store.es.index(
+            self.vector_store.es_client.index(
                 index=self.index_name,
                 id=html_info["url_hash"],
                 body=doc
@@ -285,7 +285,7 @@ class HTMLProcessingTracker:
             True if already processed
         """
         try:
-            result = self.vector_store.es.get(
+            result = self.vector_store.es_client.get(
                 index=self.index_name,
                 id=url_hash,
                 ignore=[404]

@@ -120,7 +120,7 @@ class TestHTMLProcessingTracker(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.mock_vector_store = Mock(spec=VectorStoreES)
-        self.mock_vector_store.es = Mock()
+        self.mock_vector_store.es_client = Mock()
         self.tracker = HTMLProcessingTracker(self.mock_vector_store)
     
     def test_track_html_processing(self):
@@ -132,7 +132,7 @@ class TestHTMLProcessingTracker(unittest.TestCase):
         }
         
         # Mock successful tracking
-        self.mock_vector_store.es.index.return_value = {'_id': 'test_id'}
+        self.mock_vector_store.es_client.index.return_value = {'_id': 'test_id'}
         
         result = self.tracker.track_html_processing(
             source_id="test-source",
@@ -143,7 +143,7 @@ class TestHTMLProcessingTracker(unittest.TestCase):
         )
         
         self.assertTrue(result)
-        self.mock_vector_store.es.index.assert_called_once()
+        self.mock_vector_store.es_client.index.assert_called_once()
     
     def test_is_html_processed(self):
         """Test HTML processing status check."""
@@ -152,14 +152,14 @@ class TestHTMLProcessingTracker(unittest.TestCase):
             'found': True,
             '_source': {'status': 'completed'}
         }
-        self.mock_vector_store.es.get.return_value = mock_result
+        self.mock_vector_store.es_client.get.return_value = mock_result
         
         result = self.tracker.is_html_processed("test_hash_123")
         self.assertTrue(result)
         
         # Mock non-existent document
         mock_result = {'found': False}
-        self.mock_vector_store.es.get.return_value = mock_result
+        self.mock_vector_store.es_client.get.return_value = mock_result
         
         result = self.tracker.is_html_processed("test_hash_456")
         self.assertFalse(result)

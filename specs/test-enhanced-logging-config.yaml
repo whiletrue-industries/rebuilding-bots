@@ -1,0 +1,55 @@
+version: "1.0.0"
+name: "Enhanced Logging Test Configuration"
+description: "Test configuration for verifying enhanced logging, monitoring, and error reporting"
+
+# Global settings
+default_versioning_strategy: "hash"
+default_fetch_strategy: "direct"
+
+# Storage configuration
+cache_directory: "./cache"
+embedding_cache_path: "./cache/embeddings.sqlite"
+version_cache_path: "./cache/versions.json"
+
+# Processing configuration
+max_concurrent_sources: 1
+timeout_per_source: 30
+
+# Logging configuration
+log_level: "INFO"
+log_file: "./logs/sync.log"
+
+# Health check configuration
+health_thresholds:
+  min_success_rate_percent: 80.0
+  max_failed_sources_percent: 10.0
+  max_processing_time_per_source_seconds: 600
+
+# External monitoring configuration
+monitoring:
+  type: "webhook"
+  endpoint_url: "https://httpbin.org/post"  # Test webhook endpoint
+  headers:
+    Content-Type: "application/json"
+    X-Test-Source: "botnim-sync-test"
+  timeout: 10
+
+# Content sources - Only one simple source to minimize noise
+sources:
+  # Local HTML file for testing
+  - id: "test-local-html"
+    name: "Test Local HTML"
+    description: "Local HTML file for testing sync orchestration"
+    type: "html"
+    html_config:
+      url: "file://specs/takanon/agent.txt"
+      selector: "body"
+      encoding: "utf-8"
+      timeout: 30
+      retry_attempts: 2
+    versioning_strategy: "hash"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 1
+    tags: ["test", "local", "html"]
+    use_document_parser: false  # Disable to reduce complexity 

@@ -137,5 +137,5 @@ async def test_pdf_pipeline_e2e(tmp_path, mock_dependencies):
     assert upload_args.kwargs['replace_existing'] is True
     
     # Check that no errors were logged in the orchestrator for this pipeline
-    assert not orchestrator.sync_errors
+    assert len(orchestrator.error_tracker.get_errors()) == 0
 
