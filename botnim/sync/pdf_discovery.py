@@ -27,6 +27,8 @@ from .cache import SyncCache
 from botnim.vector_store.vector_store_es import VectorStoreES
 from ..document_parser.pdf_processor.text_extraction import extract_text_from_pdf
 from ..document_parser.pdf_processor.field_extraction import extract_fields_from_text
+from .transaction_manager import TransactionManager
+from .resilience import RetryPolicy, CircuitBreaker, with_retry
 
 from ..document_parser.pdf_processor.pdf_extraction_config import SourceConfig
 
@@ -60,6 +62,9 @@ class PDFDiscoveryService:
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
         })
+        # Resilience
+        self.retry_policy = RetryPolicy(max_attempts=3, base_delay_seconds=1.0, max_delay_seconds=16.0)
+        self.circuit_breaker = CircuitBreaker()
     
     def discover_pdfs_from_index_page(self, source: ContentSource) -> List[Dict[str, Any]]:
         """
@@ -79,10 +84,17 @@ class PDFDiscoveryService:
             logger.info(f"Discovering PDFs from index page: {source.pdf_config.url}")
             
             # Fetch the index page
-            response = self.session.get(
-                source.pdf_config.url,
-                headers=source.pdf_config.headers,
-                timeout=source.pdf_config.timeout
+            def _do_get():
+                return self.session.get(
+                    source.pdf_config.url,
+                    headers=source.pdf_config.headers,
+                    timeout=source.pdf_config.timeout
+                )
+            response = with_retry(
+                _do_get,
+                policy=self.retry_policy,
+                circuit_breaker=self.circuit_breaker,
+                circuit_key=f"http:get:{source.pdf_config.url}"
             )
             response.raise_for_status()
             
@@ -439,6 +451,7 @@ class PDFDiscoveryProcessor:
         self.discovery_service = PDFDiscoveryService(cache, vector_store)
         self.download_manager = PDFDownloadManager(temp_directory)
         self.tracker = PDFProcessingTracker(vector_store)
+        self.tx = TransactionManager(vector_store)
         
         logger.info("PDF discovery processor initialized")
     
@@ -488,11 +501,13 @@ class PDFDiscoveryProcessor:
             logger.info(f"Found {len(new_pdfs)} new PDFs to process")
             
             # Step 3: Process each new PDF
+            newest_timestamp_iso = None
             for pdf_info in new_pdfs:
                 try:
                     success = self._process_single_pdf(source, pdf_info)
                     if success:
                         results['processed_pdfs'] += 1
+                        newest_timestamp_iso = datetime.now(timezone.utc).isoformat()
                     else:
                         results['failed_pdfs'] += 1
                 except Exception as e:
@@ -506,6 +521,17 @@ class PDFDiscoveryProcessor:
                         source.id, pdf_info, 'failed', str(e)
                     )
             
+            # Step 4: Transactional cleanup - mark and delete outdated for this source
+            try:
+                if newest_timestamp_iso:
+                    index_name = self.vector_store.get_ingestion_index_name()
+                    marked = self.tx.mark_outdated(index_name, source.id, newest_timestamp_iso)
+                    deleted = self.tx.delete_outdated(index_name, source.id, newest_timestamp_iso)
+                    logger.info(f"Cleanup for {source.id}: marked stale={marked}, deleted={deleted}")
+                    results['cleanup'] = {'marked': int(marked), 'deleted': int(deleted)}
+            except Exception as e:
+                logger.warning(f"Cleanup step failed for {source.id}: {e}")
+
             logger.info(f"PDF source processing completed: {results}")
             return results
             
@@ -718,10 +744,28 @@ class PDFDiscoveryProcessor:
                 processed=True
             )
             
-            logger.info(f"Cached PDF content: {content_hash[:8]}...")
+            # Also index into ingestion index for idempotent content storage
+            document = {
+                "source_id": source.id,
+                "source_name": source.name,
+                "url": pdf_info.get("url"),
+                "title": pdf_info.get("link_text", pdf_info.get("filename")),
+                "content": content,
+                "content_type": "pdf",
+                "content_hash": content_hash,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "metadata": {
+                    "pdf_filename": pdf_info.get("filename"),
+                    "parsing_method": "pdf_processor",
+                    "extracted_fields_present": bool(extracted_fields),
+                }
+            }
+            doc_id = self.vector_store.add_document(document, doc_id=content_hash)
+
+            logger.info(f"Cached and indexed PDF content: {content_hash[:8]}... as {doc_id}")
             logger.info(f"Content length: {len(content)} characters")
             
-            return content_hash
+            return doc_id
             
         except Exception as e:
             logger.error(f"Failed to cache PDF content: {e}")
@@ -768,6 +812,13 @@ class PDFDiscoveryProcessor:
             logger.info("PDF discovery processor cleanup completed")
         except Exception as e:
             logger.error(f"Cleanup failed: {e}")
+
+    def get_circuit_snapshot(self) -> Dict[str, Any]:
+        """Expose circuit breaker state for reporting."""
+        try:
+            return self.tx.circuit_breaker.get_state_snapshot()
+        except Exception:
+            return {}
 
 
 # Convenience function for easy integration

@@ -25,6 +25,8 @@ from .config import ContentSource
 from .cache import SyncCache
 from ..vector_store.vector_store_es import VectorStoreES
 from ..document_parser.pdf_processor.google_sheets_service import GoogleSheetsService
+from .transaction_manager import TransactionManager
+from .resilience import RetryPolicy, CircuitBreaker, with_retry
 
 logger = get_logger(__name__)
 
@@ -71,6 +73,8 @@ class SpreadsheetFetcher:
         self.vector_store = vector_store
         self.session = None
         self.logger = get_logger(__name__)
+        self.retry_policy = RetryPolicy(max_attempts=3, base_delay_seconds=1.0, max_delay_seconds=16.0)
+        self.circuit_breaker = CircuitBreaker()
     
     async def __aenter__(self):
         """Async context manager entry."""
@@ -224,10 +228,12 @@ class SpreadsheetFetcher:
             service = sheets_service.sync.service
             
             # Fetch the data
-            result = service.spreadsheets().values().get(
-                spreadsheetId=spreadsheet_id,
-                range=range_str
-            ).execute()
+            def _op():
+                return service.spreadsheets().values().get(
+                    spreadsheetId=spreadsheet_id,
+                    range=range_str
+                ).execute()
+            result = with_retry(_op, policy=self.retry_policy, circuit_breaker=self.circuit_breaker, circuit_key=f"gdrive:get:{spreadsheet_id}:{range_str}")
             
             values = result.get('values', [])
             return values
@@ -604,6 +610,7 @@ class AsyncSpreadsheetProcessor:
         self.task_queue = TaskQueue(max_workers=max_workers)
         self.storage = IntermediateStorage(vector_store)
         self.logger = get_logger(__name__)
+        self.tx = TransactionManager(vector_store)
     
     async def process_spreadsheet_source(self, source: ContentSource) -> Dict[str, Any]:
         """
@@ -639,6 +646,17 @@ class AsyncSpreadsheetProcessor:
                 spreadsheet_data=spreadsheet_data
             )
             
+            # Transactional cleanup on ingestion index (if downstream indexing is used)
+            try:
+                newest_timestamp_iso = datetime.now(timezone.utc).isoformat()
+                index_name = self.vector_store.get_ingestion_index_name()
+                marked = self.tx.mark_outdated(index_name, source.id, newest_timestamp_iso)
+                deleted = self.tx.delete_outdated(index_name, source.id, newest_timestamp_iso)
+                self.logger.info(f"Cleanup for {source.id}: marked stale={marked}, deleted={deleted}")
+                results['cleanup'] = {'marked': int(marked), 'deleted': int(deleted)}
+            except Exception as e:
+                self.logger.warning(f"Cleanup step failed for {source.id}: {e}")
+
             results['status'] = 'submitted'
             self.logger.info(f"Submitted spreadsheet processing task: {task_id}")
             

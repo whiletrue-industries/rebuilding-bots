@@ -264,6 +264,17 @@ class SyncConfig(BaseModel):
     # Processing configuration
     max_concurrent_sources: int = Field(default=5, description="Maximum concurrent source processing")
     timeout_per_source: int = Field(default=300, description="Timeout per source in seconds")
+    # Embedding/chunking configuration
+    embedding_chunk_size_chars: int = Field(default=7000, description="Max characters per embedding chunk")
+    embedding_chunk_overlap_chars: int = Field(default=200, description="Overlap between embedding chunks in characters")
+    embedding_aggregate_document_vectors: bool = Field(default=True, description="Store document-level vectors aggregated from chunk embeddings")
+
+    # Resilience configuration (optional; using sensible defaults if omitted)
+    retry_max_attempts: int = Field(default=3, description="Max retry attempts for transient failures")
+    retry_base_delay_seconds: float = Field(default=1.0, description="Base delay for exponential backoff")
+    retry_max_delay_seconds: float = Field(default=16.0, description="Max delay for backoff")
+    circuit_breaker_failure_threshold: int = Field(default=3, description="Failures before opening circuit")
+    circuit_breaker_reset_seconds: float = Field(default=60.0, description="Time before half-open")
     
     # Logging configuration
     log_level: str = Field(default="INFO", description="Logging level")

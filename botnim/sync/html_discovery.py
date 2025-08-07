@@ -21,6 +21,8 @@ from .config import ContentSource
 from .cache import SyncCache
 from .html_fetcher import HTMLFetcher
 from botnim.vector_store.vector_store_es import VectorStoreES
+from .transaction_manager import TransactionManager
+from .resilience import RetryPolicy, CircuitBreaker, with_retry
 
 logger = get_logger(__name__)
 
@@ -51,6 +53,9 @@ class HTMLDiscoveryService:
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
         })
+        # Resilience
+        self.retry_policy = RetryPolicy(max_attempts=3, base_delay_seconds=1.0, max_delay_seconds=16.0)
+        self.circuit_breaker = CircuitBreaker()
     
     def discover_html_pages_from_index_page(self, source: ContentSource) -> List[Dict[str, Any]]:
         """
@@ -70,10 +75,17 @@ class HTMLDiscoveryService:
             logger.info(f"Discovering HTML pages from index page: {source.html_config.url}")
             
             # Fetch the index page
-            response = self.session.get(
-                source.html_config.url,
-                headers=source.html_config.headers,
-                timeout=source.html_config.timeout
+            def _do_get():
+                return self.session.get(
+                    source.html_config.url,
+                    headers=source.html_config.headers,
+                    timeout=source.html_config.timeout
+                )
+            response = with_retry(
+                _do_get,
+                policy=self.retry_policy,
+                circuit_breaker=self.circuit_breaker,
+                circuit_key=f"http:get:{source.html_config.url}"
             )
             response.raise_for_status()
             
@@ -206,6 +218,8 @@ class HTMLProcessingTracker:
         """
         self.vector_store = vector_store
         self.index_name = "html_processing_tracker"
+        self.retry_policy = RetryPolicy(max_attempts=3, base_delay_seconds=1.0, max_delay_seconds=16.0)
+        self.circuit_breaker = CircuitBreaker()
         self._ensure_index_exists()
     
     def _ensure_index_exists(self):
@@ -261,11 +275,13 @@ class HTMLProcessingTracker:
                 "vector_store_id": vector_store_id
             }
             
-            self.vector_store.es_client.index(
-                index=self.index_name,
-                id=html_info["url_hash"],
-                body=doc
-            )
+            def _op():
+                return self.vector_store.es_client.index(
+                    index=self.index_name,
+                    id=html_info["url_hash"],
+                    document=doc
+                )
+            with_retry(_op, policy=self.retry_policy, circuit_breaker=self.circuit_breaker, circuit_key=f"es:index:{self.index_name}")
             
             logger.debug(f"Tracked HTML processing: {html_info['url']} -> {status}")
             return True
@@ -285,11 +301,13 @@ class HTMLProcessingTracker:
             True if already processed
         """
         try:
-            result = self.vector_store.es_client.get(
-                index=self.index_name,
-                id=url_hash,
-                ignore=[404]
-            )
+            def _op():
+                return self.vector_store.es_client.get(
+                    index=self.index_name,
+                    id=url_hash,
+                    ignore=[404]
+                )
+            result = with_retry(_op, policy=self.retry_policy, circuit_breaker=self.circuit_breaker, circuit_key=f"es:get:{self.index_name}")
             
             if result.get("found"):
                 status = result["_source"].get("status")
@@ -323,6 +341,7 @@ class HTMLDiscoveryProcessor:
         self.openai_client = openai_client
         self.discovery_service = HTMLDiscoveryService(cache, vector_store)
         self.tracker = HTMLProcessingTracker(vector_store)
+        self.tx = TransactionManager(vector_store)
         self.html_fetcher = HTMLFetcher(cache)
     
     def process_html_source(self, source: ContentSource) -> Dict[str, Any]:
@@ -366,11 +385,14 @@ class HTMLDiscoveryProcessor:
             logger.info(f"Found {len(new_pages)} new HTML pages to process")
             
             # Step 3: Process each HTML page
+            newest_timestamp_iso = None
             for html_info in new_pages:
                 try:
                     success = self._process_single_html_page(source, html_info)
                     if success:
                         results['processed_pages'] += 1
+                        # Track newest timestamp per run using tracker data is heavy; use now
+                        newest_timestamp_iso = datetime.now(timezone.utc).isoformat()
                     else:
                         results['failed_pages'] += 1
                 except Exception as e:
@@ -381,6 +403,17 @@ class HTMLDiscoveryProcessor:
                         source.id, html_info, "failed", str(e)
                     )
             
+            # Step 4: Transactional cleanup - mark and delete outdated for this source
+            try:
+                if newest_timestamp_iso:
+                    index_name = self.vector_store.get_ingestion_index_name()
+                    marked = self.tx.mark_outdated(index_name, source.id, newest_timestamp_iso)
+                    deleted = self.tx.delete_outdated(index_name, source.id, newest_timestamp_iso)
+                    logger.info(f"Cleanup for {source.id}: marked stale={marked}, deleted={deleted}")
+                    results['cleanup'] = {'marked': int(marked), 'deleted': int(deleted)}
+            except Exception as e:
+                logger.warning(f"Cleanup step failed for {source.id}: {e}")
+
             logger.info(f"HTML processing completed for {source.id}: "
                        f"{results['processed_pages']} processed, "
                        f"{results['failed_pages']} failed")
@@ -424,7 +457,7 @@ class HTMLDiscoveryProcessor:
             success, parsed_content, version_info = self.html_fetcher.process_html_source(temp_source)
             
             if success and parsed_content:
-                # Store in vector store
+                # Store in vector store (idempotent by content hash)
                 vector_store_id = self._store_html_content(source, html_info, parsed_content, version_info)
                 
                 # Track successful processing
@@ -489,7 +522,8 @@ class HTMLDiscoveryProcessor:
                 document["chunks"] = parsed_content["chunks"]
             
             # Store in vector store
-            doc_id = self.vector_store.add_document(document)
+            # Use content_hash as doc_id for idempotency
+            doc_id = self.vector_store.add_document(document, doc_id=version_info.version_hash)
             
             logger.debug(f"Stored HTML content in vector store: {doc_id}")
             return doc_id
@@ -502,6 +536,13 @@ class HTMLDiscoveryProcessor:
         """Clean up resources."""
         self.discovery_service.close()
         self.html_fetcher.close()
+
+    def get_circuit_snapshot(self) -> Dict[str, Any]:
+        """Expose circuit breaker state for reporting."""
+        try:
+            return self.tx.circuit_breaker.get_state_snapshot()
+        except Exception:
+            return {}
 
 
 def process_html_source(source: ContentSource, cache: SyncCache, vector_store: VectorStoreES, 

@@ -32,6 +32,8 @@ from ..vector_store.vector_store_es import VectorStoreES
 from .logging_manager import LoggingManager
 from .error_tracker import ErrorTracker, SyncException, ConfigurationError, ErrorSeverity
 from .external_monitor import get_monitor_from_config
+from .state_manager import StateManager
+from .resilience import RetryPolicy, CircuitBreaker
 
 logger = LoggingManager.get_logger(__name__)
 
@@ -63,6 +65,9 @@ class SyncSummary:
     embedding_cache_uploaded: bool
     errors: List[str]
     results: List[SyncResult]
+    cleanup_marked: int = 0
+    cleanup_deleted: int = 0
+    circuit_snapshot: Optional[Dict[str, Any]] = None
 
 
 class SyncOrchestrator:
@@ -147,10 +152,17 @@ class SyncOrchestrator:
                 sync_cache=self.cache,
                 embedding_cache_path=self.config.embedding_cache_path
             )
+            # Pass config-driven aggregation flag
+            self.embedding_processor.aggregate_document_vectors = self.config.embedding_aggregate_document_vectors
             self.pdf_pipeline_processor = PDFPipelineProcessor(
                 cache=self.cache,
                 openai_client=self.openai_client
             )
+
+            # Resilience + state
+            self.retry_policy = RetryPolicy(max_attempts=3, base_delay_seconds=1.0, max_delay_seconds=16.0)
+            self.circuit_breaker = CircuitBreaker(failure_threshold=3, reset_timeout_seconds=60.0)
+            self.state_manager = StateManager(state_dir=self.config.cache_directory)
 
             self.logger.info("All sync components initialized successfully")
             
@@ -309,6 +321,22 @@ class SyncOrchestrator:
                         self.logger.info(f"⏭️ {source.name} ({source.type.value}): skipped")
                     else:
                         self.error_tracker.report(result.error_message, source_id=source.id, severity=ErrorSeverity.ERROR)
+                    # Aggregate cleanup counts if present in metadata
+                    try:
+                        meta = getattr(result, 'metadata', None) or {}
+                        cleanup = None
+                        if 'html_discovery_results' in meta:
+                            cleanup = meta['html_discovery_results'].get('cleanup')
+                        elif 'pdf_results' in meta:
+                            cleanup = meta['pdf_results'].get('cleanup')
+                        elif 'spreadsheet_results' in meta:
+                            cleanup = meta['spreadsheet_results'].get('cleanup')
+                        if cleanup:
+                            self.performance_metrics.setdefault('cleanup', {'marked': 0, 'deleted': 0})
+                            self.performance_metrics['cleanup']['marked'] += int(cleanup.get('marked', 0))
+                            self.performance_metrics['cleanup']['deleted'] += int(cleanup.get('deleted', 0))
+                    except Exception:
+                        pass
                         
                 except Exception as e:
                     error_msg = f"Failed to process source {source.id}: {e}"
@@ -332,13 +360,22 @@ class SyncOrchestrator:
         
         try:
             self.logger.info(f"Processing source: {source.name} ({source.type.value})")
+            # checkpoint start
+            self.state_manager.write_checkpoint(source.id, stage="start", status="running")
             
             if source.type == SourceType.HTML:
-                return self._process_html_source(source, start_time)
+                result = self._process_html_source(source, start_time)
+                # checkpoint after html
+                self.state_manager.write_checkpoint(source.id, stage="html", status=result.status)
+                return result
             elif source.type == SourceType.PDF:
-                return self._process_pdf_source(source, start_time)
+                result = self._process_pdf_source(source, start_time)
+                self.state_manager.write_checkpoint(source.id, stage="pdf", status=result.status)
+                return result
             elif source.type == SourceType.SPREADSHEET:
-                return self._process_spreadsheet_source(source, start_time)
+                result = self._process_spreadsheet_source(source, start_time)
+                self.state_manager.write_checkpoint(source.id, stage="spreadsheet", status=result.status)
+                return result
             else:
                 error_msg = f"Unsupported source type for main processing: {source.type.value}"
                 self.error_tracker.report(error_msg, source_id=source.id, severity=ErrorSeverity.WARNING)
@@ -355,6 +392,7 @@ class SyncOrchestrator:
         except Exception as e:
             error_msg = f"Failed to process source {source.id}: {e}"
             self.error_tracker.report(error_msg, source_id=source.id, severity=ErrorSeverity.ERROR, details={'exception': str(e)})
+            self.state_manager.write_checkpoint(source.id, stage="error", status="failed", details={"error": str(e)})
             return SyncResult(
                 source_id=source.id,
                 source_type=source.type.value,
@@ -520,6 +558,31 @@ class SyncOrchestrator:
         try:
             processed_content = []
             cache_entries = self.cache.get_all_cached_content()
+
+            def _chunk_text(text: str, max_chars: int = None, overlap: int = None) -> List[str]:
+                if max_chars is None:
+                    max_chars = self.config.embedding_chunk_size_chars
+                if overlap is None:
+                    overlap = self.config.embedding_chunk_overlap_chars
+                # Simple char-based chunker with sentence/paragraph boundary preference
+                if len(text) <= max_chars:
+                    return [text]
+                chunks: List[str] = []
+                start = 0
+                text_len = len(text)
+                while start < text_len:
+                    end = min(start + max_chars, text_len)
+                    if end < text_len:
+                        # Try to break on a nearby boundary
+                        window = text[start:end]
+                        cut = max(window.rfind("\n\n"), window.rfind(". "))
+                        if cut != -1 and cut > max_chars * 0.6:
+                            end = start + cut + 1
+                    chunks.append(text[start:end])
+                    if end >= text_len:
+                        break
+                    start = max(0, end - overlap)
+                return chunks
             
             for entry in cache_entries:
                 if entry.processed and not entry.error_message:
@@ -543,11 +606,28 @@ class SyncOrchestrator:
                         else:
                             text_content = parsed_content.get('text_content', '')
                             if text_content:
-                                processed_content.append({
-                                    'source_id': entry.source_id,
-                                    'content': text_content,
-                                    'version_info': metadata.get('version_info', {})
-                                })
+                                # Fallback chunking to avoid oversized embedding inputs
+                                chunks = _chunk_text(text_content)
+                                if len(chunks) == 1:
+                                    processed_content.append({
+                                        'source_id': entry.source_id,
+                                        'content': chunks[0],
+                                        'version_info': metadata.get('version_info', {})
+                                    })
+                                else:
+                                    total = len(chunks)
+                                    for idx, chunk in enumerate(chunks, start=1):
+                                        chunk_name = f"chunk_{idx:03d}_of_{total:03d}"
+                                        processed_content.append({
+                                            'source_id': f"{entry.source_id}_{chunk_name}",
+                                            'content': chunk,
+                                            'version_info': metadata.get('version_info', {}),
+                                            'chunk_info': {
+                                                'original_source': entry.source_id,
+                                                'chunk_name': chunk_name,
+                                                'chunk_count': total
+                                            }
+                                        })
             
             if not processed_content:
                 self.logger.info("No processed content found for embedding generation")
@@ -592,6 +672,24 @@ class SyncOrchestrator:
         total_documents_processed = sum(r.documents_processed for r in self.sync_results)
         total_documents_failed = sum(r.documents_failed for r in self.sync_results)
         
+        # Cleanup counts aggregated
+        cleanup_marked = 0
+        cleanup_deleted = 0
+        try:
+            cleanup_stats = self.performance_metrics.get('cleanup', {})
+            cleanup_marked = int(cleanup_stats.get('marked', 0))
+            cleanup_deleted = int(cleanup_stats.get('deleted', 0))
+        except Exception:
+            pass
+
+        # Circuit snapshot: merge from processors if available
+        circuit_snapshot = {}
+        try:
+            circuit_snapshot.update(getattr(self.html_discovery_processor, 'get_circuit_snapshot', lambda: {})())
+            circuit_snapshot.update(getattr(self.pdf_processor, 'get_circuit_snapshot', lambda: {})())
+        except Exception:
+            pass
+
         return SyncSummary(
             total_sources=len(self.sync_results),
             successful_sources=successful_sources,
@@ -603,7 +701,10 @@ class SyncOrchestrator:
             embedding_cache_downloaded=cache_downloaded,
             embedding_cache_uploaded=cache_uploaded,
             errors=[e.to_dict() for e in self.error_tracker.get_errors()],
-            results=self.sync_results
+            results=self.sync_results,
+            cleanup_marked=cleanup_marked,
+            cleanup_deleted=cleanup_deleted,
+            circuit_snapshot=circuit_snapshot or None
         )
     
     def _collect_performance_metrics(self):

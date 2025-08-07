@@ -35,6 +35,11 @@ version_cache_path: "./cache/versions.json"
 max_concurrent_sources: 5
 timeout_per_source: 300
 
+# Embedding/chunking configuration
+embedding_chunk_size_chars: 7000
+embedding_chunk_overlap_chars: 200
+embedding_aggregate_document_vectors: true
+
 # Logging configuration
 log_level: "INFO"
 log_file: "./logs/sync.log"
@@ -236,6 +241,9 @@ This source type defines a pre-processing step that discovers and processes mult
 | `version_cache_path` | string | "./cache/versions.json" | Version cache path |
 | `max_concurrent_sources` | int | 5 | Maximum concurrent source processing |
 | `timeout_per_source` | int | 300 | Timeout per source in seconds |
+| `embedding_chunk_size_chars` | int | 7000 | Max characters per embedding chunk (fallback chunker) |
+| `embedding_chunk_overlap_chars` | int | 200 | Overlap between embedding chunks in characters |
+| `embedding_aggregate_document_vectors` | boolean | true | Store document-level vectors averaged from chunk embeddings |
 | `log_level` | string | "INFO" | Logging level |
 | `log_file` | string | optional | Log file path |
 

@@ -221,6 +221,11 @@ embedding_cache_path: "./cache/embeddings.sqlite"
 # Processing configuration
 max_concurrent_sources: 5
 timeout_per_source: 300
+
+# Embedding/chunking configuration
+embedding_chunk_size_chars: 7000                      # Fallback chunk size for non-parser content
+embedding_chunk_overlap_chars: 200                    # Overlap to preserve context across chunks
+embedding_aggregate_document_vectors: true            # Compute and store document-level averaged vectors
 ```
 
 ## Data Models
@@ -366,7 +371,7 @@ Track these metrics for system health:
 ### Content Processing
 
 1. **Preprocess text** to remove unnecessary whitespace and formatting
-2. **Chunk large documents** to stay within embedding model limits
+2. **Chunk large documents** to stay within embedding model limits (configured via `embedding_chunk_size_chars` and `embedding_chunk_overlap_chars`)
 3. **Use consistent text encoding** across all content sources
 
 ### Production Deployment

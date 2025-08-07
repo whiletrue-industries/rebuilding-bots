@@ -545,6 +545,66 @@ class VectorStoreES(VectorStoreBase):
         # For Elasticsearch, we don't need to set tool_resources - which is OpenAI's vector store
         self.tool_resources = None
 
+    # =====================
+    # Sync ingestion helpers
+    # =====================
+
+    def _ingestion_index_name(self) -> str:
+        """Return default ingestion index name based on environment."""
+        # production => no suffix; staging/local => __dev suffix
+        suffix = '' if is_production(self.environment) else '__dev'
+        return f"sync_ingestion{suffix}"
+
+    def get_ingestion_index_name(self) -> str:
+        """Public accessor for ingestion index name."""
+        return self._ingestion_index_name()
+
+    def _ensure_ingestion_index(self, index_name: str) -> None:
+        """Ensure the ingestion index exists with required mappings."""
+        if self.es_client.indices.exists(index=index_name):
+            return
+        mapping = {
+            "mappings": {
+                "properties": {
+                    "content": {"type": "text"},
+                    "source_id": {"type": "keyword"},
+                    "timestamp": {"type": "date"},
+                    "content_hash": {"type": "keyword"},
+                    "chunks": {"type": "object", "dynamic": True},
+                    "metadata": {"type": "object", "dynamic": True},
+                    "stale": {"type": "boolean"}
+                }
+            }
+        }
+        self.es_client.indices.create(index=index_name, body=mapping)
+        logger.info(f"Created ingestion index: {index_name}")
+
+    def add_document(self, document: Dict[str, Any], index_name: Optional[str] = None, doc_id: Optional[str] = None) -> str:
+        """
+        Add a document into the ingestion index. Idempotent if doc_id is stable (e.g., content_hash).
+
+        Args:
+            document: JSON document including at least 'source_id' and 'timestamp'.
+            index_name: Optional custom index name. Defaults to environment-scoped ingestion index.
+            doc_id: Optional explicit id. Defaults to content_hash or a hash of content fields.
+        Returns:
+            The Elasticsearch _id of the stored document.
+        """
+        index = index_name or self._ingestion_index_name()
+        self._ensure_ingestion_index(index)
+
+        # Derive a stable id if not provided
+        if not doc_id:
+            basis = document.get('content_hash') or json.dumps({
+                'source_id': document.get('source_id'),
+                'timestamp': document.get('timestamp'),
+                'title': (document.get('metadata') or {}).get('title')
+            }, sort_keys=True, ensure_ascii=False)
+            doc_id = hashlib.sha256(str(basis).encode('utf-8')).hexdigest()
+
+        resp = self.es_client.index(index=index, id=doc_id, document=document, refresh=True)
+        return resp.get('_id', doc_id)
+
     def verify_document_metadata(self, index_name: str, document_id: str) -> Dict:
         """Verify metadata exists for a specific document"""
         try:

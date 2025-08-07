@@ -514,8 +514,20 @@ class BatchEmbeddingProcessor:
                         content = contents[i]
                         metadata = doc_metadata[i]
                         
-                        content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+                        # Include chunk identity (when present) in hashing to keep per-chunk cache stable
+                        chunk_info = metadata['document'].get('chunk_info')
+                        hash_basis = content if not chunk_info else (content + "::" + json.dumps(chunk_info, sort_keys=True))
+                        content_hash = hashlib.sha256(hash_basis.encode('utf-8')).hexdigest()
                         
+                        # Normalize version_info to a dict
+                        vi = metadata.get('version_info')
+                        if hasattr(vi, 'model_dump'):
+                            vi_data = vi.model_dump(mode='json')  # type: ignore[attr-defined]
+                        elif isinstance(vi, dict):
+                            vi_data = vi
+                        else:
+                            vi_data = {}
+
                         embedding_info = EmbeddingInfo(
                             content_hash=content_hash,
                             embedding_vector=embedding.embedding,
@@ -524,8 +536,9 @@ class BatchEmbeddingProcessor:
                             source_id=metadata['source_id'],
                             content_size=len(content.encode('utf-8')),
                             metadata={
-                                'version_info': metadata['version_info'].model_dump(mode='json') if metadata['version_info'] else {},
-                                'content_preview': content[:200] + '...' if len(content) > 200 else content
+                                'version_info': vi_data,
+                                'content_preview': content[:200] + '...' if len(content) > 200 else content,
+                                'chunk_info': chunk_info if chunk_info else None
                             }
                         )
                         
@@ -749,6 +762,9 @@ class SyncEmbeddingProcessor:
         self.cache_manager = EmbeddingCacheManager(self.embedding_storage, embedding_cache_path)
         
         self.logger = get_logger(__name__)
+
+        # Access to config-driven aggregation via vector_store environment is not direct; keep a runtime flag pluggable via orchestrator if needed.
+        self.aggregate_document_vectors = True
     
     def process_sync_content(self, processed_content: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -779,6 +795,54 @@ class SyncEmbeddingProcessor:
         
         # Process embeddings in batches
         embedding_results = self.batch_processor.process_documents(documents_needing_embedding)
+
+        # Optional: aggregate chunk vectors to document-level vectors
+        if self.aggregate_document_vectors and documents_needing_embedding:
+            try:
+                # Group by original_source when chunk_info exists
+                groups: Dict[str, List[str]] = {}
+                for doc in documents_needing_embedding:
+                    chunk_info = doc.get('chunk_info')
+                    if chunk_info and 'original_source' in chunk_info:
+                        orig = chunk_info['original_source']
+                        # reconstruct content_hash key used in storage
+                        content = doc.get('content', '')
+                        hash_basis = content + "::" + json.dumps(chunk_info, sort_keys=True)
+                        chash = hashlib.sha256(hash_basis.encode('utf-8')).hexdigest()
+                        groups.setdefault(orig, []).append(chash)
+
+                if groups:
+                    index_name = f"{self.embedding_storage.index_prefix}_cache"
+                    for original_source, hashes in groups.items():
+                        # fetch vectors for hashes
+                        if not hashes:
+                            continue
+                        q = {"query": {"ids": {"values": hashes}}, "_source": ["embedding_vector"]}
+                        resp = self.embedding_storage.es_client.search(index=index_name, body=q, size=len(hashes))
+                        vectors: List[List[float]] = [hit['_source']['embedding_vector'] for hit in resp['hits']['hits'] if 'embedding_vector' in hit['_source']]
+                        if not vectors:
+                            continue
+                        # average
+                        dims = len(vectors[0])
+                        avg = [0.0] * dims
+                        for v in vectors:
+                            for i, val in enumerate(v):
+                                avg[i] += val
+                        avg = [val / len(vectors) for val in avg]
+                        # store aggregated as a special key
+                        agg_hash = hashlib.sha256((original_source+"::AGG").encode('utf-8')).hexdigest()
+                        agg_info = EmbeddingInfo(
+                            content_hash=agg_hash,
+                            embedding_vector=avg,
+                            model=DEFAULT_EMBEDDING_MODEL,
+                            created_at=datetime.now(timezone.utc),
+                            source_id=original_source,
+                            content_size=0,
+                            metadata={"aggregate": True, "chunks": len(vectors)}
+                        )
+                        self.embedding_storage.store_embedding(agg_info)
+            except Exception as e:
+                self.logger.warning(f"Failed to aggregate document vectors: {e}")
         
         # Update sync cache with embedding status
         for doc in documents_needing_embedding:

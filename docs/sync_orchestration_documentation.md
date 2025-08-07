@@ -12,6 +12,8 @@ The sync orchestration system provides:
 4. **Version Control** - Track changes and process only new content
 5. **Document Processing Integration** - Unified interface for HTML, PDF, and spreadsheet processing
 6. **Advanced Document Parsing & Chunking** - AI-powered document structure analysis with intelligent chunking
+7. **Configurable Embedding Chunking** - Fallback chunking for non-parser content with configurable size/overlap
+8. **Document-level Aggregation** - Optional averaging of chunk vectors into a representative document vector
 7. **CI/CD Integration** - GitHub Actions workflow with robust error handling
 8. **Comprehensive Monitoring** - Detailed logging, reporting, and health checks
 
@@ -691,6 +693,11 @@ timeout_per_source: 300          # Timeout per source in seconds
 cache_directory: "./cache"       # Local cache directory
 embedding_cache_path: "./cache/embeddings.sqlite"  # Embedding cache path
 version_cache_path: "./cache/versions.json"        # Version cache path
+ 
+# Embedding/chunking (orchestrator fallback + aggregation)
+embedding_chunk_size_chars: 7000
+embedding_chunk_overlap_chars: 200
+embedding_aggregate_document_vectors: true
 ```
 
 ### Environment Variables
