@@ -26,7 +26,19 @@ flowchart TD
     PRE --> C["For Each Content Source"]
     
     C --> D["Fetch Latest Content<br/>(HTML/PDF/Spreadsheet)"]
-    D --> E["Compute Content Version ID"]
+    
+    D --> DISCOVER{"Source Type?"}
+    DISCOVER -- "HTML Index Page" --> HTML_DISCOVER["Discover HTML Links<br/>(with pattern filtering)"]
+    HTML_DISCOVER --> HTML_PROCESS["Process Each<br/>Discovered Page"]
+    HTML_PROCESS --> E
+    
+    DISCOVER -- "PDF Index Page" --> PDF_DISCOVER["Discover PDF Files<br/>(with pattern matching)"]
+    PDF_DISCOVER --> PDF_PROCESS["Process Each<br/>Discovered PDF"]
+    PDF_PROCESS --> E
+    
+    DISCOVER -- "Direct Source" --> E
+    
+    E["Compute Content Version ID"]
     E --> F{"Version Changed?"}
     F -- "No" --> G["Skip Sync for Source"]
     F -- "Yes" --> H["Process & Embed Content"]

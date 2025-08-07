@@ -23,6 +23,7 @@ A new automated, versioned, cloud-native sync system has been implemented for co
 - **Versioning & Change Detection** - Content hash-based versioning with incremental updates
 - **Caching Layer** - SQLite-based duplicate detection and content tracking
 - **HTML Content Fetching** - Automated fetching and parsing of HTML sources with version tracking
+- **HTML Index Page Discovery** - Automated discovery and processing of multiple HTML pages linked from index pages
 - **Asynchronous Spreadsheet Processing** - Background processing of Google Sheets data with task queue management
 - **PDF Discovery & Processing** - Automated discovery and processing of PDF files from remote sources
 - **Cloud-Based Embedding Processing** - Elasticsearch-based embedding storage with intelligent change detection and batch processing
@@ -78,6 +79,19 @@ sources:
       url: "https://main.knesset.gov.il/about/lexicon/pages/default.aspx"
       selector: "#content"
     versioning_strategy: "combined"
+    enabled: true
+    priority: 1
+
+  # HTML Sources with Index Page Discovery
+  - id: "example-html-index"
+    name: "Example HTML Index Page"
+    type: "html"
+    html_config:
+      url: "https://example.com/index.html"
+      selector: "#content"
+      link_pattern: ".*relevant.*"  # Filter links containing "relevant"
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"  # Triggers HTML discovery
     enabled: true
     priority: 1
 
@@ -194,6 +208,35 @@ botnim sync spreadsheet cleanup
 ```
 
 For detailed documentation, see `docs/spreadsheet_processing_documentation.md`.
+
+#### HTML Discovery Features
+
+The sync system now includes HTML index page discovery capabilities:
+
+- **Automated Link Discovery** - Automatically discovers HTML links from index pages
+- **Pattern Filtering** - Supports regex patterns to filter relevant links
+- **Duplicate Prevention** - Tracks processed pages to avoid re-processing
+- **Seamless Integration** - Works with existing HTML processing pipeline
+- **Comprehensive Testing** - Full test suite covering discovery and processing workflows
+
+**How it works:**
+1. **Index Page Fetching**: Fetches the specified HTML index page
+2. **Link Discovery**: Parses the page and extracts all HTML links
+3. **Pattern Filtering**: Applies regex pattern to filter relevant links
+4. **Duplicate Checking**: Checks against processed pages in Elasticsearch
+5. **Individual Processing**: Processes each new HTML page as a separate source
+
+**Example Usage:**
+```bash
+# Process HTML sources with index page discovery
+botnim sync html process config.yaml --source-ids example-html-index
+
+# The system will:
+# 1. Fetch the index page
+# 2. Discover HTML links matching the pattern
+# 3. Process each new page individually
+# 4. Track processed pages to avoid duplicates
+```
 
 #### Document Parsing & Chunking Features
 
