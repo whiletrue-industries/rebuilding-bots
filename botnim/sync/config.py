@@ -87,7 +87,7 @@ class PDFProcessingOptions(BaseModel):
 class PDFProcessingConfig(BaseModel):
     """Configuration for PDF processing."""
     model: str = Field(default="gpt-4o-mini", description="OpenAI model to use")
-    max_tokens: int = Field(default=4000, description="Maximum tokens for processing")
+    max_tokens: int = Field(default=10000, description="Maximum tokens for processing")
     temperature: float = Field(default=0.1, description="Processing temperature")
     fields: List[PDFProcessingField] = Field(default_factory=list, description="Fields to extract")
     options: PDFProcessingOptions = Field(default_factory=PDFProcessingOptions, description="Processing options")

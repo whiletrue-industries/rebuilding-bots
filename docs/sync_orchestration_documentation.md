@@ -111,6 +111,60 @@ botnim sync orchestrate --config-file specs/takanon/sync_config.yaml --environme
 botnim sync sync-stats --config-file specs/takanon/sync_config.yaml --environment staging
 ```
 
+**Real-World Example:**
+```python
+from botnim.sync import SyncOrchestrator, SyncConfig
+import asyncio
+
+async def run_production_sync():
+    """Run production sync with comprehensive monitoring."""
+    
+    # Load configuration
+    config = SyncConfig.from_yaml('specs/takanon/sync_config.yaml')
+    
+    # Initialize orchestrator for production environment
+    orchestrator = SyncOrchestrator(config, environment='production')
+    
+    try:
+        # Run complete sync operation
+        summary = await orchestrator.run_sync()
+        
+        # Log results
+        print(f"✅ Sync completed successfully!")
+        print(f"📊 Processed {summary.total_sources} sources")
+        print(f"✅ Successful: {summary.successful_sources}")
+        print(f"❌ Failed: {summary.failed_sources}")
+        print(f"⏭️ Skipped: {summary.skipped_sources}")
+        print(f"📄 Documents processed: {summary.total_documents_processed}")
+        print(f"⏱️ Total time: {summary.total_processing_time:.2f}s")
+        
+        # Check for errors
+        if summary.failed_sources > 0:
+            print(f"\n❌ Errors encountered:")
+            for error in summary.errors:
+                print(f"  - {error}")
+        
+        # Get detailed statistics
+        stats = orchestrator.get_sync_statistics()
+        print(f"\n📈 Performance Statistics:")
+        print(f"  - Cache hit rate: {stats.get('cache_hit_rate', 0):.1f}%")
+        print(f"  - Average processing time: {stats.get('avg_processing_time', 0):.2f}s")
+        print(f"  - Embedding cache downloaded: {summary.embedding_cache_downloaded}")
+        print(f"  - Embedding cache uploaded: {summary.embedding_cache_uploaded}")
+        
+        return summary
+        
+    except Exception as e:
+        print(f"❌ Sync failed: {e}")
+        raise
+    finally:
+        orchestrator.cleanup()
+
+# Run the sync
+if __name__ == "__main__":
+    asyncio.run(run_production_sync())
+```
+
 ### 4. Document Parsing and Chunking
 
 The sync orchestration system includes advanced document parsing and chunking capabilities for handling large documents efficiently.

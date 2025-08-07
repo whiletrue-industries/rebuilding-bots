@@ -49,10 +49,11 @@ def decode_url(url: str) -> str:
 class HTMLFetcher:
     """Fetches HTML content from web sources with minimal processing."""
     
-    def __init__(self, cache: SyncCache):
+    def __init__(self, cache: SyncCache, environment: str = "staging"):
         """Initialize HTML fetcher with cache."""
         self.cache = cache
         self.session = requests.Session()
+        self.environment = environment
         # Set default headers to mimic a real browser
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -199,15 +200,19 @@ class HTMLFetcher:
         try:
             logger.info(f"Using advanced document parser for {source.id}")
             
-            # Get OpenAI client
-            client = get_openai_client("staging")  # TODO: Make environment configurable
+            # Get OpenAI client from the orchestrator's environment
+            client = get_openai_client(self.environment)
             
+            # Get model and max_tokens from source config if available, else use defaults
+            model = getattr(source, 'model', 'gpt-4o-mini')
+            max_tokens = getattr(source, 'max_tokens', 10000)
+
             # Extract document structure
             structure_items = extract_structure_from_html(
                 content,
                 client,
-                "gpt-4o-mini",  # TODO: Make model configurable
-                4000,  # TODO: Make max_tokens configurable
+                model,
+                max_tokens,
                 "סעיף"  # Default to Hebrew clauses
             )
             
@@ -444,10 +449,10 @@ class HTMLFetcher:
 class HTMLProcessor:
     """High-level HTML processing orchestrator."""
     
-    def __init__(self, cache: SyncCache):
+    def __init__(self, cache: SyncCache, environment: str = "staging"):
         """Initialize HTML processor."""
         self.cache = cache
-        self.fetcher = HTMLFetcher(cache)
+        self.fetcher = HTMLFetcher(cache, environment)
     
     def process_sources(self, sources: List[ContentSource]) -> Dict[str, Any]:
         """

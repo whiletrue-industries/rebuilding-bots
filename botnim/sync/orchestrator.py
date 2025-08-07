@@ -114,7 +114,7 @@ class SyncOrchestrator:
             self.version_manager = VersionManager(self.config.version_cache_path)
             
             # Initialize processors
-            self.html_processor = HTMLProcessor(self.cache)
+            self.html_processor = HTMLProcessor(self.cache, self.environment)
             self.html_discovery_processor = HTMLDiscoveryProcessor(
                 cache=self.cache,
                 vector_store=self.vector_store,

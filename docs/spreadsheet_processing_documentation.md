@@ -164,6 +164,164 @@ if data:
 processor.shutdown()
 ```
 
+**Real-World Example: Corporate Compliance Monitoring**
+
+```python
+from botnim.sync.spreadsheet_fetcher import AsyncSpreadsheetProcessor
+from botnim.sync.config import SyncConfig
+from botnim.sync.cache import SyncCache
+from botnim.vector_store.vector_store_es import VectorStoreES
+import asyncio
+import logging
+from datetime import datetime, timedelta
+
+class ComplianceMonitor:
+    """Monitor compliance data from multiple spreadsheet sources."""
+    
+    def __init__(self, config_path: str, environment: str = "production"):
+        self.config = SyncConfig.from_yaml(config_path)
+        self.cache = SyncCache()
+        self.vector_store = VectorStoreES(environment=environment)
+        self.processor = AsyncSpreadsheetProcessor(self.cache, self.vector_store, max_workers=5)
+        self.logger = logging.getLogger(__name__)
+    
+    async def monitor_compliance_sources(self):
+        """Monitor all compliance-related spreadsheet sources."""
+        
+        # Get all spreadsheet sources
+        spreadsheet_sources = self.config.get_sources_by_type("spreadsheet")
+        compliance_sources = [s for s in spreadsheet_sources if "compliance" in s.tags]
+        
+        self.logger.info(f"Monitoring {len(compliance_sources)} compliance sources")
+        
+        results = {}
+        for source in compliance_sources:
+            try:
+                # Process each source
+                result = await self.processor.process_spreadsheet_source(source)
+                results[source.id] = result
+                
+                self.logger.info(f"Submitted task for {source.id}: {result['task_id']}")
+                
+            except Exception as e:
+                self.logger.error(f"Failed to process {source.id}: {e}")
+                results[source.id] = {"status": "error", "error": str(e)}
+        
+        return results
+    
+    async def wait_for_completion(self, results: dict, timeout_minutes: int = 30):
+        """Wait for all tasks to complete with timeout."""
+        
+        start_time = datetime.now()
+        timeout = timedelta(minutes=timeout_minutes)
+        
+        while datetime.now() - start_time < timeout:
+            all_completed = True
+            
+            for source_id, result in results.items():
+                if result.get("status") == "submitted":
+                    task = self.processor.get_task_status(result["task_id"])
+                    if task and task.status == "completed":
+                        results[source_id]["status"] = "completed"
+                        results[source_id]["result"] = task.result
+                        self.logger.info(f"✅ {source_id} completed successfully")
+                    elif task and task.status == "failed":
+                        results[source_id]["status"] = "failed"
+                        results[source_id]["error"] = task.error_message
+                        self.logger.error(f"❌ {source_id} failed: {task.error_message}")
+                    else:
+                        all_completed = False
+            
+            if all_completed:
+                break
+            
+            await asyncio.sleep(10)  # Check every 10 seconds
+        
+        return results
+    
+    def generate_compliance_report(self, results: dict):
+        """Generate compliance monitoring report."""
+        
+        report = {
+            "timestamp": datetime.now().isoformat(),
+            "total_sources": len(results),
+            "successful": 0,
+            "failed": 0,
+            "pending": 0,
+            "details": []
+        }
+        
+        for source_id, result in results.items():
+            status = result.get("status", "unknown")
+            if status == "completed":
+                report["successful"] += 1
+            elif status == "failed":
+                report["failed"] += 1
+            else:
+                report["pending"] += 1
+            
+            report["details"].append({
+                "source_id": source_id,
+                "status": status,
+                "task_id": result.get("task_id"),
+                "error": result.get("error"),
+                "processing_time": result.get("processing_time")
+            })
+        
+        return report
+    
+    async def run_compliance_monitoring(self):
+        """Run complete compliance monitoring workflow."""
+        
+        try:
+            # Step 1: Submit all compliance tasks
+            self.logger.info("🚀 Starting compliance monitoring...")
+            results = await self.monitor_compliance_sources()
+            
+            # Step 2: Wait for completion
+            self.logger.info("⏳ Waiting for tasks to complete...")
+            final_results = await self.wait_for_completion(results)
+            
+            # Step 3: Generate report
+            report = self.generate_compliance_report(final_results)
+            
+            # Step 4: Log results
+            self.logger.info(f"📊 Compliance monitoring completed:")
+            self.logger.info(f"  - Total sources: {report['total_sources']}")
+            self.logger.info(f"  - Successful: {report['successful']}")
+            self.logger.info(f"  - Failed: {report['failed']}")
+            self.logger.info(f"  - Pending: {report['pending']}")
+            
+            # Step 5: Alert on failures
+            if report["failed"] > 0:
+                self.logger.warning(f"⚠️ {report['failed']} compliance sources failed!")
+                for detail in report["details"]:
+                    if detail["status"] == "failed":
+                        self.logger.error(f"  - {detail['source_id']}: {detail['error']}")
+            
+            return report
+            
+        finally:
+            # Clean up
+            self.processor.shutdown()
+            self.logger.info("🧹 Compliance monitoring cleanup completed")
+
+# Usage example
+async def main():
+    monitor = ComplianceMonitor("config/compliance_config.yaml")
+    report = await monitor.run_compliance_monitoring()
+    
+    # Send report to monitoring system
+    if report["failed"] > 0:
+        # Send alert
+        print("ALERT: Compliance monitoring failures detected!")
+    else:
+        print("✅ All compliance sources processed successfully")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ## Processing Workflow
 
 ### 1. Task Submission

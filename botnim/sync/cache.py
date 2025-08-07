@@ -52,8 +52,9 @@ class SyncCache:
     - Cache statistics and cleanup
     """
     
-    def __init__(self, cache_directory: str = "./cache"):
+    def __init__(self, cache_directory: str = "./cache", environment: str = "staging"):
         self.cache_directory = Path(cache_directory)
+        self.environment = environment
         self.cache_directory.mkdir(parents=True, exist_ok=True)
         
         # Database paths

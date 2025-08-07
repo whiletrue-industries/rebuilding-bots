@@ -251,6 +251,227 @@ results = vector_store.es.search(
     index="pdf_processing_tracker",
     body=query
 )
+
+# Process results
+for hit in results['hits']['hits']:
+    doc = hit['_source']
+    print(f"PDF: {doc['pdf_filename']}")
+    print(f"Status: {doc['processing_status']}")
+    print(f"Processed: {doc['processing_timestamp']}")
+```
+
+**Real-World Example: Legal Document Processing Pipeline**
+
+```python
+from botnim.sync.pdf_discovery import PDFDiscoveryProcessor
+from botnim.sync.config import SyncConfig
+from botnim.sync.cache import SyncCache
+from botnim.vector_store.vector_store_es import VectorStoreES
+from openai import OpenAI
+import tempfile
+import logging
+from datetime import datetime, timedelta
+
+class LegalDocumentProcessor:
+    """Process legal documents from multiple committee sources."""
+    
+    def __init__(self, config_path: str, environment: str = "production"):
+        self.config = SyncConfig.from_yaml(config_path)
+        self.cache = SyncCache()
+        self.vector_store = VectorStoreES(environment=environment)
+        self.openai_client = OpenAI()
+        self.temp_dir = tempfile.mkdtemp(prefix="legal_docs_")
+        self.logger = logging.getLogger(__name__)
+        
+        # Initialize PDF processor
+        self.pdf_processor = PDFDiscoveryProcessor(
+            cache=self.cache,
+            vector_store=self.vector_store,
+            openai_client=self.openai_client,
+            temp_directory=self.temp_dir
+        )
+    
+    def get_legal_sources(self):
+        """Get all legal document sources."""
+        pdf_sources = self.config.get_sources_by_type("pdf")
+        legal_sources = [s for s in pdf_sources if "legal" in s.tags or "committee" in s.tags]
+        return legal_sources
+    
+    def process_legal_documents(self):
+        """Process all legal document sources."""
+        
+        legal_sources = self.get_legal_sources()
+        self.logger.info(f"Processing {len(legal_sources)} legal document sources")
+        
+        results = {}
+        for source in legal_sources:
+            try:
+                self.logger.info(f"Processing legal source: {source.id}")
+                
+                # Process the source
+                result = self.pdf_processor.process_pdf_source(source)
+                results[source.id] = result
+                
+                # Log results
+                if result['status'] == 'success':
+                    self.logger.info(f"✅ {source.id}: {result['documents_processed']} documents processed")
+                else:
+                    self.logger.error(f"❌ {source.id}: {result.get('error', 'Unknown error')}")
+                
+            except Exception as e:
+                self.logger.error(f"Failed to process {source.id}: {e}")
+                results[source.id] = {
+                    'status': 'error',
+                    'error': str(e),
+                    'documents_processed': 0
+                }
+        
+        return results
+    
+    def generate_legal_report(self, results: dict):
+        """Generate legal document processing report."""
+        
+        report = {
+            "timestamp": datetime.now().isoformat(),
+            "total_sources": len(results),
+            "successful_sources": 0,
+            "failed_sources": 0,
+            "total_documents": 0,
+            "processing_time": 0,
+            "details": []
+        }
+        
+        for source_id, result in results.items():
+            if result.get('status') == 'success':
+                report["successful_sources"] += 1
+                report["total_documents"] += result.get('documents_processed', 0)
+            else:
+                report["failed_sources"] += 1
+            
+            report["details"].append({
+                "source_id": source_id,
+                "status": result.get('status'),
+                "documents_processed": result.get('documents_processed', 0),
+                "error": result.get('error'),
+                "processing_time": result.get('processing_time', 0)
+            })
+            
+            report["processing_time"] += result.get('processing_time', 0)
+        
+        return report
+    
+    def check_processing_status(self, source_id: str, days_back: int = 7):
+        """Check processing status for a specific source."""
+        
+        # Query recent processing activity
+        query = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {"term": {"source_id": source_id}},
+                        {"range": {
+                            "processing_timestamp": {
+                                "gte": f"now-{days_back}d",
+                                "lte": "now"
+                            }
+                        }}
+                    ]
+                }
+            },
+            "sort": [{"processing_timestamp": {"order": "desc"}}],
+            "size": 100
+        }
+        
+        try:
+            results = self.vector_store.es.search(
+                index="pdf_processing_tracker",
+                body=query
+            )
+            
+            status_summary = {
+                "total_documents": len(results['hits']['hits']),
+                "completed": 0,
+                "failed": 0,
+                "processing": 0,
+                "recent_documents": []
+            }
+            
+            for hit in results['hits']['hits']:
+                doc = hit['_source']
+                status = doc.get('processing_status', 'unknown')
+                
+                if status == 'completed':
+                    status_summary["completed"] += 1
+                elif status == 'failed':
+                    status_summary["failed"] += 1
+                elif status in ['downloading', 'processing']:
+                    status_summary["processing"] += 1
+                
+                # Add recent documents
+                if len(status_summary["recent_documents"]) < 10:
+                    status_summary["recent_documents"].append({
+                        "filename": doc.get('pdf_filename'),
+                        "status": status,
+                        "timestamp": doc.get('processing_timestamp'),
+                        "error": doc.get('error_message')
+                    })
+            
+            return status_summary
+            
+        except Exception as e:
+            self.logger.error(f"Failed to query processing status: {e}")
+            return None
+    
+    def run_legal_processing(self):
+        """Run complete legal document processing workflow."""
+        
+        try:
+            self.logger.info("🚀 Starting legal document processing...")
+            
+            # Process all legal sources
+            results = self.process_legal_documents()
+            
+            # Generate report
+            report = self.generate_legal_report(results)
+            
+            # Log summary
+            self.logger.info(f"📊 Legal processing completed:")
+            self.logger.info(f"  - Sources processed: {report['total_sources']}")
+            self.logger.info(f"  - Successful: {report['successful_sources']}")
+            self.logger.info(f"  - Failed: {report['failed_sources']}")
+            self.logger.info(f"  - Total documents: {report['total_documents']}")
+            self.logger.info(f"  - Processing time: {report['processing_time']:.2f}s")
+            
+            # Check status for each source
+            for source_id in results.keys():
+                status = self.check_processing_status(source_id)
+                if status:
+                    self.logger.info(f"📋 {source_id} status:")
+                    self.logger.info(f"    - Total documents: {status['total_documents']}")
+                    self.logger.info(f"    - Completed: {status['completed']}")
+                    self.logger.info(f"    - Failed: {status['failed']}")
+                    self.logger.info(f"    - Processing: {status['processing']}")
+            
+            return report
+            
+        finally:
+            # Clean up
+            self.pdf_processor.cleanup()
+            self.logger.info("🧹 Legal document processing cleanup completed")
+
+# Usage example
+def main():
+    processor = LegalDocumentProcessor("config/legal_config.yaml")
+    report = processor.run_legal_processing()
+    
+    # Send report to legal team
+    if report["failed_sources"] > 0:
+        print("⚠️ Some legal sources failed processing!")
+    else:
+        print(f"✅ All legal sources processed successfully: {report['total_documents']} documents")
+
+if __name__ == "__main__":
+    main()
 ```
 
 ## Error Handling
