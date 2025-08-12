@@ -1,0 +1,46 @@
+version: "1.0.0"
+name: "BudgetKey Bot Sync Configuration"
+description: "Automated sync configuration for budget and financial data sources"
+
+# Global settings
+default_versioning_strategy: "hash"
+default_fetch_strategy: "direct"
+
+# Storage configuration
+cache_directory: "./cache"
+embedding_cache_path: "./cache/embeddings.sqlite"
+version_cache_path: "./cache/versions.json"
+
+# Processing configuration
+max_concurrent_sources: 3
+timeout_per_source: 300
+
+# Logging configuration
+log_level: "INFO"
+log_file: "./logs/sync.log"
+
+# Content sources
+sources:
+  # Local Markdown File
+  - id: "common-knowledge-md"
+    name: "Common Knowledge (Markdown)"
+    description: "קובץ markdown מקומי המכיל ידע וקווים מנחים בנושאי תקציב"
+    type: "html"
+    html_config:
+      url: "file://specs/budgetkey/common-knowledge.md"
+      selector: "body"
+      encoding: "utf-8"
+      timeout: 30
+      retry_attempts: 1
+    versioning_strategy: "hash"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 1
+    tags: ["תקציב", "ידע", "markdown", "מקומי"]
+
+  # Note: Currently no syncable online sources for BudgetKey
+  # Future sources could include:
+  # - Budget APIs
+  # - Government financial data feeds
+  # - Real-time budget updates
+  # - External financial databases 

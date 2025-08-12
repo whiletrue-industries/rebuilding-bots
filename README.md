@@ -14,6 +14,290 @@ The PDF extraction pipeline has been significantly enhanced with:
 - **Robust error handling** - graceful handling of edge cases and API limits
 - **Performance monitoring** - detailed metrics and structured logging
 
+### Enhanced Logging, Monitoring & Error Reporting
+
+A comprehensive logging, monitoring, and error reporting system has been implemented:
+
+- **Structured JSON Logging** - All logs are output in JSON format for easy parsing and analysis
+- **Centralized Error Tracking** - Custom exception classes with actionable error messages and recovery suggestions
+- **Performance Monitoring** - Key performance indicators (KPIs) including processing times and document counts
+- **Health Checks** - Configurable thresholds for success rates, failure percentages, and processing times
+- **External Monitoring Integration** - Webhook-based integration with monitoring platforms (Datadog, Slack, PagerDuty, etc.)
+- **CI/CD Integration** - Designed for automated workflows with comprehensive failure reporting
+
+#### Quick Start with Enhanced Logging
+
+```bash
+# Test the enhanced logging system
+botnim monitoring test-logging
+
+# Run sync orchestration with enhanced logging
+botnim monitoring orchestrate specs/takanon/sync_config.yaml --environment staging
+
+# Analyze structured log files
+botnim monitoring log-analysis ./logs/sync.log --limit 50
+
+# Run with custom log level and file
+botnim monitoring orchestrate specs/takanon/sync_config.yaml --log-level DEBUG --log-file ./logs/debug.log
+```
+
+### Automated Sync Infrastructure
+
+A new automated, versioned, cloud-native sync system has been implemented for content sources (HTML, PDF, and spreadsheets) to vector store:
+
+- **Unified Configuration Schema** - YAML-based configuration for all content source types (HTML, PDF, spreadsheets)
+- **PDF-to-Spreadsheet Pipeline** - A pre-processing pipeline to extract structured data from multiple PDFs into a Google Spreadsheet, which then acts as a standard source for vectorization. Supports dynamic splitting (multiple decisions per PDF) and automatic spreadsheet source creation for seamless integration with the main sync process.
+- **Versioning & Change Detection** - Content hash-based versioning with incremental updates
+- **Caching Layer** - SQLite-based duplicate detection and content tracking
+- **HTML Content Fetching** - Automated fetching and parsing of HTML sources with version tracking
+- **HTML Index Page Discovery** - Automated discovery and processing of multiple HTML pages linked from index pages
+- **Asynchronous Spreadsheet Processing** - Background processing of Google Sheets data with task queue management
+- **PDF Discovery & Processing** - Automated discovery and processing of PDF files from remote sources
+- **Cloud-Based Embedding Processing** - Elasticsearch-based embedding storage with intelligent change detection and batch processing
+- **Advanced Document Parsing & Chunking** - AI-powered document structure analysis with intelligent chunking for large documents
+- **Comprehensive Sync Orchestration** - Main orchestration engine that coordinates all sync operations with CI integration
+- **Cloud-Native Design** - Designed for CI/CD workflows with no local dependencies
+- **Comprehensive Logging** - Structured logging with the project's standard logging mechanism
+
+#### Quick Start with Sync Infrastructure
+
+```bash
+# Test HTML fetching from a single URL
+botnim sync html fetch https://example.com --selector "#content"
+
+# Process HTML sources from configuration
+botnim sync html process specs/takanon/sync_config.yaml --source-ids knesset-lexicon-html
+
+# Process spreadsheet sources asynchronously
+botnim sync spreadsheet process specs/takanon/sync_config.yaml
+
+# Check spreadsheet processing status
+botnim sync spreadsheet status specs/takanon/sync_config.yaml
+
+# Manage sync cache
+botnim sync cache stats
+botnim sync cache cleanup --older-than 30
+
+# Process embeddings for cloud storage
+botnim sync embedding-process --config-file specs/takanon/sync_config.yaml
+botnim sync embedding-stats
+botnim sync embedding-download --cache-file ./cache/embeddings.json
+botnim sync embedding-upload --cache-file ./cache/embeddings.json
+
+# Run comprehensive sync orchestration
+botnim sync orchestrate --config-file specs/takanon/sync_config.yaml --environment staging
+botnim sync sync-stats --config-file specs/takanon/sync_config.yaml --environment staging
+
+# Test document parsing and chunking
+botnim sync orchestrate --config-file specs/test-sync-config.yaml --environment staging
+```
+
+#### Configuration
+
+Sync sources are configured in YAML files (e.g., `specs/takanon/sync_config.yaml`):
+
+```yaml
+sources:
+  # HTML Sources
+  - id: "knesset-lexicon-html"
+    name: "לקסיקון הכנסת (Knesset Lexicon)"
+    type: "html"
+    html_config:
+      url: "https://main.knesset.gov.il/about/lexicon/pages/default.aspx"
+      selector: "#content"
+    versioning_strategy: "combined"
+    enabled: true
+    priority: 1
+
+  # HTML Sources with Index Page Discovery
+  - id: "example-html-index"
+    name: "Example HTML Index Page"
+    type: "html"
+    html_config:
+      url: "https://example.com/index.html"
+      selector: "#content"
+      link_pattern: ".*relevant.*"  # Filter links containing "relevant"
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"  # Triggers HTML discovery
+    enabled: true
+    priority: 1
+
+  # HTML Sources with Advanced Document Parsing
+  - id: "knesset-law-wikisource"
+    name: "חוק הכנסת (Knesset Law)"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_הכנסת"
+      selector: "#mw-content-text"
+    versioning_strategy: "combined"
+    enabled: true
+    priority: 9
+    use_document_parser: true  # Enable AI-powered chunking
+
+  # Spreadsheet Sources (Async Processing)
+  - id: "oral-knowledge-spreadsheet"
+    name: "ידע שבעל פה (Oral Knowledge)"
+    type: "spreadsheet"
+    spreadsheet_config:
+      url: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=0#gid=0"
+      sheet_name: "תושב״ע"
+      range: "A1:Z1000"
+      use_adc: true
+    versioning_strategy: "timestamp"
+    fetch_strategy: "async"  # Required for background processing
+    fetch_interval: 3600  # 1 hour
+    enabled: true
+    priority: 1
+
+  # PDF Pipeline Sources (Pre-processing)
+  - id: "ethics-committee-decisions"
+    name: "Ethics Committee Decisions"
+    type: "pdf_pipeline"
+    enabled: true
+    priority: 1
+    pdf_pipeline_config:
+      input_config:
+        url: "https://example.com/ethics-decisions/"
+        is_index_page: true
+        file_pattern: "*.pdf"
+      output_config:
+        spreadsheet_id: "your-spreadsheet-id"
+        sheet_name: "Ethics_Committee_Decisions"
+        use_adc: true
+      processing_config:
+        model: "gpt-4o-mini"
+        fields:
+          - name: "decision_number"
+            type: "string"
+            description: "Number of the ethics decision"
+          - name: "decision_date"
+            type: "date"
+            description: "Date of the decision"
+          - name: "member_name"
+            type: "string"
+            description: "Name of the Knesset member"
+        extraction_instructions: "Extract structured data from ethics committee decisions. Each decision should be extracted as a separate record."
+```
+
+For more details, see the sync infrastructure documentation in `docs/`.
+
+#### PDF Pipeline Processing Features
+
+The PDF-to-Spreadsheet pipeline provides pre-processing capabilities for PDF sources:
+
+- **Automatic PDF Discovery** - Discovers PDFs from URLs or index pages with pattern matching
+- **Structured Data Extraction** - Uses AI to extract structured data from PDFs with configurable schemas
+- **Dynamic Splitting** - Supports extracting multiple records (e.g., decisions) from single PDFs
+- **Google Sheets Integration** - Automatically uploads extracted data to Google Sheets
+- **Seamless Sync Integration** - Creates new spreadsheet sources that are automatically processed by the main sync
+- **Comprehensive Testing** - Full test suite covering all scenarios (single/multiple PDFs, single/multiple decisions)
+
+**How it works:**
+1. **Pre-processing Phase**: PDF pipelines run first, processing PDFs and creating Google Sheets
+2. **Automatic Source Creation**: New spreadsheet sources are automatically added to the sync queue
+3. **Main Sync Phase**: The generated spreadsheets are processed like any other spreadsheet source
+4. **Vectorization**: Content is embedded and indexed in the vector store
+
+**Example Usage:**
+```bash
+# Run complete sync with PDF pipelines
+botnim sync orchestrate --config-file sync_config.yaml --environment staging
+
+# The orchestrator will:
+# 1. Run PDF pipelines (discover → extract → upload to sheets)
+# 2. Create new spreadsheet sources automatically
+# 3. Process all sources including the newly created ones
+# 4. Generate embeddings and index in vector store
+```
+
+#### Spreadsheet Processing Features
+
+The new asynchronous spreadsheet processing system provides:
+
+- **Background Processing**: Spreadsheet operations run in background threads without blocking main sync
+- **Task Queue Management**: Comprehensive task tracking with status monitoring and error handling
+- **Google Sheets Integration**: Leverages existing Google Sheets API infrastructure
+- **Intermediate Storage**: Stores fetched data in Elasticsearch for later processing
+- **CLI Commands**: Full command-line interface for processing, monitoring, and data retrieval
+
+```bash
+# Process all spreadsheet sources
+botnim sync spreadsheet process config.yaml
+
+# Check processing status
+botnim sync spreadsheet status config.yaml
+
+# Retrieve stored data
+botnim sync spreadsheet data source-id
+
+# Clean up completed tasks
+botnim sync spreadsheet cleanup
+```
+
+For detailed documentation, see `docs/spreadsheet_processing_documentation.md`.
+
+#### HTML Discovery Features
+
+The sync system now includes HTML index page discovery capabilities:
+
+- **Automated Link Discovery** - Automatically discovers HTML links from index pages
+- **Pattern Filtering** - Supports regex patterns to filter relevant links
+- **Duplicate Prevention** - Tracks processed pages to avoid re-processing
+- **Seamless Integration** - Works with existing HTML processing pipeline
+- **Comprehensive Testing** - Full test suite covering discovery and processing workflows
+
+**How it works:**
+1. **Index Page Fetching**: Fetches the specified HTML index page
+2. **Link Discovery**: Parses the page and extracts all HTML links
+3. **Pattern Filtering**: Applies regex pattern to filter relevant links
+4. **Duplicate Checking**: Checks against processed pages in Elasticsearch
+5. **Individual Processing**: Processes each new HTML page as a separate source
+
+**Example Usage:**
+```bash
+# Process HTML sources with index page discovery
+botnim sync html process config.yaml --source-ids example-html-index
+
+# The system will:
+# 1. Fetch the index page
+# 2. Discover HTML links matching the pattern
+# 3. Process each new page individually
+# 4. Track processed pages to avoid duplicates
+```
+
+#### Document Parsing & Chunking Features
+
+The sync system now includes advanced document parsing and chunking capabilities:
+
+- **AI-Powered Structure Analysis** - Uses OpenAI models to analyze document hierarchy and identify sections
+- **Intelligent Chunking** - Automatically splits large documents into manageable chunks based on document structure
+- **Hebrew Language Support** - Optimized for Hebrew legal documents with section detection (סעיף/clauses)
+- **Markdown Generation** - Creates individual markdown files for each chunk with hierarchical context
+- **Token Limit Optimization** - Prevents embedding API token limit errors by processing smaller chunks
+
+**Example Configuration:**
+```yaml
+sources:
+  - id: "legal-document"
+    name: "Legal Document"
+    type: "html"
+    html_config:
+      url: "https://example.com/legal-document"
+      selector: "#content"
+    use_document_parser: true  # Enable advanced parsing
+    versioning_strategy: "combined"
+    enabled: true
+```
+
+**Benefits:**
+- ✅ **Handles Large Documents** - Processes documents of any size by chunking
+- ✅ **Maintains Context** - Preserves document structure and hierarchy
+- ✅ **Optimizes Embeddings** - Creates chunks that fit within API token limits
+- ✅ **Improves Search Quality** - More granular search results with better relevance
+- ✅ **Reduces API Costs** - More efficient embedding generation
+
+For detailed documentation, see `docs/sync_orchestration_documentation.md`.
+
 ## Getting Started
 
 ```bash
@@ -109,6 +393,14 @@ python backend/es/demo-query-es.py "your query" local
   - `cli.py`: Command line interface for the bots.
   - `sync.py`: Script for syncing the specifications with the OpenAI account.
   - `collect_sources.py`: Module to collect and process the sources for the bots.
+  - `sync/`: Automated sync infrastructure package
+    - `__init__.py`: Package initialization
+    - `config.py`: Unified configuration schema and versioning management
+    - `cache.py`: SQLite-based caching layer and duplicate detection
+    - `html_fetcher.py`: HTML content fetching and parsing
+    - `cli.py`: Cache management CLI tools
+    - `html_cli.py`: HTML fetching CLI tools
+    - `tests/`: Comprehensive test suite for sync components
   - `vector_store/`: Vector store management package.
     - `__init__.py`: Package initialization.
     - `vector_store_base.py`: Abstract base class for vector store implementations.
