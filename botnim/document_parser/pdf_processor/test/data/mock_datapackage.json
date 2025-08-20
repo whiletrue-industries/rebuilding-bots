@@ -1,0 +1,56 @@
+{
+  "bytes": 12345,
+  "count_of_rows": 3,
+  "hash": "test_hash_123456789",
+  "name": "test_ethics_committee_decisions",
+  "profile": "data-package",
+  "resources": [
+    {
+      "bytes": 12345,
+      "dialect": {
+        "caseSensitiveHeader": false,
+        "delimiter": ",",
+        "doubleQuote": true,
+        "header": true,
+        "lineTerminator": "\r\n",
+        "quoteChar": "\"",
+        "skipInitialSpace": false
+      },
+      "dpp:streaming": true,
+      "encoding": "utf-8",
+      "format": "csv",
+      "hash": "test_resource_hash_987654321",
+      "name": "test_ethics_committee_decisions",
+      "path": "index.csv",
+      "profile": "tabular-data-resource",
+      "schema": {
+        "fields": [
+          {
+            "format": "default",
+            "name": "url",
+            "type": "string"
+          },
+          {
+            "format": "default",
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "format": "default",
+            "name": "filename",
+            "type": "string"
+          },
+          {
+            "format": "default",
+            "name": "date",
+            "type": "string"
+          }
+        ],
+        "missingValues": [
+          ""
+        ]
+      }
+    }
+  ],
+  "revision": "2025.08.20-01"
+} 

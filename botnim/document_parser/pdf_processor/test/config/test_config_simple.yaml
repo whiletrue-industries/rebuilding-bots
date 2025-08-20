@@ -1,12 +1,12 @@
-# Simple test configuration with clear path resolution
+# Simple test configuration using Open Budget data sources
 sources:
-  - name: "Test Source"
-    description: "Simple test source for path resolution testing"
-    file_pattern: "*.pdf"  # Simple pattern relative to input directory
-    unique_id_field: "id"
+  - name: "test_simple_source"
+    description: "Simple test source using Open Budget data"
+    unique_id_field: "url"
     metadata:
       source: "test"
-      created_at: "{download_date}"
+      data_provider: "open_budget"
+      test_mode: "true"
     fields:
       - name: "title"
         description: "Document title"
@@ -14,7 +14,9 @@ sources:
       - name: "content"
         description: "Document content"
         example: "This is test content"
-      - name: "id"
-        description: "Unique identifier"
-        example: "doc_001"
-    extraction_instructions: "Extract basic information from the test document." 
+      - name: "document_type"
+        description: "Type of document"
+        example: "decision"
+    extraction_instructions: "Extract basic information from the test document."
+    index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
+    datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json" 

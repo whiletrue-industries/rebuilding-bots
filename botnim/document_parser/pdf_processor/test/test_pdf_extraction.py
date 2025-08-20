@@ -1,8 +1,6 @@
 import pytest
 import tempfile
 import os
-import json
-from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
 from botnim.document_parser.pdf_processor.pdf_extraction_config import PDFExtractionConfig, FieldConfig, SourceConfig
@@ -11,17 +9,17 @@ from botnim.document_parser.pdf_processor.field_extraction import extract_fields
 
 @pytest.fixture
 def sample_config():
-    """Sample configuration for testing"""
+    """Sample configuration for testing with Open Budget data sources"""
     return {
         "sources": [
             {
                 "name": "Test Source",
                 "description": "Test source for unit tests",
-                "file_pattern": "test/*.pdf",
-                "unique_id_field": "source_url",
+                "unique_id_field": "url",
                 "metadata": {
-                    "source_url": "{pdf_url}",
-                    "download_date": "{download_date}"
+                    "source_type": "test",
+                    "data_provider": "open_budget",
+                    "test_mode": "true"
                 },
                 "fields": [
                     {
@@ -35,7 +33,9 @@ def sample_config():
                         "hint": "Full text content"
                     }
                 ],
-                "extraction_instructions": "Extract title and content from the document."
+                "extraction_instructions": "Extract title and content from the document.",
+                "index_csv_url": "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv",
+                "datapackage_url": "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
             }
         ]
     }
@@ -59,15 +59,18 @@ def test_field_config():
     assert field.description == "Test field"
 
 def test_source_config():
-    """Test SourceConfig model."""
+    """Test SourceConfig model with Open Budget fields."""
     source = SourceConfig(
         name="Test Source",
-        file_pattern="test/*.pdf",
-        unique_id_field="source_url",
-        fields=[FieldConfig(name="test_field")]
+        unique_id_field="url",
+        fields=[FieldConfig(name="test_field")],
+        index_csv_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv",
+        datapackage_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
     )
     assert source.name == "Test Source"
     assert len(source.fields) == 1
+    assert source.index_csv_url is not None
+    assert source.datapackage_url is not None
 
 def test_flatten_for_csv():
     """Test flattening document data for CSV output."""
@@ -205,13 +208,14 @@ def test_extract_fields_from_text_mock(mock_logger):
     # Create mock source config
     source_config = SourceConfig(
         name="Test Source",
-        file_pattern="test/*.pdf",
-        unique_id_field="source_url",
+        unique_id_field="url",
         fields=[
             FieldConfig(name="title", description="Document title"),
             FieldConfig(name="content", description="Document content")
         ],
-        extraction_instructions="Extract title and content from the document."
+        extraction_instructions="Extract title and content from the document.",
+        index_csv_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv",
+        datapackage_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
     )
     
     # Create mock OpenAI client
@@ -240,10 +244,11 @@ def test_extract_fields_from_text_error(mock_logger):
     
     source_config = SourceConfig(
         name="Test Source",
-        file_pattern="test/*.pdf",
-        unique_id_field="source_url",
+        unique_id_field="url",
         fields=[FieldConfig(name="title")],
-        extraction_instructions="Extract title from the document."
+        extraction_instructions="Extract title from the document.",
+        index_csv_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv",
+        datapackage_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
     )
     
     # Create mock client that raises an exception
@@ -261,17 +266,18 @@ def test_extract_fields_from_text_error(mock_logger):
 
 @pytest.fixture
 def sample_pipeline_config():
-    """Sample configuration for pipeline testing"""
+    """Sample configuration for pipeline testing with Open Budget data sources"""
     return {
         "sources": [
             {
                 "name": "Test Source",
-                "file_pattern": "test/*.pdf",
-                "unique_id_field": "source_url",
+                "unique_id_field": "url",
                 "fields": [
                     {"name": "title", "description": "Document title"},
                     {"name": "content", "description": "Document content"}
-                ]
+                ],
+                "index_csv_url": "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv",
+                "datapackage_url": "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
             }
         ]
     }
@@ -291,4 +297,34 @@ def test_pipeline_initialization(mock_config_class, sample_pipeline_config):
     
     assert pipeline.config == mock_config
     assert pipeline.openai_client == mock_openai_client
-    mock_config_class.from_yaml.assert_called_once_with("config.yaml") 
+    mock_config_class.from_yaml.assert_called_once_with("config.yaml")
+
+def test_url_revision_tracking():
+    """Test URL and revision tracking in CSV output."""
+    data = [
+        {
+            "source_name": "test_source",
+            "url": "https://example.com/doc1.pdf",
+            "revision": "2025.01.01-01",
+            "title": "Test Document",
+            "content": "Test content"
+        }
+    ]
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        temp_csv_path = f.name
+    
+    try:
+        write_csv(data, temp_csv_path)
+        
+        # Verify URL and revision columns are present
+        with open(temp_csv_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            assert 'url' in content, "URL column missing from CSV"
+            assert 'revision' in content, "Revision column missing from CSV"
+            assert 'https://example.com/doc1.pdf' in content, "URL data missing from CSV"
+            assert '2025.01.01-01' in content, "Revision data missing from CSV"
+    
+    finally:
+        if os.path.exists(temp_csv_path):
+            os.unlink(temp_csv_path) 

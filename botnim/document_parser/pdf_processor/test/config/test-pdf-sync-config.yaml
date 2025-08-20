@@ -3,15 +3,14 @@ name: "Test PDF Sync Configuration"
 description: "Test configuration for verifying PDF processing with document parsing"
 
 sources:
-  # Test PDF source with document parsing enabled
-  - id: "test-pdf-document-parsing"
-    name: "Test PDF with Document Parsing"
-    description: "Test PDF source with advanced document parsing and chunking"
+  # Test PDF source with Open Budget data
+  - id: "test-pdf-open-budget"
+    name: "Test PDF with Open Budget Data"
+    description: "Test PDF source using Open Budget datapackages"
     type: "pdf"
     pdf_config:
-      url: "file://botnim/document_parser/pdf_processor/test/input/legal_advisor_answers/1.pdf"
-      is_index_page: false
-      file_pattern: "*.pdf"
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
       download_directory: "./downloads/test-pdf"
       timeout: 60
       processing:
@@ -19,21 +18,25 @@ sources:
         max_tokens: 4000
         temperature: 0.1
         fields:
-          - name: "document_title"
+          - name: "committee_name"
             type: "string"
-            description: "Title of the document"
+            description: "Name of the committee that made the decision"
             required: true
-          - name: "document_date"
+          - name: "decision_date"
             type: "date"
-            description: "Date of the document"
+            description: "Date when the decision was made"
             required: false
-          - name: "document_summary"
+          - name: "decision_title"
+            type: "string"
+            description: "Title or subject of the decision"
+            required: false
+          - name: "decision_summary"
             type: "text"
-            description: "Brief summary of the document content"
+            description: "Summary of the decision content"
             required: false
-          - name: "key_points"
-            type: "array"
-            description: "Key points or findings from the document"
+          - name: "full_text"
+            type: "text"
+            description: "Full text content of the decision"
             required: false
         options:
           enable_ocr: true
@@ -41,8 +44,8 @@ sources:
           chunk_size: 1000
           chunk_overlap: 200
           max_file_size_mb: 50
-    versioning_strategy: "hash"
-    fetch_strategy: "direct"
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
     enabled: true
     priority: 1
     tags: ["test", "pdf", "document-parsing"]
