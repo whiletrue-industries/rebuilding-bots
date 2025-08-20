@@ -1,35 +1,35 @@
-# PDF Discovery and Processing Documentation
+# PDF Processing with Open Budget Data Sources
 
 ## Overview
 
-The PDF discovery and processing system automatically discovers new PDFs from remote sources, downloads them temporarily, processes them using the existing pipeline, and stores the results in the vector store. This system is designed to work as part of the automated sync infrastructure.
+The PDF processing system now uses Open Budget datapackages to automatically discover and process PDF documents. This system fetches structured data from Open Budget sources, downloads PDFs on-demand, extracts structured information, and stores results in Google Spreadsheets before vectorization. This approach provides better data consistency, change tracking, and integration with existing Open Budget infrastructure.
 
-> **Note:** This document describes the direct-to-vector-store PDF processing workflow. For more advanced use cases involving structured data extraction from PDFs into a Google Spreadsheet before vectorization, please see the `pdf_pipeline` source type in the [Sync Configuration Schema](./sync_config_schema.md).
+> **Note:** This document describes the Open Budget-based PDF processing workflow. The system uses Open Budget datapackages with `index.csv` and `datapackage.json` files for structured data discovery and change tracking.
 
 ## Key Features
 
-- **Automated Discovery**: Scans remote index pages for new PDF files
-- **Temporary Download**: Downloads PDFs to temporary location for processing
-- **Duplicate Prevention**: Tracks processed files to avoid reprocessing
-- **Integration**: Uses existing PDF processing pipeline
-- **Tracking**: Stores processing metadata in Elasticsearch
-- **Cleanup**: Automatically removes temporary files after processing
+- **Open Budget Integration**: Uses standardized Open Budget datapackages
+- **URL and Revision Tracking**: Tracks changes using revision-based detection
+- **Structured Data Extraction**: Uses AI to extract structured data from PDFs
+- **Google Sheets Integration**: Stores extracted data in Google Spreadsheets
+- **Change Detection**: Only processes new or updated PDFs based on revision tracking
+- **No Local Storage**: Downloads PDFs temporarily for processing only
 
 ## Architecture
 
 ### Core Components
 
-1. **PDFDiscoveryService**: Discovers PDF files from remote index pages
-2. **PDFDownloadManager**: Manages temporary download and cleanup
-3. **PDFProcessingTracker**: Tracks processing status in Elasticsearch
-4. **PDFDiscoveryProcessor**: Main orchestrator for the entire process
+1. **OpenBudgetDataSource**: Fetches and manages Open Budget datapackage data
+2. **PDFExtractionPipeline**: Processes PDFs and extracts structured data
+3. **SyncConfigAdapter**: Converts sync config to PDF extraction config
+4. **CSV Output Handler**: Manages CSV input/output with URL and revision tracking
 
 ### Data Flow
 
 ```
-Remote Index Page → PDF Discovery → Download → Process → Vector Store
-                                      ↓
-                              Tracking (Elasticsearch)
+Open Budget Datapackage → Change Detection → PDF Download → AI Extraction → Google Sheets → Vector Store
+         ↓
+   Revision Tracking
 ```
 
 ## Configuration
@@ -39,35 +39,13 @@ Remote Index Page → PDF Discovery → Download → Process → Vector Store
 PDF sources are configured in the sync configuration file (e.g., `specs/takanon/sync_config.yaml`):
 
 ```yaml
-- id: "ethics-committee-25-pdf"
-  name: "החלטות ועדת האתיקה - הכנסת ה-25"
-  description: "החלטות PDF מוועדת האתיקה של הכנסת ה-25"
+- id: "ethics-committee-decisions-pdf"
+  name: "החלטות ועדת האתיקה (Ethics Committee Decisions)"
+  description: "החלטות PDF מוועדת האתיקה - Open Budget source"
   type: "pdf"
   pdf_config:
-    url: "https://main.knesset.gov.il/activity/committees/ethics/pages/committeedecisions25.aspx"
-    is_index_page: true
-    file_pattern: "*.pdf"
-    download_directory: "./downloads/ethics-committee/25"
-    timeout: 60
-  versioning_strategy: "combined"
-  fetch_strategy: "index_page"
-  enabled: true
-  priority: 6
-  tags: ["משפטי", "אתיקה", "החלטות", "pdf", "כנסת-25"]
-```
-
-### PDF Processing Configuration
-
-PDF processing configuration is now integrated into the main sync configuration file. Each PDF source includes its own processing configuration:
-
-```yaml
-- id: "ethics-committee-25-pdf"
-  name: "החלטות ועדת האתיקה - הכנסת ה-25"
-  type: "pdf"
-  pdf_config:
-    url: "https://main.knesset.gov.il/activity/committees/ethics/pages/committeedecisions25.aspx"
-    is_index_page: true
-    file_pattern: "*.pdf"
+    index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
+    datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
     processing:
       model: "gpt-4.1-mini"
       max_tokens: 4000
@@ -81,442 +59,271 @@ PDF processing configuration is now integrated into the main sync configuration 
           type: "date"
           description: "Date when the decision was made"
           required: true
-        # ... more fields
+        - name: "member_name"
+          type: "string"
+          description: "Name of the Knesset member"
+          required: false
+        - name: "decision_summary"
+          type: "string"
+          description: "Summary of the decision"
+          required: false
       options:
         enable_ocr: true
         ocr_language: "heb+eng"
         chunk_size: 1000
         chunk_overlap: 200
         max_file_size_mb: 50
+  versioning_strategy: "revision"
+  fetch_strategy: "open_budget"
+  enabled: true
+  priority: 5
+  tags: ["משפטי", "אתיקה", "החלטות", "pdf", "open-budget"]
 ```
+
+### Open Budget Data Structure
+
+Each Open Budget datapackage contains:
+
+1. **`index.csv`**: Lists all available PDF files with metadata
+   ```csv
+   url,title,filename,date
+   https://example.com/doc1.pdf,Decision 1,doc1.pdf,2024-01-01
+   https://example.com/doc2.pdf,Decision 2,doc2.pdf,2024-01-02
+   ```
+
+2. **`datapackage.json`**: Contains metadata including revision information
+   ```json
+   {
+     "name": "ethics_committee_decisions",
+     "revision": "2025.08.20-01",
+     "hash": "abc123...",
+     "resources": [
+       {
+         "name": "index",
+         "path": "index.csv"
+       }
+     ]
+   }
+   ```
 
 ## Usage
 
 ### Command Line Interface
 
-#### Discover and Process PDFs
+#### Process PDF Sources
 
 ```bash
-# Discover and process PDFs from a specific source
-python -m botnim.sync.cli pdf-discover \
-  --config-file specs/takanon/sync_config.yaml \
-  --source-id ethics-committee-25-pdf \
-  --environment staging
+# Process PDF sources using Open Budget data
+python -m botnim.document_parser.pdf_processor.pdf_pipeline \
+  --config specs/takanon/sync_config.yaml \
+  --output-dir ./output \
+  --verbose
 ```
 
-#### Check Processing Status
+#### Process with Google Sheets Integration
 
 ```bash
-# Check processing status for a source
-python -m botnim.sync.cli pdf-status \
-  --source-id ethics-committee-25-pdf \
-  --environment staging \
-  --limit 10
+# Process and upload to Google Sheets
+python -m botnim.document_parser.pdf_processor.pdf_pipeline \
+  --config specs/takanon/sync_config.yaml \
+  --output-dir ./output \
+  --upload-sheets \
+  --sheets-credentials .google_spreadsheet_credentials.json \
+  --spreadsheet-id "your-spreadsheet-id" \
+  --replace-sheet
 ```
 
 ### Programmatic Usage
 
 ```python
-from botnim.sync.pdf_discovery import process_pdf_source
-from botnim.sync.config import SyncConfig
-from botnim.sync.cache import SyncCache
-from botnim.vector_store.vector_store_es import VectorStoreES
+from botnim.document_parser.pdf_processor.pdf_pipeline import PDFExtractionPipeline
+from botnim.document_parser.pdf_processor.sync_config_adapter import SyncConfigAdapter
 
-# Load configuration
-config = SyncConfig.from_yaml("specs/takanon/sync_config.yaml")
-source = config.get_source_by_id("ethics-committee-25-pdf")
+# Load configuration from sync config
+config = SyncConfigAdapter.load_pdf_sources_from_sync_config("specs/takanon/sync_config.yaml")
 
-# Initialize components
-cache = SyncCache()
-vector_store = VectorStoreES(environment="staging")
-openai_client = get_openai_client()
+# Initialize pipeline
+pipeline = PDFExtractionPipeline(config)
 
-# Process PDF source
-results = process_pdf_source(
-    source=source,
-    cache=cache,
-    vector_store=vector_store,
-    openai_client=openai_client
-)
+# Process all sources
+results = pipeline.process_directory("./output")
 
-print(f"Discovered: {results['discovered_pdfs']}")
-print(f"Processed: {results['processed_pdfs']}")
-print(f"Failed: {results['failed_pdfs']}")
+print(f"Processed {len(results)} sources")
 ```
 
 ## Processing Workflow
 
-### 1. Discovery Phase
+### 1. Configuration Loading
 
-The system scans the configured index page URL and extracts all PDF links:
+The system loads PDF source configurations from the main sync configuration:
 
-- Parses HTML content using BeautifulSoup
-- Identifies links ending with `.pdf`
-- Applies file pattern filters if specified
-- Generates unique identifiers for each PDF
+- Uses `SyncConfigAdapter` to convert sync config format to PDF extraction format
+- Validates Open Budget URLs (`index_csv_url`, `datapackage_url`)
+- Loads field extraction schemas from `processing` section
 
-### 2. Duplicate Detection
+### 2. Change Detection
 
-For each discovered PDF, the system checks if it has already been processed:
+For each source, the system performs change detection:
 
-- Uses URL hash as unique identifier
-- Queries Elasticsearch tracking index
-- Skips PDFs with "completed" status
+- Fetches current `datapackage.json` to get latest revision
+- Compares with existing data in Google Spreadsheet
+- Identifies new URLs or updated revisions
+- Only processes files that are new or have changed
 
-### 3. Download Phase
+### 3. Data Fetching
 
-New PDFs are downloaded to a temporary location:
+The system fetches structured data from Open Budget sources:
 
-- Creates temporary directory
-- Downloads file with proper headers
-- Handles network errors and timeouts
-- Tracks download status
+- Downloads `index.csv` to get list of available PDFs
+- Downloads `datapackage.json` to get revision information
+- Filters files based on change detection results
 
-### 4. Processing Phase
+### 4. PDF Processing
 
-PDFs are processed using the existing pipeline:
+Selected PDFs are processed using AI extraction:
 
-- Extracts text content (with OCR fallback)
-- Applies structured field extraction
-- Stores results in vector store
-- Computes content hash for tracking
+- Downloads PDF from Open Budget URL
+- Extracts text content (with OCR fallback if needed)
+- Applies AI-based field extraction using configured schema
+- Generates structured data records
 
-### 5. Tracking Phase
+### 5. Data Merging
 
-Processing status is recorded in Elasticsearch:
+New results are merged with existing data:
 
-- Creates tracking document with metadata
-- Records processing timestamps
-- Stores error messages if processing fails
-- Links to vector store document ID
+- Preserves unchanged records from existing Google Spreadsheet
+- Adds new records for newly processed PDFs
+- Updates records for PDFs with changed revisions
+- Maintains URL and revision tracking columns
 
-### 6. Cleanup Phase
+### 6. Output Generation
 
-Temporary files are removed:
+Results are written to CSV and optionally uploaded to Google Sheets:
 
-- Deletes downloaded PDF files
-- Removes temporary directories
-- Logs cleanup operations
+- Creates CSV with all records (new + existing)
+- Includes URL and revision columns for tracking
+- Optionally uploads to Google Sheets
+- Maintains data integrity and prevents duplicates
 
-## Tracking and Monitoring
+## Open Budget Data Sources
 
-### Elasticsearch Tracking Index
+### Available Sources
 
-The system creates a `pdf_processing_tracker` index in Elasticsearch with the following structure:
+The system currently supports these Open Budget datapackages:
 
-```json
-{
-  "source_id": "ethics-committee-25-pdf",
-  "pdf_url": "https://example.com/document.pdf",
-  "pdf_filename": "document.pdf",
-  "url_hash": "abc123...",
-  "download_timestamp": "2024-01-01T00:00:00Z",
-  "processing_status": "completed",
-  "processing_timestamp": "2024-01-01T00:05:00Z",
-  "error_message": null,
-  "content_hash": "def456...",
-  "vector_store_id": "doc123",
-  "metadata": {
-    "link_text": "Committee Decision",
-    "link_title": "Decision Title"
-  }
-}
+1. **Ethics Committee Decisions**
+   - URL: `https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/`
+   - Content: Ethics committee decisions and rulings
+
+2. **Knesset Committee Decisions**
+   - URL: `https://next.obudget.org/datapackages/knesset/knesset_committee_decisions/`
+   - Content: General Knesset committee decisions
+
+3. **Legal Advisor Guidance**
+   - URL: `https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/`
+   - Content: Legal guidance and opinions
+
+4. **Legal Advisor Letters**
+   - URL: `https://next.obudget.org/datapackages/knesset/knesset_legal_advisor_letters/`
+   - Content: Correspondence and letters from legal advisor
+
+### Adding New Sources
+
+To add a new Open Budget source:
+
+1. **Verify Open Budget Structure**: Ensure the source has `index.csv` and `datapackage.json`
+2. **Add Configuration**: Add a new source entry in `sync_config.yaml`
+3. **Define Fields**: Configure the field extraction schema
+4. **Test**: Run with test configuration first
+
+```yaml
+- id: "new-source-pdf"
+  name: "New Source"
+  type: "pdf"
+  pdf_config:
+    index_csv_url: "https://next.obudget.org/datapackages/your-source/index.csv"
+    datapackage_url: "https://next.obudget.org/datapackages/your-source/datapackage.json"
+    processing:
+      fields:
+        - name: "field1"
+          type: "string"
+          description: "Description of field1"
+        - name: "field2"
+          type: "date"
+          description: "Description of field2"
+  versioning_strategy: "revision"
+  fetch_strategy: "open_budget"
 ```
 
-### Status Values
+## Change Detection Logic
 
-- `downloading`: PDF is being downloaded
-- `downloaded`: PDF has been downloaded successfully
-- `processing`: PDF is being processed
-- `completed`: PDF has been processed and indexed
-- `failed`: Processing failed with error
+### Revision-Based Tracking
 
-### Querying Processing Status
+The system uses revision-based change detection:
 
-```python
-# Query processing status
-query = {
-    "query": {
-        "bool": {
-            "must": [
-                {"term": {"source_id": "ethics-committee-25-pdf"}},
-                {"term": {"processing_status": "completed"}}
-            ]
-        }
-    },
-    "sort": [{"processing_timestamp": {"order": "desc"}}]
-}
+1. **Current Revision**: Fetched from `datapackage.json`
+2. **Existing Revision**: Stored in Google Spreadsheet
+3. **URL Tracking**: Tracks individual PDF URLs
+4. **Change Logic**:
+   - If revision changed: Process all files in index.csv
+   - If revision unchanged: Only process new URLs
+   - If no existing data: Process all files
 
-results = vector_store.es.search(
-    index="pdf_processing_tracker",
-    body=query
-)
-
-# Process results
-for hit in results['hits']['hits']:
-    doc = hit['_source']
-    print(f"PDF: {doc['pdf_filename']}")
-    print(f"Status: {doc['processing_status']}")
-    print(f"Processed: {doc['processing_timestamp']}")
-```
-
-**Real-World Example: Legal Document Processing Pipeline**
+### Implementation
 
 ```python
-from botnim.sync.pdf_discovery import PDFDiscoveryProcessor
-from botnim.sync.config import SyncConfig
-from botnim.sync.cache import SyncCache
-from botnim.vector_store.vector_store_es import VectorStoreES
-from openai import OpenAI
-import tempfile
-import logging
-from datetime import datetime, timedelta
-
-class LegalDocumentProcessor:
-    """Process legal documents from multiple committee sources."""
+def get_files_to_process(self, existing_urls: Set[str], existing_revision: str) -> List[Dict]:
+    """Determine which files need processing based on change detection."""
+    current_revision = self.get_current_revision()
     
-    def __init__(self, config_path: str, environment: str = "production"):
-        self.config = SyncConfig.from_yaml(config_path)
-        self.cache = SyncCache()
-        self.vector_store = VectorStoreES(environment=environment)
-        self.openai_client = OpenAI()
-        self.temp_dir = tempfile.mkdtemp(prefix="legal_docs_")
-        self.logger = logging.getLogger(__name__)
-        
-        # Initialize PDF processor
-        self.pdf_processor = PDFDiscoveryProcessor(
-            cache=self.cache,
-            vector_store=self.vector_store,
-            openai_client=self.openai_client,
-            temp_directory=self.temp_dir
-        )
-    
-    def get_legal_sources(self):
-        """Get all legal document sources."""
-        pdf_sources = self.config.get_sources_by_type("pdf")
-        legal_sources = [s for s in pdf_sources if "legal" in s.tags or "committee" in s.tags]
-        return legal_sources
-    
-    def process_legal_documents(self):
-        """Process all legal document sources."""
-        
-        legal_sources = self.get_legal_sources()
-        self.logger.info(f"Processing {len(legal_sources)} legal document sources")
-        
-        results = {}
-        for source in legal_sources:
-            try:
-                self.logger.info(f"Processing legal source: {source.id}")
-                
-                # Process the source
-                result = self.pdf_processor.process_pdf_source(source)
-                results[source.id] = result
-                
-                # Log results
-                if result['status'] == 'success':
-                    self.logger.info(f"✅ {source.id}: {result['documents_processed']} documents processed")
-                else:
-                    self.logger.error(f"❌ {source.id}: {result.get('error', 'Unknown error')}")
-                
-            except Exception as e:
-                self.logger.error(f"Failed to process {source.id}: {e}")
-                results[source.id] = {
-                    'status': 'error',
-                    'error': str(e),
-                    'documents_processed': 0
-                }
-        
-        return results
-    
-    def generate_legal_report(self, results: dict):
-        """Generate legal document processing report."""
-        
-        report = {
-            "timestamp": datetime.now().isoformat(),
-            "total_sources": len(results),
-            "successful_sources": 0,
-            "failed_sources": 0,
-            "total_documents": 0,
-            "processing_time": 0,
-            "details": []
-        }
-        
-        for source_id, result in results.items():
-            if result.get('status') == 'success':
-                report["successful_sources"] += 1
-                report["total_documents"] += result.get('documents_processed', 0)
-            else:
-                report["failed_sources"] += 1
-            
-            report["details"].append({
-                "source_id": source_id,
-                "status": result.get('status'),
-                "documents_processed": result.get('documents_processed', 0),
-                "error": result.get('error'),
-                "processing_time": result.get('processing_time', 0)
-            })
-            
-            report["processing_time"] += result.get('processing_time', 0)
-        
-        return report
-    
-    def check_processing_status(self, source_id: str, days_back: int = 7):
-        """Check processing status for a specific source."""
-        
-        # Query recent processing activity
-        query = {
-            "query": {
-                "bool": {
-                    "must": [
-                        {"term": {"source_id": source_id}},
-                        {"range": {
-                            "processing_timestamp": {
-                                "gte": f"now-{days_back}d",
-                                "lte": "now"
-                            }
-                        }}
-                    ]
-                }
-            },
-            "sort": [{"processing_timestamp": {"order": "desc"}}],
-            "size": 100
-        }
-        
-        try:
-            results = self.vector_store.es.search(
-                index="pdf_processing_tracker",
-                body=query
-            )
-            
-            status_summary = {
-                "total_documents": len(results['hits']['hits']),
-                "completed": 0,
-                "failed": 0,
-                "processing": 0,
-                "recent_documents": []
-            }
-            
-            for hit in results['hits']['hits']:
-                doc = hit['_source']
-                status = doc.get('processing_status', 'unknown')
-                
-                if status == 'completed':
-                    status_summary["completed"] += 1
-                elif status == 'failed':
-                    status_summary["failed"] += 1
-                elif status in ['downloading', 'processing']:
-                    status_summary["processing"] += 1
-                
-                # Add recent documents
-                if len(status_summary["recent_documents"]) < 10:
-                    status_summary["recent_documents"].append({
-                        "filename": doc.get('pdf_filename'),
-                        "status": status,
-                        "timestamp": doc.get('processing_timestamp'),
-                        "error": doc.get('error_message')
-                    })
-            
-            return status_summary
-            
-        except Exception as e:
-            self.logger.error(f"Failed to query processing status: {e}")
-            return None
-    
-    def run_legal_processing(self):
-        """Run complete legal document processing workflow."""
-        
-        try:
-            self.logger.info("🚀 Starting legal document processing...")
-            
-            # Process all legal sources
-            results = self.process_legal_documents()
-            
-            # Generate report
-            report = self.generate_legal_report(results)
-            
-            # Log summary
-            self.logger.info(f"📊 Legal processing completed:")
-            self.logger.info(f"  - Sources processed: {report['total_sources']}")
-            self.logger.info(f"  - Successful: {report['successful_sources']}")
-            self.logger.info(f"  - Failed: {report['failed_sources']}")
-            self.logger.info(f"  - Total documents: {report['total_documents']}")
-            self.logger.info(f"  - Processing time: {report['processing_time']:.2f}s")
-            
-            # Check status for each source
-            for source_id in results.keys():
-                status = self.check_processing_status(source_id)
-                if status:
-                    self.logger.info(f"📋 {source_id} status:")
-                    self.logger.info(f"    - Total documents: {status['total_documents']}")
-                    self.logger.info(f"    - Completed: {status['completed']}")
-                    self.logger.info(f"    - Failed: {status['failed']}")
-                    self.logger.info(f"    - Processing: {status['processing']}")
-            
-            return report
-            
-        finally:
-            # Clean up
-            self.pdf_processor.cleanup()
-            self.logger.info("🧹 Legal document processing cleanup completed")
-
-# Usage example
-def main():
-    processor = LegalDocumentProcessor("config/legal_config.yaml")
-    report = processor.run_legal_processing()
-    
-    # Send report to legal team
-    if report["failed_sources"] > 0:
-        print("⚠️ Some legal sources failed processing!")
+    if existing_revision != current_revision:
+        # Revision changed - process all files
+        return self.index_data
     else:
-        print(f"✅ All legal sources processed successfully: {report['total_documents']} documents")
-
-if __name__ == "__main__":
-    main()
+        # Revision unchanged - only process new URLs
+        return [file for file in self.index_data if file['url'] not in existing_urls]
 ```
 
-## Error Handling
+## Data Schema
 
-### Common Error Scenarios
+### CSV Input/Output Format
 
-1. **Network Errors**: Download failures due to network issues
-2. **Invalid PDFs**: Corrupted or password-protected files
-3. **Processing Failures**: Text extraction or field extraction errors
-4. **Storage Errors**: Vector store or Elasticsearch issues
+The system uses a standardized CSV format with tracking columns:
 
-### Error Recovery
-
-- Failed downloads are retried up to 3 times
-- Processing errors are logged with detailed messages
-- Partial failures don't stop the entire process
-- Error status is tracked in Elasticsearch
-
-## Integration with Sync Workflow
-
-### As Part of Main Sync
-
-The PDF discovery can be integrated into the main sync workflow:
-
-```python
-def run_sync_workflow():
-    # Process HTML sources
-    process_html_sources()
-    
-    # Process PDF sources
-    process_pdf_sources()
-    
-    # Process spreadsheet sources
-    process_spreadsheet_sources()
+```csv
+url,revision,title,date,field1,field2,field3
+https://example.com/doc1.pdf,2025.08.20-01,Decision 1,2024-01-01,value1,value2,value3
+https://example.com/doc2.pdf,2025.08.20-01,Decision 2,2024-01-02,value4,value5,value6
 ```
 
-### Standalone Operation
+**Required Columns:**
+- `url`: Unique identifier for the PDF
+- `revision`: Current revision from datapackage.json
+- `title`: Title from index.csv (optional)
+- `date`: Date from index.csv (optional)
 
-PDF discovery can also run independently:
+**Dynamic Columns:**
+- All configured fields from the processing schema
+- Automatically collected from all sources
 
-```bash
-# Run PDF discovery only
-python -m botnim.sync.cli pdf-discover \
-  --config-file sync_config.yaml \
-  --source-id my-pdf-source
+### Field Extraction Schema
+
+Fields are defined in the configuration:
+
+```yaml
+fields:
+  - name: "decision_number"
+    type: "string"
+    description: "Number of the decision"
+    required: true
+  - name: "decision_date"
+    type: "date"
+    description: "Date of the decision"
+    required: true
+  - name: "member_name"
+    type: "string"
+    description: "Name of the Knesset member"
+    required: false
 ```
 
 ## Testing
@@ -526,67 +333,131 @@ python -m botnim.sync.cli pdf-discover \
 Run the test suite:
 
 ```bash
-python -m pytest botnim/sync/tests/test_pdf_discovery.py -v
+cd botnim/document_parser/pdf_processor/test
+python test_open_budget_integration.py
 ```
 
 ### Integration Tests
 
-Test with real sources:
+Test with mock Open Budget data:
 
 ```bash
-# Test with a small, controlled source
-python -m botnim.sync.cli pdf-discover \
-  --config-file test_config.yaml \
-  --source-id test-pdf-source \
-  --environment local
+# Run integration tests with mock data
+python test_open_budget_integration.py
+
+# Run specific test components
+python test_pdf_extraction.py -v
+```
+
+### Test Configuration
+
+Tests use mock Open Budget data sources:
+
+```yaml
+# test/config/test_config_open_budget.yaml
+sources:
+  - id: "test_ethics_committee_decisions"
+    name: "Test Ethics Committee Decisions"
+    index_csv_url: "file://test/data/mock_index.csv"
+    datapackage_url: "file://test/data/mock_datapackage.json"
+    unique_id_field: "url"
+    fields:
+      - name: "decision_number"
+        type: "string"
+        description: "Decision number"
+```
+
+## Error Handling
+
+### Common Error Scenarios
+
+1. **Network Errors**: Failed requests to Open Budget URLs
+2. **Invalid Datapackage**: Missing or malformed datapackage.json
+3. **Processing Failures**: PDF extraction or AI processing errors
+4. **Schema Validation**: Field extraction validation failures
+
+### Error Recovery
+
+- Network errors are retried with exponential backoff
+- Invalid datapackages raise clear error messages
+- Processing errors are logged with detailed context
+- Schema validation errors provide field-level feedback
+
+## Integration with Sync Workflow
+
+### As Part of Main Sync
+
+The PDF processing integrates with the main sync workflow:
+
+```python
+def run_sync_workflow():
+    # Process PDF sources (Open Budget)
+    process_pdf_sources()
+    
+    # Process spreadsheet sources (including generated PDF data)
+    process_spreadsheet_sources()
+    
+    # Process HTML sources
+    process_html_sources()
+```
+
+### Standalone Operation
+
+PDF processing can run independently:
+
+```bash
+# Run PDF processing only
+python -m botnim.document_parser.pdf_processor.pdf_pipeline \
+  --config sync_config.yaml \
+  --output-dir ./output
 ```
 
 ## Best Practices
 
 ### Configuration
 
-1. **Use Specific File Patterns**: Limit discovery to relevant PDFs
-2. **Set Appropriate Timeouts**: Balance between reliability and performance
-3. **Enable OCR**: Handle image-based PDFs
-4. **Configure Error Handling**: Set retry limits and error thresholds
+1. **Use Specific Field Schemas**: Define clear, specific field descriptions
+2. **Enable OCR**: Handle image-based PDFs with `enable_ocr: true`
+3. **Set Appropriate Timeouts**: Balance reliability and performance
+4. **Validate URLs**: Ensure Open Budget URLs are accessible
 
 ### Monitoring
 
-1. **Track Processing Status**: Monitor completion rates
-2. **Log Errors**: Review failed processing attempts
-3. **Monitor Storage**: Track vector store growth
-4. **Performance Metrics**: Monitor processing times
+1. **Track Processing Status**: Monitor completion rates and errors
+2. **Log Change Detection**: Monitor revision changes and file counts
+3. **Monitor Google Sheets**: Track data upload success rates
+4. **Performance Metrics**: Monitor processing times and throughput
 
 ### Security
 
-1. **Validate URLs**: Ensure sources are trusted
+1. **Validate Open Budget URLs**: Ensure sources are trusted
 2. **Limit File Sizes**: Prevent large file downloads
 3. **Sanitize Content**: Clean extracted text
-4. **Access Control**: Restrict vector store access
+4. **Access Control**: Restrict Google Sheets access
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **No PDFs Discovered**
-   - Check if the index page URL is accessible
-   - Verify file pattern matches PDF links
-   - Check network connectivity
+1. **No Files Processed**
+   - Check if Open Budget URLs are accessible
+   - Verify datapackage.json contains revision field
+   - Check change detection logic
 
-2. **Download Failures**
-   - Verify URL accessibility
+2. **Network Failures**
+   - Verify Open Budget service availability
    - Check timeout settings
    - Review network configuration
 
 3. **Processing Failures**
-   - Check PDF file integrity
-   - Verify processing configuration
+   - Check PDF file accessibility
+   - Verify field extraction schema
    - Review error logs
 
-4. **Tracking Issues**
-   - Verify Elasticsearch connectivity
-   - Check index permissions
-   - Review tracking configuration
+4. **Google Sheets Issues**
+   - Verify authentication credentials
+   - Check spreadsheet permissions
+   - Review upload configuration
 
 ### Debug Mode
 
@@ -594,14 +465,30 @@ Enable debug logging for detailed troubleshooting:
 
 ```python
 import logging
-logging.getLogger('botnim.sync.pdf_discovery').setLevel(logging.DEBUG)
+logging.getLogger('botnim.document_parser.pdf_processor').setLevel(logging.DEBUG)
 ```
+
+## Migration from Legacy System
+
+### Key Changes
+
+1. **Data Source**: From direct PDF scraping to Open Budget datapackages
+2. **Change Detection**: From file-based to revision-based tracking
+3. **Storage**: From direct vector store to Google Sheets intermediate storage
+4. **Configuration**: From separate PDF config to integrated sync config
+
+### Migration Steps
+
+1. **Update Configuration**: Replace `file_pattern` with Open Budget URLs
+2. **Update Tests**: Use mock Open Budget data instead of local PDFs
+3. **Update Documentation**: Reflect new architecture and workflow
+4. **Clean Repository**: Remove local PDF files and update .gitignore
 
 ## Future Enhancements
 
 ### Planned Features
 
-1. **Incremental Processing**: Process only changed content
+1. **Incremental Processing**: Process only changed content within PDFs
 2. **Batch Processing**: Process multiple PDFs in parallel
 3. **Content Validation**: Verify extracted content quality
 4. **Advanced Filtering**: More sophisticated file selection
@@ -609,7 +496,14 @@ logging.getLogger('botnim.sync.pdf_discovery').setLevel(logging.DEBUG)
 
 ### Performance Optimizations
 
-1. **Caching**: Cache discovered PDF lists
+1. **Caching**: Cache Open Budget datapackage data
 2. **Parallel Downloads**: Download multiple PDFs simultaneously
 3. **Streaming Processing**: Process PDFs as they download
 4. **Compression**: Compress temporary files
+
+### Integration Enhancements
+
+1. **Real-time Updates**: Subscribe to Open Budget change notifications
+2. **Multi-source Aggregation**: Combine data from multiple Open Budget sources
+3. **Advanced Analytics**: Track processing metrics and trends
+4. **API Integration**: Provide REST API for external access

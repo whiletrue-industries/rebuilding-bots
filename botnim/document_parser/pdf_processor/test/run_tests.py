@@ -90,13 +90,31 @@ def run_pipeline_test():
 def run_unit_tests():
     """Run the unit tests."""
     test_dir = Path(__file__).parent
-    test_file = test_dir / "test_pdf_extraction.py"
+    test_files = [
+        "test_pdf_extraction.py",
+        "test_open_budget_integration.py", 
+        "test_data_merging_scenarios.py"
+    ]
     
-    if not test_file.exists():
-        print("Error: test_pdf_extraction.py not found")
-        return False
+    results = []
+    for test_file in test_files:
+        test_path = test_dir / test_file
+        if not test_path.exists():
+            print(f"Warning: {test_file} not found, skipping")
+            continue
+        
+        print(f"Running {test_file}...")
+        cmd = [sys.executable, "-m", "pytest", str(test_path), "-v"]
+        
+        try:
+            result = subprocess.run(cmd, check=True, capture_output=False)
+            results.append(True)
+            print(f"✅ {test_file} passed")
+        except subprocess.CalledProcessError as e:
+            results.append(False)
+            print(f"❌ {test_file} failed with exit code {e.returncode}")
     
-    cmd = [sys.executable, "-m", "pytest", str(test_file), "-v"]
+    return all(results)
     
     print(f"Running unit tests: {' '.join(cmd)}")
     
