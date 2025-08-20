@@ -122,8 +122,12 @@ class PDFExtractionPipeline:
             all_results.extend(source_results)
             logger.info(f"Source '{source_config.name}': {len(source_results)} records processed")
         
+        # Merge with existing data to preserve unchanged records
+        final_results = self._merge_with_existing_data(all_results, existing_data)
+        logger.info(f"Final results: {len(final_results)} records (new: {len(all_results)}, existing: {len(existing_data)})")
+        
         # Write output CSV files by source
-        if all_results:
+        if final_results:
             # Get source configurations for field definitions
             source_configs = []
             for source_config in self.config.sources:
@@ -143,13 +147,13 @@ class PDFExtractionPipeline:
                 })
             
             # Write separate CSV files for each source
-            csv_files = write_csv_by_source(all_results, str(input_path), source_configs)
+            csv_files = write_csv_by_source(final_results, str(input_path), source_configs)
             logger.info(f"Wrote {len(csv_files)} source-specific CSV files")
             
             # Also write combined CSV for backward compatibility
             output_csv_path = input_path / "output.csv"
-            write_csv(all_results, str(output_csv_path))
-            logger.info(f"Wrote {len(all_results)} records to output.csv")
+            write_csv(final_results, str(output_csv_path))
+            logger.info(f"Wrote {len(final_results)} records to output.csv")
         
         # Save metrics if enabled
         if self.metrics:
@@ -158,7 +162,7 @@ class PDFExtractionPipeline:
             logger.info(f"Performance metrics saved to: {metrics_path}")
         
         # Generate and log final pipeline summary
-        self._log_pipeline_summary(all_results, sources_to_process, input_path, failed_files, failed_sources, sources_with_no_files)
+        self._log_pipeline_summary(final_results, sources_to_process, input_path, failed_files, failed_sources, sources_with_no_files)
         
         return True
     
@@ -431,9 +435,14 @@ class PDFExtractionPipeline:
             if 'revision' in record and existing_revision is None:
                 existing_revision = record['revision']
         
+        logger.info(f"Change detection for {source_config.name}:")
+        logger.info(f"  - Existing URLs: {len(existing_urls)}")
+        logger.info(f"  - Existing revision: {existing_revision or 'none'}")
+        
         # Get current revision
         try:
             current_revision = ob_source.get_current_revision()
+            logger.info(f"  - Current revision: {current_revision}")
         except Exception as e:
             logger.error(f"Failed to get current revision for {source_config.name}: {e}")
             return [], [{'source_name': source_config.name, 'error_message': str(e)}]
@@ -446,8 +455,14 @@ class PDFExtractionPipeline:
             return [], [{'source_name': source_config.name, 'error_message': str(e)}]
         
         if not files_to_process:
-            logger.info(f"No files need processing for {source_config.name}")
+            logger.info(f"  - No files need processing (all up to date)")
             return [], []
+        
+        logger.info(f"  - Files to process: {len(files_to_process)}")
+        for file_info in files_to_process[:3]:  # Show first 3 files
+            logger.info(f"    * {file_info['filename']}: {file_info['url']}")
+        if len(files_to_process) > 3:
+            logger.info(f"    * ... and {len(files_to_process) - 3} more files")
         
         # Process each file
         source_results = []
@@ -493,4 +508,52 @@ class PDFExtractionPipeline:
                     self.metrics.record_extraction(metrics)
         
         return source_results, source_failed_files
+    
+    def _merge_with_existing_data(self, new_results: List[Dict[str, Any]], existing_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Merge new results with existing data, preserving unchanged records.
+        
+        Args:
+            new_results: Newly processed records
+            existing_data: Existing records from input.csv
+            
+        Returns:
+            Combined list of records with existing data preserved
+        """
+        if not existing_data:
+            logger.info("No existing data to merge")
+            return new_results
+        
+        # Create lookup for new results by URL
+        new_results_lookup = {}
+        for record in new_results:
+            url = record.get('url', '')
+            if url:
+                new_results_lookup[url] = record
+        
+        # Create lookup for existing data by URL
+        existing_data_lookup = {}
+        for record in existing_data:
+            url = record.get('url', '')
+            if url:
+                existing_data_lookup[url] = record
+        
+        # Track what we're doing
+        preserved_count = 0
+        updated_count = 0
+        new_count = len(new_results)
+        
+        # Start with new results
+        final_results = list(new_results)
+        
+        # Add existing records that weren't updated
+        for url, existing_record in existing_data_lookup.items():
+            if url not in new_results_lookup:
+                final_results.append(existing_record)
+                preserved_count += 1
+                logger.debug(f"Preserved existing record: {url}")
+        
+        logger.info(f"Data merge summary: {new_count} new/updated, {preserved_count} preserved, {len(final_results)} total")
+        
+        return final_results
     

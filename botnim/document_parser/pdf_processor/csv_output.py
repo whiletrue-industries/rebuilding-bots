@@ -56,6 +56,12 @@ def write_csv(data: List[Dict[str, Any]], output_path: str) -> str:
         all_fieldnames = set()
         for record in data:
             all_fieldnames.update(record.keys())
+        
+        # Ensure URL and revision columns are always present
+        required_columns = ['url', 'revision']
+        for col in required_columns:
+            all_fieldnames.add(col)
+        
         fieldnames = sorted(list(all_fieldnames))
         
         # Ensure output directory exists
@@ -116,8 +122,11 @@ def write_csv_by_source(data: List[Dict[str, Any]], output_dir: str, source_conf
         # Get field names from config
         config_fieldnames = [field['name'] for field in config.get('fields', [])]
         
-        # Add common metadata fields
-        all_fieldnames = ['source_name', 'source_url', 'extraction_date', 'input_file'] + config_fieldnames
+        # Add common metadata fields including URL and revision tracking
+        all_fieldnames = [
+            'source_name', 'source_url', 'extraction_date', 'input_file',
+            'url', 'revision', 'title', 'date'  # Open Budget tracking fields
+        ] + config_fieldnames
         
         # Filter records to only include relevant fields
         filtered_records = []
