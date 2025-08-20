@@ -157,9 +157,8 @@ sources:
     priority: 1
     pdf_pipeline_config:
       input_config:
-        url: "https://example.com/ethics-decisions/"
-        is_index_page: true
-        file_pattern: "*.pdf"
+        index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
+        datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
       output_config:
         spreadsheet_id: "your-spreadsheet-id"
         sheet_name: "Ethics_Committee_Decisions"
@@ -183,20 +182,24 @@ For more details, see the sync infrastructure documentation in `docs/`.
 
 #### PDF Pipeline Processing Features
 
-The PDF-to-Spreadsheet pipeline provides pre-processing capabilities for PDF sources:
+The PDF-to-Spreadsheet pipeline provides pre-processing capabilities for PDF sources using Open Budget data:
 
-- **Automatic PDF Discovery** - Discovers PDFs from URLs or index pages with pattern matching
+- **Open Budget Integration** - Uses Open Budget datapackages with index.csv and datapackage.json
+- **URL and Revision Tracking** - Tracks changes using revision-based change detection
 - **Structured Data Extraction** - Uses AI to extract structured data from PDFs with configurable schemas
 - **Dynamic Splitting** - Supports extracting multiple records (e.g., decisions) from single PDFs
 - **Google Sheets Integration** - Automatically uploads extracted data to Google Sheets
 - **Seamless Sync Integration** - Creates new spreadsheet sources that are automatically processed by the main sync
-- **Comprehensive Testing** - Full test suite covering all scenarios (single/multiple PDFs, single/multiple decisions)
+- **Comprehensive Testing** - Full test suite covering all scenarios with mock Open Budget data sources
 
 **How it works:**
-1. **Pre-processing Phase**: PDF pipelines run first, processing PDFs and creating Google Sheets
-2. **Automatic Source Creation**: New spreadsheet sources are automatically added to the sync queue
-3. **Main Sync Phase**: The generated spreadsheets are processed like any other spreadsheet source
-4. **Vectorization**: Content is embedded and indexed in the vector store
+1. **Open Budget Data Fetching**: Fetches index.csv and datapackage.json from Open Budget sources
+2. **Change Detection**: Compares current revision with existing data to identify new/updated PDFs
+3. **PDF Processing**: Downloads and processes only new or updated PDFs using AI extraction
+4. **Google Sheets Upload**: Uploads extracted data to Google Sheets with URL and revision tracking
+5. **Automatic Source Creation**: New spreadsheet sources are automatically added to the sync queue
+6. **Main Sync Phase**: The generated spreadsheets are processed like any other spreadsheet source
+7. **Vectorization**: Content is embedded and indexed in the vector store
 
 **Example Usage:**
 ```bash
@@ -732,8 +735,9 @@ The pipeline uses YAML configuration files to define PDF sources and extraction 
 sources:
   - name: "Ethics Committee Decisions"
     description: "Decisions of the Knesset Ethics Committee"
-    file_pattern: "ethics_decisions/*.pdf"
-    unique_id_field: "source_url"
+    unique_id_field: "url"
+    index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
+    datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
     fields:
       - name: "decision_date"
         description: "Date of the ethics decision"

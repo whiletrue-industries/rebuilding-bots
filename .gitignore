@@ -7,5 +7,7 @@ __pycache__/
 .cursor/rules/onboarding.mdc
 venv/
 
+*.pdf
+
 botnim/document_parser/dynamic_extractions/logs/chunks/*
 !botnim/document_parser/dynamic_extractions/logs/chunks/.gitkeep

@@ -3,12 +3,11 @@
 Test runner for PDF extraction pipeline.
 
 This script runs the PDF extraction pipeline tests with the organized test structure:
-- test/input/: Contains test PDF files
+- test/config/: Contains test configuration files (Open Budget data sources)
+- test/data/: Contains mock test data files
 - test/output/: Contains test output files
-- test/config/: Contains test configuration files
 """
 
-import os
 import sys
 import subprocess
 import logging
@@ -22,12 +21,12 @@ def setup_logging():
     )
 
 def run_pipeline_test():
-    """Run the PDF pipeline test with the new organized structure."""
+    """Run the PDF pipeline test with Open Budget data sources."""
     # Get the test directory paths
     test_dir = Path(__file__).parent
-    input_dir = test_dir / "input"
     output_dir = test_dir / "output"
     config_dir = test_dir / "config"
+    data_dir = test_dir / "data"
     
     # Ensure output directory exists
     output_dir.mkdir(exist_ok=True)
@@ -38,27 +37,21 @@ def run_pipeline_test():
         print("Error: No YAML config file found in test/config/")
         return False
     
-    # Check for PDF files in subdirectories
-    ethic_decisions_dir = input_dir / "ethic_commitee_decisions"
-    legal_advisor_dir = input_dir / "legal_advisor_answers"
-    knesset_committee_dir = input_dir / "knesset_committee"
-    legal_advisor_letters_dir = input_dir / "legal_advisor_letters"
+    # Check for mock data files
+    mock_index = data_dir / "mock_index.csv"
+    mock_datapackage = data_dir / "mock_datapackage.json"
     
-    ethic_files = list(ethic_decisions_dir.glob("*.pdf")) if ethic_decisions_dir.exists() else []
-    legal_files = list(legal_advisor_dir.glob("*.pdf")) if legal_advisor_dir.exists() else []
-    knesset_files = list(knesset_committee_dir.glob("*.pdf")) if knesset_committee_dir.exists() else []
-    legal_letters_files = list(legal_advisor_letters_dir.glob("*.pdf")) if legal_advisor_letters_dir.exists() else []
-    
-    total_files = len(ethic_files) + len(legal_files) + len(knesset_files) + len(legal_letters_files)
-    if total_files == 0:
-        print("Error: No PDF files found in test/input/ subdirectories")
+    if not mock_index.exists():
+        print("Error: Mock index.csv not found in test/data/")
         return False
     
-    print(f"Found {len(ethic_files)} ethics committee decision files in {ethic_decisions_dir}")
-    print(f"Found {len(legal_files)} legal advisor correspondence files in {legal_advisor_dir}")
-    print(f"Found {len(knesset_files)} knesset committee decision files in {knesset_committee_dir}")
-    print(f"Found {len(legal_letters_files)} legal advisor letters/guidelines files in {legal_advisor_letters_dir}")
-    print(f"Total: {total_files} PDF files")
+    if not mock_datapackage.exists():
+        print("Error: Mock datapackage.json not found in test/data/")
+        return False
+    
+    print(f"Found mock data files:")
+    print(f"  - Index: {mock_index}")
+    print(f"  - Datapackage: {mock_datapackage}")
     print(f"Using config: {config_file}")
     print(f"Output directory: {output_dir}")
     
