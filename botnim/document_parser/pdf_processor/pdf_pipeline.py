@@ -9,12 +9,12 @@ This module implements a clean separation of concerns:
 """
 
 import os
-import glob
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
 from .pdf_extraction_config import PDFExtractionConfig
+from .sync_config_adapter import SyncConfigAdapter
 from .text_extraction import extract_text_from_pdf, fix_ocr_full_content
 from .field_extraction import extract_fields_from_text
 from .csv_output import write_csv, read_csv, write_csv_by_source
@@ -22,6 +22,7 @@ from .metrics import MetricsCollector
 from .metadata_handler import MetadataHandler
 from .exceptions import PDFExtractionError, PDFTextExtractionError, FieldExtractionError
 from .metrics import ExtractionMetrics
+from .open_budget_data_source import OpenBudgetDataSource
 
 from botnim.config import get_logger
 logger = get_logger(__name__)
@@ -48,7 +49,15 @@ class PDFExtractionPipeline:
             openai_client: OpenAI client for field extraction
             enable_metrics: Whether to collect performance metrics
         """
-        self.config = PDFExtractionConfig.from_yaml(config_path)
+        # Try to load as sync config first, then as PDF extraction config
+        try:
+            self.config = SyncConfigAdapter.load_pdf_sources_from_sync_config(config_path)
+            logger.info(f"Loaded {len(self.config.sources)} PDF sources from sync config")
+        except Exception as e:
+            logger.info(f"Failed to load as sync config, trying as PDF extraction config: {e}")
+            self.config = PDFExtractionConfig.from_yaml(config_path)
+            logger.info(f"Loaded {len(self.config.sources)} sources from PDF extraction config")
+        
         self.openai_client = openai_client
         self.metrics = MetricsCollector() if enable_metrics else None
         
@@ -95,55 +104,18 @@ class PDFExtractionPipeline:
         for source_config in sources_to_process:
             logger.info(f"Processing source: {source_config.name}")
             
-            # Find PDF files for this source
-            pdf_files = self._find_pdf_files(input_path, source_config.file_pattern)
-            if not pdf_files:
-                logger.warning(f"No PDF files found for source '{source_config.name}'")
-                sources_with_no_files.append(source_config.name)
-                continue
-            
-            # Process each PDF file
-            source_results = []
-            source_failed_files = []
-            
-            for pdf_file in pdf_files:
-                try:
-                    result = self._process_single_pdf(
-                        pdf_file, source_config, metadata_handler
-                    )
-                    if result:
-                        source_results.extend(result)
-                except Exception as e:
-                    error_info = {
-                        'file_path': str(pdf_file),
-                        'source_name': source_config.name,
-                        'error_message': str(e),
-                        'file_name': pdf_file.name
-                    }
-                    failed_files.append(error_info)
-                    source_failed_files.append(error_info)
-                    logger.error(f"Failed to process {pdf_file}: {e}")
-                    if self.metrics:
-                        metrics = ExtractionMetrics(
-                            pdf_path=str(pdf_file),
-                            source_name=source_config.name,
-                            text_extraction_time=0.0,
-                            field_extraction_time=0.0,
-                            total_processing_time=0.0,
-                            text_length=0,
-                            entities_extracted=0,
-                            success=False,
-                            error_message=str(e)
-                        )
-                        self.metrics.record_extraction(metrics)
+            # Process source
+            source_results, source_failed_files = self._process_source(
+                source_config, existing_data, input_path, metadata_handler
+            )
             
             # Track sources with failures
             if source_failed_files:
                 failed_sources.append({
                     'source_name': source_config.name,
                     'failed_files': source_failed_files,
-                    'total_files': len(pdf_files),
-                    'successful_files': len(pdf_files) - len(source_failed_files)
+                    'total_files': len(source_failed_files) + len(source_results),
+                    'successful_files': len(source_results)
                 })
             
             # Merge with existing data
@@ -190,22 +162,9 @@ class PDFExtractionPipeline:
         
         return True
     
-    def _find_pdf_files(self, input_path: Path, file_pattern: str) -> List[Path]:
-        """Find PDF files matching the pattern in the input directory."""
-        
-        # Resolve pattern relative to input directory
-        if not os.path.isabs(file_pattern):
-            pattern = str(input_path / file_pattern)
-        
-        pdf_files = []
-        for file_path in glob.glob(pattern):
-            if Path(file_path).suffix.lower() == '.pdf':
-                pdf_files.append(Path(file_path))
-        
-        logger.info(f"Found {len(pdf_files)} PDF files for pattern '{file_pattern}'")
-        return pdf_files
+
     
-    def _process_single_pdf(self, pdf_path: Path, source_config, metadata_handler) -> List[Dict[str, Any]]:
+    def _process_single_pdf(self, pdf_path: Path, source_config, metadata_handler, file_info: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """
         Process a single PDF file and extract structured data.
         
@@ -213,6 +172,7 @@ class PDFExtractionPipeline:
             pdf_path: Path to PDF file
             source_config: Source configuration
             metadata_handler: Metadata handler
+            file_info: Optional file metadata from Open Budget source
             
         Returns:
             List of extracted records
@@ -262,6 +222,16 @@ class PDFExtractionPipeline:
                     'input_file': str(pdf_path),
                     **data
                 }
+                
+                # Add Open Budget metadata if available
+                if file_info:
+                    record.update({
+                        'url': file_info.get('url', ''),
+                        'title': file_info.get('title', ''),
+                        'date': file_info.get('date', ''),
+                        'revision': file_info.get('revision', '')
+                    })
+                
                 records.append(record)
             
             # Record metrics
@@ -430,4 +400,97 @@ class PDFExtractionPipeline:
         
         logger.info("=" * 80)
 
- 
+    def _process_source(self, source_config, existing_data, input_path, metadata_handler):
+        """
+        Process a source using Open Budget index.csv and datapackage.json.
+        
+        Args:
+            source_config: Source configuration with Open Budget URLs
+            existing_data: Existing CSV data for change detection
+            input_path: Input directory path
+            metadata_handler: Metadata handler instance
+            
+        Returns:
+            Tuple of (source_results, source_failed_files)
+        """
+        logger.info(f"Processing source: {source_config.name}")
+        
+        # Initialize Open Budget data source
+        ob_source = OpenBudgetDataSource(
+            index_csv_url=source_config.index_csv_url,
+            datapackage_url=source_config.datapackage_url
+        )
+        
+        # Extract existing URLs and revision for change detection
+        existing_urls = set()
+        existing_revision = None
+        
+        for record in existing_data:
+            if 'url' in record:
+                existing_urls.add(record['url'])
+            if 'revision' in record and existing_revision is None:
+                existing_revision = record['revision']
+        
+        # Get current revision
+        try:
+            current_revision = ob_source.get_current_revision()
+        except Exception as e:
+            logger.error(f"Failed to get current revision for {source_config.name}: {e}")
+            return [], [{'source_name': source_config.name, 'error_message': str(e)}]
+        
+        # Get files that need processing
+        try:
+            files_to_process = ob_source.get_files_to_process(existing_urls, existing_revision or "unknown")
+        except Exception as e:
+            logger.error(f"Failed to get files to process for {source_config.name}: {e}")
+            return [], [{'source_name': source_config.name, 'error_message': str(e)}]
+        
+        if not files_to_process:
+            logger.info(f"No files need processing for {source_config.name}")
+            return [], []
+        
+        # Process each file
+        source_results = []
+        source_failed_files = []
+        
+        for file_info in files_to_process:
+            # Add revision to file_info
+            file_info['revision'] = current_revision
+            try:
+                # Download the PDF
+                download_dir = input_path / "downloads" / source_config.name
+                pdf_path = ob_source.download_pdf(file_info['filename'], str(download_dir))
+                
+                # Process the PDF
+                result = self._process_single_pdf(
+                    Path(pdf_path), source_config, metadata_handler, file_info
+                )
+                if result:
+                    source_results.extend(result)
+                    
+            except Exception as e:
+                error_info = {
+                    'file_path': file_info.get('filename', 'unknown'),
+                    'source_name': source_config.name,
+                    'error_message': str(e),
+                    'file_name': file_info.get('filename', 'unknown')
+                }
+                source_failed_files.append(error_info)
+                logger.error(f"Failed to process {file_info.get('filename', 'unknown')}: {e}")
+                
+                if self.metrics:
+                    metrics = ExtractionMetrics(
+                        pdf_path=file_info.get('filename', 'unknown'),
+                        source_name=source_config.name,
+                        text_extraction_time=0.0,
+                        field_extraction_time=0.0,
+                        total_processing_time=0.0,
+                        text_length=0,
+                        entities_extracted=0,
+                        success=False,
+                        error_message=str(e)
+                    )
+                    self.metrics.record_extraction(metrics)
+        
+        return source_results, source_failed_files
+    

@@ -88,34 +88,67 @@ sources:
     priority: 4
     tags: ["משפטי", "כנסת", "לקסיקון", "html"]
 
-  # PDF Sources - Ethics Committee Decisions
+  # PDF Sources - Ethics Committee Decisions (Open Budget)
   - id: "ethics-committee-decisions-pdf"
     name: "החלטות ועדת האתיקה (Ethics Committee Decisions)"
-    description: "החלטות PDF מוועדת האתיקה במספר מושבי כנסת"
+    description: "החלטות PDF מוועדת האתיקה - Open Budget source"
     type: "pdf"
     pdf_config:
-      url: "https://main.knesset.gov.il/Activity/committees/Ethics/Pages/CommitteeDecisionsPast.aspx"
-      is_index_page: true
-      file_pattern: "*.pdf"
-      download_directory: "./downloads/ethics-committee"
-      timeout: 120
-    versioning_strategy: "combined"
-    fetch_strategy: "index_page"
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "committee_name"
+            type: "string"
+            description: "Name of the committee that made the decision"
+            required: true
+          - name: "decision_date"
+            type: "date"
+            description: "Date when the decision was made"
+            required: true
+          - name: "decision_number"
+            type: "string"
+            description: "Decision number or identifier"
+            required: false
+          - name: "decision_title"
+            type: "string"
+            description: "Title or subject of the decision"
+            required: true
+          - name: "decision_summary"
+            type: "text"
+            description: "Summary of the decision content"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content of the decision"
+            required: true
+          - name: "keywords"
+            type: "array"
+            description: "Key terms and topics mentioned in the decision"
+            required: false
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
     enabled: true
     priority: 5
-    tags: ["משפטי", "אתיקה", "החלטות", "pdf"]
+    tags: ["משפטי", "אתיקה", "החלטות", "pdf", "open-budget"]
 
-  # Individual Knesset Ethics Committee Index Pages
-  - id: "ethics-committee-25-pdf"
-    name: "החלטות ועדת האתיקה - הכנסת ה-25"
-    description: "החלטות PDF מוועדת האתיקה של הכנסת ה-25"
+  # Knesset Committee Decisions (Open Budget)
+  - id: "knesset-committee-decisions-pdf"
+    name: "החלטות ועדת הכנסת (Knesset Committee Decisions)"
+    description: "החלטות PDF מוועדת הכנסת - Open Budget source"
     type: "pdf"
     pdf_config:
-      url: "https://main.knesset.gov.il/activity/committees/ethics/pages/committeedecisions25.aspx"
-      is_index_page: true
-      file_pattern: "*.pdf"
-      download_directory: "./downloads/ethics-committee/25"
-      timeout: 60
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_committee_decisions/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_committee_decisions/datapackage.json"
       processing:
         model: "gpt-4.1-mini"
         max_tokens: 4000
@@ -155,54 +188,52 @@ sources:
           chunk_size: 1000
           chunk_overlap: 200
           max_file_size_mb: 50
-    versioning_strategy: "combined"
-    fetch_strategy: "index_page"
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
     enabled: true
     priority: 6
-    tags: ["משפטי", "אתיקה", "החלטות", "pdf", "כנסת-25"]
+    tags: ["משפטי", "ועדות", "החלטות", "pdf", "open-budget"]
 
-  - id: "ethics-committee-23-pdf"
-    name: "החלטות ועדת האתיקה - הכנסת ה-23"
-    description: "החלטות PDF מוועדת האתיקה של הכנסת ה-23"
+  # Knesset Legal Advisor Guidance (Open Budget)
+  - id: "knesset-legal-advisor-pdf"
+    name: "חוות דעת והנחיות של היועצת המשפטית לכנסת (Knesset Legal Advisor Guidance)"
+    description: "חוות דעת והנחיות PDF מהיועצת המשפטית לכנסת - Open Budget source"
     type: "pdf"
     pdf_config:
-      url: "https://main.knesset.gov.il/activity/committees/ethics/pages/committeedecisions23.aspx"
-      is_index_page: true
-      file_pattern: "*.pdf"
-      download_directory: "./downloads/ethics-committee/23"
-      timeout: 60
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/datapackage.json"
       processing:
         model: "gpt-4.1-mini"
         max_tokens: 4000
         temperature: 0.1
         fields:
-          - name: "committee_name"
+          - name: "advisor_name"
             type: "string"
-            description: "Name of the committee that made the decision"
+            description: "Name of the legal advisor"
             required: true
-          - name: "decision_date"
+          - name: "document_date"
             type: "date"
-            description: "Date when the decision was made"
+            description: "Date of the document"
             required: true
-          - name: "decision_number"
+          - name: "document_title"
             type: "string"
-            description: "Decision number or identifier"
-            required: false
-          - name: "decision_title"
-            type: "string"
-            description: "Title or subject of the decision"
+            description: "Title of the document"
             required: true
-          - name: "decision_summary"
+          - name: "document_type"
+            type: "string"
+            description: "Type of document (opinion, guidance, etc.)"
+            required: true
+          - name: "document_summary"
             type: "text"
-            description: "Summary of the decision content"
+            description: "Summary of the document content"
             required: true
           - name: "full_text"
             type: "text"
-            description: "Full text content of the decision"
+            description: "Full text content of the document"
             required: true
           - name: "keywords"
             type: "array"
-            description: "Key terms and topics mentioned in the decision"
+            description: "Key terms and topics mentioned in the document"
             required: false
         options:
           enable_ocr: true
@@ -210,54 +241,56 @@ sources:
           chunk_size: 1000
           chunk_overlap: 200
           max_file_size_mb: 50
-    versioning_strategy: "combined"
-    fetch_strategy: "index_page"
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
     enabled: true
     priority: 7
-    tags: ["משפטי", "אתיקה", "החלטות", "pdf", "כנסת-23"]
+    tags: ["משפטי", "יועץ-משפטי", "חוות-דעת", "pdf", "open-budget"]
 
-  - id: "ethics-committee-20-pdf"
-    name: "החלטות ועדת האתיקה - הכנסת ה-20"
-    description: "החלטות PDF מוועדת האתיקה של הכנסת ה-20"
+  # Knesset Legal Advisor Letters (Open Budget)
+  - id: "knesset-legal-advisor-letters-pdf"
+    name: "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת (Knesset Legal Advisor Letters)"
+    description: "מכתבי פנייה ומכתבי תשובה PDF מהיועצת המשפטית של הכנסת - Open Budget source"
     type: "pdf"
     pdf_config:
-      url: "https://main.knesset.gov.il/activity/committees/ethics/pages/committeedecisions20.aspx"
-      is_index_page: true
-      file_pattern: "*.pdf"
-      download_directory: "./downloads/ethics-committee/20"
-      timeout: 60
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor_letters/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor_letters/datapackage.json"
       processing:
         model: "gpt-4.1-mini"
         max_tokens: 4000
         temperature: 0.1
         fields:
-          - name: "committee_name"
+          - name: "advisor_name"
             type: "string"
-            description: "Name of the committee that made the decision"
+            description: "Name of the legal advisor"
             required: true
-          - name: "decision_date"
+          - name: "letter_date"
             type: "date"
-            description: "Date when the decision was made"
+            description: "Date of the letter"
             required: true
-          - name: "decision_number"
+          - name: "letter_title"
             type: "string"
-            description: "Decision number or identifier"
+            description: "Title or subject of the letter"
+            required: true
+          - name: "letter_type"
+            type: "string"
+            description: "Type of letter (inquiry, response, etc.)"
+            required: true
+          - name: "recipient"
+            type: "string"
+            description: "Recipient of the letter"
             required: false
-          - name: "decision_title"
-            type: "string"
-            description: "Title or subject of the decision"
-            required: true
-          - name: "decision_summary"
+          - name: "letter_summary"
             type: "text"
-            description: "Summary of the decision content"
+            description: "Summary of the letter content"
             required: true
           - name: "full_text"
             type: "text"
-            description: "Full text content of the decision"
+            description: "Full text content of the letter"
             required: true
           - name: "keywords"
             type: "array"
-            description: "Key terms and topics mentioned in the decision"
+            description: "Key terms and topics mentioned in the letter"
             required: false
         options:
           enable_ocr: true
@@ -265,11 +298,11 @@ sources:
           chunk_size: 1000
           chunk_overlap: 200
           max_file_size_mb: 50
-    versioning_strategy: "combined"
-    fetch_strategy: "index_page"
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
     enabled: true
     priority: 8
-    tags: ["משפטי", "אתיקה", "החלטות", "pdf", "כנסת-20"]
+    tags: ["משפטי", "יועץ-משפטי", "מכתבים", "pdf", "open-budget"]
 
   # Wikisource HTML Sources
   - id: "knesset-law-wikisource"

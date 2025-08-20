@@ -34,19 +34,21 @@ class SourceConfig(BaseModel):
     Attributes:
         name: Unique name for this source
         description: Human-readable description of the source
-        file_pattern: Glob pattern to match PDF files for this source
         unique_id_field: Field name that serves as unique identifier
         metadata: Static metadata to add to all extracted records
         fields: List of fields to extract from documents
         extraction_instructions: Instructions for the LLM extraction process
+        index_csv_url: URL to Open Budget index.csv file
+        datapackage_url: URL to Open Budget datapackage.json file
     """
     name: str = Field(..., description="Unique source name")
     description: Optional[str] = Field(None, description="Source description")
-    file_pattern: str = Field(..., description="Glob pattern for PDF files")
     unique_id_field: str = Field(..., description="Field name for unique identification")
     metadata: Dict[str, str] = Field(default_factory=dict, description="Static metadata for all records")
     fields: List[FieldConfig] = Field(..., description="Fields to extract from documents")
     extraction_instructions: Optional[str] = Field(None, description="LLM extraction instructions")
+    index_csv_url: str = Field(..., description="URL to Open Budget index.csv file")
+    datapackage_url: str = Field(..., description="URL to Open Budget datapackage.json file")
 
 class PDFExtractionConfig(BaseModel):
     """
