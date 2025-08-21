@@ -240,39 +240,3 @@ class MetadataHandler:
             return False
         
         return True
-    
-    def update_source_url(self, pdf_path: Path, new_url: str) -> bool:
-        """
-        Update the source URL for a PDF file.
-        
-        Args:
-            pdf_path: Path to PDF file
-            new_url: New source URL
-            
-        Returns:
-            True if update was successful, False otherwise
-        """
-        metadata_path = self._get_metadata_path(pdf_path)
-        
-        try:
-            # Load existing metadata or create new
-            if metadata_path.exists():
-                with open(metadata_path, 'r', encoding='utf-8') as f:
-                    metadata = json.load(f)
-            else:
-                metadata = self._create_default_metadata(pdf_path)
-            
-            # Update source URL
-            metadata['source_url'] = new_url
-            metadata['last_updated'] = datetime.now().isoformat()
-            
-            # Write updated metadata
-            with open(metadata_path, 'w', encoding='utf-8') as f:
-                json.dump(metadata, f, indent=2, ensure_ascii=False)
-            
-            logger.info(f"Updated source URL for {pdf_path.name}: {new_url}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to update source URL for {pdf_path.name}: {e}")
-            return False 

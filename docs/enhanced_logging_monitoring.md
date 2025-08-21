@@ -29,7 +29,7 @@ This document describes the enhanced logging, monitoring, and error reporting sy
 
 ## 5. CI/CD Integration
 
-- **GitHub Actions**: Use webhooks for Slack/PagerDuty alerts.
+- **GitHub Actions**: Use webhooks for PagerDuty alerts.
 - **Health Status**: Fail CI jobs if sync is `unhealthy`.
 
 For more details, see the implementation in the respective modules.

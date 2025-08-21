@@ -22,7 +22,7 @@ A comprehensive logging, monitoring, and error reporting system has been impleme
 - **Centralized Error Tracking** - Custom exception classes with actionable error messages and recovery suggestions
 - **Performance Monitoring** - Key performance indicators (KPIs) including processing times and document counts
 - **Health Checks** - Configurable thresholds for success rates, failure percentages, and processing times
-- **External Monitoring Integration** - Webhook-based integration with monitoring platforms (Datadog, Slack, PagerDuty, etc.)
+- **External Monitoring Integration** - Webhook-based integration with monitoring platforms (Datadog, PagerDuty, etc.)
 - **CI/CD Integration** - Designed for automated workflows with comprehensive failure reporting
 
 #### Quick Start with Enhanced Logging

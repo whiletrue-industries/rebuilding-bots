@@ -189,37 +189,7 @@ jobs:
           path: ${{ env.LOG_DIR }}/sync-report.md
           retention-days: 30
       
-      - name: Notify on failure
-        if: failure()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: failure
-          text: |
-            ❌ Sync orchestration failed!
-            
-            **Run:** ${{ github.run_id }}
-            **Environment:** ${{ env.SYNC_ENVIRONMENT }}
-            **Config:** ${{ github.event.inputs.config_file || 'specs/takanon/sync_config.yaml' }}
-            
-            Check logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      
-      - name: Notify on success
-        if: success()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: success
-          text: |
-            ✅ Sync orchestration completed successfully!
-            
-            **Run:** ${{ github.run_id }}
-            **Environment:** ${{ env.SYNC_ENVIRONMENT }}
-            **Config:** ${{ github.event.inputs.config_file || 'specs/takanon/sync_config.yaml' }}
-            
-            View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
 
   # Optional: Run tests after sync
   test-sync:

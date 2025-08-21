@@ -367,14 +367,4 @@ def validate_manually(item: Dict[str, Any], config: SourceConfig, item_prefix: s
     
     return item
 
-def build_metadata(input_file: str, source_url: str, extraction_date: str, extra_metadata: dict = None) -> dict:
-    metadata = {
-        "input_file": input_file,
-        "source_url": source_url,
-        "extraction_date": extraction_date,
-    }
-    if extra_metadata:
-        metadata.update(extra_metadata)
-    return metadata
-
  

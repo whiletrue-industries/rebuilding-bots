@@ -212,24 +212,3 @@ class MetricsCollector:
                 print(f"  - {error}")
         
         print("="*60)
-
-def timing_decorator(func):
-    """Decorator to automatically time function execution."""
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        try:
-            result = func(*args, **kwargs)
-            duration = time.time() - start_time
-            
-            # Log the timing if we have access to a logger
-            logger = logging.getLogger(func.__module__)
-            logger.info(f"Function {func.__name__} completed in {duration:.2f} seconds")
-            
-            return result
-        except Exception as e:
-            duration = time.time() - start_time
-            logger = logging.getLogger(func.__module__)
-            logger.error(f"Function {func.__name__} failed after {duration:.2f} seconds: {e}")
-            raise
-    
-    return wrapper 
