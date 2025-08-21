@@ -25,10 +25,11 @@ from ..config import get_logger
 from .config import ContentSource
 from .cache import SyncCache
 from botnim.vector_store.vector_store_es import VectorStoreES
-from ..document_parser.pdf_processor.text_extraction import extract_text_from_pdf
+from ..document_parser.pdf_processor.text_extraction import extract_text_from_pdf, fix_ocr_full_content
 from ..document_parser.pdf_processor.field_extraction import extract_fields_from_text
 from .transaction_manager import TransactionManager
 from .resilience import RetryPolicy, CircuitBreaker, with_retry
+from .config_adapters import PDFConfigAdapter, ConfigValidator
 
 from ..document_parser.pdf_processor.pdf_extraction_config import SourceConfig
 
@@ -467,70 +468,26 @@ class PDFDiscoveryProcessor:
         """
         logger.info(f"Processing PDF source: {source.id}")
         
-        results = {
-            'source_id': source.id,
-            'discovered_pdfs': 0,
-            'downloaded_pdfs': 0,
-            'processed_pdfs': 0,
-            'failed_pdfs': 0,
-            'errors': []
-        }
+        results = self._initialize_results(source.id)
         
         try:
-            # Step 1: Discover PDFs (either from index page or single file)
-            if source.pdf_config and source.pdf_config.is_index_page:
-                pdf_links = self.discovery_service.discover_pdfs_from_index_page(source)
-            else:
-                # Handle single PDF file
-                pdf_links = self._create_single_pdf_info(source)
-            
+            # Step 1: Discover PDFs
+            pdf_links = self._discover_pdfs(source)
             results['discovered_pdfs'] = len(pdf_links)
             
             if not pdf_links:
                 logger.info(f"No PDFs discovered for source {source.id}")
                 return results
             
-            # Step 2: Filter out already processed PDFs
-            new_pdfs = []
-            for pdf_info in pdf_links:
-                if not self.tracker.is_pdf_processed(pdf_info['url_hash']):
-                    new_pdfs.append(pdf_info)
-                else:
-                    logger.debug(f"PDF already processed: {pdf_info['filename']}")
-            
+            # Step 2: Filter new PDFs
+            new_pdfs = self._filter_new_pdfs(pdf_links)
             logger.info(f"Found {len(new_pdfs)} new PDFs to process")
             
-            # Step 3: Process each new PDF
-            newest_timestamp_iso = None
-            for pdf_info in new_pdfs:
-                try:
-                    success = self._process_single_pdf(source, pdf_info)
-                    if success:
-                        results['processed_pdfs'] += 1
-                        newest_timestamp_iso = datetime.now(timezone.utc).isoformat()
-                    else:
-                        results['failed_pdfs'] += 1
-                except Exception as e:
-                    error_msg = f"Failed to process {pdf_info['filename']}: {e}"
-                    logger.error(error_msg)
-                    results['errors'].append(error_msg)
-                    results['failed_pdfs'] += 1
-                    
-                    # Track the failure
-                    self.tracker.track_pdf_processing(
-                        source.id, pdf_info, 'failed', str(e)
-                    )
+            # Step 3: Process PDFs
+            newest_timestamp_iso = self._process_pdf_batch(source, new_pdfs, results)
             
-            # Step 4: Transactional cleanup - mark and delete outdated for this source
-            try:
-                if newest_timestamp_iso:
-                    index_name = self.vector_store.get_ingestion_index_name()
-                    marked = self.tx.mark_outdated(index_name, source.id, newest_timestamp_iso)
-                    deleted = self.tx.delete_outdated(index_name, source.id, newest_timestamp_iso)
-                    logger.info(f"Cleanup for {source.id}: marked stale={marked}, deleted={deleted}")
-                    results['cleanup'] = {'marked': int(marked), 'deleted': int(deleted)}
-            except Exception as e:
-                logger.warning(f"Cleanup step failed for {source.id}: {e}")
+            # Step 4: Cleanup outdated documents
+            self._cleanup_outdated_documents(source, newest_timestamp_iso, results)
 
             logger.info(f"PDF source processing completed: {results}")
             return results
@@ -540,6 +497,115 @@ class PDFDiscoveryProcessor:
             logger.error(error_msg)
             results['errors'].append(error_msg)
             return results
+    
+    def _initialize_results(self, source_id: str) -> Dict[str, Any]:
+        """
+        Initialize results dictionary for PDF processing.
+        
+        Args:
+            source_id: Source identifier
+            
+        Returns:
+            Initialized results dictionary
+        """
+        return {
+            'source_id': source_id,
+            'discovered_pdfs': 0,
+            'downloaded_pdfs': 0,
+            'processed_pdfs': 0,
+            'failed_pdfs': 0,
+            'errors': []
+        }
+    
+    def _discover_pdfs(self, source: ContentSource) -> List[Dict[str, Any]]:
+        """
+        Discover PDFs from source (either index page or single file).
+        
+        Args:
+            source: PDF source configuration
+            
+        Returns:
+            List of discovered PDF information
+        """
+        if source.pdf_config and source.pdf_config.is_index_page:
+            return self.discovery_service.discover_pdfs_from_index_page(source)
+        else:
+            # Handle single PDF file
+            return self._create_single_pdf_info(source)
+    
+    def _filter_new_pdfs(self, pdf_links: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Filter out already processed PDFs.
+        
+        Args:
+            pdf_links: List of discovered PDF information
+            
+        Returns:
+            List of new PDFs to process
+        """
+        new_pdfs = []
+        for pdf_info in pdf_links:
+            if not self.tracker.is_pdf_processed(pdf_info['url_hash']):
+                new_pdfs.append(pdf_info)
+            else:
+                logger.debug(f"PDF already processed: {pdf_info['filename']}")
+        return new_pdfs
+    
+    def _process_pdf_batch(self, source: ContentSource, new_pdfs: List[Dict[str, Any]], 
+                          results: Dict[str, Any]) -> Optional[str]:
+        """
+        Process a batch of new PDFs.
+        
+        Args:
+            source: PDF source configuration
+            new_pdfs: List of new PDFs to process
+            results: Results dictionary to update
+            
+        Returns:
+            Newest timestamp ISO string if any PDF was processed successfully
+        """
+        newest_timestamp_iso = None
+        
+        for pdf_info in new_pdfs:
+            try:
+                success = self._process_single_pdf(source, pdf_info)
+                if success:
+                    results['processed_pdfs'] += 1
+                    newest_timestamp_iso = datetime.now(timezone.utc).isoformat()
+                else:
+                    results['failed_pdfs'] += 1
+            except Exception as e:
+                error_msg = f"Failed to process {pdf_info['filename']}: {e}"
+                logger.error(error_msg)
+                results['errors'].append(error_msg)
+                results['failed_pdfs'] += 1
+                
+                # Track the failure
+                self.tracker.track_pdf_processing(
+                    source.id, pdf_info, 'failed', str(e)
+                )
+        
+        return newest_timestamp_iso
+    
+    def _cleanup_outdated_documents(self, source: ContentSource, newest_timestamp_iso: Optional[str], 
+                                   results: Dict[str, Any]) -> None:
+        """
+        Clean up outdated documents from the vector store.
+        
+        Args:
+            source: PDF source configuration
+            newest_timestamp_iso: Newest timestamp for cleanup
+            results: Results dictionary to update
+        """
+        try:
+            if newest_timestamp_iso:
+                index_name = self.vector_store.get_ingestion_index_name()
+                marked = self.tx.mark_outdated(index_name, source.id, newest_timestamp_iso)
+                deleted = self.tx.delete_outdated(index_name, source.id, newest_timestamp_iso)
+                logger.info(f"Cleanup for {source.id}: marked stale={marked}, deleted={deleted}")
+                results['cleanup'] = {'marked': int(marked), 'deleted': int(deleted)}
+        except Exception as e:
+            logger.warning(f"Cleanup step failed for {source.id}: {e}")
     
     def _process_single_pdf(self, source: ContentSource, pdf_info: Dict[str, Any]) -> bool:
         """
@@ -625,81 +691,128 @@ class PDFDiscoveryProcessor:
             Tuple of (success, content_hash, vector_store_id)
         """
         try:
-            # Get processing configuration from source
-            processing_config = source.pdf_config.processing if source.pdf_config else None
-            
             # Extract text from PDF
-            from ..document_parser.pdf_processor.text_extraction import extract_text_from_pdf
-            text_content, extraction_success = extract_text_from_pdf(str(pdf_path))
-            
-            if not extraction_success:
-                logger.warning(f"Text extraction may have failed for {pdf_path.name}")
-            
-            if not text_content or not text_content.strip():
-                logger.error(f"No text content extracted from {pdf_path.name}")
+            text_content = self._extract_text_from_pdf(pdf_path)
+            if not text_content:
                 return False, None, None
             
-            # If we have processing config, try advanced field extraction using the PDF pipeline
+            # Try advanced field extraction if configured
+            processing_config = source.pdf_config.processing if source.pdf_config else None
             if processing_config and source.use_document_parser:
-                try:
-                    from .config_adapters import PDFConfigAdapter, ConfigValidator
-                    from ..document_parser.pdf_processor.pdf_pipeline import PDFExtractionPipeline
-                    from ..document_parser.pdf_processor.text_extraction import extract_text_from_pdf, fix_ocr_full_content
-                    from ..document_parser.pdf_processor.field_extraction import extract_fields_from_text
-                    
-                    # Validate the sync config
-                    validation_errors = ConfigValidator.validate_sync_pdf_config(processing_config)
-                    if validation_errors:
-                        logger.warning(f"PDF processing config validation errors: {validation_errors}")
-                        logger.info("Falling back to basic text extraction")
-                    else:
-                        # Convert sync config to processor config
-                        processor_config = PDFConfigAdapter.sync_to_processor_config(
-                            processing_config, source.name
-                        )
-                        
-                        # Use the PDF pipeline's field extraction method
-                        extracted_fields = extract_fields_from_text(
-                            text_content,
-                            processor_config,
-                            self.openai_client
-                        )
-                        
-                        # Apply OCR fix if needed (following PDF pipeline pattern)
-                        if isinstance(extracted_fields, dict) and 'טקסט_מלא' in extracted_fields:
-                            logger.info("Applying OCR full content fix for טקסט_מלא field")
-                            extracted_fields['טקסט_מלא'] = fix_ocr_full_content(extracted_fields['טקסט_מלא'])
-                        
-                        # Combine text and fields for storage
-                        full_content = f"Text: {text_content}\n\nExtracted Fields: {extracted_fields}"
-                        content_hash = hashlib.sha256(full_content.encode()).hexdigest()
-                        
-                        # Store in cache for later embedding processing
-                        vector_store_id = self._store_pdf_content(
-                            source, pdf_info, full_content, content_hash, extracted_fields
-                        )
-                        
-                        logger.info(f"Successfully processed PDF with field extraction: {pdf_path.name}")
-                        return True, content_hash, vector_store_id
-                        
-                except Exception as e:
-                    logger.warning(f"Advanced field extraction failed for {pdf_path.name}: {e}")
-                    logger.info("Falling back to basic text extraction")
+                result = self._try_advanced_field_extraction(pdf_path, source, pdf_info, text_content, processing_config)
+                if result:
+                    return result
             
-            # Basic text extraction (fallback or when no processing config)
-            content_hash = hashlib.sha256(text_content.encode()).hexdigest()
-            
-            # Store in vector store
-            vector_store_id = self._store_pdf_content(
-                source, pdf_info, text_content, content_hash
-            )
-            
-            logger.info(f"Successfully processed PDF with text extraction: {pdf_path.name}")
-            return True, content_hash, vector_store_id
+            # Fallback to basic text processing
+            return self._process_basic_text_extraction(pdf_path, source, pdf_info, text_content)
         
         except Exception as e:
             logger.error(f"PDF processing failed for {pdf_path.name}: {e}")
             return False, None, None
+    
+    def _extract_text_from_pdf(self, pdf_path: Path) -> Optional[str]:
+        """
+        Extract text content from PDF file.
+        
+        Args:
+            pdf_path: Path to PDF file
+            
+        Returns:
+            Extracted text content or None if extraction failed
+        """
+        text_content, extraction_success = extract_text_from_pdf(str(pdf_path))
+        
+        if not extraction_success:
+            logger.warning(f"Text extraction may have failed for {pdf_path.name}")
+        
+        if not text_content or not text_content.strip():
+            logger.error(f"No text content extracted from {pdf_path.name}")
+            return None
+            
+        return text_content
+    
+    def _try_advanced_field_extraction(self, pdf_path: Path, source: ContentSource, 
+                                     pdf_info: Dict[str, Any], text_content: str, 
+                                     processing_config) -> Optional[Tuple[bool, str, Optional[str]]]:
+        """
+        Try advanced field extraction using the PDF pipeline.
+        
+        Args:
+            pdf_path: Path to PDF file
+            source: Source configuration
+            pdf_info: PDF information
+            text_content: Extracted text content
+            processing_config: Processing configuration
+            
+        Returns:
+            Tuple of (success, content_hash, vector_store_id) if successful, None if fallback needed
+        """
+        try:
+            # Validate the sync config
+            validation_errors = ConfigValidator.validate_sync_pdf_config(processing_config)
+            if validation_errors:
+                logger.warning(f"PDF processing config validation errors: {validation_errors}")
+                logger.info("Falling back to basic text extraction")
+                return None
+            
+            # Convert sync config to processor config
+            processor_config = PDFConfigAdapter.sync_to_processor_config(
+                processing_config, source.name
+            )
+            
+            # Use the PDF pipeline's field extraction method
+            extracted_fields = extract_fields_from_text(
+                text_content,
+                processor_config,
+                self.openai_client
+            )
+            
+            # Apply OCR fix if needed (following PDF pipeline pattern)
+            if isinstance(extracted_fields, dict) and 'טקסט_מלא' in extracted_fields:
+                logger.info("Applying OCR full content fix for טקסט_מלא field")
+                extracted_fields['טקסט_מלא'] = fix_ocr_full_content(extracted_fields['טקסט_מלא'])
+            
+            # Combine text and fields for storage
+            full_content = f"Text: {text_content}\n\nExtracted Fields: {extracted_fields}"
+            content_hash = hashlib.sha256(full_content.encode()).hexdigest()
+            
+            # Store in cache for later embedding processing
+            vector_store_id = self._store_pdf_content(
+                source, pdf_info, full_content, content_hash, extracted_fields
+            )
+            
+            logger.info(f"Successfully processed PDF with field extraction: {pdf_path.name}")
+            return True, content_hash, vector_store_id
+            
+        except Exception as e:
+            logger.warning(f"Advanced field extraction failed for {pdf_path.name}: {e}")
+            logger.info("Falling back to basic text extraction")
+            return None
+    
+    def _process_basic_text_extraction(self, pdf_path: Path, source: ContentSource, 
+                                     pdf_info: Dict[str, Any], text_content: str) -> Tuple[bool, str, Optional[str]]:
+        """
+        Process PDF using basic text extraction.
+        
+        Args:
+            pdf_path: Path to PDF file
+            source: Source configuration
+            pdf_info: PDF information
+            text_content: Extracted text content
+            
+        Returns:
+            Tuple of (success, content_hash, vector_store_id)
+        """
+        # Basic text extraction (fallback or when no processing config)
+        content_hash = hashlib.sha256(text_content.encode()).hexdigest()
+        
+        # Store in vector store
+        vector_store_id = self._store_pdf_content(
+            source, pdf_info, text_content, content_hash
+        )
+        
+        logger.info(f"Successfully processed PDF with text extraction: {pdf_path.name}")
+        return True, content_hash, vector_store_id
     
     def _store_pdf_content(self, source: ContentSource, pdf_info: Dict[str, Any], 
                           content: str, content_hash: str, 
