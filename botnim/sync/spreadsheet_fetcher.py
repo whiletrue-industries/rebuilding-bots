@@ -109,13 +109,16 @@ class SpreadsheetFetcher:
                 use_adc=source.spreadsheet_config.use_adc
             )
             
-            # Extract spreadsheet ID and sheet name from URL
-            spreadsheet_id, sheet_name = self._parse_google_sheets_url(
-                source.spreadsheet_config.url
-            )
+            # Extract spreadsheet ID from URL and use configured sheet name
+            spreadsheet_id = self._parse_spreadsheet_id_from_url(source.spreadsheet_config.url)
+            sheet_name = source.spreadsheet_config.sheet_name
             
-            if not spreadsheet_id or not sheet_name:
+            if not spreadsheet_id:
                 self.logger.error(f"Invalid Google Sheets URL: {source.spreadsheet_config.url}")
+                return None
+            
+            if not sheet_name:
+                self.logger.error(f"No sheet name configured for source {source.id}")
                 return None
             
             # Fetch data using the existing service
@@ -242,15 +245,15 @@ class SpreadsheetFetcher:
             self.logger.error(f"Failed to fetch sheet data synchronously: {e}")
             return None
     
-    def _parse_google_sheets_url(self, url: str) -> Tuple[Optional[str], Optional[str]]:
+    def _parse_spreadsheet_id_from_url(self, url: str) -> Optional[str]:
         """
-        Parse Google Sheets URL to extract spreadsheet ID and sheet name.
+        Parse Google Sheets URL to extract spreadsheet ID.
         
         Args:
             url: Google Sheets URL
             
         Returns:
-            Tuple of (spreadsheet_id, sheet_name)
+            Spreadsheet ID if found, None otherwise
         """
         try:
             # Handle different URL formats
@@ -264,28 +267,14 @@ class SpreadsheetFetcher:
                     end = len(url)
                 
                 spreadsheet_id = url[start:end]
-                
-                # Extract sheet name from gid parameter
-                sheet_name = None
-                if 'gid=' in url:
-                    gid_start = url.find('gid=') + 4
-                    gid_end = url.find('&', gid_start)
-                    if gid_end == -1:
-                        gid_end = len(url)
-                    gid = url[gid_start:gid_end]
-                    
-                    # For now, we'll use a default sheet name
-                    # In a full implementation, we'd map gid to sheet name
-                    sheet_name = "Sheet1"  # Default sheet name
-                
-                return spreadsheet_id, sheet_name
+                return spreadsheet_id
             else:
                 self.logger.error(f"Unsupported Google Sheets URL format: {url}")
-                return None, None
+                return None
                 
         except Exception as e:
             self.logger.error(f"Failed to parse Google Sheets URL: {e}")
-            return None, None
+            return None
 
 
 class TaskQueue:
