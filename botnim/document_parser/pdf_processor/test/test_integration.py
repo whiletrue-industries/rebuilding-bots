@@ -457,7 +457,7 @@ class PDFExtractionIntegrationTest:
                 # Test template variable resolution
                 pdf_path = Path("/test/path/document.pdf")
                 file_metadata = {
-                    'source_url': 'https://example.com/document.pdf',
+                    'url': 'https://example.com/document.pdf',
                     'title': 'Test Document'
                 }
                 
@@ -477,7 +477,7 @@ class PDFExtractionIntegrationTest:
                 
                 # Test metadata merging
                 config_metadata = {
-                    'source_url': '{pdf_url}',
+                    'url': '{pdf_url}',
                     'title': 'Config Title',
                     'download_date': '{download_date}'
                 }
@@ -490,8 +490,8 @@ class PDFExtractionIntegrationTest:
                     return False
                 
                 # Verify template variables are resolved
-                if merged['source_url'] != 'https://example.com/document.pdf':
-                    logger.error(f"❌ Template variable resolution in merge failed: {merged['source_url']}")
+                if merged['url'] != 'https://example.com/document.pdf':
+                    logger.error(f"❌ Template variable resolution in merge failed: {merged['url']}")
                     return False
                 
                 if merged['download_date'] == '{download_date}':

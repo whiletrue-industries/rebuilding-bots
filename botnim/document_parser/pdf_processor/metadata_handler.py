@@ -27,15 +27,15 @@ class MetadataHandler:
         """
         self.input_directory = Path(input_directory)
     
-    def load_metadata_for_pdf(self, pdf_path: Path) -> Dict[str, Any]:
+    def load_metadata(self, pdf_path: Path) -> Dict[str, Any]:
         """
-        Load metadata for a specific PDF file.
+        Load metadata for a PDF file.
         
         Args:
             pdf_path: Path to PDF file
             
         Returns:
-            Dictionary containing metadata
+            Metadata dictionary
         """
         # Look for metadata file with same name as PDF
         # Use hash for long filenames to avoid filesystem limits
@@ -46,13 +46,13 @@ class MetadataHandler:
                 with open(metadata_path, 'r', encoding='utf-8') as f:
                     metadata = json.load(f)
                 
-                # Validate that source_url is present and not a file path
-                source_url = metadata.get('source_url', '')
-                if source_url and not self._is_file_path(source_url):
-                    logger.info(f"Loaded metadata with source URL: {source_url}")
+                # Validate that url is present and not a file path
+                url = metadata.get('url', '')
+                if url and not self._is_file_path(url):
+                    logger.info(f"Loaded metadata with URL: {url}")
                 else:
-                    logger.warning(f"Invalid or missing source URL in metadata: {source_url}")
-                    metadata['source_url'] = self._generate_placeholder_url(pdf_path)
+                    logger.warning(f"Invalid or missing URL in metadata: {url}")
+                    metadata['url'] = self._generate_placeholder_url(pdf_path)
                 
                 return metadata
                 
@@ -130,17 +130,17 @@ class MetadataHandler:
         
         # Replace {pdf_url} with actual URL from file metadata or placeholder
         if '{pdf_url}' in resolved:
-            pdf_url = file_metadata.get('source_url', '')
+            pdf_url = file_metadata.get('url', '')
             if not pdf_url or self._is_file_path(pdf_url):
                 pdf_url = self._generate_placeholder_url(pdf_path)
             resolved = resolved.replace('{pdf_url}', pdf_url)
         
         # Replace {download_date} with current date
         if '{download_date}' in resolved:
-            current_date = datetime.now().strftime('%Y-%m-%d')
-            resolved = resolved.replace('{download_date}', current_date)
+            download_date = datetime.now().isoformat()
+            resolved = resolved.replace('{download_date}', download_date)
         
-        # Replace {extraction_date} with current timestamp
+        # Replace {extraction_date} with current date
         if '{extraction_date}' in resolved:
             extraction_date = datetime.now().isoformat()
             resolved = resolved.replace('{extraction_date}', extraction_date)
@@ -210,7 +210,7 @@ class MetadataHandler:
             Default metadata dictionary
         """
         return {
-            'source_url': self._generate_placeholder_url(pdf_path),
+            'url': self._generate_placeholder_url(pdf_path),
             'extraction_date': datetime.now().isoformat(),
             'input_file': str(pdf_path),
             'metadata_source': 'default'
@@ -226,17 +226,17 @@ class MetadataHandler:
         Returns:
             True if metadata is valid, False otherwise
         """
-        required_fields = ['source_url', 'extraction_date']
+        required_fields = ['url', 'extraction_date']
         
         for field in required_fields:
             if field not in metadata:
                 logger.warning(f"Missing required metadata field: {field}")
                 return False
         
-        # Validate source_url is not a file path
-        source_url = metadata.get('source_url', '')
-        if self._is_file_path(source_url):
-            logger.warning(f"Source URL appears to be a file path: {source_url}")
+        # Validate url is not a file path
+        url = metadata.get('url', '')
+        if self._is_file_path(url):
+            logger.warning(f"URL appears to be a file path: {url}")
             return False
         
         return True

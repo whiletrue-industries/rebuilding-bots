@@ -80,17 +80,17 @@ def test_flatten_for_csv():
             "content": "Test Content"
         },
         "metadata": {
-            "source_url": "http://example.com",
+            "url": "http://example.com",
             "download_date": "2024-01-01"
         }
     }
-    fieldnames = ["title", "content", "source_url", "download_date"]
+    fieldnames = ["title", "content", "url", "download_date"]
     
     result = flatten_for_csv(doc, fieldnames)
     
     assert result["title"] == "Test Title"
     assert result["content"] == "Test Content"
-    assert result["source_url"] == "http://example.com"
+    assert result["url"] == "http://example.com"
     assert result["download_date"] == "2024-01-01"
 
 def test_flatten_for_csv_missing_fields():
@@ -100,16 +100,16 @@ def test_flatten_for_csv_missing_fields():
             "title": "Test Title"
         },
         "metadata": {
-            "source_url": "http://example.com"
+            "url": "http://example.com"
         }
     }
-    fieldnames = ["title", "content", "source_url", "download_date"]
+    fieldnames = ["title", "content", "url", "download_date"]
     
     result = flatten_for_csv(doc, fieldnames)
     
     assert result["title"] == "Test Title"
     assert result["content"] == ""  # Missing field
-    assert result["source_url"] == "http://example.com"
+    assert result["url"] == "http://example.com"
     assert result["download_date"] == ""  # Missing field
 
 def test_write_csv():

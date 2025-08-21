@@ -212,8 +212,8 @@ class PDFExtractionPipeline:
                         logger.info("Applying OCR full content fix for טקסט_מלא field")
                         item['טקסט_מלא'] = fix_ocr_full_content(item['טקסט_מלא'])
             
-            # Load file metadata
-            file_metadata = metadata_handler.load_metadata_for_pdf(pdf_path)
+            # Load metadata for this PDF
+            file_metadata = metadata_handler.load_metadata(pdf_path)
             
             # Merge with config metadata if available
             config_metadata = getattr(source_config, 'metadata', {})
@@ -228,7 +228,7 @@ class PDFExtractionPipeline:
             for data in extracted_data:
                 record = {
                     'source_name': source_config.name,
-                    'source_url': metadata.get('source_url', ''),
+                    'url': metadata.get('url', ''),
                     'extraction_date': datetime.now().isoformat(),
                     'input_file': str(pdf_path),
                     **data

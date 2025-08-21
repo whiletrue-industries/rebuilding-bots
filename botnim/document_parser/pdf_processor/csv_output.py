@@ -124,8 +124,8 @@ def write_csv_by_source(data: List[Dict[str, Any]], output_dir: str, source_conf
         
         # Add common metadata fields including URL and revision tracking
         all_fieldnames = [
-            'source_name', 'source_url', 'extraction_date', 'input_file',
-            'url', 'revision', 'title', 'date'  # Open Budget tracking fields
+            'source_name', 'url', 'extraction_date', 'input_file',
+            'revision', 'title', 'date'  # Open Budget tracking fields
         ] + config_fieldnames
         
         # Filter records to only include relevant fields
