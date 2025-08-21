@@ -109,16 +109,29 @@ class SpreadsheetFetcher:
                 use_adc=source.spreadsheet_config.use_adc
             )
             
-            # Extract spreadsheet ID from URL and use configured sheet name
+            # Extract spreadsheet ID from URL
             spreadsheet_id = self._parse_spreadsheet_id_from_url(source.spreadsheet_config.url)
-            sheet_name = source.spreadsheet_config.sheet_name
-            
             if not spreadsheet_id:
                 self.logger.error(f"Invalid Google Sheets URL: {source.spreadsheet_config.url}")
                 return None
             
+            # Try to get sheet name from GID first, fallback to configured sheet name
+            gid = self._parse_gid_from_url(source.spreadsheet_config.url)
+            if gid:
+                # Get sheet name from GID
+                sheet_name = await self._get_sheet_name_from_gid(sheets_service, spreadsheet_id, gid)
+                if sheet_name:
+                    self.logger.info(f"Resolved GID {gid} to sheet name: {sheet_name}")
+                else:
+                    self.logger.warning(f"Could not resolve GID {gid} to sheet name, falling back to configured name")
+                    sheet_name = source.spreadsheet_config.sheet_name
+            else:
+                # Use configured sheet name
+                sheet_name = source.spreadsheet_config.sheet_name
+                self.logger.info(f"Using configured sheet name: {sheet_name}")
+            
             if not sheet_name:
-                self.logger.error(f"No sheet name configured for source {source.id}")
+                self.logger.error(f"No sheet name available for source {source.id}")
                 return None
             
             # Fetch data using the existing service
@@ -274,6 +287,101 @@ class SpreadsheetFetcher:
                 
         except Exception as e:
             self.logger.error(f"Failed to parse Google Sheets URL: {e}")
+            return None
+    
+    def _parse_gid_from_url(self, url: str) -> Optional[str]:
+        """
+        Parse Google Sheets URL to extract GID (sheet ID).
+        
+        Args:
+            url: Google Sheets URL
+            
+        Returns:
+            GID if found, None otherwise
+        """
+        try:
+            # Extract GID from URL parameters
+            if 'gid=' in url:
+                gid_start = url.find('gid=') + 4
+                gid_end = url.find('&', gid_start)
+                if gid_end == -1:
+                    gid_end = url.find('#', gid_start)
+                if gid_end == -1:
+                    gid_end = len(url)
+                
+                gid = url[gid_start:gid_end]
+                self.logger.debug(f"Extracted GID: {gid} from URL: {url}")
+                return gid
+            else:
+                self.logger.debug(f"No GID found in URL: {url}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Failed to parse GID from URL: {e}")
+            return None
+    
+    async def _get_sheet_name_from_gid(self, sheets_service: GoogleSheetsService, 
+                                     spreadsheet_id: str, gid: str) -> Optional[str]:
+        """
+        Get sheet name from GID using Google Sheets API.
+        
+        Args:
+            sheets_service: Google Sheets service
+            spreadsheet_id: Spreadsheet ID
+            gid: Sheet GID
+            
+        Returns:
+            Sheet name if found, None otherwise
+        """
+        try:
+            # Use thread pool to run synchronous Google Sheets API call
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor() as executor:
+                # Get spreadsheet metadata to find sheet name from GID
+                metadata = await loop.run_in_executor(
+                    executor,
+                    self._get_sheet_metadata_sync,
+                    sheets_service,
+                    spreadsheet_id,
+                    gid
+                )
+                return metadata
+                
+        except Exception as e:
+            self.logger.error(f"Failed to get sheet name from GID {gid}: {e}")
+            return None
+    
+    def _get_sheet_metadata_sync(self, sheets_service: GoogleSheetsService, 
+                                spreadsheet_id: str, gid: str) -> Optional[str]:
+        """
+        Synchronous method to get sheet metadata.
+        
+        Args:
+            sheets_service: Google Sheets service
+            spreadsheet_id: Spreadsheet ID
+            gid: Sheet GID
+            
+        Returns:
+            Sheet name if found, None otherwise
+        """
+        try:
+            # Get spreadsheet metadata
+            service = sheets_service.sync.service
+            spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+            
+            # Find sheet with matching GID
+            for sheet in spreadsheet.get('sheets', []):
+                sheet_properties = sheet.get('properties', {})
+                if str(sheet_properties.get('sheetId', '')) == str(gid):
+                    sheet_name = sheet_properties.get('title', '')
+                    self.logger.debug(f"Found sheet name '{sheet_name}' for GID {gid}")
+                    return sheet_name
+            
+            self.logger.warning(f"No sheet found with GID {gid}")
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Failed to get sheet metadata synchronously: {e}")
             return None
 
 

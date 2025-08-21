@@ -274,10 +274,66 @@ class SyncOrchestrator:
             self.error_tracker.report(error_msg, severity=ErrorSeverity.ERROR, details={'exception': str(e)})
             return False
     
+    def _create_spreadsheet_sources_from_pdf_pipelines(self) -> List[ContentSource]:
+        """
+        Create spreadsheet sources from PDF pipeline output configurations.
+        
+        Returns:
+            List of auto-created spreadsheet sources
+        """
+        spreadsheet_sources = []
+        
+        # Get all enabled PDF pipeline sources
+        pdf_pipeline_sources = [s for s in self.config.get_enabled_sources() if s.type == SourceType.PDF_PIPELINE]
+        
+        for pdf_source in pdf_pipeline_sources:
+            if not pdf_source.pdf_config or not pdf_source.pdf_config.output_config:
+                continue
+            
+            output_config = pdf_source.pdf_config.output_config
+            
+            # Create spreadsheet URL from spreadsheet_id and GID
+            gid = getattr(output_config, 'gid', '0')  # Use configured GID or default to 0
+            spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{output_config.spreadsheet_id}/edit?gid={gid}#gid={gid}"
+            
+            # Create auto-generated spreadsheet source
+            from .config import SpreadsheetSourceConfig
+            spreadsheet_config = SpreadsheetSourceConfig(
+                url=spreadsheet_url,
+                sheet_name=output_config.sheet_name,
+                range="A1:Z1000",  # Default range
+                use_adc=output_config.use_adc,
+                credentials_path=output_config.credentials_path
+            )
+            
+            # Create ContentSource for the spreadsheet
+            spreadsheet_source = ContentSource(
+                id=f"{pdf_source.id}-spreadsheet-auto",
+                name=f"{pdf_source.name} - Auto Spreadsheet Sync",
+                description=f"Auto-created spreadsheet source from PDF pipeline: {pdf_source.description}",
+                type=SourceType.SPREADSHEET,
+                spreadsheet_config=spreadsheet_config,
+                versioning_strategy=pdf_source.versioning_strategy,
+                fetch_strategy=FetchStrategy.ASYNC,  # Use async for spreadsheet processing
+                fetch_interval=3600,  # 1 hour default
+                enabled=True,
+                priority=pdf_source.priority + 100,  # Lower priority than original PDF pipeline
+                tags=pdf_source.tags + ["auto-created", "pdf-pipeline-output"]
+            )
+            
+            spreadsheet_sources.append(spreadsheet_source)
+            self.logger.info(f"Auto-created spreadsheet source: {spreadsheet_source.id} from PDF pipeline: {pdf_source.id}")
+        
+        return spreadsheet_sources
+    
     async def _process_all_sources(self):
         """Process all configured content sources."""
         # Get all enabled sources, excluding PDF_PIPELINE sources (which are processed in pre-processing)
         enabled_sources = [s for s in self.config.get_enabled_sources() if s.type != SourceType.PDF_PIPELINE]
+        
+        # Auto-create spreadsheet sources from PDF pipeline configurations
+        pdf_pipeline_spreadsheet_sources = self._create_spreadsheet_sources_from_pdf_pipelines()
+        enabled_sources.extend(pdf_pipeline_spreadsheet_sources)
         
         if not enabled_sources:
             self.logger.warning("No enabled sources found for main processing loop.")

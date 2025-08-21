@@ -105,6 +105,7 @@ class PDFPipelineOutputConfig(BaseModel):
     """Configuration for the output of a PDF pipeline."""
     spreadsheet_id: str = Field(..., description="Google Sheets spreadsheet ID")
     sheet_name: str = Field(..., description="Name of the sheet to create/update")
+    gid: Optional[str] = Field(None, description="Google Sheets GID (sheet ID) for direct access")
     credentials_path: Optional[str] = Field(None, description="Path to service account credentials for upload")
     use_adc: bool = Field(default=True, description="Use Application Default Credentials for upload")
 

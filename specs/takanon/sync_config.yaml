@@ -68,6 +68,7 @@ sources:
       output_config:
         spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # From removed ethics-decisions-spreadsheet
         sheet_name: "Ethics Decisions"  # From removed ethics-decisions-spreadsheet
+        gid: "1881114058"  # Ethics Committee Decisions sheet GID
         use_adc: true
       processing:
         model: "gpt-4.1-mini"
@@ -125,6 +126,7 @@ sources:
       output_config:
         spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # From removed committee-decisions-spreadsheet
         sheet_name: "Knesset Committee Decisions"  # New sheet name to avoid conflicts
+        gid: "1785098111"  # Knesset Committee Decisions sheet GID
         use_adc: true
       processing:
         model: "gpt-4.1-mini"
@@ -182,6 +184,7 @@ sources:
       output_config:
         spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # Same spreadsheet, different sheet
         sheet_name: "Knesset Legal Advisor Guidance"  # Unique sheet name
+        gid: "287919096"  # Knesset Legal Advisor Guidance sheet GID
         use_adc: true
       processing:
         model: "gpt-4.1-mini"
@@ -239,6 +242,7 @@ sources:
       output_config:
         spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # Same spreadsheet, different sheet
         sheet_name: "Knesset Legal Advisor Letters"  # Unique sheet name
+        gid: "261770331"  # Knesset Legal Advisor Letters sheet GID
         use_adc: true
       processing:
         model: "gpt-4.1-mini"

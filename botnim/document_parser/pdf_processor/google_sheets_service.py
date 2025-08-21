@@ -5,7 +5,7 @@ Google Sheets service for uploading CSV data.
 import csv
 import os
 import io
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 from pathlib import Path
 from datetime import datetime
 from botnim.config import get_logger
@@ -32,7 +32,7 @@ class GoogleSheetsService:
         self.sync = GoogleSheetsSync(credentials_path=credentials_path, use_adc=use_adc)
     
     def upload_csv_to_sheet(self, csv_path: str, spreadsheet_id: str, sheet_name: str,
-                           replace_existing: bool = False) -> bool:
+                           replace_existing: bool = False) -> Tuple[bool, Optional[str]]:
         """
         Upload a CSV file to Google Sheets.
         
@@ -43,28 +43,31 @@ class GoogleSheetsService:
             replace_existing: If True, replace entire sheet. If False, append new rows.
         
         Returns:
-            True if successful, False otherwise
+            Tuple of (success: bool, gid: Optional[str])
         """
         try:
             logger.info(f"Uploading CSV to Google Sheets: {csv_path} -> {sheet_name}")
-            success = self.sync.upload_csv_to_sheet(
+            success, gid = self.sync.upload_csv_to_sheet(
                 csv_path, spreadsheet_id, sheet_name, replace_existing
             )
             
             if success:
                 logger.info(f"✅ Successfully uploaded CSV to Google Sheets: {sheet_name}")
+                if gid:
+                    logger.info(f"📝 Sheet GID: {gid}")
             else:
                 logger.error(f"❌ Failed to upload CSV to Google Sheets: {sheet_name}")
             
-            return success
+            return success, gid
             
         except Exception as e:
             logger.error(f"Error uploading CSV to Google Sheets: {e}")
-            return False
+            return False, None
     
     def upload_directory_csvs(self, directory_path: str, spreadsheet_id: str,
                              replace_existing: bool = False, 
-                             prefer_output_csv: bool = True) -> Dict[str, bool]:
+                             prefer_output_csv: bool = True,
+                             gid: str = None) -> Dict[str, bool]:
         """
         Upload CSV files in a directory to Google Sheets.
         
@@ -73,6 +76,7 @@ class GoogleSheetsService:
             spreadsheet_id: Google Sheets spreadsheet ID
             replace_existing: If True, replace entire sheets. If False, append new rows.
             prefer_output_csv: If True, prefer source-specific CSV files over output.csv
+            gid: Google Sheets GID (sheet ID) to use for upload if provided
         
         Returns:
             Dictionary mapping sheet names to success status
@@ -95,10 +99,19 @@ class GoogleSheetsService:
                 # Create safe sheet name
                 safe_sheet_name = self._create_safe_sheet_name(sheet_name)
                 
-                success = self.upload_csv_to_sheet(
-                    str(csv_file), spreadsheet_id, safe_sheet_name, replace_existing
-                )
-                results[safe_sheet_name] = success
+                # Use GID-based upload if GID is provided, otherwise use sheet name
+                if gid:
+                    success, new_gid = self.sync.upload_csv_to_sheet_by_gid(
+                        str(csv_file), spreadsheet_id, gid, replace_existing
+                    )
+                    results[safe_sheet_name] = success
+                    if new_gid and new_gid != gid:
+                        logger.info(f"📝 New GID detected for {csv_file.name}: {new_gid} (was: {gid})")
+                else:
+                    success, gid = self.upload_csv_to_sheet(
+                        str(csv_file), spreadsheet_id, safe_sheet_name, replace_existing
+                    )
+                    results[safe_sheet_name] = success
                 
                 logger.info(f"Uploaded {csv_file.name} to sheet '{safe_sheet_name}'")
             
@@ -109,7 +122,7 @@ class GoogleSheetsService:
             output_csv = directory / "output.csv"
             if output_csv.exists():
                 logger.info("No source-specific CSV files found, using output.csv and splitting by source")
-                return self._upload_output_csv_by_source(str(output_csv), spreadsheet_id, replace_existing)
+                return self._upload_output_csv_by_source(str(output_csv), spreadsheet_id, replace_existing, gid)
         
         # Otherwise, upload any CSV files
         csv_files = list(directory.glob("*.csv"))
@@ -127,15 +140,24 @@ class GoogleSheetsService:
             # Create safe sheet name
             safe_sheet_name = self._create_safe_sheet_name(sheet_name)
             
-            success = self.upload_csv_to_sheet(
-                str(csv_file), spreadsheet_id, safe_sheet_name, replace_existing
-            )
-            results[safe_sheet_name] = success
+            # Use GID-based upload if GID is provided, otherwise use sheet name
+            if gid:
+                success, new_gid = self.sync.upload_csv_to_sheet_by_gid(
+                    str(csv_file), spreadsheet_id, gid, replace_existing
+                )
+                results[safe_sheet_name] = success
+                if new_gid and new_gid != gid:
+                    logger.info(f"📝 New GID detected for {csv_file.name}: {new_gid} (was: {gid})")
+            else:
+                success, gid = self.upload_csv_to_sheet(
+                    str(csv_file), spreadsheet_id, safe_sheet_name, replace_existing
+                )
+                results[safe_sheet_name] = success
         
         return results
     
     def _upload_output_csv_by_source(self, output_csv_path: str, spreadsheet_id: str,
-                                    replace_existing: bool = False) -> Dict[str, bool]:
+                                    replace_existing: bool = False, gid: str = None) -> Dict[str, bool]:
         """
         Split output.csv by source and upload each source to a separate sheet.
         
@@ -143,6 +165,7 @@ class GoogleSheetsService:
             output_csv_path: Path to output.csv file
             spreadsheet_id: Google Sheets spreadsheet ID
             replace_existing: If True, replace entire sheets. If False, append new rows.
+            gid: Google Sheets GID (sheet ID) to use for upload if provided
         
         Returns:
             Dictionary mapping sheet names to success status
@@ -172,8 +195,8 @@ class GoogleSheetsService:
                 csv_data = group_df.to_csv(index=False)
                 
                 # Upload to Google Sheets
-                success = self._upload_csv_data_to_sheet(
-                    csv_data, spreadsheet_id, safe_sheet_name, replace_existing
+                success, gid = self.upload_csv_to_sheet(
+                    io.StringIO(csv_data).getvalue(), spreadsheet_id, safe_sheet_name, replace_existing
                 )
                 results[safe_sheet_name] = success
                 
@@ -274,9 +297,41 @@ class GoogleSheetsService:
             logger.error(f"Output CSV file not found: {output_csv_path}")
             return False
         
-        return self.upload_csv_to_sheet(
+        success, gid = self.upload_csv_to_sheet(
             output_csv_path, spreadsheet_id, sheet_name, replace_existing
         )
+        return success
+
+    def upload_output_csv_by_gid(self, csv_file_path: str, spreadsheet_id: str, gid: str, replace_existing: bool = False) -> Tuple[bool, Optional[str]]:
+        """
+        Upload CSV file to Google Sheets using GID.
+        
+        Args:
+            csv_file_path: Path to the CSV file
+            spreadsheet_id: Google Sheets spreadsheet ID
+            gid: Google Sheets GID (sheet ID)
+            replace_existing: Whether to replace existing content
+            
+        Returns:
+            Tuple of (success: bool, gid: Optional[str])
+        """
+        try:
+            success, new_gid = self.sync.upload_csv_to_sheet_by_gid(
+                csv_file_path, spreadsheet_id, gid, replace_existing
+            )
+            
+            if success:
+                logger.info(f"✅ Successfully uploaded CSV to Google Sheets using GID: {gid}")
+                if new_gid and new_gid != gid:
+                    logger.info(f"📝 New GID detected: {new_gid} (was: {gid})")
+                return True, new_gid
+            else:
+                logger.error(f"❌ Failed to upload CSV to Google Sheets using GID: {gid}")
+                return False, None
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to upload CSV to Google Sheets: {e}")
+            return False, None
     
     def download_sheet_as_csv(self, spreadsheet_id: str, sheet_name: str) -> Optional[str]:
         """
@@ -328,6 +383,56 @@ class GoogleSheetsService:
             logger.error(f"Error downloading sheet '{sheet_name}' from Google Sheets: {e}")
             return None
 
+    def download_sheet_as_csv_by_gid(self, spreadsheet_id: str, gid: str) -> Optional[str]:
+        """
+        Download a Google Sheet as CSV content using GID.
+        
+        Args:
+            spreadsheet_id: Google Sheets spreadsheet ID
+            gid: Google Sheets GID (sheet ID)
+            
+        Returns:
+            CSV content as string if successful, None otherwise
+        """
+        try:
+            logger.info(f"Downloading sheet with GID {gid} from spreadsheet {spreadsheet_id}")
+            
+            # Use the underlying sync service to download data by GID
+            data = self.sync.download_sheet_data_by_gid(spreadsheet_id, gid)
+            
+            if not data:
+                logger.warning(f"No data found in sheet with GID {gid}")
+                return None
+            
+            # Convert to CSV format
+            if not data:
+                return None
+            
+            # Get headers from first row
+            headers = data[0] if data else []
+            rows = data[1:] if len(data) > 1 else []
+            
+            # Convert to CSV string
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Write headers
+            writer.writerow(headers)
+            
+            # Write data rows
+            for row in rows:
+                writer.writerow(row)
+            
+            csv_content = output.getvalue()
+            output.close()
+            
+            logger.info(f"Downloaded {len(rows)} rows from sheet with GID {gid}")
+            return csv_content
+            
+        except Exception as e:
+            logger.error(f"Error downloading sheet with GID {gid} from Google Sheets: {e}")
+            return None
+
     def create_spreadsheet(self, title: str, description: str = "") -> str:
         """
         Create a new Google Spreadsheet.
@@ -368,3 +473,59 @@ class GoogleSheetsService:
             safe_name = safe_name[:28] + "..."
         
         return safe_name 
+
+    def update_config_with_gid(self, config_file_path: str, source_id: str, new_gid: str) -> bool:
+        """
+        Update the config file with a new GID for a specific source.
+        
+        Args:
+            config_file_path: Path to the config file
+            source_id: ID of the source to update
+            new_gid: New GID to set
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            import yaml
+            
+            # Read the current config
+            with open(config_file_path, 'r', encoding='utf-8') as file:
+                config = yaml.safe_load(file)
+            
+            # Find the source and update its GID
+            updated = False
+            for source in config.get('sources', []):
+                if source.get('id') == source_id:
+                    # Check if it's a PDF pipeline source
+                    if source.get('type') == 'pdf_pipeline' and 'pdf_config' in source:
+                        if 'output_config' in source['pdf_config']:
+                            source['pdf_config']['output_config']['gid'] = new_gid
+                            updated = True
+                            logger.info(f"📝 Updated GID for PDF pipeline source '{source_id}' to {new_gid}")
+                    # Check if it's a spreadsheet source
+                    elif source.get('type') == 'spreadsheet' and 'spreadsheet_config' in source:
+                        # Update the URL with the new GID
+                        url = source['spreadsheet_config'].get('url', '')
+                        if 'gid=' in url:
+                            # Replace the GID in the URL
+                            import re
+                            new_url = re.sub(r'gid=\d+', f'gid={new_gid}', url)
+                            source['spreadsheet_config']['url'] = new_url
+                            updated = True
+                            logger.info(f"📝 Updated GID in URL for spreadsheet source '{source_id}' to {new_gid}")
+                    break
+            
+            if updated:
+                # Write the updated config back
+                with open(config_file_path, 'w', encoding='utf-8') as file:
+                    yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
+                logger.info(f"✅ Successfully updated config file with new GID: {new_gid}")
+                return True
+            else:
+                logger.warning(f"⚠️ Could not find source '{source_id}' in config file")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to update config file with new GID: {e}")
+            return False 

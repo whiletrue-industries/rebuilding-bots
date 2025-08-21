@@ -136,7 +136,9 @@ class PDFPipelineProcessor:
                 existing_spreadsheet_id = self._get_existing_spreadsheet_id(source)
                 if existing_spreadsheet_id:
                     logger.info(f"Found existing spreadsheet {existing_spreadsheet_id} for change detection")
-                    input_csv_path = self._download_spreadsheet_as_csv(existing_spreadsheet_id, source.name, str(input_dir))
+                    # Get GID from output config if available
+                    gid = getattr(source.pdf_config.output_config, 'gid', None) if source.pdf_config and source.pdf_config.output_config else None
+                    input_csv_path = self._download_spreadsheet_as_csv(existing_spreadsheet_id, source.name, str(input_dir), gid)
                     if input_csv_path:
                         logger.info(f"Downloaded existing data from Google Sheets for change detection")
                     else:
@@ -261,7 +263,7 @@ class PDFPipelineProcessor:
         except Exception as e:
             logger.warning(f"Error storing spreadsheet ID: {e}")
 
-    def _download_spreadsheet_as_csv(self, spreadsheet_id: str, sheet_name: str, output_dir: str) -> Optional[str]:
+    def _download_spreadsheet_as_csv(self, spreadsheet_id: str, sheet_name: str, output_dir: str, gid: str = None) -> Optional[str]:
         """
         Download a Google Spreadsheet as CSV for change detection.
         
@@ -269,6 +271,7 @@ class PDFPipelineProcessor:
             spreadsheet_id: The Google Spreadsheet ID
             sheet_name: The sheet name to download
             output_dir: Directory to save the CSV
+            gid: The Google Sheets GID (sheet ID) if available
             
         Returns:
             Path to the downloaded CSV file, or None if failed
@@ -276,11 +279,17 @@ class PDFPipelineProcessor:
         try:
             sheets_service = GoogleSheetsService(use_adc=True)
             
-            # Download the sheet as CSV
-            csv_content = sheets_service.download_sheet_as_csv(
-                spreadsheet_id=spreadsheet_id,
-                sheet_name=sheet_name
-            )
+            # Download the sheet as CSV using GID if available, otherwise use sheet name
+            if gid:
+                csv_content = sheets_service.download_sheet_as_csv_by_gid(
+                    spreadsheet_id=spreadsheet_id,
+                    gid=gid
+                )
+            else:
+                csv_content = sheets_service.download_sheet_as_csv(
+                    spreadsheet_id=spreadsheet_id,
+                    sheet_name=sheet_name
+                )
             
             if csv_content:
                 # Save to input.csv for the pipeline
@@ -314,6 +323,7 @@ class PDFPipelineProcessor:
             output_config = source.pdf_config.output_config
             spreadsheet_id = output_config.spreadsheet_id
             sheet_name = output_config.sheet_name
+            gid = getattr(output_config, 'gid', None)  # Get GID if configured
             
             # Validate that spreadsheet_id is not the placeholder
             if spreadsheet_id == "YOUR_SPREADSHEET_ID_HERE":
@@ -321,16 +331,27 @@ class PDFPipelineProcessor:
                 logger.error(error_msg)
                 return False, None
             
-            logger.info(f"Uploading CSV to configured spreadsheet: {spreadsheet_id}, sheet: {sheet_name}")
+            logger.info(f"Uploading CSV to configured spreadsheet: {spreadsheet_id}, sheet: {sheet_name}, GID: {gid}")
             
-            # Upload the CSV
+            # Upload the CSV using GID if available, otherwise use sheet name
             sheets_service = GoogleSheetsService(use_adc=output_config.use_adc)
-            success = sheets_service.upload_csv_to_sheet(
-                csv_path=str(csv_path),
-                spreadsheet_id=spreadsheet_id,
-                sheet_name=sheet_name,
-                replace_existing=True  # Always replace the entire sheet with new data
-            )
+            
+            if gid:
+                # Use GID-based upload
+                success = sheets_service.upload_output_csv_by_gid(
+                    output_csv_path=str(csv_path),
+                    spreadsheet_id=spreadsheet_id,
+                    gid=gid,
+                    replace_existing=True  # Always replace the entire sheet with new data
+                )
+            else:
+                # Fallback to sheet name-based upload
+                success = sheets_service.upload_csv_to_sheet(
+                    csv_path=str(csv_path),
+                    spreadsheet_id=spreadsheet_id,
+                    sheet_name=sheet_name,
+                    replace_existing=True  # Always replace the entire sheet with new data
+                )
             
             if success:
                 logger.info(f"✅ Successfully uploaded CSV to Google Sheets: {spreadsheet_id}")

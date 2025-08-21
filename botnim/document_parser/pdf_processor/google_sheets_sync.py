@@ -7,7 +7,7 @@ This module provides functionality to upload CSV data to Google Sheets.
 import logging
 import csv
 import os
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 import json
 from botnim.config import get_logger
@@ -83,37 +83,23 @@ class GoogleSheetsSync:
     def _replace_sheet(self, spreadsheet_id: str, sheet_name: str, data: List[List]) -> bool:
         """Replace entire sheet content."""
         try:
-            # Check if sheet exists and delete it if it does
+            # Check if sheet exists and clear it if it does
             if self._sheet_exists(spreadsheet_id, sheet_name):
                 try:
-                    # Get the sheet ID to delete it
-                    spreadsheet = self.service.spreadsheets().get(
-                        spreadsheetId=spreadsheet_id
-                    ).execute()
-                    sheets = spreadsheet.get('sheets', [])
-                    sheet_id = None
-                    for sheet in sheets:
-                        if sheet.get('properties', {}).get('title') == sheet_name:
-                            sheet_id = sheet.get('properties', {}).get('sheetId')
-                            break
-                    
-                    if sheet_id is not None:
-                        # Delete the existing sheet
-                        request = {
-                            'deleteSheet': {
-                                'sheetId': sheet_id
-                            }
-                        }
-                        self.service.spreadsheets().batchUpdate(
-                            spreadsheetId=spreadsheet_id,
-                            body={'requests': [request]}
-                        ).execute()
-                        logger.info(f"Deleted existing sheet '{sheet_name}'")
+                    # Clear the existing sheet content instead of deleting it
+                    logger.info(f"Clearing existing sheet '{sheet_name}' content")
+                    success = self._clear_sheet(spreadsheet_id, sheet_name)
+                    if not success:
+                        logger.warning(f"Failed to clear existing sheet content, attempting to delete and recreate")
+                        # Fallback to delete and recreate if clear fails
+                        return self._delete_and_recreate_sheet(spreadsheet_id, sheet_name, data)
                 except Exception as e:
-                    logger.warning(f"Failed to delete existing sheet: {e}")
-            
-            # Create new sheet
-            self._create_sheet(spreadsheet_id, sheet_name)
+                    logger.warning(f"Failed to clear existing sheet: {e}, attempting to delete and recreate")
+                    # Fallback to delete and recreate if clear fails
+                    return self._delete_and_recreate_sheet(spreadsheet_id, sheet_name, data)
+            else:
+                # Create new sheet if it doesn't exist
+                self._create_sheet(spreadsheet_id, sheet_name)
             
             # Write new data (use just the sheet name as the range)
             range_name = sheet_name  # No !A1 or !A:Z
@@ -130,6 +116,90 @@ class GoogleSheetsSync:
             
         except Exception as e:
             logger.error(f"Failed to replace sheet: {e}")
+            return False
+
+    def _clear_sheet(self, spreadsheet_id: str, sheet_name: str) -> bool:
+        """
+        Clear the content of a sheet without deleting it, preserving the GID.
+        
+        Args:
+            spreadsheet_id: Google Sheets spreadsheet ID
+            sheet_name: Name of the sheet to clear
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Clear the sheet content by setting it to empty
+            range_name = sheet_name  # No !A1 or !A:Z
+            body = {'values': []}
+            self.service.spreadsheets().values().clear(
+                spreadsheetId=spreadsheet_id,
+                range=range_name
+            ).execute()
+            
+            logger.info(f"Successfully cleared sheet '{sheet_name}' content")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to clear sheet '{sheet_name}': {e}")
+            return False
+
+    def _delete_and_recreate_sheet(self, spreadsheet_id: str, sheet_name: str, data: List[List]) -> bool:
+        """
+        Delete and recreate a sheet (fallback method when clear fails).
+        
+        Args:
+            spreadsheet_id: Google Sheets spreadsheet ID
+            sheet_name: Name of the sheet to delete and recreate
+            data: Data to write to the new sheet
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get the sheet ID to delete it
+            spreadsheet = self.service.spreadsheets().get(
+                spreadsheetId=spreadsheet_id
+            ).execute()
+            sheets = spreadsheet.get('sheets', [])
+            sheet_id = None
+            for sheet in sheets:
+                if sheet.get('properties', {}).get('title') == sheet_name:
+                    sheet_id = sheet.get('properties', {}).get('sheetId')
+                    break
+            
+            if sheet_id is not None:
+                # Delete the existing sheet
+                request = {
+                    'deleteSheet': {
+                        'sheetId': sheet_id
+                    }
+                }
+                self.service.spreadsheets().batchUpdate(
+                    spreadsheetId=spreadsheet_id,
+                    body={'requests': [request]}
+                ).execute()
+                logger.info(f"Deleted existing sheet '{sheet_name}'")
+            
+            # Create new sheet
+            self._create_sheet(spreadsheet_id, sheet_name)
+            
+            # Write new data
+            range_name = sheet_name
+            body = {'values': data}
+            self.service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id,
+                range=range_name,
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+            
+            logger.info(f"Successfully recreated sheet '{sheet_name}' with {len(data)} rows")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to delete and recreate sheet: {e}")
             return False
     
     def _append_to_sheet(self, spreadsheet_id: str, sheet_name: str, data: List[List]) -> bool:
@@ -245,38 +315,163 @@ class GoogleSheetsSync:
             logger.error(f"Failed to check if sheet exists: {e}")
             return False
 
-    def upload_csv_to_sheet(self, csv_path: str, spreadsheet_id: str, sheet_name: str,
-                           replace_existing: bool = False) -> bool:
+    def upload_csv_to_sheet(self, csv_file_path: str, spreadsheet_id: str, sheet_name: str, replace_existing: bool = False) -> Tuple[bool, Optional[str]]:
         """
-        Upload CSV file to Google Sheets.
+        Upload CSV data to a Google Sheet.
         
         Args:
-            csv_path: Path to CSV file
+            csv_file_path: Path to the CSV file
             spreadsheet_id: Google Sheets spreadsheet ID
-            sheet_name: Name of the sheet to create/update
-            replace_existing: If True, replace entire sheet. If False, append new rows.
-        
+            sheet_name: Name of the sheet
+            replace_existing: Whether to replace existing content
+            
         Returns:
-            True if successful, False otherwise
+            Tuple of (success: bool, gid: Optional[str])
         """
         try:
-            # Read CSV file
-            data = []
-            with open(csv_path, 'r', encoding='utf-8') as csvfile:
-                reader = csv.reader(csvfile)
-                for row in reader:
-                    data.append(row)
+            if not os.path.exists(csv_file_path):
+                logger.error(f"CSV file not found: {csv_file_path}")
+                return False, None
+            
+            with open(csv_file_path, 'r', encoding='utf-8') as file:
+                reader = csv.reader(file)
+                data = list(reader)
             
             if not data:
-                logger.warning("CSV file is empty")
-                return False
+                logger.error(f"CSV file is empty: {csv_file_path}")
+                return False, None
             
             logger.info(f"Read {len(data)} rows from CSV file")
-            return self.create_or_update_sheet(spreadsheet_id, sheet_name, data, replace_existing)
+            return self.create_or_update_sheet_with_gid(spreadsheet_id, sheet_name, data, replace_existing)
             
         except Exception as e:
             logger.error(f"Failed to upload CSV: {e}")
-            return False 
+            return False, None
+
+    def upload_csv_to_sheet_by_gid(self, csv_file_path: str, spreadsheet_id: str, gid: str, replace_existing: bool = False) -> Tuple[bool, Optional[str]]:
+        """
+        Upload CSV data to a Google Sheet using GID.
+        
+        Args:
+            csv_file_path: Path to the CSV file
+            spreadsheet_id: Google Sheets spreadsheet ID
+            gid: Google Sheets GID (sheet ID)
+            replace_existing: Whether to replace existing content
+            
+        Returns:
+            Tuple of (success: bool, gid: Optional[str])
+        """
+        try:
+            if not os.path.exists(csv_file_path):
+                logger.error(f"CSV file not found: {csv_file_path}")
+                return False, None
+            
+            with open(csv_file_path, 'r', encoding='utf-8') as file:
+                reader = csv.reader(file)
+                data = list(reader)
+            
+            if not data:
+                logger.error(f"CSV file is empty: {csv_file_path}")
+                return False, None
+            
+            # Resolve GID to sheet name
+            sheet_name = self._get_sheet_name_from_gid(spreadsheet_id, gid)
+            if not sheet_name:
+                logger.error(f"No sheet found with GID {gid}")
+                return False, None
+            
+            logger.info(f"Resolved GID {gid} to sheet name: {sheet_name}")
+            return self.create_or_update_sheet_with_gid(spreadsheet_id, sheet_name, data, replace_existing)
+            
+        except Exception as e:
+            logger.error(f"Failed to upload CSV by GID: {e}")
+            return False, None
+
+    def _get_sheet_name_from_gid(self, spreadsheet_id: str, gid: str) -> Optional[str]:
+        """
+        Get sheet name from GID using Google Sheets API.
+        
+        Args:
+            spreadsheet_id: The ID of the spreadsheet
+            gid: The GID of the sheet
+            
+        Returns:
+            The sheet name if found, None otherwise
+        """
+        try:
+            # Get spreadsheet metadata to find sheet name by GID
+            spreadsheet = self.service.spreadsheets().get(
+                spreadsheetId=spreadsheet_id
+            ).execute()
+            
+            if spreadsheet and 'sheets' in spreadsheet:
+                for sheet in spreadsheet['sheets']:
+                    if 'properties' in sheet and str(sheet['properties'].get('sheetId')) == gid:
+                        return sheet['properties'].get('title')
+            
+            logger.warning(f"Sheet name not found for GID {gid} in spreadsheet {spreadsheet_id}")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get sheet name for GID {gid} in spreadsheet {spreadsheet_id}: {e}")
+            return None
+
+    def _get_sheet_gid(self, spreadsheet_id: str, sheet_name: str) -> Optional[str]:
+        """
+        Get the GID (sheet ID) for a specific sheet name.
+        
+        Args:
+            spreadsheet_id: Google Sheets spreadsheet ID
+            sheet_name: Name of the sheet
+            
+        Returns:
+            GID (sheet ID) as string, or None if not found
+        """
+        try:
+            spreadsheet = self.service.spreadsheets().get(
+                spreadsheetId=spreadsheet_id
+            ).execute()
+            sheets = spreadsheet.get('sheets', [])
+            for sheet in sheets:
+                if sheet.get('properties', {}).get('title') == sheet_name:
+                    return str(sheet.get('properties', {}).get('sheetId'))
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get GID for sheet '{sheet_name}': {e}")
+            return None
+
+    def create_or_update_sheet_with_gid(self, spreadsheet_id: str, sheet_name: str, data: List[List], replace_existing: bool = False) -> Tuple[bool, Optional[str]]:
+        """
+        Create or update a sheet and return the GID.
+        
+        Args:
+            spreadsheet_id: Google Sheets spreadsheet ID
+            sheet_name: Name of the sheet
+            data: Data to write to the sheet
+            replace_existing: Whether to replace existing content
+            
+        Returns:
+            Tuple of (success: bool, gid: Optional[str])
+        """
+        try:
+            if replace_existing:
+                success = self._replace_sheet(spreadsheet_id, sheet_name, data)
+            else:
+                success = self.append_data_rows(data[1:] if len(data) > 1 else [], spreadsheet_id, sheet_name, False, data[0] if data else [])
+            
+            if success:
+                # Get the GID after successful creation/update
+                gid = self._get_sheet_gid(spreadsheet_id, sheet_name)
+                if gid:
+                    logger.info(f"Successfully created/updated sheet '{sheet_name}' with GID: {gid}")
+                else:
+                    logger.warning(f"Successfully created/updated sheet '{sheet_name}' but could not retrieve GID")
+                return True, gid
+            else:
+                return False, None
+                
+        except Exception as e:
+            logger.error(f"Failed to create/update sheet '{sheet_name}': {e}")
+            return False, None
 
     def download_sheet_data(self, spreadsheet_id: str, sheet_name: str) -> Optional[List[List]]:
         """
@@ -312,6 +507,48 @@ class GoogleSheetsSync:
             return None
         except Exception as e:
             logger.error(f"Error downloading sheet '{sheet_name}': {e}")
+            return None
+
+    def download_sheet_data_by_gid(self, spreadsheet_id: str, gid: str) -> Optional[List[List]]:
+        """
+        Download data from a Google Sheet using GID (sheet ID).
+        
+        Args:
+            spreadsheet_id: Google Sheets spreadsheet ID
+            gid: Google Sheets GID (sheet ID)
+            
+        Returns:
+            List of rows (each row is a list of values) if successful, None otherwise
+        """
+        try:
+            # Get sheet name from GID
+            sheet_name = self._get_sheet_name_from_gid(spreadsheet_id, gid)
+            if not sheet_name:
+                logger.error(f"Could not find sheet name for GID {gid}")
+                return None
+            
+            logger.info(f"Downloading data from sheet '{sheet_name}' (GID: {gid}) in spreadsheet {spreadsheet_id}")
+            
+            # Get the sheet data
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range=sheet_name
+            ).execute()
+            
+            values = result.get('values', [])
+            
+            if not values:
+                logger.warning(f"No data found in sheet '{sheet_name}' (GID: {gid})")
+                return None
+            
+            logger.info(f"Downloaded {len(values)} rows from sheet '{sheet_name}' (GID: {gid})")
+            return values
+            
+        except HttpError as e:
+            logger.error(f"HTTP error downloading sheet by GID {gid}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error downloading sheet by GID {gid}: {e}")
             return None
 
     def create_spreadsheet(self, title: str, description: str = "") -> str:

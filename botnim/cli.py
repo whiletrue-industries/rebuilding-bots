@@ -868,6 +868,7 @@ class PDFExtractConfig:
     credentials_path: Optional[str] = None
     pdfs_only: bool = False
     upload_only: bool = False
+    gid: Optional[str] = None
 
 @cli.command(name='pdf-extract')
 @click.argument('config_file')
@@ -883,9 +884,10 @@ class PDFExtractConfig:
 @click.option('--credentials-path', help='Path to service account credentials file (if not using ADC)')
 @click.option('--pdfs-only', is_flag=True, help='Process PDFs only, no Google Sheets upload')
 @click.option('--upload-only', is_flag=True, help='Upload CSV files only, no PDF processing')
+@click.option('--gid', help='Google Sheets GID (sheet ID) for upload')
 def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_metrics, 
                    upload_to_sheets, spreadsheet_id, replace_sheet, use_adc, credentials_path,
-                   pdfs_only, upload_only):
+                   pdfs_only, upload_only, gid):
     """Extract structured data from PDFs using LLM with CSV-based contract.
     
     Input directory should contain:
@@ -914,7 +916,8 @@ def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_met
         use_adc=use_adc,
         credentials_path=credentials_path,
         pdfs_only=pdfs_only,
-        upload_only=upload_only
+        upload_only=upload_only,
+        gid=gid
     )
     
     # Call the simplified function with config object
@@ -1072,11 +1075,12 @@ def _upload_to_sheets_only_with_config(config: PDFExtractConfig) -> bool:
         config.use_adc,
         config.credentials_path,
         config.replace_sheet,
-        config.verbose
+        config.verbose,
+        config.gid
     )
 
 def _upload_to_sheets_only(input_dir: str, spreadsheet_id: str, use_adc: bool, 
-                          credentials_path: str, replace_sheet: bool, verbose: bool) -> bool:
+                          credentials_path: str, replace_sheet: bool, verbose: bool, gid: str = None) -> bool:
     """
     Upload CSV files to Google Sheets only - no PDF processing.
     
@@ -1093,7 +1097,7 @@ def _upload_to_sheets_only(input_dir: str, spreadsheet_id: str, use_adc: bool,
         
         # Upload CSV files (prioritizing output.csv from CSV contract pattern)
         results = sheets_service.upload_directory_csvs(
-            input_dir, spreadsheet_id, replace_existing=replace_sheet, prefer_output_csv=True
+            input_dir, spreadsheet_id, replace_existing=replace_sheet, prefer_output_csv=True, gid=gid
         )
         
         # Report results
@@ -1125,13 +1129,14 @@ def _process_and_upload_with_config(config: PDFExtractConfig) -> bool:
         config.spreadsheet_id,
         config.replace_sheet,
         config.use_adc,
-        config.credentials_path
+        config.credentials_path,
+        config.gid
     )
 
 def _process_and_upload(config_file: str, input_dir: str, source: str, environment: str, 
                        verbose: bool, no_metrics: bool, upload_to_sheets: bool, 
                        spreadsheet_id: str, replace_sheet: bool, use_adc: bool, 
-                       credentials_path: str) -> bool:
+                       credentials_path: str, gid: str = None) -> bool:
     """
     Process PDFs and optionally upload to Google Sheets as separate steps.
     
@@ -1152,7 +1157,7 @@ def _process_and_upload(config_file: str, input_dir: str, source: str, environme
         if upload_to_sheets:
             click.echo("📊 Step 2: Uploading to Google Sheets...")
             sheets_success = _upload_to_sheets_only(
-                input_dir, spreadsheet_id, use_adc, credentials_path, replace_sheet, verbose
+                input_dir, spreadsheet_id, use_adc, credentials_path, replace_sheet, verbose, gid
             )
             
             if not sheets_success:
