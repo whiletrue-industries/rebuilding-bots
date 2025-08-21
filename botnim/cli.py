@@ -5,6 +5,8 @@ import json
 import logging
 import subprocess
 import sys
+from dataclasses import dataclass
+from typing import Optional
 
 
 from .vector_store.vector_store_es import VectorStoreES
@@ -850,6 +852,23 @@ def generate_markdown_files_cmd(json_file, output_dir, write_files, dry_run):
         dry_run=dry_run
     )
 
+@dataclass
+class PDFExtractConfig:
+    """Configuration object for PDF extraction command."""
+    config_file: str
+    input_dir: str
+    source: Optional[str] = None
+    environment: str = 'staging'
+    verbose: bool = False
+    no_metrics: bool = False
+    upload_to_sheets: bool = False
+    spreadsheet_id: Optional[str] = None
+    replace_sheet: bool = False
+    use_adc: bool = False
+    credentials_path: Optional[str] = None
+    pdfs_only: bool = False
+    upload_only: bool = False
+
 @cli.command(name='pdf-extract')
 @click.argument('config_file')
 @click.argument('input_dir')
@@ -881,8 +900,30 @@ def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_met
     - --pdfs-only: Process PDFs only, no cloud storage
     - --upload-only: Upload existing CSV files to Google Sheets only
     """
+    # Create configuration object from parameters
+    config = PDFExtractConfig(
+        config_file=config_file,
+        input_dir=input_dir,
+        source=source,
+        environment=environment,
+        verbose=verbose,
+        no_metrics=no_metrics,
+        upload_to_sheets=upload_to_sheets,
+        spreadsheet_id=spreadsheet_id,
+        replace_sheet=replace_sheet,
+        use_adc=use_adc,
+        credentials_path=credentials_path,
+        pdfs_only=pdfs_only,
+        upload_only=upload_only
+    )
+    
+    # Call the simplified function with config object
+    _pdf_extract_with_config(config)
+
+def _pdf_extract_with_config(config: PDFExtractConfig):
+    """Simplified PDF extraction function using configuration object."""
     # Setup logging
-    log_level = logging.INFO if verbose else logging.WARNING
+    log_level = logging.INFO if config.verbose else logging.WARNING
     logging.basicConfig(
         level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -890,42 +931,39 @@ def pdf_extract_cmd(config_file, input_dir, source, environment, verbose, no_met
     
     try:
         # Validate arguments
-        if not Path(config_file).exists():
-            click.echo(f"Error: Configuration file not found: {config_file}", err=True)
+        if not Path(config.config_file).exists():
+            click.echo(f"Error: Configuration file not found: {config.config_file}", err=True)
             sys.exit(1)
         
-        if not Path(input_dir).exists():
-            click.echo(f"Error: Input directory not found: {input_dir}", err=True)
+        if not Path(config.input_dir).exists():
+            click.echo(f"Error: Input directory not found: {config.input_dir}", err=True)
             sys.exit(1)
         
         # Determine workflow mode
-        if pdfs_only:
+        if config.pdfs_only:
             # PDF processing only - CSV contract pattern
             click.echo("🚀 PDF processing only (CSV contract pattern)")
-            success = _process_pdfs_only(config_file, input_dir, environment, verbose, no_metrics, source)
-        elif upload_only:
+            success = _process_pdfs_only_with_config(config)
+        elif config.upload_only:
             # Google Sheets upload only
-            if not spreadsheet_id:
+            if not config.spreadsheet_id:
                 click.echo("Error: --spreadsheet-id is required for upload-only mode", err=True)
                 sys.exit(1)
             click.echo("📊 Google Sheets upload only")
-            success = _upload_to_sheets_only(input_dir, spreadsheet_id, use_adc, credentials_path, replace_sheet, verbose)
+            success = _upload_to_sheets_only_with_config(config)
         else:
             # Complete workflow with separation of concerns
             # Auto-enable upload if spreadsheet_id is provided
-            if spreadsheet_id and not upload_to_sheets:
-                upload_to_sheets = True
+            if config.spreadsheet_id and not config.upload_to_sheets:
+                config.upload_to_sheets = True
                 click.echo("📊 Auto-enabling Google Sheets upload (spreadsheet-id provided)")
             
-            if upload_to_sheets and not spreadsheet_id:
+            if config.upload_to_sheets and not config.spreadsheet_id:
                 click.echo("Error: --spreadsheet-id is required when --upload-to-sheets is specified", err=True)
                 sys.exit(1)
             
             click.echo("🔄 Complete workflow (PDF processing + optional Google Sheets upload)")
-            success = _process_and_upload(
-                config_file, input_dir, source, environment, verbose, no_metrics,
-                upload_to_sheets, spreadsheet_id, replace_sheet, use_adc, credentials_path
-            )
+            success = _process_and_upload_with_config(config)
         
         if success:
             click.echo("✅ Operation completed successfully")
@@ -1015,6 +1053,28 @@ def _process_pdfs_only(config_file: str, input_dir: str, environment: str, verbo
         click.echo(f"❌ PDF processing error: {e}", err=True)
         return False
 
+def _process_pdfs_only_with_config(config: PDFExtractConfig) -> bool:
+    """Process PDFs only using configuration object."""
+    return _process_pdfs_only(
+        config.config_file, 
+        config.input_dir, 
+        config.environment, 
+        config.verbose, 
+        config.no_metrics, 
+        config.source
+    )
+
+def _upload_to_sheets_only_with_config(config: PDFExtractConfig) -> bool:
+    """Upload CSV files to Google Sheets only using configuration object."""
+    return _upload_to_sheets_only(
+        config.input_dir,
+        config.spreadsheet_id,
+        config.use_adc,
+        config.credentials_path,
+        config.replace_sheet,
+        config.verbose
+    )
+
 def _upload_to_sheets_only(input_dir: str, spreadsheet_id: str, use_adc: bool, 
                           credentials_path: str, replace_sheet: bool, verbose: bool) -> bool:
     """
@@ -1051,6 +1111,22 @@ def _upload_to_sheets_only(input_dir: str, spreadsheet_id: str, use_adc: bool,
     except Exception as e:
         click.echo(f"❌ Google Sheets upload error: {e}", err=True)
         return False
+
+def _process_and_upload_with_config(config: PDFExtractConfig) -> bool:
+    """Process PDFs and optionally upload to Google Sheets using configuration object."""
+    return _process_and_upload(
+        config.config_file,
+        config.input_dir,
+        config.source,
+        config.environment,
+        config.verbose,
+        config.no_metrics,
+        config.upload_to_sheets,
+        config.spreadsheet_id,
+        config.replace_sheet,
+        config.use_adc,
+        config.credentials_path
+    )
 
 def _process_and_upload(config_file: str, input_dir: str, source: str, environment: str, 
                        verbose: bool, no_metrics: bool, upload_to_sheets: bool, 
