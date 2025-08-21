@@ -1,0 +1,337 @@
+{
+  "metadata": {
+    "input_file": "/home/ubuntu/rebuilding-bots/botnim/document_parser/extract_sources/כללי אתיקה לחברי הכנסת.html",
+    "document_name": "כללי אתיקה לחברי הכנסת",
+    "environment": "staging",
+    "model": "gpt-4.1",
+    "max_tokens": null,
+    "total_items": 45,
+    "structure_type": "nested_hierarchy",
+    "mark_type": "סעיף"
+  },
+  "structure": [
+    {
+      "depth": 1,
+      "section_name": "תוכן עניינים",
+      "html_id": null,
+      "section_type": "תוכן עניינים",
+      "children": []
+    },
+    {
+      "depth": 1,
+      "section_name": "פרק א׳: פרשנות",
+      "html_id": "פרק_א",
+      "section_type": "פרק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 1",
+          "html_id": "סעיף_1",
+          "section_type": "סעיף",
+          "children": []
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "פרק ב׳: כללי יסוד",
+      "html_id": "פרק_ב",
+      "section_type": "פרק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 1א",
+          "html_id": "סעיף_1א",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 2",
+          "html_id": "סעיף_2",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 3",
+          "html_id": "סעיף_3",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 4",
+          "html_id": "סעיף_4",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 4א",
+          "html_id": "סעיף_4א",
+          "section_type": "סעיף",
+          "children": []
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "פרק ג׳: הגבלות בענינים אישיים",
+      "html_id": "פרק_ג",
+      "section_type": "פרק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 5",
+          "html_id": "סעיף_5",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 6",
+          "html_id": "סעיף_6",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 7",
+          "html_id": "סעיף_7",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 8",
+          "html_id": "סעיף_8",
+          "section_type": "סעיף",
+          "children": []
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "פרק ד׳: הגבלות בענין לקוחות",
+      "html_id": "פרק_ד",
+      "section_type": "פרק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 9",
+          "html_id": "סעיף_9",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 10",
+          "html_id": "סעיף_10",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 11",
+          "html_id": "סעיף_11",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 12",
+          "html_id": "סעיף_12",
+          "section_type": "סעיף",
+          "children": []
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "פרק ה׳: הגבלות בעניין עיסוק נוסף",
+      "html_id": "פרק_ה",
+      "section_type": "פרק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 13",
+          "html_id": "סעיף_13",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 13א",
+          "html_id": "סעיף_13א",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 13ב",
+          "html_id": "סעיף_13ב",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 13ג",
+          "html_id": "סעיף_13ג",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 13ד",
+          "html_id": "סעיף_13ד",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 14",
+          "html_id": "סעיף_14",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 14א",
+          "html_id": "סעיף_14א",
+          "section_type": "סעיף",
+          "children": []
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "פרק ו׳: הצהרת הון",
+      "html_id": "פרק_ו",
+      "section_type": "פרק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 15",
+          "html_id": "סעיף_15",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 15א",
+          "html_id": "סעיף_15א",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 16",
+          "html_id": "סעיף_16",
+          "section_type": "סעיף",
+          "children": []
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "פרק ז׳: ועדת האתיקה",
+      "html_id": "פרק_ז",
+      "section_type": "פרק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 17",
+          "html_id": "סעיף_17",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 18",
+          "html_id": "סעיף_18",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 19",
+          "html_id": "סעיף_19",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 20",
+          "html_id": "סעיף_20",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 21",
+          "html_id": "סעיף_21",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 22",
+          "html_id": "סעיף_22",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 23",
+          "html_id": "סעיף_23",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 24",
+          "html_id": "סעיף_24",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 25",
+          "html_id": "סעיף_25",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 26",
+          "html_id": "סעיף_26",
+          "section_type": "סעיף",
+          "children": []
+        }
+      ]
+    },
+    {
+      "depth": 1,
+      "section_name": "פרק ח׳: שונות",
+      "html_id": "פרק_ח",
+      "section_type": "פרק",
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 27",
+          "html_id": "סעיף_27",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 28",
+          "html_id": "סעיף_28",
+          "section_type": "סעיף",
+          "children": []
+        }
+      ]
+    }
+  ]
+}

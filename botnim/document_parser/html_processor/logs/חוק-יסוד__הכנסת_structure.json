@@ -1,0 +1,1035 @@
+{
+  "metadata": {
+    "input_file": "/home/ubuntu/rebuilding-bots/botnim/document_parser/extract_sources/חוק-יסוד__הכנסת.html",
+    "document_name": "חוק-יסוד__הכנסת",
+    "environment": "staging",
+    "model": "gpt-4.1",
+    "max_tokens": null,
+    "total_items": 143,
+    "structure_type": "nested_hierarchy",
+    "mark_type": "סעיף"
+  },
+  "structure": [
+    {
+      "depth": 1,
+      "section_name": "חוק-יסוד: הכנסת",
+      "html_id": null,
+      "section_type": null,
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "סעיף 1 - המהות",
+          "html_id": "calibre_link-14",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 2 - מקום המושב",
+          "html_id": "calibre_link-15",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 3 - ההרכב",
+          "html_id": "calibre_link-16",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 4 - שיטת הבחירות",
+          "html_id": "calibre_link-17",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 5 - הזכות לבחור",
+          "html_id": "calibre_link-18",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 5א - הזכות להגיש רשימת מועמדים",
+          "html_id": "calibre_link-19",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 6 - הזכות להיבחר",
+          "html_id": "calibre_link-20",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 6(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 6(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 6(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 6(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 6(ה)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 6א - סייג למועמדות חבר הכנסת שפרש מסיעתו",
+          "html_id": "calibre_link-21",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 6א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 6א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 7 - מי לא יהיה מועמד",
+          "html_id": "calibre_link-22",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(1)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(2)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(3)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(4)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(5)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(6)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(7)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(8)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(9)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7(10)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 7א - מניעת השתתפות בבחירות",
+          "html_id": "calibre_link-23",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 7א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 7א(א)(1)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 7א(א)(2)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 7א(א)(3)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7א(א1)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7א(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 7א(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 8 - תקופת כהונת הכנסת",
+          "html_id": "calibre_link-24",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 8א",
+          "html_id": "calibre_link-25",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 9 - מועד הבחירות",
+          "html_id": "calibre_link-26",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 9א - הארכת תקופת כהונה",
+          "html_id": "calibre_link-27",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 9א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 9א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 10 - יום הבחירות – שבתון",
+          "html_id": "calibre_link-28",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 11 - פרסום תוצאות הבחירות",
+          "html_id": "calibre_link-29",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 12 - כינוס הכנסת",
+          "html_id": "calibre_link-30",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 13",
+          "html_id": "calibre_link-31",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 14 - ישיבת הפתיחה",
+          "html_id": "calibre_link-32",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 15 - הצהרת אמונים של חבר הכנסת",
+          "html_id": "calibre_link-33",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 15(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 15(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 16 - אי־הצהרה",
+          "html_id": "calibre_link-34",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 16א - אי הצהרה בשל אזרחות כפולה",
+          "html_id": "calibre_link-35",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 17 - חסינות חברי הכנסת",
+          "html_id": "calibre_link-36",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 18 - חסינות בנייני הכנסת",
+          "html_id": "calibre_link-37",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 19 - סדרי העבודה והתקנון",
+          "html_id": "calibre_link-38",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 20 - היושב ראש והסגנים",
+          "html_id": "calibre_link-39",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 20(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 20א - ממלא מקום של יושב ראש הכנסת ויושב ראש הכנסת בפועל",
+          "html_id": "calibre_link-40",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 20א(ג1)(1)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 20א(ג1)(2)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(ה)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 20א(ו)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 21 - ועדות",
+          "html_id": "calibre_link-41",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 21(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 21(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 21(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 21א",
+          "html_id": "calibre_link-42",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 22 - ועדות חקירה",
+          "html_id": "calibre_link-43",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 23 - דינם של שר וסגן שר שאינם חברי הכנסת",
+          "html_id": "calibre_link-44",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 24 - מנין",
+          "html_id": "calibre_link-45",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 25 - רוב",
+          "html_id": "calibre_link-46",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 26 - ישיבות",
+          "html_id": "calibre_link-47",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 27 - פומביות",
+          "html_id": "calibre_link-48",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 28 - פרסום",
+          "html_id": "calibre_link-49",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 29",
+          "html_id": "calibre_link-50",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 30",
+          "html_id": "calibre_link-51",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 31 - כנסים",
+          "html_id": "calibre_link-52",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 32",
+          "html_id": "calibre_link-53",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 33",
+          "html_id": "calibre_link-54",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 34 - התפזרות הכנסת",
+          "html_id": "calibre_link-55",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 35 - מועד הבחירות לאחר התפזרות הכנסת",
+          "html_id": "calibre_link-56",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 36 - תקופת כהונת הכנסת לאחר התפזרות",
+          "html_id": "calibre_link-57",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 36א - התפזרות בשל אי קבלת חוק תקציב",
+          "html_id": "calibre_link-58",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 36א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 36א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 36א(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 37 - רציפות הכנסת",
+          "html_id": "calibre_link-59",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 38 - הארכת תקפם של חיקוקים",
+          "html_id": "calibre_link-60",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 39 - שכר חברי הכנסת",
+          "html_id": "calibre_link-61",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 40 - התפטרות של חבר כנסת",
+          "html_id": "calibre_link-62",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 41 - תוצאות ההתפטרות",
+          "html_id": "calibre_link-63",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 42 - פקיעת כהונה או מועמדות",
+          "html_id": "calibre_link-64",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 42א - הפסקת חברות של חבר הכנסת",
+          "html_id": "calibre_link-65",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 42א(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42א(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42א(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42א(ג)(1)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42א(ג)(2)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42א(ג)(3)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42א(ג)(4)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42א(ג)(5)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42א(ג)(6)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 42ב - השעיה",
+          "html_id": "calibre_link-66",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ב(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ב(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ב(ב1)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ב(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 42ג - הפסקת חברות בכנסת של שר או סגן שר",
+          "html_id": "calibre_link-67",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(א1)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ג)(1)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ג)(2)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ג)(3)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ג)(4)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": [
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ד)(א)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ד)(א1)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ד)(ב)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ד)(ג)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                },
+                {
+                  "depth": 4,
+                  "section_name": "סעיף 42ג(ד)(ד)",
+                  "html_id": null,
+                  "section_type": "תת-סעיף",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ה)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ו)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 42ג(ז)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 43 - חילופים של חברי כנסת",
+          "html_id": "calibre_link-68",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(ג)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(ד)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(ה)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף 43(ו)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 44 - יציבות החוק",
+          "html_id": "calibre_link-69",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 45 - נוקשות סעיפים",
+          "html_id": "calibre_link-70",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 45א - תחולת נוקשות",
+          "html_id": "calibre_link-71",
+          "section_type": "סעיף",
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 46 - מתי דרוש רוב מיוחד",
+          "html_id": "calibre_link-72",
+          "section_type": "סעיף",
+          "children": []
+        }
+      ]
+    }
+  ]
+}

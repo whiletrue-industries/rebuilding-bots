@@ -1,0 +1,208 @@
+version: "1.0.0"
+name: "Knesset Content Sync Configuration"
+description: "Automated sync configuration for Knesset legal content sources"
+
+# Global settings
+default_versioning_strategy: "hash"
+default_fetch_strategy: "direct"
+
+# Storage configuration
+cache_directory: "./cache"
+embedding_cache_path: "./cache/embeddings.sqlite"
+version_cache_path: "./cache/versions.json"
+
+# Processing configuration
+max_concurrent_sources: 5
+timeout_per_source: 300
+
+# Logging configuration
+log_level: "INFO"
+log_file: "./logs/sync.log"
+
+# Content sources
+sources:
+  # HTML Sources
+  - id: "knesset-laws-html"
+    name: "Knesset Laws (HTML)"
+    description: "HTML version of Knesset laws and regulations"
+    type: "html"
+    html_config:
+      url: "https://main.knesset.gov.il/Activity/Legislation/Pages/default.aspx"
+      selector: "#content"
+      encoding: "utf-8"
+      timeout: 30
+      retry_attempts: 3
+    versioning_strategy: "hash"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 1
+    tags: ["legal", "knesset", "laws", "html"]
+
+  - id: "knesset-bylaws-html"
+    name: "Knesset Bylaws (HTML)"
+    description: "HTML version of Knesset bylaws"
+    type: "html"
+    html_config:
+      url: "https://main.knesset.gov.il/Activity/Committees/Pages/default.aspx"
+      selector: ".committee-content"
+      encoding: "utf-8"
+      timeout: 30
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 2
+    tags: ["legal", "knesset", "bylaws", "html"]
+
+  # PDF Pipeline Sources - Example Open Budget Sources
+  - id: "example-ethics-decisions-pdf"
+    name: "Example Ethics Committee Decisions"
+    description: "Example PDF pipeline for ethics committee decisions from Open Budget"
+    type: "pdf_pipeline"
+    pdf_config:
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "committee_name"
+            type: "string"
+            description: "Name of the committee"
+            required: true
+          - name: "decision_date"
+            type: "date"
+            description: "Date of the decision"
+            required: true
+          - name: "decision_title"
+            type: "string"
+            description: "Title of the decision"
+            required: true
+          - name: "decision_summary"
+            type: "text"
+            description: "Summary of the decision"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content"
+            required: true
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
+    enabled: true
+    priority: 5
+    tags: ["example", "pdf-pipeline", "open-budget"]
+
+  - id: "example-legal-advisor-pdf"
+    name: "Example Legal Advisor Guidance"
+    description: "Example PDF pipeline for legal advisor guidance from Open Budget"
+    type: "pdf_pipeline"
+    pdf_config:
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/datapackage.json"
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "advisor_name"
+            type: "string"
+            description: "Name of the legal advisor"
+            required: true
+          - name: "document_date"
+            type: "date"
+            description: "Date of the document"
+            required: true
+          - name: "document_title"
+            type: "string"
+            description: "Title of the document"
+            required: true
+          - name: "document_summary"
+            type: "text"
+            description: "Summary of the document"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content"
+            required: true
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
+    enabled: true
+    priority: 6
+    tags: ["example", "pdf-pipeline", "open-budget"]
+
+  # Spreadsheet Sources
+  - id: "ethics-rules-spreadsheet"
+    name: "Ethics Rules (Spreadsheet)"
+    description: "Google Sheets containing ethics rules and decisions"
+    type: "spreadsheet"
+    spreadsheet_config:
+      url: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=0#gid=0"
+      sheet_name: "Ethics Rules"
+      range: "A1:D1000"
+      use_adc: true
+    versioning_strategy: "timestamp"
+    fetch_strategy: "async"
+    fetch_interval: 3600  # 1 hour
+    enabled: true
+    priority: 5
+    tags: ["legal", "ethics", "rules", "spreadsheet"]
+
+  - id: "committee-decisions-spreadsheet"
+    name: "Committee Decisions (Spreadsheet)"
+    description: "Google Sheets containing committee decisions"
+    type: "spreadsheet"
+    spreadsheet_config:
+      url: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=656974237#gid=656974237"
+      sheet_name: "Committee Decisions"
+      range: "A1:F500"
+      use_adc: true
+    versioning_strategy: "timestamp"
+    fetch_strategy: "async"
+    fetch_interval: 7200  # 2 hours
+    enabled: true
+    priority: 6
+    tags: ["legal", "committee", "decisions", "spreadsheet"]
+
+  # Wikisource Sources (for large content)
+  - id: "wikisource-legal-texts"
+    name: "Wikisource Legal Texts"
+    description: "Large legal texts from Wikisource"
+    type: "wikisource"
+    html_config:
+      url: "https://he.wikisource.org/wiki/תקנון_הכנסת"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+    versioning_strategy: "combined"
+    fetch_strategy: "async"
+    fetch_interval: 86400  # 24 hours
+    enabled: true
+    priority: 7
+    tags: ["legal", "wikisource", "large-content"]
+
+  # Disabled source example
+  - id: "archived-content"
+    name: "Archived Content"
+    description: "Archived content (currently disabled)"
+    type: "html"
+    html_config:
+      url: "https://archive.knesset.gov.il/old-content"
+      selector: "#archive-content"
+      encoding: "utf-8"
+    versioning_strategy: "hash"
+    fetch_strategy: "direct"
+    enabled: false  # Disabled source
+    priority: 10
+    tags: ["archived", "disabled"] 

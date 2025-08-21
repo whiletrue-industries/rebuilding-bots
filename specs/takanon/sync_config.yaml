@@ -1,0 +1,432 @@
+version: "1.0.0"
+name: "Takanon Bot Sync Configuration"
+description: "Automated sync configuration for Knesset legal content sources"
+
+# Global settings
+default_versioning_strategy: "hash"
+default_fetch_strategy: "direct"
+
+# Storage configuration
+cache_directory: "./cache"
+embedding_cache_path: "./cache/embeddings.sqlite"
+version_cache_path: "./cache/versions.json"
+
+# Processing configuration
+max_concurrent_sources: 5
+timeout_per_source: 300
+
+# Logging configuration
+log_level: "INFO"
+log_file: "./logs/sync.log"
+
+# Content sources
+sources:
+  # Google Spreadsheet Sources
+  - id: "oral-knowledge-spreadsheet"
+    name: "ידע שבעל פה (Oral Knowledge)"
+    description: "ידע שבעל פה על עבודת הכנסת והתקנון"
+    type: "spreadsheet"
+    spreadsheet_config:
+      url: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=0#gid=0"
+      sheet_name: "תושב״ע"
+      range: "A1:Z1000"
+      use_adc: true
+    versioning_strategy: "timestamp"
+    fetch_strategy: "async"
+    fetch_interval: 3600  # 1 hour
+    enabled: true
+    priority: 1
+    tags: ["משפטי", "ידע-בעל-פה", "google-spreadsheet"]
+
+  # HTML Sources - Knesset Lexicon
+  - id: "knesset-lexicon-html"
+    name: "לקסיקון הכנסת (Knesset Lexicon)"
+    description: "לקסיקון הכנסת - דף אינדקס עם דפי HTML מחוברים"
+    type: "html"
+    html_config:
+      url: "https://main.knesset.gov.il/about/lexicon/pages/default.aspx"
+      selector: "#content"
+      link_pattern: ".*lexicon.*"
+      encoding: "utf-8"
+      timeout: 60
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"
+    enabled: true
+    priority: 4
+    tags: ["משפטי", "כנסת", "לקסיקון", "html"]
+
+  # PDF Pipeline Sources - Ethics Committee Decisions (Open Budget)
+  # Open Budget based PDF processing pipeline with structured data extraction
+  - id: "ethics-committee-decisions-pdf"
+    name: "החלטות ועדת האתיקה (Ethics Committee Decisions)"
+    description: "החלטות PDF מוועדת האתיקה - Open Budget source"
+    type: "pdf_pipeline"
+    pdf_config:
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
+      output_config:
+        spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # From removed ethics-decisions-spreadsheet
+        sheet_name: "Ethics Decisions"  # From removed ethics-decisions-spreadsheet
+        gid: "1881114058"  # Ethics Committee Decisions sheet GID
+        use_adc: true
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "committee_name"
+            type: "string"
+            description: "Name of the committee that made the decision"
+            required: true
+          - name: "decision_date"
+            type: "date"
+            description: "Date when the decision was made"
+            required: true
+          - name: "decision_number"
+            type: "string"
+            description: "Decision number or identifier"
+            required: false
+          - name: "decision_title"
+            type: "string"
+            description: "Title or subject of the decision"
+            required: true
+          - name: "decision_summary"
+            type: "text"
+            description: "Summary of the decision content"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content of the decision"
+            required: true
+          - name: "keywords"
+            type: "array"
+            description: "Key terms and topics mentioned in the decision"
+            required: false
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
+    enabled: true
+    priority: 5
+    tags: ["משפטי", "אתיקה", "החלטות", "pdf-pipeline", "open-budget"]
+
+  # Knesset Committee Decisions Pipeline (Open Budget)
+  - id: "knesset-committee-decisions-pdf"
+    name: "החלטות ועדת הכנסת (Knesset Committee Decisions)"
+    description: "החלטות PDF מוועדת הכנסת - Open Budget source"
+    type: "pdf_pipeline"
+    pdf_config:
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_committee_decisions/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_committee_decisions/datapackage.json"
+      output_config:
+        spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # From removed committee-decisions-spreadsheet
+        sheet_name: "Knesset Committee Decisions"  # New sheet name to avoid conflicts
+        gid: "1785098111"  # Knesset Committee Decisions sheet GID
+        use_adc: true
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "committee_name"
+            type: "string"
+            description: "Name of the committee that made the decision"
+            required: true
+          - name: "decision_date"
+            type: "date"
+            description: "Date when the decision was made"
+            required: true
+          - name: "decision_number"
+            type: "string"
+            description: "Decision number or identifier"
+            required: false
+          - name: "decision_title"
+            type: "string"
+            description: "Title or subject of the decision"
+            required: true
+          - name: "decision_summary"
+            type: "text"
+            description: "Summary of the decision content"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content of the decision"
+            required: true
+          - name: "keywords"
+            type: "array"
+            description: "Key terms and topics mentioned in the decision"
+            required: false
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
+    enabled: true
+    priority: 6
+    tags: ["משפטי", "ועדות", "החלטות", "pdf-pipeline", "open-budget"]
+
+  # Knesset Legal Advisor Guidance Pipeline (Open Budget)
+  - id: "knesset-legal-advisor-pdf"
+    name: "חוות דעת והנחיות של היועצת המשפטית לכנסת (Knesset Legal Advisor Guidance)"
+    description: "חוות דעת והנחיות PDF מהיועצת המשפטית לכנסת - Open Budget source"
+    type: "pdf_pipeline"
+    pdf_config:
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/datapackage.json"
+      output_config:
+        spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # Same spreadsheet, different sheet
+        sheet_name: "Knesset Legal Advisor Guidance"  # Unique sheet name
+        gid: "287919096"  # Knesset Legal Advisor Guidance sheet GID
+        use_adc: true
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "advisor_name"
+            type: "string"
+            description: "Name of the legal advisor"
+            required: true
+          - name: "document_date"
+            type: "date"
+            description: "Date of the document"
+            required: true
+          - name: "document_title"
+            type: "string"
+            description: "Title of the document"
+            required: true
+          - name: "document_type"
+            type: "string"
+            description: "Type of document (opinion, guidance, etc.)"
+            required: true
+          - name: "document_summary"
+            type: "text"
+            description: "Summary of the document content"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content of the document"
+            required: true
+          - name: "keywords"
+            type: "array"
+            description: "Key terms and topics mentioned in the document"
+            required: false
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
+    enabled: true
+    priority: 7
+    tags: ["משפטי", "יועץ-משפטי", "חוות-דעת", "pdf-pipeline", "open-budget"]
+
+  # Knesset Legal Advisor Letters Pipeline (Open Budget)
+  - id: "knesset-legal-advisor-letters-pdf"
+    name: "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת (Knesset Legal Advisor Letters)"
+    description: "מכתבי פנייה ומכתבי תשובה PDF מהיועצת המשפטית של הכנסת - Open Budget source"
+    type: "pdf_pipeline"
+    pdf_config:
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor_letters/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor_letters/datapackage.json"
+      output_config:
+        spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # Same spreadsheet, different sheet
+        sheet_name: "Knesset Legal Advisor Letters"  # Unique sheet name
+        gid: "261770331"  # Knesset Legal Advisor Letters sheet GID
+        use_adc: true
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "advisor_name"
+            type: "string"
+            description: "Name of the legal advisor"
+            required: true
+          - name: "letter_date"
+            type: "date"
+            description: "Date of the letter"
+            required: true
+          - name: "letter_title"
+            type: "string"
+            description: "Title or subject of the letter"
+            required: true
+          - name: "letter_type"
+            type: "string"
+            description: "Type of letter (inquiry, response, etc.)"
+            required: true
+          - name: "recipient"
+            type: "string"
+            description: "Recipient of the letter"
+            required: false
+          - name: "letter_summary"
+            type: "text"
+            description: "Summary of the letter content"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content of the letter"
+            required: true
+          - name: "keywords"
+            type: "array"
+            description: "Key terms and topics mentioned in the letter"
+            required: false
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
+    enabled: true
+    priority: 8
+    tags: ["משפטי", "יועץ-משפטי", "מכתבים", "pdf-pipeline", "open-budget"]
+
+  # Wikisource HTML Sources
+  - id: "knesset-law-wikisource"
+    name: "חוק הכנסת (Knesset Law)"
+    description: "חוק הכנסת מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_הכנסת"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 9
+    tags: ["משפטי", "כנסת", "חוק", "ויקיטקסט", "html"]
+    use_document_parser: true
+
+  - id: "knesset-building-law-wikisource"
+    name: "חוק משכן הכנסת, רחבתו ומשמר הכנסת"
+    description: "חוק משכן הכנסת מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_משכן_הכנסת,_רחבתו_ומשמר_הכנסת"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 10
+    tags: ["משפטי", "כנסת", "משכן", "ויקיטקסט", "html"]
+    use_document_parser: true
+
+  - id: "knesset-basic-law-wikisource"
+    name: "חוק יסוד הכנסת (Basic Law: Knesset)"
+    description: "חוק יסוד הכנסת מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק-יסוד:_הכנסת"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 11
+    tags: ["משפטי", "כנסת", "חוק-יסוד", "ויקיטקסט", "html"]
+    use_document_parser: true
+
+  - id: "knesset-immunity-law-wikisource"
+    name: "חוק חסינות חברי הכנסת, זכויותיהם וחובותיהם"
+    description: "חוק חסינות חברי הכנסת מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_חסינות_חברי_הכנסת,_זכויותיהם_וחובותיהם"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 12
+    tags: ["משפטי", "כנסת", "חסינות", "ויקיטקסט", "html"]
+    use_document_parser: true
+
+  - id: "continuity-law-wikisource"
+    name: "חוק רציפות הדיון בהצעות חוק"
+    description: "חוק רציפות הדיון בהצעות חוק מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_רציפות_הדיון_בהצעות_חוק"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 13
+    tags: ["משפטי", "כנסת", "רציפות", "ויקיטקסט", "html"]
+    use_document_parser: true
+
+  - id: "knesset-bylaws-wikisource"
+    name: "תקנון הכנסת (Knesset Bylaws)"
+    description: "תקנון הכנסת מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/תקנון_הכנסת"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 14
+    tags: ["משפטי", "כנסת", "תקנון", "ויקיטקסט", "html"]
+    use_document_parser: true
+
+  - id: "interpretation-law-wikisource"
+    name: "חוק הפרשנות (Interpretation Law)"
+    description: "חוק הפרשנות מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_הפרשנות"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 15
+    tags: ["משפטי", "כנסת", "פרשנות", "ויקיטקסט", "html"]
+    use_document_parser: true 
+
+  - id: "knesset-members-salary-decision-wikisource"
+    name: "החלטת שכר חברי הכנסת (הענקות ותשלומים)"
+    description: "החלטת שכר חברי הכנסת (הענקות ותשלומים) מוויקיטקסט"
+    type: "html"
+    html_config:
+      url: "https://he.m.wikisource.org/wiki/החלטת_שכר_חברי_הכנסת_(הענקות_ותשלומים)"
+      selector: "#mw-content-text"
+      encoding: "utf-8"
+      timeout: 120
+      retry_attempts: 3
+    versioning_strategy: "combined"
+    fetch_strategy: "direct"
+    enabled: true
+    priority: 16
+    tags: ["משפטי", "כנסת", "שכר", "החלטה", "ויקיטקסט", "html"]
+    use_document_parser: true
+

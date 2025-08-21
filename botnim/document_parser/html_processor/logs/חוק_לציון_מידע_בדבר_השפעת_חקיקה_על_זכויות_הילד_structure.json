@@ -1,0 +1,132 @@
+{
+  "metadata": {
+    "input_file": "/home/ubuntu/rebuilding-bots/botnim/document_parser/extract_sources/חוק_לציון_מידע_בדבר_השפעת_חקיקה_על_זכויות_הילד.html",
+    "document_name": "חוק_לציון_מידע_בדבר_השפעת_חקיקה_על_זכויות_הילד",
+    "environment": "staging",
+    "model": "gpt-4.1",
+    "max_tokens": null,
+    "total_items": 16,
+    "structure_type": "nested_hierarchy",
+    "mark_type": "סעיף"
+  },
+  "structure": [
+    {
+      "depth": 1,
+      "section_name": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד",
+      "html_id": null,
+      "section_type": null,
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד, התשס״ב–2002",
+          "html_id": "calibre_link-12",
+          "section_type": null,
+          "children": []
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 1 - הגדרות",
+          "html_id": "calibre_link-14",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "הגדרות",
+              "html_id": null,
+              "section_type": null,
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 2 - מטרה",
+          "html_id": "calibre_link-15",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "מטרה",
+              "html_id": null,
+              "section_type": null,
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 3 - ציון מידע בדברי הסבר [תיקון: תשס״ב]",
+          "html_id": "calibre_link-16",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "ציון מידע בדברי הסבר [תיקון: תשס״ב]",
+              "html_id": null,
+              "section_type": null,
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "פסקה (1)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "פסקה (2)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 4 - ביצוע ותקנות",
+          "html_id": "calibre_link-17",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "ביצוע ותקנות",
+              "html_id": null,
+              "section_type": null,
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף קטן (א)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            },
+            {
+              "depth": 3,
+              "section_name": "סעיף קטן (ב)",
+              "html_id": null,
+              "section_type": "תת-סעיף",
+              "children": []
+            }
+          ]
+        },
+        {
+          "depth": 2,
+          "section_name": "סעיף 5 - תחילה",
+          "html_id": "calibre_link-18",
+          "section_type": "סעיף",
+          "children": [
+            {
+              "depth": 3,
+              "section_name": "תחילה",
+              "html_id": null,
+              "section_type": null,
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+# Simple test configuration using local mock data files
+sources:
+  - name: "test_simple_source"
+    description: "Simple test source using local mock data"
+    unique_id_field: "url"
+    index_csv_url: "file://botnim/document_parser/pdf_processor/test/data/mock_index.csv"
+    datapackage_url: "file://botnim/document_parser/pdf_processor/test/data/mock_datapackage.json"
+    output_config:
+      spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"
+      sheet_name: "Simple Test"
+      use_adc: true
+    metadata:
+      source: "test"
+      data_provider: "mock"
+      test_mode: "true"
+    fields:
+      - name: "title"
+        description: "Document title"
+        example: "Test Document"
+      - name: "content"
+        description: "Document content"
+        example: "This is test content"
+      - name: "document_type"
+        description: "Type of document"
+        example: "decision"
+    extraction_instructions: "Extract basic information from the test document." 

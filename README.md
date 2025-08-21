@@ -4,6 +4,303 @@
 
 This is a repository for the rebuilding anew bots (bot-nim).
 
+### Recent Improvements
+
+The PDF extraction pipeline has been significantly enhanced with:
+- **Enhanced JSON Schema Validation** - robust client-side validation using jsonschema library with detailed error messages
+- **Source-specific Google Sheets integration** - each source automatically gets its own sheet
+- **DRY architecture** - clean separation of concerns and reusable components  
+- **Comprehensive testing** - full test suite covering all aspects of the pipeline
+- **Robust error handling** - graceful handling of edge cases and API limits
+- **Performance monitoring** - detailed metrics and structured logging
+
+### Enhanced Logging, Monitoring & Error Reporting
+
+A comprehensive logging, monitoring, and error reporting system has been implemented:
+
+- **Structured JSON Logging** - All logs are output in JSON format for easy parsing and analysis
+- **Centralized Error Tracking** - Custom exception classes with actionable error messages and recovery suggestions
+- **Performance Monitoring** - Key performance indicators (KPIs) including processing times and document counts
+- **Health Checks** - Configurable thresholds for success rates, failure percentages, and processing times
+- **External Monitoring Integration** - Webhook-based integration with monitoring platforms (Datadog, PagerDuty, etc.)
+- **CI/CD Integration** - Designed for automated workflows with comprehensive failure reporting
+
+#### Quick Start with Enhanced Logging
+
+```bash
+# Test the enhanced logging system
+botnim monitoring test-logging
+
+# Run sync orchestration with enhanced logging
+botnim monitoring orchestrate specs/takanon/sync_config.yaml --environment staging
+
+# Analyze structured log files
+botnim monitoring log-analysis ./logs/sync.log --limit 50
+
+# Run with custom log level and file
+botnim monitoring orchestrate specs/takanon/sync_config.yaml --log-level DEBUG --log-file ./logs/debug.log
+```
+
+### Automated Sync Infrastructure
+
+A new automated, versioned, cloud-native sync system has been implemented for content sources (HTML, PDF, and spreadsheets) to vector store:
+
+- **Unified Configuration Schema** - YAML-based configuration for all content source types (HTML, PDF, spreadsheets)
+- **PDF-to-Spreadsheet Pipeline** - A pre-processing pipeline to extract structured data from multiple PDFs into a Google Spreadsheet, which then acts as a standard source for vectorization. Supports dynamic splitting (multiple decisions per PDF) and automatic spreadsheet source creation for seamless integration with the main sync process.
+- **Versioning & Change Detection** - Content hash-based versioning with incremental updates
+- **Caching Layer** - SQLite-based duplicate detection and content tracking
+- **HTML Content Fetching** - Automated fetching and parsing of HTML sources with version tracking
+- **HTML Index Page Discovery** - Automated discovery and processing of multiple HTML pages linked from index pages
+- **Asynchronous Spreadsheet Processing** - Background processing of Google Sheets data with task queue management
+- **PDF Discovery & Processing** - Automated discovery and processing of PDF files from remote sources
+- **Cloud-Based Embedding Processing** - Elasticsearch-based embedding storage with intelligent change detection and batch processing
+- **Advanced Document Parsing & Chunking** - AI-powered document structure analysis with intelligent chunking for large documents
+- **Comprehensive Sync Orchestration** - Main orchestration engine that coordinates all sync operations with CI integration
+- **Cloud-Native Design** - Designed for CI/CD workflows with no local dependencies
+- **Comprehensive Logging** - Structured logging with the project's standard logging mechanism
+
+#### Quick Start with Sync Infrastructure
+
+```bash
+# Test HTML fetching from a single URL
+botnim sync html fetch https://example.com --selector "#content"
+
+# Process HTML sources from configuration
+botnim sync html process specs/takanon/sync_config.yaml --source-ids knesset-lexicon-html
+
+# Process spreadsheet sources asynchronously
+botnim sync spreadsheet process specs/takanon/sync_config.yaml
+
+# Check spreadsheet processing status
+botnim sync spreadsheet status specs/takanon/sync_config.yaml
+
+# Manage sync cache
+botnim sync cache stats
+botnim sync cache cleanup --older-than 30
+
+# Process embeddings for cloud storage
+botnim sync embedding-process --config-file specs/takanon/sync_config.yaml
+botnim sync embedding-stats
+botnim sync embedding-download --cache-file ./cache/embeddings.json
+botnim sync embedding-upload --cache-file ./cache/embeddings.json
+
+# Run comprehensive sync orchestration
+botnim sync orchestrate --config-file specs/takanon/sync_config.yaml --environment staging
+botnim sync sync-stats --config-file specs/takanon/sync_config.yaml --environment staging
+
+# Test document parsing and chunking
+botnim sync orchestrate --config-file specs/test-sync-config.yaml --environment staging
+```
+
+#### Configuration
+
+Sync sources are configured in YAML files (e.g., `specs/takanon/sync_config.yaml`):
+
+```yaml
+sources:
+  # HTML Sources
+  - id: "knesset-lexicon-html"
+    name: "לקסיקון הכנסת (Knesset Lexicon)"
+    type: "html"
+    html_config:
+      url: "https://main.knesset.gov.il/about/lexicon/pages/default.aspx"
+      selector: "#content"
+    versioning_strategy: "combined"
+    enabled: true
+    priority: 1
+
+  # HTML Sources with Index Page Discovery
+  - id: "example-html-index"
+    name: "Example HTML Index Page"
+    type: "html"
+    html_config:
+      url: "https://example.com/index.html"
+      selector: "#content"
+      link_pattern: ".*relevant.*"  # Filter links containing "relevant"
+    versioning_strategy: "combined"
+    fetch_strategy: "index_page"  # Triggers HTML discovery
+    enabled: true
+    priority: 1
+
+  # HTML Sources with Advanced Document Parsing
+  - id: "knesset-law-wikisource"
+    name: "חוק הכנסת (Knesset Law)"
+    type: "html"
+    html_config:
+      url: "https://he.wikisource.org/wiki/חוק_הכנסת"
+      selector: "#mw-content-text"
+    versioning_strategy: "combined"
+    enabled: true
+    priority: 9
+    use_document_parser: true  # Enable AI-powered chunking
+
+  # Spreadsheet Sources (Async Processing)
+  - id: "oral-knowledge-spreadsheet"
+    name: "ידע שבעל פה (Oral Knowledge)"
+    type: "spreadsheet"
+    spreadsheet_config:
+      url: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=0#gid=0"
+      sheet_name: "תושב״ע"
+      range: "A1:Z1000"
+      use_adc: true
+    versioning_strategy: "timestamp"
+    fetch_strategy: "async"  # Required for background processing
+    fetch_interval: 3600  # 1 hour
+    enabled: true
+    priority: 1
+
+  # PDF Pipeline Sources (Pre-processing)
+  - id: "ethics-committee-decisions"
+    name: "Ethics Committee Decisions"
+    type: "pdf_pipeline"
+    enabled: true
+    priority: 1
+    pdf_pipeline_config:
+      input_config:
+        index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
+        datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
+      output_config:
+        spreadsheet_id: "your-spreadsheet-id"
+        sheet_name: "Ethics_Committee_Decisions"
+        use_adc: true
+      processing_config:
+        model: "gpt-4o-mini"
+        fields:
+          - name: "decision_number"
+            type: "string"
+            description: "Number of the ethics decision"
+          - name: "decision_date"
+            type: "date"
+            description: "Date of the decision"
+          - name: "member_name"
+            type: "string"
+            description: "Name of the Knesset member"
+        extraction_instructions: "Extract structured data from ethics committee decisions. Each decision should be extracted as a separate record."
+```
+
+For more details, see the sync infrastructure documentation in `docs/`.
+
+#### PDF Pipeline Processing Features
+
+The PDF-to-Spreadsheet pipeline provides pre-processing capabilities for PDF sources using Open Budget data:
+
+- **Open Budget Integration** - Uses Open Budget datapackages with index.csv and datapackage.json
+- **URL and Revision Tracking** - Tracks changes using revision-based change detection
+- **Structured Data Extraction** - Uses AI to extract structured data from PDFs with configurable schemas
+- **Dynamic Splitting** - Supports extracting multiple records (e.g., decisions) from single PDFs
+- **Google Sheets Integration** - Automatically uploads extracted data to Google Sheets
+- **Seamless Sync Integration** - Creates new spreadsheet sources that are automatically processed by the main sync
+- **Comprehensive Testing** - Full test suite covering all scenarios with mock Open Budget data sources
+
+**How it works:**
+1. **Open Budget Data Fetching**: Fetches index.csv and datapackage.json from Open Budget sources
+2. **Change Detection**: Compares current revision with existing data to identify new/updated PDFs
+3. **PDF Processing**: Downloads and processes only new or updated PDFs using AI extraction
+4. **Google Sheets Upload**: Uploads extracted data to Google Sheets with URL and revision tracking
+5. **Automatic Source Creation**: New spreadsheet sources are automatically added to the sync queue
+6. **Main Sync Phase**: The generated spreadsheets are processed like any other spreadsheet source
+7. **Vectorization**: Content is embedded and indexed in the vector store
+
+**Example Usage:**
+```bash
+# Run complete sync with PDF pipelines
+botnim sync orchestrate --config-file sync_config.yaml --environment staging
+
+# The orchestrator will:
+# 1. Run PDF pipelines (discover → extract → upload to sheets)
+# 2. Create new spreadsheet sources automatically
+# 3. Process all sources including the newly created ones
+# 4. Generate embeddings and index in vector store
+```
+
+#### Spreadsheet Processing Features
+
+The new asynchronous spreadsheet processing system provides:
+
+- **Background Processing**: Spreadsheet operations run in background threads without blocking main sync
+- **Task Queue Management**: Comprehensive task tracking with status monitoring and error handling
+- **Google Sheets Integration**: Leverages existing Google Sheets API infrastructure
+- **Intermediate Storage**: Stores fetched data in Elasticsearch for later processing
+- **CLI Commands**: Full command-line interface for processing, monitoring, and data retrieval
+
+```bash
+# Process all spreadsheet sources
+botnim sync spreadsheet process config.yaml
+
+# Check processing status
+botnim sync spreadsheet status config.yaml
+
+# Retrieve stored data
+botnim sync spreadsheet data source-id
+
+# Clean up completed tasks
+botnim sync spreadsheet cleanup
+```
+
+For detailed documentation, see `docs/spreadsheet_processing_documentation.md`.
+
+#### HTML Discovery Features
+
+The sync system now includes HTML index page discovery capabilities:
+
+- **Automated Link Discovery** - Automatically discovers HTML links from index pages
+- **Pattern Filtering** - Supports regex patterns to filter relevant links
+- **Duplicate Prevention** - Tracks processed pages to avoid re-processing
+- **Seamless Integration** - Works with existing HTML processing pipeline
+- **Comprehensive Testing** - Full test suite covering discovery and processing workflows
+
+**How it works:**
+1. **Index Page Fetching**: Fetches the specified HTML index page
+2. **Link Discovery**: Parses the page and extracts all HTML links
+3. **Pattern Filtering**: Applies regex pattern to filter relevant links
+4. **Duplicate Checking**: Checks against processed pages in Elasticsearch
+5. **Individual Processing**: Processes each new HTML page as a separate source
+
+**Example Usage:**
+```bash
+# Process HTML sources with index page discovery
+botnim sync html process config.yaml --source-ids example-html-index
+
+# The system will:
+# 1. Fetch the index page
+# 2. Discover HTML links matching the pattern
+# 3. Process each new page individually
+# 4. Track processed pages to avoid duplicates
+```
+
+#### Document Parsing & Chunking Features
+
+The sync system now includes advanced document parsing and chunking capabilities:
+
+- **AI-Powered Structure Analysis** - Uses OpenAI models to analyze document hierarchy and identify sections
+- **Intelligent Chunking** - Automatically splits large documents into manageable chunks based on document structure
+- **Hebrew Language Support** - Optimized for Hebrew legal documents with section detection (סעיף/clauses)
+- **Markdown Generation** - Creates individual markdown files for each chunk with hierarchical context
+- **Token Limit Optimization** - Prevents embedding API token limit errors by processing smaller chunks
+
+**Example Configuration:**
+```yaml
+sources:
+  - id: "legal-document"
+    name: "Legal Document"
+    type: "html"
+    html_config:
+      url: "https://example.com/legal-document"
+      selector: "#content"
+    use_document_parser: true  # Enable advanced parsing
+    versioning_strategy: "combined"
+    enabled: true
+```
+
+**Benefits:**
+- ✅ **Handles Large Documents** - Processes documents of any size by chunking
+- ✅ **Maintains Context** - Preserves document structure and hierarchy
+- ✅ **Optimizes Embeddings** - Creates chunks that fit within API token limits
+- ✅ **Improves Search Quality** - More granular search results with better relevance
+- ✅ **Reduces API Costs** - More efficient embedding generation
+
+For detailed documentation, see `docs/sync_orchestration_documentation.md`.
+
 ## Getting Started
 
 ```bash
@@ -99,6 +396,14 @@ python backend/es/demo-query-es.py "your query" local
   - `cli.py`: Command line interface for the bots.
   - `sync.py`: Script for syncing the specifications with the OpenAI account.
   - `collect_sources.py`: Module to collect and process the sources for the bots.
+  - `sync/`: Automated sync infrastructure package
+    - `__init__.py`: Package initialization
+    - `config.py`: Unified configuration schema and versioning management
+    - `cache.py`: SQLite-based caching layer and duplicate detection
+    - `html_fetcher.py`: HTML content fetching and parsing
+    - `cli.py`: Cache management CLI tools
+    - `html_cli.py`: HTML fetching CLI tools
+    - `tests/`: Comprehensive test suite for sync components
   - `vector_store/`: Vector store management package.
     - `__init__.py`: Package initialization.
     - `vector_store_base.py`: Abstract base class for vector store implementations.
@@ -119,13 +424,31 @@ python backend/es/demo-query-es.py "your query" local
     - `agent.txt`: Agent instructions.
     - `extraction/`: Extracted and processed text from the Knesset Takanon
   - `openapi/`: OpenAPI definitions of the BudgetKey (and other deprecated) APIs.
-- `botnim/document_parser/`: Document extraction and processing tools (formerly takanon_extractions/)
-  - `dynamic_extractions/`: Main extraction pipeline and utilities
+- `botnim/document_parser/`: Document extraction and processing tools
+  - `html_processor/`: HTML document processing pipeline
     - `process_document.py`: Full document processing pipeline (now accessible via `botnim process-document`)
     - `extract_structure.py`: Structure extraction (now accessible via `botnim extract-structure`)
     - `extract_content.py`: Content extraction (now accessible via `botnim extract-content`)
     - `generate_markdown_files.py`: Markdown generation (now accessible via `botnim generate-markdown-files`)
+    - `pipeline_config.py`: Configuration management and validation
     - `logs/`: Intermediate and output files (structure.json, pipeline metadata, markdown chunks)
+  - `pdf_processor/`: PDF extraction and Google Sheets sync pipeline
+    - `pdf_pipeline.py`: Main orchestration pipeline (now accessible via `botnim pdf-extract`)
+    - `text_extraction.py`: PDF text extraction with Hebrew RTL fixes
+    - `field_extraction.py`: LLM-based structured data extraction with enhanced JSON schema validation
+    - `google_sheets_service.py`: High-level Google Sheets service wrapper
+    - `google_sheets_sync.py`: Low-level Google Sheets API operations
+    - `csv_output.py`: CSV generation and data flattening
+    - `metrics.py`: Performance metrics and structured logging
+    - `metadata_handler.py`: Metadata management for PDF files
+    - `pdf_extraction_config.py`: Configuration models and YAML loading
+    - `exceptions.py`: Custom exception classes for error handling
+    - `test/`: Comprehensive test suite with sample PDFs
+  - `data/`: Shared data files
+    - `sources/`: Input documents (HTML and PDF files)
+    - `lexicon/`: Lexicon data
+    - `outputs/`: Processing outputs
+  - `tests/`: Shared test files
 - `ui/`: DEPRECATED: User interface for the bots.
 
 ## Common Tasks
@@ -268,28 +591,43 @@ Running the benchmark in production is best done using the action in the GitHub 
 For running locally:
 `botnim benchmarks {staging/production} {budgetkey/takanon} {TRUE/FALSE whether to save results locally}`
 
-## Document Extraction and Sync (Updated)
+## Document Processing Pipeline
 
-- The document processing pipeline now saves only the final `*_structure_content.json` files in the `specs/takanon/extraction/` folder. These are the only files required for sync/ingestion.
-- All intermediate files (structure.json, pipeline metadata, and markdown files if generated) are saved in `botnim/document_parser/dynamic_extractions/logs/`.
-- Markdown files are **not required** for sync—they are only for manual inspection.
-- To generate markdown files for manual inspection, use the `--generate-markdown` flag with the pipeline:
+The document processing pipeline extracts structured content from HTML legal documents and converts them to individual markdown files.
 
-```bash
-botnim process-document botnim/document_parser/extract_sources/חוק הכנסת.html specs/takanon/extraction/ --generate-markdown
-```
-
-- For advanced/manual markdown generation, you can use the CLI directly:
+### Quick Start
 
 ```bash
-botnim generate-markdown-files specs/takanon/extraction/חוק הכנסת_structure_content.json --write-files --output-dir botnim/document_parser/dynamic_extractions/logs/chunks/
+# Process a document with markdown generation
+botnim process-document botnim/document_parser/data/sources/html/your_document.html specs/takanon/extraction/ --generate-markdown
 ```
 
-  - Use `--write-files` to actually write files to disk.
-  - Use `--dry-run` to preview what would be generated, without writing files.
-  - If neither flag is provided, markdown content is generated in memory (for programmatic use).
+### Advanced Usage
 
-- The pipeline and CLI both support in-memory markdown generation for direct ingestion or further processing in automated workflows.
+- Structure extraction only:
+  ```bash
+  botnim extract-structure "botnim/document_parser/data/sources/html/your_document.html" "botnim/document_parser/html_processor/logs/your_document_structure.json"
+  ```
+- Content extraction only:
+  ```bash
+  botnim extract-content "botnim/document_parser/data/sources/html/your_document.html" "botnim/document_parser/html_processor/logs/your_document_structure.json" "סעיף" --output specs/takanon/extraction/your_document_structure_content.json
+  ```
+- Markdown generation only:
+  ```bash
+  botnim generate-markdown-files specs/takanon/extraction/your_document_structure_content.json --write-files --output-dir botnim/document_parser/html_processor/logs/chunks/
+  ```
+
+### Output Structure
+
+The pipeline produces outputs as follows:
+
+- **In the output directory you specify:**
+  - Only the final `*_structure_content.json` file is saved here. This is the file used for downstream sync/ingestion.
+- **In the logs directory (`botnim/document_parser/html_processor/logs/`):**
+  - All intermediate files, including:
+    - `*_structure.json` (document structure)
+    - `*_pipeline_metadata.json` (execution metadata)
+    - `chunks/` (markdown files, if generated)
 
 ### Example Directory Layout
 
@@ -298,16 +636,211 @@ specs/takanon/extraction/
     תקנון הכנסת_structure_content.json
     חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
 
-botnim/document_parser/dynamic_extractions/logs/
+botnim/document_parser/html_processor/logs/
     תקנון הכנסת_structure.json
     תקנון הכנסת_pipeline_metadata.json
     חוק_רציפות_הדיון_בהצעות_חוק_structure.json
-    חוק_רציפות_הדיון_בהצעות_חוק_pipeline_metadata.json
+    חוק_רציפות_הדיון_בהצעות_חוק_structure_pipeline_metadata.json
     chunks/
         תקנון הכנסת_סעיף_1.md
         חוק_רציפות_הדיון_בהצעות_חוק_סעיף_1.md
         ...
 ```
+
+## PDF Extraction Pipeline
+
+The PDF extraction pipeline provides comprehensive tools for extracting structured data from Hebrew PDFs and syncing to Google Sheets.
+
+### Features
+
+- **Multi-source PDF processing** with configurable extraction schemas
+- **Enhanced JSON Schema Validation** - robust client-side validation using jsonschema library with detailed error messages
+- **Source-specific Google Sheets integration** - each source automatically gets its own sheet
+- **Hebrew text handling** with RTL (right-to-left) text direction fixes
+- **OCR Support** - automatic fallback to OCR for image-based PDFs using Tesseract
+- **LLM-based field extraction** using OpenAI GPT-4.1 with JSON response format
+- **Comprehensive testing framework** with unit tests and integration tests
+- **Performance metrics and structured logging**
+- **Robust error handling** with custom exception types
+- **DRY architecture** - clean separation of concerns and reusable components
+- **Modular design** - each component has a single responsibility and can be used independently
+- **Metadata Management** - hash-based filenames for long PDF names to prevent filesystem issues
+
+### Google Sheets Setup
+
+To use Google Sheets integration, you need to set up authentication:
+
+#### Method 1: Application Default Credentials (Recommended)
+
+```bash
+# Install Google Cloud CLI
+gcloud auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/spreadsheets
+```
+
+**Important**: The `cloud-platform` scope is required by Google Cloud, and the `spreadsheets` scope is needed for Google Sheets API access.
+
+#### Method 2: Service Account Key
+
+1. **Create a Google Cloud Project** (or use an existing one)
+2. **Enable the Google Sheets API**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Navigate to "APIs & Services" > "Library"
+   - Search for "Google Sheets API" and enable it
+
+3. **Create a Service Account**:
+   - Go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "Service Account"
+   - Fill in the service account details
+   - Click "Create and Continue"
+
+4. **Generate JSON Key**:
+   - In the service account list, click on your new service account
+   - Go to the "Keys" tab
+   - Click "Add Key" > "Create New Key"
+   - Choose "JSON" format
+   - Download the JSON file
+
+5. **Share Your Spreadsheet**:
+   - Open your Google Spreadsheet
+   - Click "Share" and add your service account email (found in the JSON file)
+   - Give it "Editor" permissions
+
+### Usage
+
+```bash
+# Process PDFs using a configuration file
+botnim pdf-extract config.yaml input_dir
+
+# Process specific source only
+botnim pdf-extract config.yaml input_dir --source "Ethics Committee Decisions"
+
+# With Google Sheets integration (ADC) - each source gets its own sheet
+botnim pdf-extract config.yaml input_dir --upload-to-sheets --spreadsheet-id "your-spreadsheet-id" --use-adc
+
+# Complete pipeline example (process PDFs + upload to Google Sheets)
+botnim pdf-extract config.yaml input_dir --spreadsheet-id "your-spreadsheet-id" --use-adc
+
+# With Google Sheets integration (Service Account) - each source gets its own sheet
+botnim pdf-extract config.yaml input_dir --upload-to-sheets --spreadsheet-id "your-spreadsheet-id" --credentials-path "credentials.json"
+
+# With additional options (--sheet-name is deprecated, each source gets its own sheet)
+botnim pdf-extract config.yaml input_dir --verbose --no-metrics --replace-sheet
+```
+
+### Configuration
+
+The pipeline uses YAML configuration files to define PDF sources and extraction schemas. Each source will automatically get its own sheet in Google Sheets when using the `--upload-to-sheets` option:
+
+```yaml
+sources:
+  - name: "Ethics Committee Decisions"
+    description: "Decisions of the Knesset Ethics Committee"
+    unique_id_field: "url"
+    index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
+    datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
+    fields:
+      - name: "decision_date"
+        description: "Date of the ethics decision"
+        example: "2023-05-12"
+      - name: "member_name"
+        description: "Name of the Knesset member"
+        example: "יוסי כהן"
+    extraction_instructions: "Extract the specified fields from the document text..."
+```
+
+### Enhanced JSON Schema Validation
+
+The pipeline includes robust client-side JSON schema validation using the `jsonschema` library:
+
+### CSV Field Handling
+
+The pipeline automatically handles different field schemas from multiple sources:
+- **Dynamic Field Collection**: Collects all unique field names from all records across different sources
+- **Proper CSV Quoting**: Uses `csv.QUOTE_ALL` to handle Hebrew text with commas correctly
+- **Source Splitting**: Automatically splits data by `source_name` for separate Google Sheets
+- **Unified Output**: Combines records from different sources with different field schemas into a single CSV
+
+- **Comprehensive Validation**: Validates field types, required fields, and prevents unexpected fields
+- **Detailed Error Messages**: Provides specific field-level error information for debugging
+- **Required Dependency**: jsonschema is now a required dependency for robust validation
+- **Performance Optimized**: Minimal overhead with fast validation processing
+
+**Validation Features**:
+- ✅ Field type validation (all fields must be strings)
+- ✅ Required field validation (all configured fields must be present)
+- ✅ Unexpected field prevention (`additionalProperties: false`)
+- ✅ Array and single object support
+- ✅ Detailed error reporting with field paths
+
+**Example Validation Error**:
+```
+JSON schema validation failed:
+  - content: 'content' is a required property
+  - extra_field: Additional properties are not allowed ('extra_field' was unexpected)
+```
+
+### Testing
+
+```bash
+# Run comprehensive integration tests (covers all PR feedback points)
+cd botnim/document_parser/dynamic_extractions/pdf_extraction/test
+python test_integration.py
+
+# Run unit tests for field extraction with schema validation
+python test_field_extraction.py
+
+# Run unit tests only
+python -m pytest test_pdf_extraction.py -v
+
+# Run specific test components
+python run_tests.py
+```
+
+**Test Coverage:**
+- ✅ **Prerequisites** - Environment and dependencies check
+- ✅ **CSV Contract** - Input/output CSV file handling with proper quoting
+- ✅ **Separation of Concerns** - Pipeline without Google Sheets
+- ✅ **Path Resolution** - Absolute, relative, and invalid paths
+- ✅ **OpenAI JSON Format** - JSON response format validation
+- ✅ **JSON Schema Validation** - Enhanced client-side validation with jsonschema
+- ✅ **CLI Integration** - Command-line interface testing
+- ✅ **Google Sheets Integration** - Authentication and upload testing
+- ✅ **OCR Processing** - Image-based PDF handling with Tesseract
+- ✅ **CSV Field Handling** - Multi-source field schema management
+- ✅ **Metadata Management** - Hash-based filename generation
+
+### Troubleshooting Google Sheets Authentication
+
+If you encounter authentication errors like "Request had insufficient authentication scopes":
+
+1. **Re-authenticate with proper scopes**:
+   ```bash
+   gcloud auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/spreadsheets
+   ```
+
+2. **Verify your Google Cloud project has Google Sheets API enabled**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Navigate to "APIs & Services" > "Library"
+   - Search for "Google Sheets API" and ensure it's enabled
+
+3. **Check spreadsheet permissions**:
+   - Ensure your Google account has "Editor" access to the target spreadsheet
+   - If using a service account, make sure the service account email is added as an editor
+
+4. **Common error messages and solutions**:
+   - `ACCESS_TOKEN_SCOPE_INSUFFICIENT`: Re-authenticate with the correct scopes
+   - `PERMISSION_DENIED`: Check spreadsheet sharing permissions
+   - `API not enabled`: Enable Google Sheets API in your Google Cloud project
+
+### Performance Monitoring
+
+The pipeline automatically collects performance metrics:
+- Processing time per PDF
+- Text extraction vs field extraction time
+- Success rates and error tracking
+- Detailed logs in JSON format
+
+Results are saved to `pipeline_metrics.json` and displayed as a summary at the end of processing.
 
 ## Configuration for Sync
 
@@ -319,14 +852,6 @@ botnim/document_parser/dynamic_extractions/logs/
     - type: split
       source: extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
   ```
-
-## Manual Markdown Generation
-
-- To generate markdown files for manual review, run:
-  ```bash
-  botnim process-document botnim/document_parser/extract_sources/חוק הכנסת.html specs/takanon/extraction/ --generate-markdown
-  ```
-- Markdown files will be written to `botnim/document_parser/dynamic_extractions/logs/chunks/`.
 
 ## Context Specification
 
@@ -345,24 +870,28 @@ botnim/document_parser/dynamic_extractions/logs/
   ```
 
 ## Tools
+
 ### CLI Assistant
-- `botnim/cli_assistant.py`: Interactive CLI tool for chatting with OpenAI assistants (supports RTL languages)
 
 The botnim assistant command provides an interactive chat interface with OpenAI assistants:
 
+```bash
 # Basic usage - will show list of available assistants
-```bash
 botnim assistant
-```
+
 # Start chat with a specific assistant
-```bash
 botnim assistant --assistant-id <assistant-id>
-```
+
 # Enable RTL support for Hebrew
-```bash
 botnim assistant --rtl
-```
+
 # Choose environment for vector search
-```bash
 botnim assistant --environment production  # or staging (default)
 ```
+
+## Additional Documentation
+
+For more detailed information about specific components:
+
+- **PDF Extraction Testing**: See `botnim/document_parser/pdf_processor/test/README.md` for detailed testing procedures
+- **Document Processing**: See `botnim/document_parser/html_processor/README.md` for advanced document processing workflows

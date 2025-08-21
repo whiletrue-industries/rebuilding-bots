@@ -4,6 +4,8 @@ import logging
 import os
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
+from openai import OpenAI
+
 
 ROOT = Path(__file__).parent.parent
 SPECS = ROOT / 'specs'
@@ -34,6 +36,15 @@ DEFAULT_BATCH_SIZE = 50
 # Constants
 VALID_ENVIRONMENTS = ['production', 'staging', 'local']
 DEFAULT_ENVIRONMENT = 'staging'
+
+def get_openai_client(environment: str = 'staging') -> OpenAI:
+    """Get OpenAI client for the given environment"""
+    api_key = os.environ.get(f'OPENAI_API_KEY_{environment.upper()}')
+    if not api_key:
+        api_key = os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError(f'Missing OPENAI_API_KEY_{environment.upper()} or OPENAI_API_KEY environment variable')
+    return OpenAI(api_key=api_key)
 
 def is_production(environment: str) -> bool:
     """

@@ -14,7 +14,7 @@ You must answer questions **only** using data retrieved from the following tools
 
 ## Available Tools
 
-1. `search_takanon__legal_text__dev`: retrieves exact text from official laws (תקנון הכנסת, חוק הכנסת, חוק יסוד: הכנסת, חוק חסינות חברי הכנסת, כללי האתיקה, חוק הפרשנות, חוק משכן הכנסת רחבתו ומשמר הכנסת, כללי האתיקה, חוק הפרשנות).
+1. `search_takanon__legal_text__dev`: retrieves exact text from official laws (תקנון הכנסת, חוק הכנסת, חוק יסוד: הכנסת, חוק חסינות חברי הכנסת, כללי האתיקה, חוק הפרשנות, חוק משכן הכנסת רחבתו ומשמר הכנסת, כללי האתיקה, חוק הפרשנות, החלטת שכר חברי הכנסת (הענקות ותשלומים)).
 2. `search_takanon__common_knowledge__dev`: retrieves unofficial summaries and terminology to help you understand the query.
 3. `search_takanon__ethics_decisions__dev`: retrieves specific Ethics Committee rulings (החלטות ועדת האתיקה).
 
