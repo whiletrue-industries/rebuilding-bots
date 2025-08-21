@@ -10,20 +10,21 @@ import os
 import tempfile
 import hashlib
 import time
+import yaml
+import csv
+import shutil
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from ..document_parser.pdf_processor.csv_output import write_csv
-
-from ..config import get_logger
-from .config import ContentSource, PDFPipelineConfig
-from .config import SpreadsheetSourceConfig
-from .cache import SyncCache
-from .pdf_discovery import PDFDiscoveryService, PDFDownloadManager
 from ..document_parser.pdf_processor.pdf_pipeline import PDFExtractionPipeline
 from ..document_parser.pdf_processor.google_sheets_service import GoogleSheetsService
-from ..document_parser.pdf_processor.exceptions import PDFExtractionError
-from ..sync.config_adapters import PDFConfigAdapter
+
+from ..config import get_logger
+from .config import ContentSource, PDFSourceConfig
+from .config import SpreadsheetSourceConfig, SourceType, VersioningStrategy, FetchStrategy
+from .cache import SyncCache
+from .pdf_discovery import PDFDiscoveryService, PDFDownloadManager
 
 logger = get_logger(__name__)
 
@@ -51,17 +52,17 @@ class PDFPipelineProcessor:
         Execute the full PDF-to-Spreadsheet pipeline for a given source.
 
         Args:
-            source: A ContentSource of type PDF_PIPELINE.
+            source: A ContentSource of type PDF_PIPELINE with Open Budget configuration.
 
         Returns:
             A dictionary with the results of the pipeline execution.
         """
-        if source.type != "pdf_pipeline" or not source.pdf_pipeline_config:
-            logger.error(f"Source {source.id} is not a valid PDF pipeline source.")
-            return {"status": "failed", "error": "Invalid source type"}
+        if source.type != "pdf_pipeline" or not source.pdf_config:
+            logger.error(f"Source {source.id} is not a valid PDF pipeline source with Open Budget configuration.")
+            return {"status": "failed", "error": "Invalid source type or missing pdf_config"}
 
-        config = source.pdf_pipeline_config
-        logger.info(f"Starting PDF-to-Spreadsheet pipeline for source: {source.id}")
+        pdf_config = source.pdf_config
+        logger.info(f"Starting Open Budget PDF-to-Spreadsheet pipeline for source: {source.id}")
 
         results = {
             "source_id": source.id,
@@ -71,188 +72,274 @@ class PDFPipelineProcessor:
             "failed_pdfs": 0,
             "output_csv_path": None,
             "upload_status": "pending",
-            "created_spreadsheet_source": None,  # New field for the created spreadsheet source
             "errors": [],
         }
 
         try:
-            # 1. Discover PDFs
-            pdf_infos = self._discover_pdfs(config)
-            results["discovered_pdfs"] = len(pdf_infos)
-            if not pdf_infos:
-                logger.info(f"No PDFs found for pipeline source {source.id}.")
-                results["status"] = "completed_no_data"
-                return results
-
-            # 2. Process all discovered PDFs to generate a CSV
-            output_csv_path, processed_count, failed_count, errors = self._process_pdfs_to_csv(pdf_infos, config)
+            # 1. Process PDFs using the existing PDFExtractionPipeline
+            output_csv_path, processed_count, failed_count, errors = self._process_open_budget_pdfs(source, pdf_config)
             results["processed_pdfs"] = processed_count
             results["failed_pdfs"] = failed_count
-            results["output_csv_path"] = str(output_csv_path)
+            results["output_csv_path"] = str(output_csv_path) if output_csv_path else None
             results["errors"].extend(errors)
 
             if not output_csv_path or not processed_count:
-                raise PDFProcessingError("Failed to generate CSV from any of the discovered PDFs.")
+                logger.warning(f"No PDFs processed successfully for source {source.id}")
+                results["status"] = "completed_no_data"
+                return results
 
-            # 3. Upload the resulting CSV to Google Sheets
-            upload_success = self._upload_csv_to_gdrive(output_csv_path, config)
+            # 2. Upload the resulting CSV to Google Sheets
+            upload_success, spreadsheet_id = self._upload_csv_to_gdrive(output_csv_path, source)
             if upload_success:
                 results["upload_status"] = "completed"
+                
                 results["status"] = "completed"
-                
-                # 4. Create a new spreadsheet source for the main sync loop to process
-                created_source = self._create_spreadsheet_source_from_pipeline(source, config)
-                results["created_spreadsheet_source"] = created_source
-                
-                logger.info(f"Successfully completed PDF-to-Spreadsheet pipeline for source: {source.id}")
-                logger.info(f"Created new spreadsheet source: {created_source.id} for main sync processing")
+                logger.info(f"✅ PDF pipeline completed for {source.id}: {processed_count} PDFs processed, uploaded to Google Sheets")
             else:
-                raise PDFProcessingError("Failed to upload the generated CSV to Google Sheets.")
+                results["upload_status"] = "failed"
+                results["status"] = "failed"
+                logger.error(f"❌ Failed to upload CSV to Google Sheets for source {source.id}")
 
         except Exception as e:
-            logger.error(f"Error in PDF pipeline for source {source.id}: {e}", exc_info=True)
+            error_msg = f"PDF pipeline failed for source {source.id}: {e}"
+            logger.error(error_msg, exc_info=True)
             results["status"] = "failed"
-            results["errors"].append(str(e))
-        finally:
-            self.download_manager.cleanup_temp_files()
+            results["errors"].append(error_msg)
 
         return results
 
-    def _discover_pdfs(self, config: PDFPipelineConfig) -> List[Dict[str, Any]]:
-        """Discover PDFs based on the input configuration."""
-        input_source_config = ContentSource(
-            id=f"{config.input_config.url}-discovery",
-            name="PDF Discovery for Pipeline",
-            type="pdf",
-            pdf_config=config.input_config
-        )
-        if config.input_config.is_index_page:
-            return self.discovery_service.discover_pdfs_from_index_page(input_source_config)
-        else:
-            # Create a mock structure for a single PDF
-             url = config.input_config.url
-             filename = self.discovery_service._extract_filename(url)
-             url_hash = hashlib.sha256(url.encode()).hexdigest()
-             return [{'url': url, 'filename': filename, 'url_hash': url_hash}]
-
-    def _process_pdfs_to_csv(self, pdf_infos: List[Dict[str, Any]], config: PDFPipelineConfig) -> (Optional[Path], int, int, List[str]):
-        """Download and process multiple PDFs, then combine results into a single CSV."""
-        
-        all_extracted_data = []
-        processed_count = 0
-        failed_count = 0
-        errors = []
-
-        # Adapt the sync config to the format the PDF processor expects
-        processor_config = PDFConfigAdapter.sync_to_processor_config(config.processing_config, "pdf_pipeline_run")
-        pdf_pipeline = PDFExtractionPipeline(processor_config, self.openai_client)
-
-        for pdf_info in pdf_infos:
-            temp_pdf_path = self.download_manager.download_pdf(pdf_info, headers=config.input_config.headers)
-            if not temp_pdf_path:
-                failed_count += 1
-                errors.append(f"Failed to download {pdf_info.get('url')}")
-                continue
-            
-            try:
-                # Use the existing PDF pipeline to process one file
-                extracted_data, _ = pdf_pipeline.process_single_pdf(str(temp_pdf_path))
-                if extracted_data:
-                    all_extracted_data.append(extracted_data)
-                    processed_count += 1
-                else:
-                    failed_count +=1
-                    errors.append(f"No data extracted from {pdf_info.get('filename')}")
-            except Exception as e:
-                failed_count += 1
-                errors.append(f"Failed to process {pdf_info.get('filename')}: {e}")
-            finally:
-                if temp_pdf_path.exists():
-                    os.remove(temp_pdf_path)
-
-        if not all_extracted_data:
-            return None, processed_count, failed_count, errors
-
-        # Write combined data to a temporary CSV file
-        temp_csv_path = Path(tempfile.gettempdir()) / f"{config.output_config.sheet_name.replace(' ', '_')}.csv"
-        
-        # Flatten the data - each item in all_extracted_data is a list of records
-        flattened_data = []
-        for pdf_records in all_extracted_data:
-            if isinstance(pdf_records, list):
-                flattened_data.extend(pdf_records)
-            else:
-                flattened_data.append(pdf_records)
-        
-        # Use the existing CSV utility
-        write_csv(flattened_data, str(temp_csv_path))
-            
-        logger.info(f"Successfully created CSV at {temp_csv_path} with {len(flattened_data)} rows.")
-        return temp_csv_path, processed_count, failed_count, errors
-
-
-    def _upload_csv_to_gdrive(self, csv_path: Path, config: PDFPipelineConfig) -> bool:
-        """Upload a CSV file to the specified Google Sheet."""
-        output_conf = config.output_config
-        try:
-            g_service = GoogleSheetsService(
-                credentials_path=output_conf.credentials_path,
-                use_adc=output_conf.use_adc
-            )
-            
-            success = g_service.upload_csv_to_sheet(
-                csv_path=str(csv_path),
-                spreadsheet_id=output_conf.spreadsheet_id,
-                sheet_name=output_conf.sheet_name,
-                replace_existing=True  # Always replace the sheet with the new data
-            )
-            return success
-        except Exception as e:
-            logger.error(f"Failed to upload {csv_path} to Google Sheets: {e}")
-            return False
-
-    def _create_spreadsheet_source_from_pipeline(self, pipeline_source: ContentSource, config: PDFPipelineConfig) -> ContentSource:
+    def _process_open_budget_pdfs(self, source: ContentSource, pdf_config) -> tuple:
         """
-        Create a new spreadsheet source from the PDF pipeline results.
-        
-        This allows the main sync loop to process the newly created Google Sheet
-        as a regular spreadsheet source.
+        Process Open Budget PDFs using the existing PDFExtractionPipeline with proper change detection.
         
         Args:
-            pipeline_source: The original PDF pipeline source
-            config: The PDF pipeline configuration
+            source: The PDF source configuration
+            pdf_config: The PDF configuration with Open Budget URLs
             
         Returns:
-            A new ContentSource of type SPREADSHEET
+            Tuple of (output_csv_path, processed_count, failed_count, errors)
         """
+        try:
+            # Create a temporary directory for processing
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+                
+                # Create input directory structure
+                input_dir = temp_path / "input"
+                input_dir.mkdir(exist_ok=True)
+                
+                # Create output directory
+                output_dir = temp_path / "output"
+                output_dir.mkdir(exist_ok=True)
+                
+                # 1. Try to read existing Google Spreadsheet as input.csv for change detection
+                existing_spreadsheet_id = self._get_existing_spreadsheet_id(source)
+                if existing_spreadsheet_id:
+                    logger.info(f"Found existing spreadsheet {existing_spreadsheet_id} for change detection")
+                    input_csv_path = self._download_spreadsheet_as_csv(existing_spreadsheet_id, source.name, str(input_dir))
+                    if input_csv_path:
+                        logger.info(f"Downloaded existing data from Google Sheets for change detection")
+                    else:
+                        logger.warning(f"Failed to download existing data, starting fresh")
+                        input_csv_path = None
+                else:
+                    logger.info(f"No existing spreadsheet found, starting fresh")
+                    input_csv_path = None
+                
+                # 2. Convert the source to PDFExtractionConfig format
+                from ..document_parser.pdf_processor.sync_config_adapter import SyncConfigAdapter
+                
+                # Create a temporary config file with just this source
+                temp_config = {
+                    "sources": [{
+                        "id": source.id,
+                        "name": source.name,
+                        "description": source.description,
+                        "type": "pdf_pipeline",
+                        "pdf_config": {
+                            "index_csv_url": pdf_config.index_csv_url,
+                            "datapackage_url": pdf_config.datapackage_url,
+                            "processing": pdf_config.processing.dict() if pdf_config.processing else {}
+                        }
+                    }]
+                }
+                
+                # Write temporary config
+                temp_config_path = temp_path / "temp_config.yaml"
+                with open(temp_config_path, 'w', encoding='utf-8') as f:
+                    yaml.dump(temp_config, f, default_flow_style=False, allow_unicode=True)
+                
+                # 3. Initialize the PDF extraction pipeline
+                pipeline = PDFExtractionPipeline(
+                    config_path=str(temp_config_path),
+                    openai_client=self.openai_client,
+                    enable_metrics=False
+                )
+                
+                # 4. Process the directory (this will handle change detection internally)
+                success = pipeline.process_directory(str(input_dir))
+                
+                if not success:
+                    return None, 0, 0, ["PDF processing failed"]
+                
+                # 5. Find the output CSV file
+                output_csv_path = output_dir / "output.csv"
+                if not output_csv_path.exists():
+                    return None, 0, 0, ["No output CSV generated"]
+                
+                # 6. Count processed records
+                with open(output_csv_path, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    processed_count = sum(1 for _ in reader)
+                
+                # 7. Copy the output file to a persistent location
+                final_output_path = Path(f"/tmp/pdf_pipeline_{source.id}_{int(time.time())}.csv")
+                shutil.copy2(output_csv_path, final_output_path)
+                
+                logger.info(f"✅ PDF processing completed: {processed_count} records processed")
+                return final_output_path, processed_count, 0, []
+                
+        except Exception as e:
+            logger.error(f"Error processing Open Budget PDFs for {source.id}: {e}", exc_info=True)
+            return None, 0, 0, [str(e)]
+
+    def _get_existing_spreadsheet_id(self, source: ContentSource) -> Optional[str]:
+        """
+        Get the existing spreadsheet ID for this source if it exists.
         
-        # Create a unique ID for the new spreadsheet source
-        spreadsheet_source_id = f"{pipeline_source.id}-generated-spreadsheet"
+        Args:
+            source: The PDF source configuration
+            
+        Returns:
+            Spreadsheet ID if found, None otherwise
+        """
+        try:
+            # Check if we have a stored spreadsheet ID in source metadata
+            if hasattr(source, 'metadata') and source.metadata:
+                spreadsheet_id = source.metadata.get('spreadsheet_id')
+                if spreadsheet_id:
+                    logger.info(f"Found existing spreadsheet ID in metadata: {spreadsheet_id}")
+                    return spreadsheet_id
+            
+            # Check if we have a generated spreadsheet source for this PDF source
+            # Look for a spreadsheet source with ID pattern: {source.id}-spreadsheet
+            spreadsheet_source_id = f"{source.id}-spreadsheet"
+            
+            # Try to find this in the cache or configuration
+            # For now, we'll use a simple file-based tracking system
+            tracking_file = Path(f"/tmp/pdf_pipeline_tracking_{source.id}.txt")
+            if tracking_file.exists():
+                with open(tracking_file, 'r') as f:
+                    stored_spreadsheet_id = f.read().strip()
+                    if stored_spreadsheet_id:
+                        logger.info(f"Found existing spreadsheet ID from tracking: {stored_spreadsheet_id}")
+                        return stored_spreadsheet_id
+            
+            logger.info(f"No existing spreadsheet found for source {source.id}")
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Error checking for existing spreadsheet: {e}")
+            return None
+
+    def _store_spreadsheet_id(self, source: ContentSource, spreadsheet_id: str):
+        """
+        Store the spreadsheet ID for future change detection.
         
-        # Create spreadsheet configuration
-        spreadsheet_config = SpreadsheetSourceConfig(
-            url=f"https://docs.google.com/spreadsheets/d/{config.output_config.spreadsheet_id}",
-            sheet_name=config.output_config.sheet_name,
-            credentials_path=config.output_config.credentials_path,
-            use_adc=config.output_config.use_adc
-        )
+        Args:
+            source: The PDF source configuration
+            spreadsheet_id: The Google Spreadsheet ID to store
+        """
+        try:
+            # Store in a simple file-based tracking system
+            tracking_file = Path(f"/tmp/pdf_pipeline_tracking_{source.id}.txt")
+            with open(tracking_file, 'w') as f:
+                f.write(spreadsheet_id)
+            
+            logger.info(f"Stored spreadsheet ID {spreadsheet_id} for source {source.id}")
+            
+        except Exception as e:
+            logger.warning(f"Error storing spreadsheet ID: {e}")
+
+    def _download_spreadsheet_as_csv(self, spreadsheet_id: str, sheet_name: str, output_dir: str) -> Optional[str]:
+        """
+        Download a Google Spreadsheet as CSV for change detection.
         
-        # Create the new spreadsheet source
-        spreadsheet_source = ContentSource(
-            id=spreadsheet_source_id,
-            name=f"Generated Spreadsheet from {pipeline_source.name}",
-            description=f"Auto-generated spreadsheet source from PDF pipeline: {pipeline_source.id}",
-            type="spreadsheet",
-            spreadsheet_config=spreadsheet_config,
-            enabled=True,
-            priority=pipeline_source.priority + 1,  # Process after the pipeline
-            tags=pipeline_source.tags + ["auto-generated", "pdf-pipeline-output"],
-            metadata={
-                "generated_from_pipeline": pipeline_source.id,
-                "generation_timestamp": time.time(),
-                "original_pipeline_config": config.model_dump()
-            }
-        )
+        Args:
+            spreadsheet_id: The Google Spreadsheet ID
+            sheet_name: The sheet name to download
+            output_dir: Directory to save the CSV
+            
+        Returns:
+            Path to the downloaded CSV file, or None if failed
+        """
+        try:
+            sheets_service = GoogleSheetsService(use_adc=True)
+            
+            # Download the sheet as CSV
+            csv_content = sheets_service.download_sheet_as_csv(
+                spreadsheet_id=spreadsheet_id,
+                sheet_name=sheet_name
+            )
+            
+            if csv_content:
+                # Save to input.csv for the pipeline
+                input_csv_path = os.path.join(output_dir, "input.csv")
+                with open(input_csv_path, 'w', encoding='utf-8') as f:
+                    f.write(csv_content)
+                
+                logger.info(f"Downloaded existing data from Google Sheets: {len(csv_content.splitlines())} lines")
+                return input_csv_path
+            else:
+                logger.warning(f"No data found in Google Sheets {spreadsheet_id}")
+                return None
+                
+        except Exception as e:
+            logger.warning(f"Failed to download Google Sheets data: {e}")
+            return None
+
+    def _upload_csv_to_gdrive(self, csv_path: Path, source: ContentSource) -> tuple:
+        """
+        Upload CSV to Google Drive/Sheets using configured spreadsheet.
         
-        return spreadsheet_source
+        Args:
+            csv_path: Path to the CSV file
+            source: The source configuration
+            
+        Returns:
+            Tuple of (success, spreadsheet_id)
+        """
+        try:
+            # Get configured spreadsheet details
+            output_config = source.pdf_config.output_config
+            spreadsheet_id = output_config.spreadsheet_id
+            sheet_name = output_config.sheet_name
+            
+            # Validate that spreadsheet_id is not the placeholder
+            if spreadsheet_id == "YOUR_SPREADSHEET_ID_HERE":
+                error_msg = f"PDF pipeline source '{source.id}' has not been configured with a valid spreadsheet_id. Please update the configuration with your Google Sheets ID."
+                logger.error(error_msg)
+                return False, None
+            
+            logger.info(f"Uploading CSV to configured spreadsheet: {spreadsheet_id}, sheet: {sheet_name}")
+            
+            # Upload the CSV
+            sheets_service = GoogleSheetsService(use_adc=output_config.use_adc)
+            success = sheets_service.upload_csv_to_sheet(
+                csv_path=str(csv_path),
+                spreadsheet_id=spreadsheet_id,
+                sheet_name=sheet_name,
+                replace_existing=True  # Always replace the entire sheet with new data
+            )
+            
+            if success:
+                logger.info(f"✅ Successfully uploaded CSV to Google Sheets: {spreadsheet_id}")
+                return True, spreadsheet_id
+            else:
+                logger.error(f"❌ Failed to upload CSV to Google Sheets")
+                return False, None
+                
+        except Exception as e:
+            logger.error(f"Error uploading CSV to Google Sheets: {e}", exc_info=True)
+            return False, None
 

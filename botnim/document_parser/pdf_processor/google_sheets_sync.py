@@ -277,3 +277,67 @@ class GoogleSheetsSync:
         except Exception as e:
             logger.error(f"Failed to upload CSV: {e}")
             return False 
+
+    def download_sheet_data(self, spreadsheet_id: str, sheet_name: str) -> Optional[List[List]]:
+        """
+        Download data from a Google Sheet.
+        
+        Args:
+            spreadsheet_id: Google Sheets spreadsheet ID
+            sheet_name: Name of the sheet to download
+            
+        Returns:
+            List of rows (each row is a list of values) if successful, None otherwise
+        """
+        try:
+            logger.info(f"Downloading data from sheet '{sheet_name}' in spreadsheet {spreadsheet_id}")
+            
+            # Get the sheet data
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range=sheet_name
+            ).execute()
+            
+            values = result.get('values', [])
+            
+            if not values:
+                logger.warning(f"No data found in sheet '{sheet_name}'")
+                return None
+            
+            logger.info(f"Downloaded {len(values)} rows from sheet '{sheet_name}'")
+            return values
+            
+        except HttpError as e:
+            logger.error(f"HTTP error downloading sheet '{sheet_name}': {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error downloading sheet '{sheet_name}': {e}")
+            return None
+
+    def create_spreadsheet(self, title: str, description: str = "") -> str:
+        """
+        Create a new Google Spreadsheet.
+        
+        Args:
+            title: Title of the new spreadsheet
+            description: Description for the new spreadsheet (optional)
+            
+        Returns:
+            The ID of the newly created spreadsheet
+        """
+        try:
+            spreadsheet = {
+                'properties': {
+                    'title': title,
+                    'description': description
+                }
+            }
+            spreadsheet = self.service.spreadsheets().create(body=spreadsheet).execute()
+            logger.info(f"Created new spreadsheet with ID: {spreadsheet.get('spreadsheetId')}")
+            return spreadsheet.get('spreadsheetId')
+        except HttpError as e:
+            logger.error(f"HTTP error creating spreadsheet: {e}")
+            return ""
+        except Exception as e:
+            logger.error(f"Error creating spreadsheet: {e}")
+            return "" 

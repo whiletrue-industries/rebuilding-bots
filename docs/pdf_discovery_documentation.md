@@ -28,7 +28,7 @@ The PDF processing system now uses Open Budget datapackages to automatically dis
 
 ```
 Open Budget Datapackage → Change Detection → PDF Download → AI Extraction → Google Sheets → Vector Store
-         ↓
+                                      ↓
    Revision Tracking
 ```
 
@@ -104,7 +104,7 @@ Each Open Budget datapackage contains:
        }
      ]
    }
-   ```
+```
 
 ## Usage
 

@@ -38,38 +38,6 @@ sources:
     priority: 1
     tags: ["משפטי", "ידע-בעל-פה", "google-spreadsheet"]
 
-  - id: "committee-decisions-spreadsheet"
-    name: "Committee Decisions (Spreadsheet)"
-    description: "החלטות של ועדת האתיקה"
-    type: "spreadsheet"
-    spreadsheet_config:
-      url: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=656974237#gid=656974237"
-      sheet_name: "Committee Decisions"
-      range: "A1:F500"
-      use_adc: true
-    versioning_strategy: "timestamp"
-    fetch_strategy: "async"
-    fetch_interval: 7200  # 2 hours
-    enabled: true
-    priority: 2
-    tags: ["משפטי", "ועדות", "החלטות", "google-spreadsheet"]
-
-  - id: "ethics-decisions-spreadsheet"
-    name: "Ethics Committee Decisions (Spreadsheet)"
-    description: "החלטות של ועדת האתיקה"
-    type: "spreadsheet"
-    spreadsheet_config:
-      url: "https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=328434674#gid=328434674"
-      sheet_name: "Ethics Decisions"
-      range: "A1:D1000"
-      use_adc: true
-    versioning_strategy: "timestamp"
-    fetch_strategy: "async"
-    fetch_interval: 7200  # 2 hours
-    enabled: true
-    priority: 3
-    tags: ["משפטי", "אתיקה", "החלטות", "google-spreadsheet"]
-
   # HTML Sources - Knesset Lexicon
   - id: "knesset-lexicon-html"
     name: "לקסיקון הכנסת (Knesset Lexicon)"
@@ -88,14 +56,19 @@ sources:
     priority: 4
     tags: ["משפטי", "כנסת", "לקסיקון", "html"]
 
-  # PDF Sources - Ethics Committee Decisions (Open Budget)
+  # PDF Pipeline Sources - Ethics Committee Decisions (Open Budget)
+  # Open Budget based PDF processing pipeline with structured data extraction
   - id: "ethics-committee-decisions-pdf"
     name: "החלטות ועדת האתיקה (Ethics Committee Decisions)"
     description: "החלטות PDF מוועדת האתיקה - Open Budget source"
-    type: "pdf"
+    type: "pdf_pipeline"
     pdf_config:
       index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
       datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
+      output_config:
+        spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # From removed ethics-decisions-spreadsheet
+        sheet_name: "Ethics Decisions"  # From removed ethics-decisions-spreadsheet
+        use_adc: true
       processing:
         model: "gpt-4.1-mini"
         max_tokens: 4000
@@ -139,16 +112,20 @@ sources:
     fetch_strategy: "open_budget"
     enabled: true
     priority: 5
-    tags: ["משפטי", "אתיקה", "החלטות", "pdf", "open-budget"]
+    tags: ["משפטי", "אתיקה", "החלטות", "pdf-pipeline", "open-budget"]
 
-  # Knesset Committee Decisions (Open Budget)
+  # Knesset Committee Decisions Pipeline (Open Budget)
   - id: "knesset-committee-decisions-pdf"
     name: "החלטות ועדת הכנסת (Knesset Committee Decisions)"
     description: "החלטות PDF מוועדת הכנסת - Open Budget source"
-    type: "pdf"
+    type: "pdf_pipeline"
     pdf_config:
       index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_committee_decisions/index.csv"
       datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_committee_decisions/datapackage.json"
+      output_config:
+        spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # From removed committee-decisions-spreadsheet
+        sheet_name: "Knesset Committee Decisions"  # New sheet name to avoid conflicts
+        use_adc: true
       processing:
         model: "gpt-4.1-mini"
         max_tokens: 4000
@@ -192,16 +169,20 @@ sources:
     fetch_strategy: "open_budget"
     enabled: true
     priority: 6
-    tags: ["משפטי", "ועדות", "החלטות", "pdf", "open-budget"]
+    tags: ["משפטי", "ועדות", "החלטות", "pdf-pipeline", "open-budget"]
 
-  # Knesset Legal Advisor Guidance (Open Budget)
+  # Knesset Legal Advisor Guidance Pipeline (Open Budget)
   - id: "knesset-legal-advisor-pdf"
     name: "חוות דעת והנחיות של היועצת המשפטית לכנסת (Knesset Legal Advisor Guidance)"
     description: "חוות דעת והנחיות PDF מהיועצת המשפטית לכנסת - Open Budget source"
-    type: "pdf"
+    type: "pdf_pipeline"
     pdf_config:
       index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/index.csv"
       datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/datapackage.json"
+      output_config:
+        spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # Same spreadsheet, different sheet
+        sheet_name: "Knesset Legal Advisor Guidance"  # Unique sheet name
+        use_adc: true
       processing:
         model: "gpt-4.1-mini"
         max_tokens: 4000
@@ -245,16 +226,20 @@ sources:
     fetch_strategy: "open_budget"
     enabled: true
     priority: 7
-    tags: ["משפטי", "יועץ-משפטי", "חוות-דעת", "pdf", "open-budget"]
+    tags: ["משפטי", "יועץ-משפטי", "חוות-דעת", "pdf-pipeline", "open-budget"]
 
-  # Knesset Legal Advisor Letters (Open Budget)
+  # Knesset Legal Advisor Letters Pipeline (Open Budget)
   - id: "knesset-legal-advisor-letters-pdf"
     name: "מכתבי פנייה ומכתבי תשובה של היועצת המשפטית של הכנסת (Knesset Legal Advisor Letters)"
     description: "מכתבי פנייה ומכתבי תשובה PDF מהיועצת המשפטית של הכנסת - Open Budget source"
-    type: "pdf"
+    type: "pdf_pipeline"
     pdf_config:
       index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor_letters/index.csv"
       datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor_letters/datapackage.json"
+      output_config:
+        spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"  # Same spreadsheet, different sheet
+        sheet_name: "Knesset Legal Advisor Letters"  # Unique sheet name
+        use_adc: true
       processing:
         model: "gpt-4.1-mini"
         max_tokens: 4000
@@ -302,7 +287,7 @@ sources:
     fetch_strategy: "open_budget"
     enabled: true
     priority: 8
-    tags: ["משפטי", "יועץ-משפטי", "מכתבים", "pdf", "open-budget"]
+    tags: ["משפטי", "יועץ-משפטי", "מכתבים", "pdf-pipeline", "open-budget"]
 
   # Wikisource HTML Sources
   - id: "knesset-law-wikisource"

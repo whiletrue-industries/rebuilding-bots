@@ -236,9 +236,6 @@ class SyncOrchestrator:
 
         self.logger.info(f"Found {len(pipeline_sources)} PDF pre-processing pipelines to run.")
         
-        # Track newly created spreadsheet sources
-        created_spreadsheet_sources = []
-        
         for source in pipeline_sources:
             if not source.enabled:
                 self.logger.info(f"Skipping disabled pipeline: {source.id}")
@@ -247,12 +244,6 @@ class SyncOrchestrator:
             try:
                 self.logger.info(f"Running pipeline: {source.id}")
                 result = self.pdf_pipeline_processor.process_pipeline_source(source)
-                
-                # Check if the pipeline created a new spreadsheet source
-                if result.get("status") == "completed" and result.get("created_spreadsheet_source"):
-                    created_source = result["created_spreadsheet_source"]
-                    created_spreadsheet_sources.append(created_source)
-                    self.logger.info(f"Pipeline {source.id} created new spreadsheet source: {created_source.id}")
                 
                 # Log the result
                 if result.get("status") == "failed":
@@ -264,12 +255,7 @@ class SyncOrchestrator:
             except Exception as e:
                 error_message = f"An unexpected error occurred in pipeline '{source.id}': {e}"
                 self.error_tracker.report(error_message, source_id=source.id, severity=ErrorSeverity.ERROR, details={'exception': str(e)})
-        
-        # Add newly created spreadsheet sources to the config for processing
-        if created_spreadsheet_sources:
-            self.logger.info(f"Adding {len(created_spreadsheet_sources)} newly created spreadsheet sources to processing queue")
-            self.config.sources.extend(created_spreadsheet_sources)
-
+    
     async def _download_embedding_cache(self) -> bool:
         """Download embedding cache from cloud storage."""
         try:
@@ -367,10 +353,6 @@ class SyncOrchestrator:
                 result = self._process_html_source(source, start_time)
                 # checkpoint after html
                 self.state_manager.write_checkpoint(source.id, stage="html", status=result.status)
-                return result
-            elif source.type == SourceType.PDF:
-                result = self._process_pdf_source(source, start_time)
-                self.state_manager.write_checkpoint(source.id, stage="pdf", status=result.status)
                 return result
             elif source.type == SourceType.SPREADSHEET:
                 result = self._process_spreadsheet_source(source, start_time)

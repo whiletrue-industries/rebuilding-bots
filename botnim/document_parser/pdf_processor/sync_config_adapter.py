@@ -36,7 +36,7 @@ class SyncConfigAdapter:
         # Extract PDF sources from sync config
         pdf_sources = []
         for source in sync_data.get('sources', []):
-            if source.get('type') == 'pdf' and 'pdf_config' in source:
+            if source.get('type') == 'pdf_pipeline' and 'pdf_config' in source:
                 pdf_source = SyncConfigAdapter._convert_sync_source_to_pdf_source(source)
                 if pdf_source:
                     pdf_sources.append(pdf_source)

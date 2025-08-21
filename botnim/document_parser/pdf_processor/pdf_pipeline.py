@@ -53,6 +53,13 @@ class PDFExtractionPipeline:
         try:
             self.config = SyncConfigAdapter.load_pdf_sources_from_sync_config(config_path)
             logger.info(f"Loaded {len(self.config.sources)} PDF sources from sync config")
+            
+            # If no sources found in sync config, try PDF extraction config
+            if len(self.config.sources) == 0:
+                logger.info("No sources found in sync config, trying PDF extraction config")
+                self.config = PDFExtractionConfig.from_yaml(config_path)
+                logger.info(f"Loaded {len(self.config.sources)} sources from PDF extraction config")
+                
         except Exception as e:
             logger.info(f"Failed to load as sync config, trying as PDF extraction config: {e}")
             self.config = PDFExtractionConfig.from_yaml(config_path)

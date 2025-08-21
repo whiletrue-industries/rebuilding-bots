@@ -28,10 +28,9 @@ class HealthThresholds(BaseModel):
 class SourceType(str, Enum):
     """Supported content source types."""
     HTML = "html"
-    PDF = "pdf"
+    PDF_PIPELINE = "pdf_pipeline"  # Open Budget based PDF processing
     SPREADSHEET = "spreadsheet"
     WIKISOURCE = "wikisource"
-    PDF_PIPELINE = "pdf_pipeline"
 
 
 class VersioningStrategy(str, Enum):
@@ -41,6 +40,7 @@ class VersioningStrategy(str, Enum):
     ETAG = "etag"  # HTTP ETag header
     VERSION_STRING = "version_string"  # Explicit version string
     COMBINED = "combined"  # Hash + timestamp
+    REVISION = "revision"  # Open Budget revision tracking
 
 
 class FetchStrategy(str, Enum):
@@ -49,6 +49,7 @@ class FetchStrategy(str, Enum):
     INDEX_PAGE = "index_page"  # Parse index page for links
     API = "api"  # Use API endpoint
     ASYNC = "async"  # Fetch asynchronously (for large sources)
+    OPEN_BUDGET = "open_budget"  # Open Budget datapackage-based fetching
 
 
 class HTMLSourceConfig(BaseModel):
@@ -100,17 +101,30 @@ class PDFProcessingConfig(BaseModel):
     options: PDFProcessingOptions = Field(default_factory=PDFProcessingOptions, description="Processing options")
 
 
+class PDFPipelineOutputConfig(BaseModel):
+    """Configuration for the output of a PDF pipeline."""
+    spreadsheet_id: str = Field(..., description="Google Sheets spreadsheet ID")
+    sheet_name: str = Field(..., description="Name of the sheet to create/update")
+    credentials_path: Optional[str] = Field(None, description="Path to service account credentials for upload")
+    use_adc: bool = Field(default=True, description="Use Application Default Credentials for upload")
+
+
 class PDFSourceConfig(BaseModel):
-    """Configuration for PDF content sources."""
-    url: str = Field(..., description="Source URL or index page URL")
-    is_index_page: bool = Field(default=False, description="Whether URL is an index page")
-    file_pattern: Optional[str] = Field(None, description="File pattern for PDF files")
+    """Configuration for PDF content sources (Open Budget based)."""
+    # Open Budget data source configuration (required)
+    index_csv_url: str = Field(..., description="URL to Open Budget index.csv file")
+    datapackage_url: str = Field(..., description="URL to Open Budget datapackage.json file")
+    
+    # Output configuration (required for PDF pipelines)
+    output_config: PDFPipelineOutputConfig = Field(..., description="Configuration for the output Google Sheet")
+    
+    # Common configuration
     download_directory: Optional[str] = Field(None, description="Directory to store downloaded PDFs")
     headers: Dict[str, str] = Field(default_factory=dict, description="HTTP headers")
     timeout: int = Field(default=60, description="Request timeout in seconds")
     processing: Optional[PDFProcessingConfig] = Field(None, description="PDF processing configuration")
     
-    @field_validator('url')
+    @field_validator('index_csv_url', 'datapackage_url')
     @classmethod
     def validate_url(cls, v):
         """Validate URL format."""
@@ -138,13 +152,6 @@ class SpreadsheetSourceConfig(BaseModel):
         if not v.startswith('https://docs.google.com/spreadsheets/'):
             raise ValueError('Must be a Google Sheets URL')
         return v
-
-class PDFPipelineOutputConfig(BaseModel):
-    """Configuration for the output of a PDF pipeline."""
-    spreadsheet_id: str = Field(..., description="Google Sheets spreadsheet ID")
-    sheet_name: str = Field(..., description="Name of the sheet to create/update")
-    credentials_path: Optional[str] = Field(None, description="Path to service account credentials for upload")
-    use_adc: bool = Field(default=True, description="Use Application Default Credentials for upload")
 
 class PDFPipelineConfig(BaseModel):
     """Configuration for a PDF-to-Spreadsheet pipeline source."""
@@ -191,12 +198,12 @@ class ContentSource(BaseModel):
         """Validate that source type has corresponding config."""
         if self.type == SourceType.HTML and not self.html_config:
             raise ValueError('HTML source requires html_config')
-        elif self.type == SourceType.PDF and not self.pdf_config:
-            raise ValueError('PDF source requires pdf_config')
+        elif self.type == SourceType.PDF_PIPELINE and not self.pdf_config:
+            raise ValueError('PDF_PIPELINE source requires pdf_config (Open Budget based)')
+        elif self.type == SourceType.PDF_PIPELINE and self.pdf_config and not self.pdf_config.output_config:
+            raise ValueError('PDF_PIPELINE source requires output_config with spreadsheet_id and sheet_name')
         elif self.type == SourceType.SPREADSHEET and not self.spreadsheet_config:
             raise ValueError('Spreadsheet source requires spreadsheet_config')
-        elif self.type == SourceType.PDF_PIPELINE and not self.pdf_pipeline_config:
-            raise ValueError('PDF_PIPELINE source requires pdf_pipeline_config')
         return self
 
 
@@ -416,7 +423,7 @@ def create_example_config() -> SyncConfig:
                 id="ethics-decisions-pdf",
                 name="Ethics Committee Decisions (PDF)",
                 description="PDF decisions from ethics committee",
-                type=SourceType.PDF,
+                type=SourceType.PDF_PIPELINE,
                 pdf_config=PDFSourceConfig(
                     url="https://main.knesset.gov.il/Activity/Committees/Ethics/Pages/default.aspx",
                     is_index_page=True

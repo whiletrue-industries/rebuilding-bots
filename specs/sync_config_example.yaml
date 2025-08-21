@@ -53,38 +53,94 @@ sources:
     priority: 2
     tags: ["legal", "knesset", "bylaws", "html"]
 
-  # PDF Sources
-  - id: "ethics-decisions-pdf"
-    name: "Ethics Committee Decisions (PDF)"
-    description: "PDF decisions from ethics committee"
-    type: "pdf"
+  # PDF Pipeline Sources - Example Open Budget Sources
+  - id: "example-ethics-decisions-pdf"
+    name: "Example Ethics Committee Decisions"
+    description: "Example PDF pipeline for ethics committee decisions from Open Budget"
+    type: "pdf_pipeline"
     pdf_config:
-      url: "https://main.knesset.gov.il/Activity/Committees/Ethics/Pages/default.aspx"
-      is_index_page: true
-      file_pattern: "*.pdf"
-      download_directory: "./downloads/ethics"
-      timeout: 60
-    versioning_strategy: "combined"
-    fetch_strategy: "index_page"
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "committee_name"
+            type: "string"
+            description: "Name of the committee"
+            required: true
+          - name: "decision_date"
+            type: "date"
+            description: "Date of the decision"
+            required: true
+          - name: "decision_title"
+            type: "string"
+            description: "Title of the decision"
+            required: true
+          - name: "decision_summary"
+            type: "text"
+            description: "Summary of the decision"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content"
+            required: true
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
     enabled: true
-    priority: 3
-    tags: ["legal", "ethics", "decisions", "pdf"]
+    priority: 5
+    tags: ["example", "pdf-pipeline", "open-budget"]
 
-  - id: "legal-advisor-letters-pdf"
-    name: "Legal Advisor Letters (PDF)"
-    description: "PDF letters from legal advisor"
-    type: "pdf"
+  - id: "example-legal-advisor-pdf"
+    name: "Example Legal Advisor Guidance"
+    description: "Example PDF pipeline for legal advisor guidance from Open Budget"
+    type: "pdf_pipeline"
     pdf_config:
-      url: "https://main.knesset.gov.il/Activity/Committees/LegalAdvisor/Pages/default.aspx"
-      is_index_page: true
-      file_pattern: "*.pdf"
-      download_directory: "./downloads/legal-advisor"
-      timeout: 60
-    versioning_strategy: "hash"
-    fetch_strategy: "index_page"
+      index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/index.csv"
+      datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/datapackage.json"
+      processing:
+        model: "gpt-4.1-mini"
+        max_tokens: 4000
+        temperature: 0.1
+        fields:
+          - name: "advisor_name"
+            type: "string"
+            description: "Name of the legal advisor"
+            required: true
+          - name: "document_date"
+            type: "date"
+            description: "Date of the document"
+            required: true
+          - name: "document_title"
+            type: "string"
+            description: "Title of the document"
+            required: true
+          - name: "document_summary"
+            type: "text"
+            description: "Summary of the document"
+            required: true
+          - name: "full_text"
+            type: "text"
+            description: "Full text content"
+            required: true
+        options:
+          enable_ocr: true
+          ocr_language: "heb+eng"
+          chunk_size: 1000
+          chunk_overlap: 200
+          max_file_size_mb: 50
+    versioning_strategy: "revision"
+    fetch_strategy: "open_budget"
     enabled: true
-    priority: 4
-    tags: ["legal", "advisor", "letters", "pdf"]
+    priority: 6
+    tags: ["example", "pdf-pipeline", "open-budget"]
 
   # Spreadsheet Sources
   - id: "ethics-rules-spreadsheet"

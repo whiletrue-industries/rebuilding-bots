@@ -278,6 +278,76 @@ class GoogleSheetsService:
             output_csv_path, spreadsheet_id, sheet_name, replace_existing
         )
     
+    def download_sheet_as_csv(self, spreadsheet_id: str, sheet_name: str) -> Optional[str]:
+        """
+        Download a Google Sheet as CSV content.
+        
+        Args:
+            spreadsheet_id: Google Sheets spreadsheet ID
+            sheet_name: Name of the sheet to download
+            
+        Returns:
+            CSV content as string if successful, None otherwise
+        """
+        try:
+            logger.info(f"Downloading sheet '{sheet_name}' from spreadsheet {spreadsheet_id}")
+            
+            # Use the underlying sync service to download data
+            data = self.sync.download_sheet_data(spreadsheet_id, sheet_name)
+            
+            if not data:
+                logger.warning(f"No data found in sheet '{sheet_name}'")
+                return None
+            
+            # Convert to CSV format
+            if not data:
+                return None
+            
+            # Get headers from first row
+            headers = data[0] if data else []
+            rows = data[1:] if len(data) > 1 else []
+            
+            # Convert to CSV string
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Write headers
+            writer.writerow(headers)
+            
+            # Write data rows
+            for row in rows:
+                writer.writerow(row)
+            
+            csv_content = output.getvalue()
+            output.close()
+            
+            logger.info(f"Downloaded {len(rows)} rows from sheet '{sheet_name}'")
+            return csv_content
+            
+        except Exception as e:
+            logger.error(f"Error downloading sheet '{sheet_name}' from Google Sheets: {e}")
+            return None
+
+    def create_spreadsheet(self, title: str, description: str = "") -> str:
+        """
+        Create a new Google Spreadsheet.
+        
+        Args:
+            title: Title of the new spreadsheet
+            description: Description for the new spreadsheet
+            
+        Returns:
+            ID of the newly created spreadsheet
+        """
+        try:
+            logger.info(f"Creating new spreadsheet: {title}")
+            spreadsheet_id = self.sync.create_spreadsheet(title, description)
+            logger.info(f"✅ Successfully created spreadsheet: {title} (ID: {spreadsheet_id})")
+            return spreadsheet_id
+        except Exception as e:
+            logger.error(f"Error creating spreadsheet '{title}': {e}")
+            return ""
+    
     def _create_safe_sheet_name(self, name: str) -> str:
         """
         Create a safe sheet name for Google Sheets.
