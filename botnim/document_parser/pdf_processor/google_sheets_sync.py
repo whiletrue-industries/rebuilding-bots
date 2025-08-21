@@ -81,25 +81,43 @@ class GoogleSheetsSync:
             return False
     
     def _replace_sheet(self, spreadsheet_id: str, sheet_name: str, data: List[List]) -> bool:
-        """Replace entire sheet content."""
+        """Replace entire sheet content and rename if needed."""
         try:
-            # Check if sheet exists and clear it if it does
-            if self._sheet_exists(spreadsheet_id, sheet_name):
-                try:
-                    # Clear the existing sheet content instead of deleting it
-                    logger.info(f"Clearing existing sheet '{sheet_name}' content")
-                    success = self._clear_sheet(spreadsheet_id, sheet_name)
-                    if not success:
-                        logger.warning(f"Failed to clear existing sheet content, attempting to delete and recreate")
-                        # Fallback to delete and recreate if clear fails
-                        return self._delete_and_recreate_sheet(spreadsheet_id, sheet_name, data)
-                except Exception as e:
-                    logger.warning(f"Failed to clear existing sheet: {e}, attempting to delete and recreate")
-                    # Fallback to delete and recreate if clear fails
+            # First, check if there's an existing sheet with a different name that we should rename
+            existing_sheet_name = self._get_first_sheet_name(spreadsheet_id)
+            if existing_sheet_name and existing_sheet_name != sheet_name:
+                logger.info(f"Found existing sheet '{existing_sheet_name}', clearing content and renaming to '{sheet_name}'")
+                # Clear the existing sheet content
+                success = self._clear_sheet(spreadsheet_id, existing_sheet_name)
+                if not success:
+                    logger.warning(f"Failed to clear existing sheet content, attempting to delete and recreate")
                     return self._delete_and_recreate_sheet(spreadsheet_id, sheet_name, data)
-            else:
-                # Create new sheet if it doesn't exist
+                
+                # Rename the existing sheet to the target name
+                success = self._rename_sheet(spreadsheet_id, existing_sheet_name, sheet_name)
+                if not success:
+                    logger.warning(f"Failed to rename sheet, attempting to delete and recreate")
+                    return self._delete_and_recreate_sheet(spreadsheet_id, sheet_name, data)
+                
+                # Now the sheet should exist with the target name
+                logger.info(f"Successfully renamed sheet from '{existing_sheet_name}' to '{sheet_name}'")
+            elif not self._sheet_exists(spreadsheet_id, sheet_name):
+                # Create new sheet if it doesn't exist and there's no existing sheet to rename
+                logger.info(f"Creating new sheet '{sheet_name}'")
                 self._create_sheet(spreadsheet_id, sheet_name)
+            
+            # At this point, the sheet should exist with the target name
+            # Clear and update the content
+            try:
+                # Clear the existing sheet content
+                logger.info(f"Clearing existing sheet '{sheet_name}' content")
+                success = self._clear_sheet(spreadsheet_id, sheet_name)
+                if not success:
+                    logger.warning(f"Failed to clear existing sheet content, attempting to delete and recreate")
+                    return self._delete_and_recreate_sheet(spreadsheet_id, sheet_name, data)
+            except Exception as e:
+                logger.warning(f"Failed to clear existing sheet: {e}, attempting to delete and recreate")
+                return self._delete_and_recreate_sheet(spreadsheet_id, sheet_name, data)
             
             # Write new data (use just the sheet name as the range)
             range_name = sheet_name  # No !A1 or !A:Z
@@ -374,14 +392,28 @@ class GoogleSheetsSync:
                 logger.error(f"CSV file is empty: {csv_file_path}")
                 return False, None
             
+            # Determine the target sheet name from the CSV filename
+            csv_filename = os.path.basename(csv_file_path)
+            target_sheet_name = os.path.splitext(csv_filename)[0]  # Remove .csv extension
+            
             # Resolve GID to sheet name
-            sheet_name = self._get_sheet_name_from_gid(spreadsheet_id, gid)
-            if not sheet_name:
+            gid_sheet_name = self._get_sheet_name_from_gid(spreadsheet_id, gid)
+            if not gid_sheet_name:
                 logger.error(f"No sheet found with GID {gid}")
                 return False, None
             
-            logger.info(f"Resolved GID {gid} to sheet name: {sheet_name}")
-            return self.create_or_update_sheet_with_gid(spreadsheet_id, sheet_name, data, replace_existing)
+            logger.info(f"Resolved GID {gid} to sheet name: {gid_sheet_name}")
+            logger.info(f"Target sheet name from CSV: {target_sheet_name}")
+            
+            # Always use the existing sheet (identified by GID) and clear/rename it if needed
+            # This preserves the GID while updating content and name
+            if replace_existing:
+                logger.info(f"Replacing content and renaming sheet '{gid_sheet_name}' to '{target_sheet_name}' (GID preserved: {gid})")
+                return self.create_or_update_sheet_with_gid(spreadsheet_id, target_sheet_name, data, replace_existing)
+            else:
+                # Use the GID-resolved sheet name for append operations
+                logger.info(f"Appending to existing sheet '{gid_sheet_name}' (GID: {gid})")
+                return self.create_or_update_sheet_with_gid(spreadsheet_id, gid_sheet_name, data, replace_existing)
             
         except Exception as e:
             logger.error(f"Failed to upload CSV by GID: {e}")
@@ -578,3 +610,75 @@ class GoogleSheetsSync:
         except Exception as e:
             logger.error(f"Error creating spreadsheet: {e}")
             return "" 
+
+    def _get_first_sheet_name(self, spreadsheet_id: str) -> Optional[str]:
+        """
+        Get the name of the first sheet in the spreadsheet.
+        
+        Args:
+            spreadsheet_id: Google Sheets spreadsheet ID
+            
+        Returns:
+            Name of the first sheet, or None if not found
+        """
+        try:
+            spreadsheet = self.service.spreadsheets().get(
+                spreadsheetId=spreadsheet_id
+            ).execute()
+            sheets = spreadsheet.get('sheets', [])
+            if sheets:
+                return sheets[0].get('properties', {}).get('title')
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get first sheet name: {e}")
+            return None 
+
+    def _rename_sheet(self, spreadsheet_id: str, old_name: str, new_name: str) -> bool:
+        """
+        Rename a sheet while preserving its GID.
+        
+        Args:
+            spreadsheet_id: Google Sheets spreadsheet ID
+            old_name: Current name of the sheet
+            new_name: New name for the sheet
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get the sheet ID for the old name
+            spreadsheet = self.service.spreadsheets().get(
+                spreadsheetId=spreadsheet_id
+            ).execute()
+            sheets = spreadsheet.get('sheets', [])
+            sheet_id = None
+            for sheet in sheets:
+                if sheet.get('properties', {}).get('title') == old_name:
+                    sheet_id = sheet.get('properties', {}).get('sheetId')
+                    break
+            
+            if sheet_id is None:
+                logger.error(f"Could not find sheet '{old_name}' to rename")
+                return False
+            
+            # Rename the sheet
+            request = {
+                'updateSheetProperties': {
+                    'properties': {
+                        'sheetId': sheet_id,
+                        'title': new_name
+                    },
+                    'fields': 'title'
+                }
+            }
+            self.service.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body={'requests': [request]}
+            ).execute()
+            
+            logger.info(f"Successfully renamed sheet from '{old_name}' to '{new_name}' (GID preserved: {sheet_id})")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to rename sheet from '{old_name}' to '{new_name}': {e}")
+            return False 
