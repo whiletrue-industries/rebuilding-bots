@@ -1,11 +1,11 @@
-# Test configuration using Open Budget data sources
+# Test configuration using local mock data files
 sources:
   - name: "test_ethics_committee_decisions"
-    description: "Test Ethics Committee Decisions from Open Budget"
+    description: "Test Ethics Committee Decisions from mock data"
     unique_id_field: "url"
     metadata:
       source_type: "ethics_committee"
-      data_provider: "open_budget"
+      data_provider: "mock"
       test_mode: "true"
     fields:
       - name: "committee_name"
@@ -30,15 +30,16 @@ sources:
         description: "Key terms and topics mentioned in the decision"
         example: "נזיפה, התנהגות לא הולמת, אתיקה"
     extraction_instructions: "Extract structured information from ethics committee decisions"
-    index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
-    datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
+    # Use local mock data files instead of real Open Budget URLs
+    index_csv_url: "file://botnim/document_parser/pdf_processor/test/data/mock_index.csv"
+    datapackage_url: "file://botnim/document_parser/pdf_processor/test/data/mock_datapackage.json"
 
   - name: "test_knesset_committee_decisions"
-    description: "Test Knesset Committee Decisions from Open Budget"
+    description: "Test Knesset Committee Decisions from mock data"
     unique_id_field: "url"
     metadata:
       source_type: "knesset_committee"
-      data_provider: "open_budget"
+      data_provider: "mock"
       test_mode: "true"
     fields:
       - name: "committee_name"
@@ -63,15 +64,16 @@ sources:
         description: "Key terms and topics mentioned in the decision"
         example: "סדר יום, ועדה, החלטה"
     extraction_instructions: "Extract structured information from knesset committee decisions"
-    index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_committee_decisions/index.csv"
-    datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_committee_decisions/datapackage.json"
+    # Use local mock data files instead of real Open Budget URLs
+    index_csv_url: "file://botnim/document_parser/pdf_processor/test/data/mock_index.csv"
+    datapackage_url: "file://botnim/document_parser/pdf_processor/test/data/mock_datapackage.json"
 
   - name: "test_legal_advisor_guidance"
-    description: "Test Legal Advisor Guidance from Open Budget"
+    description: "Test Legal Advisor Guidance from mock data"
     unique_id_field: "url"
     metadata:
       source_type: "legal_advisor"
-      data_provider: "open_budget"
+      data_provider: "mock"
       test_mode: "true"
     fields:
       - name: "advisor_name"
@@ -96,5 +98,6 @@ sources:
         description: "Key terms and topics mentioned in the document"
         example: "חוקיות, חוק, חוות דעת"
     extraction_instructions: "Extract structured information from legal advisor documents"
-    index_csv_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/index.csv"
-    datapackage_url: "https://next.obudget.org/datapackages/knesset/knesset_legal_advisor/datapackage.json" 
+    # Use local mock data files instead of real Open Budget URLs
+    index_csv_url: "file://botnim/document_parser/pdf_processor/test/data/mock_index.csv"
+    datapackage_url: "file://botnim/document_parser/pdf_processor/test/data/mock_datapackage.json" 

@@ -30,7 +30,7 @@ class TestSyncConfig:
         
         # Check source types
         html_sources = config.get_sources_by_type(SourceType.HTML)
-        pdf_sources = config.get_sources_by_type(SourceType.PDF)
+        pdf_sources = config.get_sources_by_type(SourceType.PDF_PIPELINE)
         spreadsheet_sources = config.get_sources_by_type(SourceType.SPREADSHEET)
         
         assert len(html_sources) == 1
@@ -128,7 +128,7 @@ sources:
         assert len(html_sources) == 1
         assert html_sources[0].id == "knesset-laws-html"
         
-        pdf_sources = config.get_sources_by_type(SourceType.PDF)
+        pdf_sources = config.get_sources_by_type(SourceType.PDF_PIPELINE)
         assert len(pdf_sources) == 1
         assert pdf_sources[0].id == "ethics-decisions-pdf"
     
@@ -163,15 +163,26 @@ class TestContentSource:
     
     def test_pdf_source_validation(self):
         """Test PDF source validation."""
-        # Valid PDF source
-        source = ContentSource(
-            id="test",
-            name="Test",
-            type=SourceType.PDF,
-            pdf_config=PDFSourceConfig(url="https://example.com/file.pdf")
+        # Test PDF source validation
+        pdf_source = ContentSource(
+            id="test-pdf",
+            name="Test PDF Source",
+            description="Test PDF source",
+            type=SourceType.PDF_PIPELINE,
+            pdf_config=PDFSourceConfig(
+                index_csv_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv",
+                datapackage_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
+            ),
+            versioning_strategy=VersioningStrategy.REVISION,
+            fetch_strategy=FetchStrategy.OPEN_BUDGET,
+            enabled=True,
+            priority=1,
+            tags=["test", "pdf-pipeline"]
         )
-        assert source.type == SourceType.PDF
-        assert source.pdf_config.url == "https://example.com/file.pdf"
+        
+        # Should validate successfully
+        validated_source = pdf_source.validate_source_type_config()
+        assert validated_source.type == SourceType.PDF_PIPELINE
     
     def test_spreadsheet_source_validation(self):
         """Test spreadsheet source validation."""

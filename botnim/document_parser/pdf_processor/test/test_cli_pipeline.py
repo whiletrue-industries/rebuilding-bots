@@ -1,239 +1,176 @@
 #!/usr/bin/env python3
 """
-Test CLI pipeline for PDF processing with Open Budget data sources.
+Test CLI for PDF Pipeline with Mock Data Sources.
 
-This script demonstrates the complete pipeline functionality:
-1. Load configuration from sync config
-2. Process PDF sources using Open Budget data
-3. Merge with existing data
-4. Update Google Spreadsheets
-5. Validate results
-
-Usage:
-    python test_cli_pipeline.py --config specs/takanon/sync_config.yaml --output-dir ./output
-    python test_cli_pipeline.py --config specs/takanon/sync_config.yaml --output-dir ./output --upload-sheets
+This module provides a test-specific CLI that automatically uses mock data sources
+for quick testing without downloading real PDFs.
 """
 
-import argparse
-import sys
 import os
-import logging
+import sys
+import argparse
+import pytest
 from pathlib import Path
-from typing import Optional
+from unittest.mock import patch, Mock
 
-# Add the project root to the path
-project_root = Path(__file__).parent.parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
+# Add the parent directory to the path to import botnim modules
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from botnim.document_parser.pdf_processor.pdf_pipeline import PDFExtractionPipeline
-from botnim.document_parser.pdf_processor.sync_config_adapter import SyncConfigAdapter
-from botnim.document_parser.pdf_processor.csv_output import read_csv, write_csv
+from botnim.document_parser.pdf_processor.pdf_extraction_config import PDFExtractionConfig
+from botnim.document_parser.pdf_processor.test.mock_open_budget_data_source import MockOpenBudgetDataSource
 
 
 def setup_logging(verbose: bool = False):
-    """Set up logging configuration."""
+    """Setup logging for the test CLI."""
+    import logging
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler('pdf_pipeline.log')
-        ]
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
 
 def validate_config(config_path: str) -> bool:
-    """Validate that the configuration file exists and is readable."""
+    """Validate that the test configuration exists and is valid."""
     if not os.path.exists(config_path):
-        print(f"❌ Error: Configuration file not found: {config_path}")
+        print(f"❌ Test configuration not found: {config_path}")
         return False
     
     try:
-        # Try to load the configuration
-        config = SyncConfigAdapter.load_pdf_sources_from_sync_config(config_path)
-        print(f"✅ Configuration loaded successfully: {len(config.sources)} PDF sources found")
+        config = PDFExtractionConfig.from_yaml(config_path)
+        print(f"✅ Test configuration loaded: {len(config.sources)} sources")
         return True
     except Exception as e:
-        print(f"❌ Error loading configuration: {e}")
+        print(f"❌ Invalid test configuration: {e}")
         return False
 
 
-def run_pipeline(config_path: str, output_dir: str, upload_sheets: bool = False, 
-                sheets_credentials: Optional[str] = None, spreadsheet_id: Optional[str] = None) -> bool:
-    """Run the complete PDF processing pipeline."""
+def run_test_pipeline(config_path: str, output_dir: str, verbose: bool = False) -> bool:
+    """
+    Run the PDF pipeline with mock data sources for testing.
+    
+    Args:
+        config_path: Path to test configuration file
+        output_dir: Output directory for results
+        verbose: Enable verbose logging
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    print(f"🧪 Running test pipeline with mock data sources...")
+    print(f"   Config: {config_path}")
+    print(f"   Output: {output_dir}")
     
     try:
-        print(f"🚀 Starting PDF processing pipeline...")
-        print(f"   Config: {config_path}")
-        print(f"   Output: {output_dir}")
-        print(f"   Upload to Sheets: {upload_sheets}")
-        
-        # Load configuration
-        config = SyncConfigAdapter.load_pdf_sources_from_sync_config(config_path)
-        
-        # Create output directory if it doesn't exist
+        # Create output directory
         os.makedirs(output_dir, exist_ok=True)
         
-        # Initialize pipeline
-        pipeline = PDFExtractionPipeline(config)
+        # Load configuration
+        config = PDFExtractionConfig.from_yaml(config_path)
         
-        # Process all sources
-        print(f"📊 Processing {len(config.sources)} PDF sources...")
-        result = pipeline.process_directory(output_dir)
+        # Create mock OpenAI client
+        class MockOpenAIClient:
+            def __init__(self):
+                self.chat = MockChatCompletion()
         
-        if result:
-            print(f"✅ Pipeline completed successfully!")
+        class MockChatCompletion:
+            def __init__(self):
+                self.completions = MockCompletions()
+        
+        class MockCompletions:
+            def create(self, **kwargs):
+                # Return mock extracted data based on the fields in the config
+                fields = config.sources[0].fields if config.sources else []
+                mock_data = {}
+                for field in fields:
+                    mock_data[field.name] = f"Mock {field.name} value"
+                
+                return MockResponse(mock_data)
+        
+        class MockResponse:
+            def __init__(self, data):
+                self.choices = [MockChoice(data)]
+        
+        class MockChoice:
+            def __init__(self, data):
+                self.message = MockMessage(data)
+        
+        class MockMessage:
+            def __init__(self, data):
+                import json
+                self.content = json.dumps(data)
+        
+        # Initialize pipeline with mock client
+        pipeline = PDFExtractionPipeline(
+            config_path=config_path,
+            openai_client=MockOpenAIClient(),
+            enable_metrics=False
+        )
+        
+        # Mock the OpenBudgetDataSource
+        with patch('botnim.document_parser.pdf_processor.open_budget_data_source.OpenBudgetDataSource') as mock_data_source:
+            # Configure the mock
+            mock_instance = mock_data_source.return_value
+            mock_instance.get_current_revision.return_value = "2025.08.20-01"
+            mock_instance.get_files_to_process.return_value = [
+                {
+                    'url': 'https://example.com/test1.pdf',
+                    'filename': 'test1.pdf',
+                    'title': 'Test Document 1',
+                    'date': '2025-01-01'
+                }
+            ]
+            mock_instance.download_pdf.return_value = "/tmp/test.pdf"
             
-            # Check output files
-            output_files = [f for f in os.listdir(output_dir) if f.endswith('.csv')]
-            print(f"📁 Generated {len(output_files)} output files:")
-            for file in output_files:
-                file_path = os.path.join(output_dir, file)
-                data = read_csv(file_path)
-                print(f"   - {file}: {len(data)} records")
+            # Process the directory
+            success = pipeline.process_directory(output_dir)
             
-            # Upload to Google Sheets if requested
-            if upload_sheets:
-                if not sheets_credentials or not spreadsheet_id:
-                    print("⚠️  Warning: Google Sheets upload requested but credentials or spreadsheet ID not provided")
-                else:
-                    print(f"📤 Uploading to Google Sheets: {spreadsheet_id}")
-                    # TODO: Implement Google Sheets upload
-                    print("   (Google Sheets upload not yet implemented)")
-            
-            return True
-        else:
-            print(f"❌ Pipeline failed!")
-            return False
-            
+            if success:
+                print("✅ Pipeline completed successfully!")
+                return True
+            else:
+                print("❌ Pipeline failed!")
+                return False
+                
     except Exception as e:
         print(f"❌ Error running pipeline: {e}")
-        logging.exception("Pipeline error")
         return False
 
 
-def demonstrate_data_merging_scenarios(config_path: str, output_dir: str):
-    """Demonstrate the data merging scenarios mentioned by the colleague."""
-    
-    print(f"\n🧪 Demonstrating data merging scenarios...")
-    
-    # Create test scenarios
-    scenarios = [
-        {
-            'name': 'Missing Rows Scenario',
-            'description': 'Input has fewer rows than datapackage - should add missing rows',
-            'input_rows': 2,  # Only 2 out of 3 rows
-            'expected_output': 3  # Should have all 3 rows
-        },
-        {
-            'name': 'Invalid Rows Scenario', 
-            'description': 'Input has invalid URLs not in datapackage - should remove them',
-            'input_rows': 4,  # 3 valid + 1 invalid
-            'expected_output': 3  # Should have only valid rows
-        },
-        {
-            'name': 'Mixed Scenario',
-            'description': 'Input has missing rows AND invalid rows - should fix both',
-            'input_rows': 3,  # 2 valid + 1 invalid
-            'expected_output': 3  # Should have all 3 valid rows
-        }
-    ]
-    
-    for scenario in scenarios:
-        print(f"\n📋 {scenario['name']}")
-        print(f"   {scenario['description']}")
-        print(f"   Input: {scenario['input_rows']} rows")
-        print(f"   Expected Output: {scenario['expected_output']} rows")
-        
-        # TODO: Implement actual scenario testing
-        print(f"   ✅ Scenario test completed")
+def test_cli_config_validation():
+    """Test CLI configuration validation."""
+    config_path = Path(__file__).parent / "config" / "test_config_simple.yaml"
+    assert validate_config(str(config_path)), "Configuration validation failed"
 
 
-def main():
-    """Main CLI entry point."""
-    parser = argparse.ArgumentParser(
-        description='Test PDF processing pipeline with Open Budget data sources',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Basic pipeline test
-  python test_cli_pipeline.py --config specs/takanon/sync_config.yaml --output-dir ./output
-  
-  # Pipeline with Google Sheets upload
-  python test_cli_pipeline.py --config specs/takanon/sync_config.yaml --output-dir ./output \\
-    --upload-sheets --sheets-credentials .google_credentials.json --spreadsheet-id "your-sheet-id"
-  
-  # Verbose output
-  python test_cli_pipeline.py --config specs/takanon/sync_config.yaml --output-dir ./output --verbose
-        """
-    )
+def test_cli_pipeline_execution():
+    """Test CLI pipeline execution with mock data."""
+    config_path = Path(__file__).parent / "config" / "test_config_simple.yaml"
+    output_dir = Path(__file__).parent / "output"
     
-    parser.add_argument(
-        '--config', 
-        required=True,
-        help='Path to sync configuration file (e.g., specs/takanon/sync_config.yaml)'
-    )
+    # Ensure output directory exists
+    output_dir.mkdir(exist_ok=True)
     
-    parser.add_argument(
-        '--output-dir', 
-        required=True,
-        help='Output directory for generated CSV files'
-    )
-    
-    parser.add_argument(
-        '--upload-sheets',
-        action='store_true',
-        help='Upload results to Google Sheets after processing'
-    )
-    
-    parser.add_argument(
-        '--sheets-credentials',
-        help='Path to Google Sheets credentials file'
-    )
-    
-    parser.add_argument(
-        '--spreadsheet-id',
-        help='Google Spreadsheet ID for upload'
-    )
-    
-    parser.add_argument(
-        '--verbose', '-v',
-        action='store_true',
-        help='Enable verbose logging'
-    )
-    
-    parser.add_argument(
-        '--demo-scenarios',
-        action='store_true',
-        help='Demonstrate data merging scenarios'
-    )
-    
-    args = parser.parse_args()
-    
-    # Setup logging
-    setup_logging(args.verbose)
-    
-    # Validate configuration
-    if not validate_config(args.config):
-        sys.exit(1)
-    
-    # Run pipeline
-    success = run_pipeline(
-        config_path=args.config,
-        output_dir=args.output_dir,
-        upload_sheets=args.upload_sheets,
-        sheets_credentials=args.sheets_credentials,
-        spreadsheet_id=args.spreadsheet_id
-    )
-    
-    # Demonstrate scenarios if requested
-    if args.demo_scenarios:
-        demonstrate_data_merging_scenarios(args.config, args.output_dir)
-    
-    # Exit with appropriate code
-    sys.exit(0 if success else 1)
+    success = run_test_pipeline(str(config_path), str(output_dir), verbose=True)
+    assert success, "Pipeline execution failed"
 
 
-if __name__ == '__main__':
-    main() 
+def test_cli_mock_data_integration():
+    """Test CLI integration with mock data sources."""
+    config_path = Path(__file__).parent / "config" / "test_config_simple.yaml"
+    
+    # Test that the configuration loads correctly
+    config = PDFExtractionConfig.from_yaml(str(config_path))
+    assert len(config.sources) > 0, "No sources loaded from test config"
+    
+    # Test that sources have required Open Budget fields
+    for source in config.sources:
+        assert hasattr(source, 'index_csv_url'), f"Source {source.name} missing index_csv_url"
+        assert hasattr(source, 'datapackage_url'), f"Source {source.name} missing datapackage_url"
+        # Note: output_config is optional for testing purposes
+
+
+if __name__ == "__main__":
+    # For backward compatibility, run tests manually
+    pytest.main([__file__, "-v"]) 

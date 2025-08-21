@@ -92,8 +92,11 @@ def run_unit_tests():
     test_dir = Path(__file__).parent
     test_files = [
         "test_pdf_extraction.py",
-        "test_open_budget_integration.py", 
-        "test_data_merging_scenarios.py"
+        "test_open_budget_integration.py",
+        "test_data_merging_scenarios.py",
+        "test_cli_pipeline.py",
+        "test_field_extraction.py",
+        "test_google_sheets_integration.py"
     ]
     
     results = []

@@ -1,6 +1,6 @@
 # PDF Extraction Tests
 
-This directory contains the test suite for the PDF extraction pipeline.
+This directory contains the test suite for the PDF extraction pipeline with Open Budget data sources.
 
 ## Running Tests
 
@@ -17,154 +17,94 @@ python -m pytest --import-mode=importlib botnim/document_parser/pdf_processor/te
 python -m pytest --import-mode=importlib botnim/document_parser/pdf_processor/test/test_field_extraction.py::TestFieldExtraction::test_build_extraction_schema
 ```
 
-## Pipeline Summary Feature
-
-The PDF extraction pipeline now includes a comprehensive final summary that provides:
-
-### **Detailed Summary (with --verbose flag)**
-- **Overall Statistics**: Total records extracted, sources processed, input directory
-- **Source Breakdown**: Records per source with counts
-- **Output Files**: List of generated CSV files
-- **Performance Metrics**: Processing times, success rates, error counts
-- **❌ FAILURE DETAILS (NEW)**: Comprehensive failure tracking and reporting
-  - Sources with no PDF files found
-  - Failed files by source with error messages
-  - Detailed failure list for manual handling
-  - Recommendations for resolving issues
-- **Processing Status**: Success/failure status with recommendations
-
-### **Brief Summary (without --verbose flag)**
-- **Record Count**: Total number of extracted records
-- **Source Breakdown**: Records per source (if multiple sources)
-- **Failure Alert**: Warning if any files failed to process
-- **Basic Status**: Success/failure indication
-
-### **Example Output with Failures**
-```
-================================================================================
-📊 PDF EXTRACTION PIPELINE - FINAL SUMMARY
-================================================================================
-📈 OVERALL STATISTICS:
-   • Total records extracted: 12
-   • Sources processed: 3
-   • Input directory: /path/to/input
-
-📋 SOURCE BREAKDOWN:
-   • החלטות ועדת האתיקה: 8 records
-   • מכתבי פנייה ומכתבי תשובה: 4 records
-
-📁 OUTPUT FILES:
-   • output.csv
-   • החלטות_ועדת_האתיקה_20241201_143022.csv
-
-❌ FAILURE DETAILS:
-   • Total failures: 3
-   📂 Sources with no PDF files:
-      • Source With No Files
-   📄 Failed files by source:
-      • החלטות ועדת האתיקה: 2 failed files
-        - document1.pdf: PDF text extraction failed - corrupted file...
-        - document2.pdf: OpenAI API rate limit exceeded...
-   🔧 DETAILED FAILURE LIST (for manual handling):
-      1. החלטות ועדת האתיקה - document1.pdf
-         Path: /path/to/input/document1.pdf
-         Error: PDF text extraction failed - corrupted file
-      2. החלטות ועדת האתיקה - document2.pdf
-         Path: /path/to/input/document2.pdf
-         Error: OpenAI API rate limit exceeded
-
-   💡 RECOMMENDATIONS:
-      • Check file patterns for sources: Source With No Files
-      • Review 2 failed files above for manual processing
-      • Common issues: OCR problems, corrupted PDFs, API rate limits
-
-⏱️ PERFORMANCE METRICS:
-   • Total PDFs processed: 5
-   • Successful extractions: 3
-   • Failed extractions: 2
-   • Success rate: 60.0%
-   • Total processing time: 45.23 seconds
-
-⚠️ PIPELINE COMPLETED WITH ISSUES
-   • Extracted 12 records from 3 sources
-   • 3 failures need attention (see details above)
-================================================================================
-```
-
-### **Failure Tracking Features**
-The enhanced summary provides detailed failure information to help you:
-
-1. **Identify Failed Sources**: Sources with no PDF files or processing errors
-2. **Locate Failed Files**: Exact file paths and error messages for each failure
-3. **Understand Error Types**: Categorized failures (no files, processing errors, API issues)
-4. **Get Recommendations**: Specific suggestions for resolving common issues
-5. **Plan Manual Processing**: Complete list of files that need manual attention
-
-### **Common Failure Scenarios Handled**
-- **No PDF files found**: Sources with empty or incorrect file patterns
-- **Text extraction failures**: Corrupted PDFs, OCR issues, unsupported formats
-- **API failures**: Rate limits, authentication errors, network issues
-- **Field extraction failures**: LLM processing errors, validation failures
-- **File access issues**: Permission problems, missing files, path errors
-
-### **Testing the Summary**
-```bash
-# Run the summary test
-python -m pytest --import-mode=importlib botnim/document_parser/pdf_processor/test/test_integration.py::PDFExtractionIntegrationTest::test_pipeline_summary_generation
-
-# Or run the demo script
-python botnim/document_parser/pdf_processor/test/demo_summary.py
-```
-
-## Why Relative Imports?
+## Current Test Structure
 
 ```
 test/
-├── input/           # Test PDF files
-│   ├── ethic_commitee_decisions/  # Ethics committee decision PDFs
-│   ├── legal_advisor_answers/     # Legal advisor correspondence PDFs
-│   ├── knesset_committee/         # Knesset committee decision PDFs
-│   └── legal_advisor_letters/     # Legal advisor guidelines and letters PDFs
-├── output/          # Test output files
 ├── config/          # Test configuration files
-│   ├── test_config.yaml          # Main test configuration
-│   └── test_config_simple.yaml   # Simple path resolution test
-├── test_pdf_extraction.py  # Unit tests
-├── test_integration.py     # Comprehensive integration tests
-├── demo_summary.py         # Summary feature demonstration
-└── run_tests.py     # Test runner script
+│   ├── test_config.yaml              # Main test configuration (Open Budget format)
+│   ├── test_config_simple.yaml       # Simple test configuration
+│   └── test_config_open_budget.yaml  # Open Budget specific tests
+├── data/            # Mock data files
+│   ├── mock_index.csv                # Mock Open Budget index.csv
+│   └── mock_datapackage.json         # Mock Open Budget datapackage.json
+├── test_pdf_extraction.py            # Unit tests for PDF extraction
+├── test_open_budget_integration.py   # Open Budget integration tests
+├── test_data_merging_scenarios.py    # Data merging and change detection tests
+├── test_cli_pipeline.py              # CLI integration tests
+├── test_field_extraction.py          # Field extraction unit tests
+├── test_integration.py               # Comprehensive integration tests
+├── mock_open_budget_data_source.py   # Mock Open Budget data source
+└── run_tests.py                      # Test runner script
 ```
 
 ## Test Configuration
 
-The test configuration (`config/test_config.yaml`) includes four sources:
+The test configuration (`config/test_config.yaml`) includes sources configured for Open Budget data sources:
 - **Ethics Committee Decisions** - Hebrew field extraction for ethics decisions
-- **Legal Advisor Correspondence** - Correspondence letter processing
-- **Knesset Committee Decisions** - Committee decision metadata
-- **Legal Advisor Guidelines** - Guidelines and letters processing
+- **Legal Advisor Letters** - Correspondence letter processing
 
-## Integration Tests
+All sources now use:
+- `index_csv_url` and `datapackage_url` for Open Budget integration
+- `output_config` with `spreadsheet_id` and `sheet_name` for Google Sheets
+- `unique_id_field: "url"` for change detection
 
-The `test_integration.py` file provides comprehensive testing for:
+## Test Categories
 
-- ✅ **CSV Contract Testing** - Input/output CSV file handling
-- ✅ **Separation of Concerns** - Pipeline without Google Sheets
-- ✅ **Path Resolution** - Absolute, relative, and invalid paths
-- ✅ **Model Version Verification** - Correct GPT model usage
-- ✅ **OpenAI JSON Format** - JSON response validation
-- ✅ **CLI Integration** - Command-line interface testing
-- ✅ **Google Sheets Integration** - Authentication and upload testing
-- ✅ **Pipeline Summary Generation** - Comprehensive summary functionality
+### **Unit Tests**
+- **`test_pdf_extraction.py`**: Core PDF extraction logic and configuration
+- **`test_field_extraction.py`**: Field extraction with JSON schema validation
+
+### **Integration Tests**
+- **`test_open_budget_integration.py`**: Open Budget data source integration
+- **`test_data_merging_scenarios.py`**: Change detection and data merging logic
+- **`test_cli_pipeline.py`**: CLI integration with mock data sources
+- **`test_integration.py`**: Comprehensive end-to-end testing
+
+### **Mock Data**
+- **`mock_open_budget_data_source.py`**: Mock implementation for isolated testing
+- **`data/mock_*.csv`**: Mock Open Budget data files
+
+## Key Test Features
+
+### **Open Budget Integration Testing**
+- URL and revision tracking
+- Change detection logic
+- Data merging with existing records
+- Mock data source functionality
+
+### **Data Merging Scenarios**
+- Adding missing rows from datapackage
+- Removing invalid rows not in datapackage
+- Complete pipeline execution
+- Error handling and validation
+
+### **CLI Integration**
+- Mock-based testing without real PDFs
+- Configuration validation
+- Pipeline execution testing
+
+## Pipeline Summary Feature
+
+The PDF extraction pipeline includes comprehensive final summaries with:
+- Overall statistics and source breakdown
+- Performance metrics and error tracking
+- Detailed failure reporting
+- Recommendations for issue resolution
 
 ## Adding Test Files
 
-Place your test PDF files in the appropriate `input/` subdirectories. The test configuration expects Hebrew PDF files for all source types.
+For new tests:
+1. Use the mock Open Budget data source for isolated testing
+2. Follow the current configuration format with `output_config`
+3. Use the existing mock data files in `data/` directory
+4. Ensure tests work with the orchestrator integration
 
 ## Troubleshooting
 
-- **No PDF files found**: Ensure PDF files are in `input/` directory
-- **Configuration errors**: Check YAML syntax in test configuration files
-- **Import errors**: Run from project root or ensure PYTHONPATH is set
-- **Google Sheets errors**: Check credentials and permissions
+- **No PDF files found**: Tests now use Open Budget sources, not local PDFs
+- **Configuration errors**: Check YAML syntax and ensure `output_config` is present
+- **Import errors**: Run from project root with `--import-mode=importlib`
+- **Google Sheets errors**: Tests use mock data, no real API calls needed
 
-The relative import approach with `--import-mode=importlib` is the recommended solution. 
+The test suite is now fully aligned with the current Open Budget-based workflow and orchestrator integration. 

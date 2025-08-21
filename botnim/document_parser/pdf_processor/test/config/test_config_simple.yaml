@@ -1,11 +1,17 @@
-# Simple test configuration using Open Budget data sources
+# Simple test configuration using local mock data files
 sources:
   - name: "test_simple_source"
-    description: "Simple test source using Open Budget data"
+    description: "Simple test source using local mock data"
     unique_id_field: "url"
+    index_csv_url: "file://botnim/document_parser/pdf_processor/test/data/mock_index.csv"
+    datapackage_url: "file://botnim/document_parser/pdf_processor/test/data/mock_datapackage.json"
+    output_config:
+      spreadsheet_id: "1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow"
+      sheet_name: "Simple Test"
+      use_adc: true
     metadata:
       source: "test"
-      data_provider: "open_budget"
+      data_provider: "mock"
       test_mode: "true"
     fields:
       - name: "title"
@@ -17,6 +23,4 @@ sources:
       - name: "document_type"
         description: "Type of document"
         example: "decision"
-    extraction_instructions: "Extract basic information from the test document."
-    index_csv_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv"
-    datapackage_url: "https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json" 
+    extraction_instructions: "Extract basic information from the test document." 

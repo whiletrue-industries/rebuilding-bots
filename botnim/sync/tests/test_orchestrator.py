@@ -146,14 +146,13 @@ class TestSyncOrchestrator:
                 ContentSource(
                     id="test-pdf",
                     name="Test PDF Source",
-                    type=SourceType.PDF,
+                    type=SourceType.PDF_PIPELINE,
                     pdf_config=PDFSourceConfig(
-                        url="https://example.com/test.pdf",
-                        is_index_page=False,
-                        file_pattern="*.pdf"
+                        index_csv_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv",
+                        datapackage_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
                     ),
-                    versioning_strategy=VersioningStrategy.HASH,
-                    fetch_strategy=FetchStrategy.DIRECT,
+                    versioning_strategy=VersioningStrategy.REVISION,
+                    fetch_strategy=FetchStrategy.OPEN_BUDGET,
                     enabled=True,
                     priority=2,
                     use_document_parser=False

@@ -20,7 +20,7 @@ from botnim.sync.pdf_discovery import (
     PDFProcessingTracker,
     PDFDiscoveryProcessor
 )
-from botnim.sync.config import ContentSource, PDFSourceConfig, SourceType
+from botnim.sync.config import ContentSource, PDFSourceConfig, SourceType, VersioningStrategy, FetchStrategy
 from botnim.sync.cache import SyncCache
 
 
@@ -34,16 +34,20 @@ class TestPDFDiscoveryService(unittest.TestCase):
         self.discovery_service = PDFDiscoveryService(self.cache, self.vector_store)
         
         # Create a test PDF source
-        self.test_source = ContentSource(
+        source = ContentSource(
             id="test-pdf-source",
             name="Test PDF Source",
-            type=SourceType.PDF,
+            description="Test PDF source for discovery",
+            type=SourceType.PDF_PIPELINE,
             pdf_config=PDFSourceConfig(
-                url="https://example.com/pdfs/",
-                is_index_page=True,
-                file_pattern="*.pdf",
-                timeout=30
-            )
+                index_csv_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/index.csv",
+                datapackage_url="https://next.obudget.org/datapackages/knesset/ethics_committee_decisions/datapackage.json"
+            ),
+            versioning_strategy=VersioningStrategy.REVISION,
+            fetch_strategy=FetchStrategy.OPEN_BUDGET,
+            enabled=True,
+            priority=1,
+            tags=["test", "pdf-pipeline"]
         )
     
     def test_extract_filename_from_url(self):
@@ -102,7 +106,7 @@ class TestPDFDiscoveryService(unittest.TestCase):
         mock_get.return_value = mock_response
         
         # Test discovery
-        pdf_links = self.discovery_service.discover_pdfs_from_index_page(self.test_source)
+        pdf_links = self.discovery_service.discover_pdfs_from_index_page(source)
         
         # Should find 3 PDF links
         self.assertEqual(len(pdf_links), 3)
@@ -281,13 +285,17 @@ class TestPDFDiscoveryProcessor(unittest.TestCase):
         self.test_source = ContentSource(
             id="test-pdf-source",
             name="Test PDF Source",
-            type=SourceType.PDF,
+            type=SourceType.PDF_PIPELINE,
             pdf_config=PDFSourceConfig(
                 url="https://example.com/pdfs/",
                 is_index_page=True,
-                file_pattern="*.pdf",
-                timeout=30
-            )
+                file_pattern=".*\\.pdf"
+            ),
+            versioning_strategy=VersioningStrategy.HASH,
+            fetch_strategy=FetchStrategy.INDEX_PAGE,
+            enabled=True,
+            priority=1,
+            tags=["test", "pdf-pipeline"]
         )
     
     def test_processor_initialization(self):
