@@ -12,29 +12,55 @@ context:
     - type: google-spreadsheet
       source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=656974237#gid=656974237
     - type: split
-      source: extraction/כללי אתיקה לחברי הכנסת_structure_content.json
+      source: extraction/כללי_אתיקה_לחברי_הכנסת_structure_content.json
+      fetcher:
+        kind: wikitext
+        input_url: https://he.wikisource.org/wiki/%D7%9B%D7%9C%D7%9C%D7%99_%D7%90%D7%AA%D7%99%D7%A7%D7%94_%D7%9C%D7%97%D7%91%D7%A8%D7%99_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
     - type: split
-      source: extraction/חוק הפרשנות_structure_content.json
+      source: extraction/חוק_הפרשנות_structure_content.json
+      fetcher:
+        kind: wikitext
+        input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%A4%D7%A8%D7%A9%D7%A0%D7%95%D7%AA
+
 
   - slug: legal_text
     name: Knesset Bylaws (תקנון הכנסת) and related laws
     sources:
       - type: split
-        source: extraction/חוק הכנסת_structure_content.json
+        source: extraction/חוק_הכנסת_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
       - type: split
-        source: extraction/חוק משכן הכנסת, רחבתו ומשמר הכנסת_structure_content.json
+        source: extraction/חוק_משכן_הכנסת,_רחבתו_ומשמר_הכנסת_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%9E%D7%A9%D7%9B%D7%9F_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA,_%D7%A8%D7%97%D7%91%D7%AA%D7%95_%D7%95%D7%9E%D7%A9%D7%9E%D7%A8_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
       - type: split
         source: extraction/חוק-יסוד__הכנסת_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
       - type: split
         source: extraction/חוק_חסינות_חברי_הכנסת,_זכויותיהם_וחובותיהם_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%97%D7%A1%D7%99%D7%A0%D7%95%D7%AA_%D7%97%D7%91%D7%A8%D7%99_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA,_%D7%96%D7%9B%D7%95%D7%99%D7%95%D7%AA%D7%99%D7%94%D7%9D_%D7%95%D7%97%D7%95%D7%91%D7%95%D7%AA%D7%99%D7%94%D7%9D
       - type: split
         source: extraction/חוק_לציון_מידע_בדבר_השפעת_חקיקה_על_זכויות_הילד_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%9C%D7%A6%D7%99%D7%95%D7%9F_%D7%9E%D7%99%D7%93%D7%A2_%D7%91%D7%93%D7%91%D7%A8_%D7%94%D7%A9%D7%A4%D7%A2%D7%AA_%D7%97%D7%A7%D7%99%D7%A7%D7%94_%D7%A2%D7%9C_%D7%96%D7%9B%D7%95%D7%99%D7%95%D7%AA_%D7%94%D7%99%D7%9C%D7%93
       - type: split
         source: extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%A8%D7%A6%D7%99%D7%A4%D7%95%D7%AA_%D7%94%D7%93%D7%99%D7%95%D7%9F_%D7%91%D7%94%D7%A6%D7%A2%D7%95%D7%AA_%D7%97%D7%95%D7%A7
       - type: split
-        source: extraction/תקנון הכנסת_structure_content.json
-      - type: split
-        source: extraction/חוק הפרשנות_structure_content.json
+        source: extraction/תקנון_הכנסת_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%AA%D7%A7%D7%A0%D7%95%D7%9F_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
 
 
   - slug: ethics_decisions

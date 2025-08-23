@@ -2,13 +2,10 @@
 """
 Extract hierarchical structure from HTML using OpenAI API
 """
-import argparse
-from pathlib import Path
 
 from openai import OpenAI
-import json
 import os
-from pydantic import BaseModel, Extra
+from pydantic import BaseModel
 from typing import List, Optional
 from botnim.config import get_logger, DEFAULT_ENVIRONMENT
 
@@ -51,9 +48,6 @@ def extract_structure_from_html(html_text: str, client: OpenAI, model: str, max_
     if mark_type:
         logger.info(f"Mark type for extraction: {mark_type}")
     
-    # Show preview of content being sent
-    preview = (html_text[:200] + '...') if len(html_text) > 200 else html_text
-
     # Warn about large content
     if len(html_text) > 100000:
         logger.warning(f"Large input detected ({len(html_text)} chars). This may take longer or fail.")

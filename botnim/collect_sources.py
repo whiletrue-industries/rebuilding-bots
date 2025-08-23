@@ -8,7 +8,8 @@ import json
 
 from .config import get_logger
 from .dynamic_extraction import extract_structured_content
-from .document_parser.dynamic_extractions.generate_markdown_files import generate_markdown_dict, get_base_filename, sanitize_filename
+from .document_parser.wikitext.generate_markdown_files import generate_markdown_dict
+from .document_parser.wikitext.pipeline_config import sanitize_filename
 
 
 logger = get_logger(__name__)
@@ -97,7 +98,7 @@ def collect_sources_split(config_dir, context_name, source, offset=0):
         document_name = data.get('metadata', {}).get('document_name', '')
         if not document_name:
             input_file = data.get('metadata', {}).get('input_file', '')
-            document_name = get_base_filename(input_file)
+            document_name = Path(input_file).stem
         document_name = sanitize_filename(document_name)
         structure = data.get('structure', [])
         markdown_dict = generate_markdown_dict(structure, document_name)

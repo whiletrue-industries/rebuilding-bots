@@ -6,7 +6,7 @@ Test script for the document processing tool.
 import sys
 from pathlib import Path
 from process_document import PipelineRunner
-from pipeline_config import PipelineConfig, Environment
+from pipeline_config import WikitextProcessorConfig, Environment
 from botnim.config import get_logger
 
 logger = get_logger(__name__)
@@ -24,7 +24,7 @@ def test_document_processing():
         return False
     
     # Create pipeline configuration
-    config = PipelineConfig(
+    config = WikitextProcessorConfig(
         input_html_file=html_file,
         output_base_dir=output_dir,
         content_type="סעיף",
