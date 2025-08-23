@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: Scrape PDFs
+name: Scrape wikitext
 
 # Controls when the action will run. 
 on:
@@ -30,7 +30,7 @@ jobs:
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
           OPENAI_API_KEY_PRODUCTION: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          botnim fetch-and-process all all pdfs
+          botnim fetch-and-process all all wikitext
       - name: set git user
         run: |
           git config --global user.email "adam.kariv@gmail.com"
@@ -38,5 +38,5 @@ jobs:
       - name: commit changes
         run: |
           git add specs
-          git commit -m "New Scraped PDFs"
+          git commit -m "New Scraped Wikitext"
           git push
