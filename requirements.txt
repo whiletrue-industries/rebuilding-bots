@@ -8,10 +8,3 @@ pandas
 httpx>=0.28.0
 markdownify
 pydantic>=2.0.0
-
-# PDF Processing
-pdfplumber>=0.10.0
-pdfminer.six>=20221105
-pytesseract>=4
-PyMuPDF
-Pillow

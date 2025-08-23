@@ -1,0 +1,5 @@
+# PDF Processing
+pdfplumber>=0.10.0
+pdfminer.six>=20221105
+PyMuPDF
+Pillow

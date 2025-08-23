@@ -24,7 +24,11 @@ jobs:
       - name: requirements
         run: |
           pip install -r requirements.txt
+          pip install -r requirements-pdf-scraping.txt
           pip install -e .
+          # Install tesseract && Hebrew language pack:
+          sudo apt-get install tesseract-ocr
+          sudo apt-get install tesseract-ocr-heb
       - name: scrape
         env:
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
