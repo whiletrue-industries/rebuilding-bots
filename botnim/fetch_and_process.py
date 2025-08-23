@@ -3,6 +3,9 @@ from pathlib import Path
 
 import yaml
 
+from .document_parser.lexicon.lexicon import scrape_lexicon
+from .document_parser.pdfs.process_pdfs import process_pdf_source
+from .document_parser.pdfs.pdf_extraction_config import SourceConfig
 from .document_parser.wikitext.pipeline_config import Environment, WikitextProcessorConfig
 from .document_parser.wikitext.process_document import WikitextProcessor
 from .config import SPECS
@@ -10,15 +13,14 @@ from .config import SPECS
 
 def fetch_and_process_source(environment, config_dir, context_name, source, kind):
     fetcher = source.get('fetcher')
-    print(fetcher)
     if not fetcher:
         return
-    fetcher_kind = fetcher.get('kind')
+    output_base_dir = config_dir / 'extraction'
+    fetcher_kind = fetcher.pop('kind')
     if kind not in ['all', fetcher_kind]:
         return
     if fetcher_kind == 'wikitext':
         input_url = fetcher['input_url']
-        output_base_dir = config_dir / 'extraction'
         config = WikitextProcessorConfig(
             input_url=input_url,
             output_base_dir=output_base_dir,
@@ -29,6 +31,12 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         )
         runner = WikitextProcessor(config)
         runner.run(generate_markdown=False)
+    elif fetcher_kind == 'pdf':
+        output_csv_path = config_dir / source['source']
+        config = SourceConfig(**fetcher, output_csv_path=output_csv_path)
+        process_pdf_source(config)
+    elif fetcher_kind == 'lexicon':
+        scrape_lexicon(output_path=config_dir / source['source'])
 
 def fetch_and_process_context(environment, context, config_dir: Path, kind):
     context_name = context['name']

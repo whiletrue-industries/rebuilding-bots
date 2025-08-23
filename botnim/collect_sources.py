@@ -1,4 +1,5 @@
 import io
+import csv
 from pathlib import Path
 from typing import Union
 import hashlib
@@ -138,6 +139,19 @@ def collect_sources_google_spreadsheet(context_name, source, offset=0):
             )
     return file_streams
 
+def collect_sources_csv(context_name, source, offset=0):
+    with open(source, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        file_streams = []
+        for idx, row in enumerate(reader):
+            content = ''
+            for k, v in row.items():
+                content += f'{k}:\n{v}\n\n'
+            file_streams.append(
+                process_file_stream(f'{context_name}_{idx+offset}.md', content, 'text/markdown')
+            )
+        return file_streams
+
 def file_streams_for_context(config_dir, context_name, context_, offset=0):
     context_type = context_['type']
     source = context_['source']
@@ -147,6 +161,8 @@ def file_streams_for_context(config_dir, context_name, context_, offset=0):
         file_streams = collect_sources_split(config_dir, context_name, source, offset=offset)
     elif context_type == 'google-spreadsheet':
         file_streams = collect_sources_google_spreadsheet(context_name, source, offset=offset)
+    elif context_type == 'csv':
+        file_streams = collect_sources_csv(context_name, source, offset=offset)
     else:
         raise ValueError(f'Unknown context type: {context_type}')
     return file_streams

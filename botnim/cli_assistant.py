@@ -6,36 +6,11 @@ import os
 import argparse
 from typing import TypedDict
 
-from .config import DEFAULT_ENVIRONMENT
+from .config import DEFAULT_ENVIRONMENT, get_openai_client
 
 from .benchmark.assistant_loop import assistant_loop
 
 load_dotenv()
-
-client_production = OpenAI(
-    api_key=os.getenv('OPENAI_API_KEY_PRODUCTION')
-)
-client_staging = OpenAI(
-    api_key=os.getenv('OPENAI_API_KEY_STAGING')
-)
-
-def get_client(environment=DEFAULT_ENVIRONMENT):
-    """
-    Get the OpenAI client based on the specified environment.
-    
-    Args:
-        environment (str): The environment to use, either 'production' or 'staging'.
-    
-    Returns:
-        OpenAI: The OpenAI client for the specified environment.
-    """
-    if environment == "production":
-        return client_production
-    elif environment == "staging":
-        return client_staging
-    else:
-        raise ValueError(f"Invalid environment: {environment}. Use 'production' or 'staging'.")
-
 
 class ToolOutput(TypedDict, total=False):
     output: str
@@ -138,7 +113,7 @@ def assistant_main(assistant_id=None, openapi_spec=None, rtl=False, environment=
         assistant_id (str, optional): ID of the assistant to chat with
         rtl (bool): Enable RTL support for Hebrew/Arabic
     """
-    client = get_client(environment)
+    client = get_openai_client(environment)
     if assistant_id:
         start_conversation(client, assistant_id, openapi_spec=openapi_spec, rtl=rtl, environment=environment)
     else:

@@ -4,9 +4,9 @@ Main pipeline runner for HTML document processing.
 """
 
 from pathlib import Path
-from ...config import get_logger
+from ...config import get_logger, get_openai_client
 from .pipeline_config import WikitextProcessorConfig, PipelineMetadata, PipelineStage
-from .extract_structure import extract_structure_from_html, get_openai_client, build_nested_structure
+from .extract_structure import extract_structure_from_html, build_nested_structure
 from .extract_content import extract_content_from_html
 from .generate_markdown_files import generate_markdown_from_json
 

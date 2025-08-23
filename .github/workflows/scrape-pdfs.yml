@@ -1,14 +1,11 @@
 # This is a basic workflow to help you get started with Actions
 
-name: Sync
+name: Scrape PDFs
 
 # Controls when the action will run. 
 on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
-  push:
-    branches:
-      - dummy
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -28,9 +25,18 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -e .
-      - name: test
+      - name: scrape
         env:
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
           OPENAI_API_KEY_PRODUCTION: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          botnim sync staging all --backend es --replace-context
+          botnim fetch-and-process all all pdfs
+      - name: set git user
+        run: |
+          git config --global user.email "adam.kariv@gmail.com"
+          git config --global user.name "Adam Kariv"
+      - name: commit changes
+        run: |
+          git add .
+          git commit -m "New Scraped PDFs"
+          git push

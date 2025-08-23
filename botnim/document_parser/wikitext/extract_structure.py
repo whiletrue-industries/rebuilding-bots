@@ -22,21 +22,6 @@ class StructureItem(BaseModel):
 class StructureResponse(BaseModel):
     items: List[StructureItem]
 
-def get_openai_client(environment=DEFAULT_ENVIRONMENT):
-    if environment == "production":
-        api_key = os.environ.get('OPENAI_API_KEY_PRODUCTION')
-        key_name = 'OPENAI_API_KEY_PRODUCTION'
-    else:
-        api_key = os.environ.get('OPENAI_API_KEY_STAGING')
-        key_name = 'OPENAI_API_KEY_STAGING'
-    
-    if not api_key:
-        logger.error(f"{key_name} environment variable not set. LLM calls will fail.")
-        raise ValueError(f"Missing required environment variable: {key_name}")
-    
-    logger.info(f"Using OpenAI API key from {key_name} (length: {len(api_key)} chars)")
-    return OpenAI(api_key=api_key, timeout=360.0)
-
 def extract_structure_from_html(html_text: str, client: OpenAI, model: str, max_tokens: Optional[int], mark_type: str = None) -> List[StructureItem]:
     """
     Extract structural elements from HTML using OpenAI API.

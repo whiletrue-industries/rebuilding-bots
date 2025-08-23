@@ -4,31 +4,8 @@ import io
 from pathlib import Path
 import yaml
 from openai import OpenAI
-from .config import SPECS, is_production
+from .config import SPECS, get_openai_client, is_production
 from .vector_store import VectorStoreOpenAI, VectorStoreES
-
-
-def get_client(environment='production'):
-    """
-    Get the OpenAI client based on the specified environment.
-    
-    Args:
-        environment (str): The environment to use, either 'production', 'staging', or 'local'.
-    
-    Returns:
-        OpenAI: The OpenAI client for the specified environment.
-    """
-    if environment == "production":
-        api_key = os.environ['OPENAI_API_KEY_PRODUCTION']
-    elif environment == "staging":
-        api_key = os.environ['OPENAI_API_KEY_STAGING']
-    elif environment == "local":
-        api_key = os.environ['OPENAI_API_KEY_STAGING']  # Use staging key for local development
-    else:
-        raise ValueError(f"Invalid environment: {environment}. Use 'production', 'staging', or 'local'.")
-    client = OpenAI(api_key=api_key)
-    return client
-
 
 def openapi_to_tools(openapi_spec):
     ret = []
@@ -137,8 +114,7 @@ def update_assistant(client, config, config_dir, backend, environment, replace_c
 
 
 def sync_agents(environment, bots, backend='openai', replace_context=False, reindex=False):
-    production = is_production(environment)
-    client = get_client(environment)
+    client = get_openai_client(environment)
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
         bot_id = config_dir.name
