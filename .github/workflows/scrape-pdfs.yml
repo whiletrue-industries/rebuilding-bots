@@ -32,7 +32,7 @@ jobs:
       - name: scrape
         env:
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
-          OPENAI_API_KEY_PRODUCTION: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           botnim fetch-and-process all all pdf
       - name: set git user
