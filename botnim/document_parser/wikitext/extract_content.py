@@ -18,19 +18,21 @@ def decode_markdown_links(text, mediawiki_mode=False, input_url=None):
     # This regex finds markdown links: [text](url)
     if input_url is not None:
         text = re.sub(
-            r'\((#[^)]+)\)',
-            lambda m: f'({input_url}{m.group(1)})',
+            r'\]\((#[^) ]+)',
+            lambda m: f']({input_url}{m.group(1)}',
             text
         )
+
     if mediawiki_mode:
         text = re.sub(
-            r'\(/wiki/',
-            r'\(https://he.wikisource.org/wiki/',
+            r'\]\(/wiki/',
+            '](https://he.wikisource.org/wiki/',
             text
         )
+
     return re.sub(
-        r'\((https?://[^)]+)\)',
-        lambda m: f'({unquote(m.group(1))})',
+        r'\]\((https?://[^) ]+)',
+        lambda m: f']({unquote(m.group(1))}',
         text
     )
 
@@ -110,7 +112,7 @@ def extract_content_for_sections(html_content, structure_data, target_content_ty
                 # Remove extra whitespace and clean up
                 content_html = content_html.strip()
                 # Convert to markdown
-                markdown_content = md(content_html, heading_style="ATX")
+                markdown_content = md(content_html, autolinks=False, heading_style="ATX")
                 # Clean up the markdown
                 markdown_content = markdown_content.strip()
                 # Decode percent-encoded URLs in markdown links

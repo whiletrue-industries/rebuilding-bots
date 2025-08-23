@@ -62,8 +62,8 @@ class WikitextProcessor:
             # Prepare output data with metadata
             output_data = {
                 "metadata": {
-                    "input_file": str(self.config.input_html_file),
-                    "document_name": Path(self.config.input_html_file).stem,
+                    "input_file": str(self.config.input_url),
+                    "document_name": Path(self.config.content_file).stem.replace('_structure_content', ''),
                     "environment": self.config.environment.value,
                     "model": self.config.model,
                     "max_tokens": self.config.max_tokens,

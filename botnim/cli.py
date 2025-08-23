@@ -160,11 +160,11 @@ cli.add_command(evaluate)
 @click.argument('context', type=click.STRING)
 @click.argument('kind', type=click.Choice(['all', 'wikitext']))
 @click.option('--environment', default='staging')
-def fetch_and_process_(environment, bot, context):
+def fetch_and_process_(bot, context, kind, environment):
     """Fetch and process documents from various sources."""
     logger.info(f"Fetching and processing documents in environment: {environment}")
     try:
-        fetch_and_process(environment, bot, context)
+        fetch_and_process(environment, bot, context, kind)
     except Exception as e:
         logger.error(f"Error in fetch-and-process: {e}", exc_info=True)
         raise
