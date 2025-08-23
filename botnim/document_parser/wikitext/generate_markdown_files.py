@@ -3,33 +3,14 @@
 Generate individual markdown files from JSON structure with content.
 """
 
-import argparse
 import json
-import sys
 import re
 from pathlib import Path
-from botnim.config import get_logger
+from ...config import get_logger
+from .pipeline_config import sanitize_filename
 
 # Logger setup
 logger = get_logger(__name__)
-
-def sanitize_filename(filename):
-    """
-    Sanitize filename for filesystem compatibility.
-    """
-    # Replace problematic characters with underscores
-    filename = re.sub(r'[<>:"/\\|?*]', '_', filename)
-    # Replace multiple spaces/underscores with single underscore
-    filename = re.sub(r'[_\s]+', '_', filename)
-    # Remove leading/trailing underscores
-    filename = filename.strip('_')
-    return filename
-
-def get_base_filename(input_file_path):
-    """
-    Extract base filename without extension from input file path.
-    """
-    return Path(input_file_path).stem
 
 def build_hierarchy_path(item, parent_path=[]):
     """
@@ -126,7 +107,7 @@ def generate_markdown_from_json(json_path, output_dir=None, write_files=False, d
         if not input_file:
             logger.error("No document_name or input_file found in metadata")
             raise ValueError("No document_name or input_file found in metadata")
-        document_name = get_base_filename(input_file)
+        document_name = Path(input_file).stem
     document_name = sanitize_filename(document_name)
     logger.info(f"Document name: {document_name}")
     structure = data.get('structure', [])

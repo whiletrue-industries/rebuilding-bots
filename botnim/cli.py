@@ -1,8 +1,6 @@
 import click
-import sys
-from pathlib import Path
-import json
 
+from botnim.fetch_and_process import fetch_and_process
 from botnim.vector_store.vector_store_es import VectorStoreES
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 from .sync import sync_agents
@@ -12,11 +10,8 @@ from .config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT, is_
 from .query import run_query, get_available_indexes, get_index_fields, format_mapping
 from .cli_assistant import assistant_main
 from .config import SPECS, get_logger
-from .document_parser.dynamic_extractions.process_document import PipelineRunner, PipelineConfig
-from .document_parser.dynamic_extractions.extract_structure import extract_structure_from_html, build_nested_structure, get_openai_client
-from .document_parser.dynamic_extractions.extract_content import extract_content_from_html
-from .document_parser.dynamic_extractions.generate_markdown_files import generate_markdown_from_json
-from .document_parser.dynamic_extractions.pipeline_config import Environment
+from .document_parser.wikitext.process_document import WikitextProcessor, WikitextProcessorConfig
+from .document_parser.wikitext.pipeline_config import Environment
 
 logger = get_logger(__name__)
 
@@ -160,101 +155,40 @@ def assistant(assistant_id, openapi_spec, rtl, environment):
 # Add evaluate command to main CLI
 cli.add_command(evaluate)
 
-@cli.command(name='process-document')
-@click.argument('input_html_file')
+@cli.command(name='fetch-and-process')
+@click.argument('bot', type=click.Choice(AVAILABLE_BOTS + ['all']))
+@click.argument('context', type=click.STRING)
+@click.argument('kind', type=click.Choice(['all', 'wikitext', 'pdf', 'lexicon']))
+@click.option('--environment', default='staging')
+def fetch_and_process_(bot, context, kind, environment):
+    """Fetch and process documents from various sources."""
+    logger.info(f"Fetching and processing documents in environment: {environment}")
+    try:
+        fetch_and_process(environment, bot, context, kind)
+    except Exception as e:
+        logger.error(f"Error in fetch-and-process: {e}", exc_info=True)
+        raise
+
+@cli.command(name='process-wikitext')
+@click.argument('input_url')
 @click.argument('output_base_dir')
 @click.option('--content-type', default='סעיף')
 @click.option('--environment', default='staging')
 @click.option('--model', default='gpt-4.1')
 @click.option('--max-tokens', type=int, default=None)
-@click.option('--dry-run', is_flag=True)
-@click.option('--overwrite', is_flag=True)
 @click.option('--generate-markdown', is_flag=True)
-@click.option('--mediawiki-mode', is_flag=True)
-def process_document_cmd(input_html_file, output_base_dir, content_type, environment, model, max_tokens, dry_run, overwrite, generate_markdown, mediawiki_mode):
+def process_wikitext(input_url, output_base_dir, content_type, environment, model, max_tokens, generate_markdown):
     """Run the full document processing pipeline."""
-    config = PipelineConfig(
-        input_html_file=input_html_file,
+    config = WikitextProcessorConfig(
+        input_url=input_url,
         output_base_dir=output_base_dir,
         content_type=content_type,
         environment=Environment(environment),  # Convert string to enum
         model=model,
         max_tokens=max_tokens,
-        dry_run=dry_run,
-        overwrite_existing=overwrite,
-        mediawiki_mode=mediawiki_mode,
     )
-    runner = PipelineRunner(config)
+    runner = WikitextProcessor(config)
     runner.run(generate_markdown=generate_markdown)
-
-@cli.command(name='extract-structure')
-@click.argument('input_file')
-@click.argument('output_file')
-@click.option('--environment', default='staging')
-@click.option('--model', default='gpt-4.1')
-@click.option('--max-tokens', type=int, default=None)
-@click.option('--pretty', is_flag=True)
-@click.option('--mark-type', default=None)
-def extract_structure_cmd(input_file, output_file, environment, model, max_tokens, pretty, mark_type):
-    """Extract hierarchical structure from HTML using OpenAI API."""
-    # Read input HTML
-    input_path = Path(input_file)
-    with open(input_path, 'r', encoding='utf-8') as f:
-        html_text = f.read()
-    client = get_openai_client(environment)
-    structure_items = extract_structure_from_html(html_text, client, model, max_tokens, mark_type)
-    nested_structure = build_nested_structure(structure_items)
-    output_data = {
-        "metadata": {
-            "input_file": str(input_path),
-            "document_name": input_path.stem,
-            "environment": environment,
-            "model": model,
-            "max_tokens": max_tokens,
-            "total_items": len(structure_items),
-            "structure_type": "nested_hierarchy",
-            "mark_type": mark_type
-        },
-        "structure": nested_structure
-    }
-    output_path = Path(output_file)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as f:
-        if pretty:
-            json.dump(output_data, f, ensure_ascii=False, indent=2)
-        else:
-            json.dump(output_data, f, ensure_ascii=False)
-
-@cli.command(name='extract-content')
-@click.argument('html_file')
-@click.argument('structure_file')
-@click.argument('content_type')
-@click.option('--output', '-o', default=None)
-@click.option('--mediawiki-mode', is_flag=True)
-def extract_content_cmd(html_file, structure_file, content_type, output, mediawiki_mode):
-    """Extract content for specific section types from HTML files."""
-    output_path = output or Path(structure_file).with_name(Path(structure_file).stem + '_content.json')
-    extract_content_from_html(
-        html_path=html_file,
-        structure_path=structure_file,
-        content_type=content_type,
-        output_path=output_path,
-        mediawiki_mode=mediawiki_mode
-    )
-
-@cli.command(name='generate-markdown-files')
-@click.argument('json_file')
-@click.option('--output-dir', '-o', default=None)
-@click.option('--write-files', is_flag=True)
-@click.option('--dry-run', is_flag=True)
-def generate_markdown_files_cmd(json_file, output_dir, write_files, dry_run):
-    """Generate markdown files from a JSON structure with content."""
-    generate_markdown_from_json(
-        json_path=json_file,
-        output_dir=output_dir,
-        write_files=write_files,
-        dry_run=dry_run
-    )
 
 def main():
     cli()

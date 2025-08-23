@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "input_file": "botnim/document_parser/extract_sources/חוק הפרשנות.html",
-    "document_name": "חוק הפרשנות",
+    "input_file": "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%A4%D7%A8%D7%A9%D7%A0%D7%95%D7%AA",
+    "document_name": "חוק_הפרשנות_structure_content",
     "environment": "staging",
     "model": "gpt-4.1",
     "max_tokens": null,

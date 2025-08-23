@@ -5,6 +5,8 @@ import os
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
 
+from openai import OpenAI
+
 ROOT = Path(__file__).parent.parent
 SPECS = ROOT / 'specs'
 AVAILABLE_BOTS = [d.name for d in SPECS.iterdir() if d.is_dir() and (d / 'config.yaml').exists()]
@@ -24,6 +26,17 @@ def get_logger(name: str) -> logging.Logger:
     #     handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     #     logger.addHandler(handler)
     return logger
+
+def get_openai_client(environment: str = 'staging') -> OpenAI:
+    """Get OpenAI client for the given environment"""
+    api_key = os.environ.get(f'OPENAI_API_KEY_{environment.upper()}')
+    if not api_key:
+        api_key = os.environ.get('OPENAI_API_KEY_STAGING')
+    if not api_key:
+        api_key = os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError(f'Missing OPENAI_API_KEY_{environment.upper()} or OPENAI_API_KEY environment variable')
+    return OpenAI(api_key=api_key)
 
 
 # Embedding model settings

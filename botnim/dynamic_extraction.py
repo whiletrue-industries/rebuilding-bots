@@ -2,7 +2,7 @@ import json
 import re
 from openai import OpenAI
 from pathlib import Path
-from .config import get_logger
+from .config import get_logger, get_openai_client
 
 logger = get_logger(__name__)
 
@@ -61,7 +61,7 @@ def extract_structured_content(text: str, template: str = None, document_type: s
 
     try:
         # Initialize the client
-        client = OpenAI()
+        client = get_openai_client()
         logger.info(f"Extracting structured content for document type: {document_type}")
 
         system_message = f"""You are a highly accurate legal text extraction engine. Your task is to extract all relevant metadata from the provided legal text according to the JSON template below. Follow these rules exactly:

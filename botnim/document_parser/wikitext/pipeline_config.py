@@ -5,9 +5,27 @@ Pipeline configuration and validation.
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 from typing import Optional, Dict, Any, List
 import json
+from urllib.parse import unquote
+import requests
+import tempfile
 from enum import Enum
+
+
+def sanitize_filename(filename):
+    """
+    Sanitize filename for filesystem compatibility.
+    """
+    # Replace problematic characters with underscores
+    filename = re.sub(r'[<>:"/\\|?*]', '_', filename)
+    # Replace multiple spaces/underscores with single underscore
+    filename = re.sub(r'[_\s]+', '_', filename)
+    # Remove leading/trailing underscores
+    filename = filename.strip('_')
+    return filename
+
 
 class PipelineStage(Enum):
     """Pipeline execution stages."""
@@ -21,11 +39,11 @@ class Environment(Enum):
     PRODUCTION = "production"
 
 @dataclass
-class PipelineConfig:
+class WikitextProcessorConfig:
     """Main pipeline configuration."""
     
     # Input/Output
-    input_html_file: Path
+    input_url: str
     output_base_dir: Path
     
     # Processing parameters
@@ -35,15 +53,7 @@ class PipelineConfig:
     # OpenAI parameters
     model: str = "gpt-4.1"  # Use mini model with larger context window
     max_tokens: Optional[int] = None  # Optional; if None, use model default
-    
-    # Output formatting
-    pretty_json: bool = True
-    
-    # Processing options
-    dry_run: bool = False
-    overwrite_existing: bool = False
-    mediawiki_mode: bool = False
-    
+            
     # Derived paths
     structure_file: Optional[Path] = field(init=False)
     content_file: Optional[Path] = field(init=False)
@@ -51,16 +61,20 @@ class PipelineConfig:
     
     def __post_init__(self):
         """Initialize derived paths."""
-        self.input_html_file = Path(self.input_html_file)
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as tf:
+            tf.write(requests.get(self.input_url).content)
+            tf.flush()
+            self.input_html_file = Path(tf.name)
         self.output_base_dir = Path(self.output_base_dir)
         
         # Create output directory structure
         self.output_base_dir.mkdir(parents=True, exist_ok=True)
         
         # Set derived paths
-        base_name = self.input_html_file.stem
+        base_name = sanitize_filename(unquote(self.input_url).split('?')[0].split('/')[-1].split('.')[0])
         self.structure_file = self.output_base_dir / f"{base_name}_structure.json"
         self.content_file = self.output_base_dir / f"{base_name}_structure_content.json"
+        self.metadata_file = self.output_base_dir / f"{base_name}_pipeline_metadata.json"
         self.chunks_dir = self.output_base_dir / "chunks"
     
     def validate(self) -> List[str]:
@@ -87,17 +101,13 @@ class PipelineConfig:
             "environment": self.environment.value,
             "model": self.model,
             "max_tokens": self.max_tokens,
-            "pretty_json": self.pretty_json,
-            "dry_run": self.dry_run,
-            "overwrite_existing": self.overwrite_existing,
-            "mediawiki_mode": self.mediawiki_mode,
             "structure_file": str(self.structure_file) if self.structure_file else None,
             "content_file": str(self.content_file) if self.content_file else None,
             "chunks_dir": str(self.chunks_dir) if self.chunks_dir else None,
         }
     
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'PipelineConfig':
+    def from_dict(cls, data: Dict[str, Any]) -> 'WikitextProcessorConfig':
         """Create from dictionary."""
         # Convert string enums back to enum objects
         if 'environment' in data:
@@ -115,7 +125,7 @@ class PipelineConfig:
             json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
     
     @classmethod
-    def load(cls, config_file: Path) -> 'PipelineConfig':
+    def load(cls, config_file: Path) -> 'WikitextProcessorConfig':
         """Load configuration from file."""
         with open(config_file, 'r', encoding='utf-8') as f:
             data = json.load(f)

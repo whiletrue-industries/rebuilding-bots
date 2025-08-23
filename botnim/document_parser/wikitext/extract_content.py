@@ -3,9 +3,7 @@
 Extract content for specific section types from HTML files based on structure JSON.
 """
 
-import argparse
 import json
-import sys
 from pathlib import Path
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
@@ -16,15 +14,29 @@ import re
 # Logger setup
 logger = get_logger(__name__)
 
-def decode_markdown_links(text):
+def decode_markdown_links(text, mediawiki_mode=False, input_url=None):
     # This regex finds markdown links: [text](url)
+    if input_url is not None:
+        text = re.sub(
+            r'\]\((#[^) ]+)',
+            lambda m: f']({input_url}{m.group(1)}',
+            text
+        )
+
+    if mediawiki_mode:
+        text = re.sub(
+            r'\]\(/wiki/',
+            '](https://he.wikisource.org/wiki/',
+            text
+        )
+
     return re.sub(
-        r'\((https?://[^)]+)\)',
-        lambda m: f'({unquote(m.group(1))})',
+        r'\]\((https?://[^) ]+)',
+        lambda m: f']({unquote(m.group(1))}',
         text
     )
 
-def extract_content_for_sections(html_content, structure_data, target_content_type, mediawiki_mode=False):
+def extract_content_for_sections(html_content, structure_data, target_content_type, mediawiki_mode=False, input_url=None):
     """
     Extract complete content for sections of the specified type.
     
@@ -100,17 +112,17 @@ def extract_content_for_sections(html_content, structure_data, target_content_ty
                 # Remove extra whitespace and clean up
                 content_html = content_html.strip()
                 # Convert to markdown
-                markdown_content = md(content_html, heading_style="ATX")
+                markdown_content = md(content_html, autolinks=False, heading_style="ATX")
                 # Clean up the markdown
                 markdown_content = markdown_content.strip()
                 # Decode percent-encoded URLs in markdown links
-                markdown_content = decode_markdown_links(markdown_content)
+                markdown_content = decode_markdown_links(markdown_content, mediawiki_mode, input_url)
                 # Add the content to the section
                 section['content'] = markdown_content
     
     return structure_data
 
-def extract_content_from_html(html_path, structure_path, content_type, output_path, mediawiki_mode=False):
+def extract_content_from_html(html_path, structure_path, content_type, output_path, mediawiki_mode=False, input_url=None):
     """
     Pipeline-friendly function to extract content for sections from HTML and structure files.
     Args:
@@ -153,7 +165,7 @@ def extract_content_from_html(html_path, structure_path, content_type, output_pa
 
     try:
         logger.info(f"Extracting content for type: {content_type}")
-        updated_structure = extract_content_for_sections(html_content, structure_data, content_type, mediawiki_mode=mediawiki_mode)
+        updated_structure = extract_content_for_sections(html_content, structure_data, content_type, mediawiki_mode=mediawiki_mode, input_url=input_url)
         logger.info("Content extraction completed")
     except Exception as e:
         logger.error(f"Error extracting content: {e}")
