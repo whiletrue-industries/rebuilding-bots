@@ -31,7 +31,7 @@ def process_pdf_source(config: SourceConfig):
                 existing_urls[(row['url'], row['revision'])] = row
     
     out = []
-    for row in input_records[:10]:
+    for row in input_records:
         url = row['url']
         pdf_url = f'{external_source}/{row["filename"]}'
         if (url, REVISION) in existing_urls:

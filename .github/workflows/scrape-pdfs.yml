@@ -41,6 +41,4 @@ jobs:
           git config --global user.name "Adam Kariv"
       - name: commit changes
         run: |
-          git add specs
-          git commit -m "New Scraped PDFs"
-          git push
+          git add specs && git commit -m "New Scraped PDFs" && git push || echo "No changes to commit"
