@@ -1,7 +1,7 @@
 {
   "metadata": {
     "input_file": "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%A4%D7%A8%D7%A9%D7%A0%D7%95%D7%AA",
-    "document_name": "חוק_הפרשנות_structure_content",
+    "document_name": "חוק_הפרשנות",
     "environment": "staging",
     "model": "gpt-4.1",
     "max_tokens": null,
@@ -25,7 +25,7 @@
       "children": [
         {
           "depth": 2,
-          "section_name": "סעיף 1",
+          "section_name": "סעיף 1: תחולת החוק וסייגיה",
           "html_id": "סעיף_1",
           "section_type": "סעיף",
           "children": [],
@@ -33,7 +33,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 2",
+          "section_name": "סעיף 2: תחולת הגדרות שבחיקוק",
           "html_id": "סעיף_2",
           "section_type": "סעיף",
           "children": [],
@@ -49,7 +49,7 @@
       "children": [
         {
           "depth": 2,
-          "section_name": "סעיף 3",
+          "section_name": "סעיף 3: משמעותם של מלים וביטויים",
           "html_id": "סעיף_3",
           "section_type": "סעיף",
           "children": [],
@@ -57,7 +57,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 4",
+          "section_name": "סעיף 4: אדם",
           "html_id": "סעיף_4",
           "section_type": "סעיף",
           "children": [],
@@ -65,7 +65,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 5",
+          "section_name": "סעיף 5: יחיד ורבים",
           "html_id": "סעיף_5",
           "section_type": "סעיף",
           "children": [],
@@ -73,7 +73,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 6",
+          "section_name": "סעיף 6: זכר ונקבה",
           "html_id": "סעיף_6",
           "section_type": "סעיף",
           "children": [],
@@ -81,7 +81,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 7",
+          "section_name": "סעיף 7: הכלל אינו מעין הפרט דוקא",
           "html_id": "סעיף_7",
           "section_type": "סעיף",
           "children": [],
@@ -89,7 +89,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 8",
+          "section_name": "סעיף 8: ”עד...“",
           "html_id": "סעיף_8",
           "section_type": "סעיף",
           "children": [],
@@ -97,7 +97,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 9",
+          "section_name": "סעיף 9: ”לפי“",
           "html_id": "סעיף_9",
           "section_type": "סעיף",
           "children": [],
@@ -105,7 +105,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 10",
+          "section_name": "סעיף 10: תקופות",
           "html_id": "סעיף_10",
           "section_type": "סעיף",
           "children": [],
@@ -121,7 +121,7 @@
       "children": [
         {
           "depth": 2,
-          "section_name": "סעיף 11",
+          "section_name": "סעיף 11: מקום שלא נקבע זמן",
           "html_id": "סעיף_11",
           "section_type": "סעיף",
           "children": [],
@@ -129,7 +129,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 12",
+          "section_name": "סעיף 12: סמכות לפטור",
           "html_id": "סעיף_12",
           "section_type": "סעיף",
           "children": [],
@@ -137,7 +137,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 13",
+          "section_name": "סעיף 13: מינוי והסמכה – כיצד",
           "html_id": "סעיף_13",
           "section_type": "סעיף",
           "children": [],
@@ -145,7 +145,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 14",
+          "section_name": "סעיף 14: סמכות מינוי",
           "html_id": "סעיף_14",
           "section_type": "סעיף",
           "children": [],
@@ -153,7 +153,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 15",
+          "section_name": "סעיף 15: סמכות התקנה",
           "html_id": "סעיף_15",
           "section_type": "סעיף",
           "children": [],
@@ -161,7 +161,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 16",
+          "section_name": "סעיף 16: סמכות מינוי גוף",
           "html_id": "סעיף_16",
           "section_type": "סעיף",
           "children": [],
@@ -169,7 +169,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 17",
+          "section_name": "סעיף 17: סמכויות עזר",
           "html_id": "סעיף_17",
           "section_type": "סעיף",
           "children": [],
@@ -177,7 +177,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 18",
+          "section_name": "סעיף 18: סמכות בהשגה ובערר",
           "html_id": "סעיף_18",
           "section_type": "סעיף",
           "children": [],
@@ -185,7 +185,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 19",
+          "section_name": "סעיף 19: שמירת סמכויות וחובות",
           "html_id": "סעיף_19",
           "section_type": "סעיף",
           "children": [],
@@ -193,7 +193,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 20",
+          "section_name": "סעיף 20: פעולת מספר בני אדם",
           "html_id": "סעיף_20",
           "section_type": "סעיף",
           "children": [],
@@ -209,7 +209,7 @@
       "children": [
         {
           "depth": 2,
-          "section_name": "סעיף 21",
+          "section_name": "סעיף 21: שעת תחילה",
           "html_id": "סעיף_21",
           "section_type": "סעיף",
           "children": [],
@@ -217,7 +217,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 22",
+          "section_name": "סעיף 22: סייגים לכוחו של ביטול",
           "html_id": "סעיף_22",
           "section_type": "סעיף",
           "children": [],
@@ -225,7 +225,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 23",
+          "section_name": "סעיף 23: תקנות ומינויים לפי חיקוק שבוטל",
           "html_id": "סעיף_23",
           "section_type": "סעיף",
           "children": [],
@@ -233,7 +233,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 24",
+          "section_name": "סעיף 24: הנוסח המחייב",
           "html_id": "סעיף_24",
           "section_type": "סעיף",
           "children": [],
@@ -241,7 +241,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 25",
+          "section_name": "סעיף 25: פירושם של אזכורים",
           "html_id": "סעיף_25",
           "section_type": "סעיף",
           "children": [],
@@ -249,7 +249,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 26",
+          "section_name": "סעיף 26: סטיה מטופס",
           "html_id": "סעיף_26",
           "section_type": "סעיף",
           "children": [],
@@ -297,7 +297,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 31",
+          "section_name": "סעיף 31: ביטול",
           "html_id": "סעיף_31",
           "section_type": "סעיף",
           "children": [],
@@ -305,7 +305,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 32",
+          "section_name": "סעיף 32: תחילה",
           "html_id": "סעיף_32",
           "section_type": "סעיף",
           "children": [],
@@ -313,7 +313,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 33",
+          "section_name": "סעיף 33: פרסום",
           "html_id": "סעיף_33",
           "section_type": "סעיף",
           "children": [],

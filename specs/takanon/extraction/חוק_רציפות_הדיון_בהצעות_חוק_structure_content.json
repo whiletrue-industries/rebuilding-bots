@@ -1,7 +1,7 @@
 {
   "metadata": {
     "input_file": "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%A8%D7%A6%D7%99%D7%A4%D7%95%D7%AA_%D7%94%D7%93%D7%99%D7%95%D7%9F_%D7%91%D7%94%D7%A6%D7%A2%D7%95%D7%AA_%D7%97%D7%95%D7%A7",
-    "document_name": "חוק_רציפות_הדיון_בהצעות_חוק_structure_content",
+    "document_name": "חוק_רציפות_הדיון_בהצעות_חוק",
     "environment": "staging",
     "model": "gpt-4.1",
     "max_tokens": null,

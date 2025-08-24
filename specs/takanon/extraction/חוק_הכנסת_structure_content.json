@@ -1,11 +1,11 @@
 {
   "metadata": {
     "input_file": "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA",
-    "document_name": "חוק_הכנסת_structure_content",
+    "document_name": "חוק_הכנסת",
     "environment": "staging",
     "model": "gpt-4.1",
     "max_tokens": null,
-    "total_items": 94,
+    "total_items": 95,
     "structure_type": "nested_hierarchy",
     "mark_type": "סעיף"
   },
@@ -13,7 +13,7 @@
     {
       "depth": 1,
       "section_name": "תוכן עניינים",
-      "html_id": "תוכן_עניינים",
+      "html_id": null,
       "section_type": "תוכן עניינים",
       "children": []
     },
@@ -750,7 +750,15 @@
       "section_name": "תוספת",
       "html_id": "תוספת",
       "section_type": "חלק",
-      "children": []
+      "children": [
+        {
+          "depth": 2,
+          "section_name": "(סעיף 1(ב))",
+          "html_id": "(סעיף_1(ב))",
+          "section_type": "סימן",
+          "children": []
+        }
+      ]
     },
     {
       "depth": 1,

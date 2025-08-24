@@ -1,7 +1,7 @@
 {
   "metadata": {
     "input_file": "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%9C%D7%A6%D7%99%D7%95%D7%9F_%D7%9E%D7%99%D7%93%D7%A2_%D7%91%D7%93%D7%91%D7%A8_%D7%94%D7%A9%D7%A4%D7%A2%D7%AA_%D7%97%D7%A7%D7%99%D7%A7%D7%94_%D7%A2%D7%9C_%D7%96%D7%9B%D7%95%D7%99%D7%95%D7%AA_%D7%94%D7%99%D7%9C%D7%93",
-    "document_name": "חוק_לציון_מידע_בדבר_השפעת_חקיקה_על_זכויות_הילד_structure_content",
+    "document_name": "חוק_לציון_מידע_בדבר_השפעת_חקיקה_על_זכויות_הילד",
     "environment": "staging",
     "model": "gpt-4.1",
     "max_tokens": null,
@@ -14,11 +14,11 @@
       "depth": 1,
       "section_name": "חוק לציון מידע בדבר השפעת חקיקה על זכויות הילד, התשס״ב–2002",
       "html_id": null,
-      "section_type": "חלק",
+      "section_type": null,
       "children": [
         {
           "depth": 2,
-          "section_name": "סעיף 1 – הגדרות",
+          "section_name": "סעיף 1 - הגדרות",
           "html_id": "סעיף_1",
           "section_type": "סעיף",
           "children": [],
@@ -26,7 +26,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 2 – מטרה",
+          "section_name": "סעיף 2 - מטרה",
           "html_id": "סעיף_2",
           "section_type": "סעיף",
           "children": [],
@@ -34,20 +34,20 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 3 – ציון מידע בדברי הסבר",
+          "section_name": "סעיף 3 - ציון מידע בדברי הסבר",
           "html_id": "סעיף_3",
           "section_type": "סעיף",
           "children": [
             {
               "depth": 3,
-              "section_name": "סעיף 3(1) – קיומה של פגיעה או קיומו של שיפור הנוגעים לזכויותיהם של ילדים והיקפם, לרבות לענין תנאי חייהם והשירותים המוקנים להם",
+              "section_name": "סעיף 3(1)",
               "html_id": null,
               "section_type": "תת-סעיף",
               "children": []
             },
             {
               "depth": 3,
-              "section_name": "סעיף 3(2) – הנתונים והמידע ששימשו לקביעת האמור בפסקה (1), אם ישנם",
+              "section_name": "סעיף 3(2)",
               "html_id": null,
               "section_type": "תת-סעיף",
               "children": []
@@ -57,20 +57,20 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 4 – ביצוע ותקנות",
+          "section_name": "סעיף 4 - ביצוע ותקנות",
           "html_id": "סעיף_4",
           "section_type": "סעיף",
           "children": [
             {
               "depth": 3,
-              "section_name": "סעיף 4(א) – שר המשפטים ממונה על ביצוע חוק זה לענין הצעות חוק מטעם הממשלה...",
+              "section_name": "סעיף 4(א)",
               "html_id": null,
               "section_type": "תת-סעיף",
               "children": []
             },
             {
               "depth": 3,
-              "section_name": "סעיף 4(ב) – יושב ראש הכנסת ממונה על ביצוע חוק זה לענין הצעות חוק מטעם חברי הכנסת...",
+              "section_name": "סעיף 4(ב)",
               "html_id": null,
               "section_type": "תת-סעיף",
               "children": []
@@ -80,20 +80,20 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 5 – תחילה",
+          "section_name": "סעיף 5 - תחילה",
           "html_id": "סעיף_5",
           "section_type": "סעיף",
           "children": [],
           "content": "[5.](https://he.wikisource.org/wiki/חוק_לציון_מידע_בדבר_השפעת_חקיקה_על_זכויות_הילד#סעיף_5)\n\nתחילה\n\nתחילתו של חוק זה בתום 6 חודשים מיום פרסומו.\n\n---\n\nנתקבל בכנס ביום ו׳ באב התשס״ב (15 ביולי 2002).\n\n* **אריאל שרון**  \n  ראש הממשלה\n* **מאיר שטרית**  \n  שר המשפטים\n* **משה קצב**  \n  נשיא המדינה\n* **אברהם בורג**  \n  יושב ראש הכנסת"
-        },
-        {
-          "depth": 2,
-          "section_name": "חתימות",
-          "html_id": "חתימות",
-          "section_type": null,
-          "children": []
         }
       ]
+    },
+    {
+      "depth": 1,
+      "section_name": "חתימות",
+      "html_id": "חתימות",
+      "section_type": null,
+      "children": []
     }
   ]
 }

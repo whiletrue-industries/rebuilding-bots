@@ -1,7 +1,7 @@
 {
   "metadata": {
     "input_file": "https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%9E%D7%A9%D7%9B%D7%9F_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA,_%D7%A8%D7%97%D7%91%D7%AA%D7%95_%D7%95%D7%9E%D7%A9%D7%9E%D7%A8_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA",
-    "document_name": "חוק_משכן_הכנסת,_רחבתו_ומשמר_הכנסת_structure_content",
+    "document_name": "חוק_משכן_הכנסת,_רחבתו_ומשמר_הכנסת",
     "environment": "staging",
     "model": "gpt-4.1",
     "max_tokens": null,
@@ -469,23 +469,22 @@
       "depth": 1,
       "section_name": "תוספת",
       "html_id": "תוספת",
-      "section_type": "פרק",
+      "section_type": "חלק",
       "children": [
         {
           "depth": 2,
           "section_name": "(סעיף 1)",
           "html_id": "(סעיף_1)",
           "section_type": "סעיף",
-          "children": [
-            {
-              "depth": 3,
-              "section_name": "גבולות רחבת הכנסת",
-              "html_id": "גבולות_רחבת_הכנסת",
-              "section_type": "סימן",
-              "children": []
-            }
-          ],
+          "children": [],
           "content": "#### ([סעיף 1](https://he.wikisource.org/wiki/חוק_משכן_הכנסת,_רחבתו_ומשמר_הכנסת#סעיף_1))"
+        },
+        {
+          "depth": 2,
+          "section_name": "גבולות רחבת הכנסת",
+          "html_id": "גבולות_רחבת_הכנסת",
+          "section_type": "סימן",
+          "children": []
         }
       ]
     }
