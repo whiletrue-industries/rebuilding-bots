@@ -4,10 +4,6 @@ from pathlib import Path
 import yaml
 
 from .document_parser.lexicon.lexicon import scrape_lexicon
-from .document_parser.pdfs.process_pdfs import process_pdf_source
-from .document_parser.pdfs.pdf_extraction_config import SourceConfig
-from .document_parser.wikitext.pipeline_config import Environment, WikitextProcessorConfig
-from .document_parser.wikitext.process_document import WikitextProcessor
 from .config import SPECS
 
 
@@ -20,6 +16,8 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
     if kind not in ['all', fetcher_kind]:
         return
     if fetcher_kind == 'wikitext':
+        from .document_parser.wikitext.pipeline_config import Environment, WikitextProcessorConfig
+        from .document_parser.wikitext.process_document import WikitextProcessor
         input_url = fetcher['input_url']
         config = WikitextProcessorConfig(
             input_url=input_url,
@@ -32,6 +30,8 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         runner = WikitextProcessor(config)
         runner.run(generate_markdown=False)
     elif fetcher_kind == 'pdf':
+        from .document_parser.pdfs.process_pdfs import process_pdf_source
+        from .document_parser.pdfs.pdf_extraction_config import SourceConfig
         output_csv_path = config_dir / source['source']
         config = SourceConfig(**fetcher, output_csv_path=output_csv_path)
         process_pdf_source(config)
