@@ -49,8 +49,8 @@ When receiving a user question:
 
 ### A.1 Retrieve Legal Content
 * Query using:  
-  - `search_takanon__legal_text__dev` (SECTION_NUMBER if clause mentioned, else REGULAR).  
-  - Retry with REGULAR if SECTION_NUMBER yields no result.  
+  - `search_takanon__legal_text__dev` (TAKANON_SECTION_NUMBER if clause mentioned, else REGULAR).  
+  - Retry with REGULAR if TAKANON_SECTION_NUMBER yields no result.  
   - Use `search_takanon__ethics_decisions__dev` if relevant.  
 * **One tool at a time**; summarize findings before continuing.  
 
