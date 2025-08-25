@@ -51,10 +51,10 @@ def test_search_mode_config():
 
 def test_takanon_section_number_mode_configuration():
     """Test the configuration of the Takanon section number search mode"""
-    mode = SEARCH_MODES["TAKANON_SECTION_NUMBER"]
+    mode = SEARCH_MODES["SECTION_NUMBER"]
     
     # Verify basic configuration
-    assert mode.name == "TAKANON_SECTION_NUMBER"
+    assert mode.name == "SECTION_NUMBER"
     assert "section number" in mode.description.lower()
     assert mode.min_score == 0.5
     

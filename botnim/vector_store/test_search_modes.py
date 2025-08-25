@@ -30,10 +30,10 @@ class MockVectorStoreES(VectorStoreES):
 
 def test_takanon_section_number_mode():
     """Test the Takanon section number search mode"""
-    mode = SEARCH_MODES["TAKANON_SECTION_NUMBER"]
+    mode = SEARCH_MODES["SECTION_NUMBER"]
     
     # Test basic configuration
-    assert mode.name == "TAKANON_SECTION_NUMBER"
+    assert mode.name == "SECTION_NUMBER"
     assert "סעיף" in mode.description
     assert mode.min_score == 0.5
     
@@ -66,7 +66,7 @@ def test_takanon_section_number_query_structure():
     
     # Test query for section 12
     query_text = "סעיף 12"
-    mode = SEARCH_MODES["TAKANON_SECTION_NUMBER"]
+    mode = SEARCH_MODES["SECTION_NUMBER"]
     
     # Build the query
     query = vector_store._build_search_query(
@@ -128,7 +128,7 @@ def test_takanon_section_number_integration(mock_es):
     
     # Perform a search using the Takanon section number mode
     query_text = "סעיף 12"
-    mode = SEARCH_MODES["TAKANON_SECTION_NUMBER"]
+    mode = SEARCH_MODES["SECTION_NUMBER"]
     
     # Mock the search response
     mock_es_instance.search.return_value = {
@@ -195,7 +195,7 @@ def test_takanon_section_number_real_world_search(mock_es):
     
     # Perform a search using the Takanon section number mode
     query_text = "סעיף 12"
-    mode = SEARCH_MODES["TAKANON_SECTION_NUMBER"]
+    mode = SEARCH_MODES["SECTION_NUMBER"]
     
     # Mock the search response
     mock_es_instance.search.return_value = {
@@ -273,7 +273,7 @@ def test_takanon_section_number_weight_effects(mock_es):
     
     # Perform a search using the Takanon section number mode
     query_text = "סעיף 12"
-    mode = SEARCH_MODES["TAKANON_SECTION_NUMBER"]
+    mode = SEARCH_MODES["SECTION_NUMBER"]
     
     # Mock the search response
     mock_es_instance.search.return_value = {
@@ -346,7 +346,7 @@ def test_regular_mode_query_structure():
     assert query_regular["query"]["bool"]["minimum_should_match"] == 1
 
 def test_search_modes_registry_contains_expected_modes():
-    assert "TAKANON_SECTION_NUMBER" in SEARCH_MODES
+    assert "SECTION_NUMBER" in SEARCH_MODES
     assert "REGULAR" in SEARCH_MODES
 
 

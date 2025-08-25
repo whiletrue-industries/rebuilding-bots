@@ -26,7 +26,7 @@ You must follow this flow on **every user turn**:
   - Respond with: "You are asking about [summary]. Did I understand correctly?"
 2. Retrieve Legal Content
    - After user confirmation, run a query with `search_takanon__legal_text__dev`
-   - If specific סעיף is mentioned, use: `search_takanon__legal_text__dev` with `search_mode="TAKANON_SECTION_NUMBER"`
+   - If specific סעיף is mentioned, use: `search_takanon__legal_text__dev` with `search_mode="SECTION_NUMBER"`
       - If no results, retry with `search_mode="REGULAR"`.
    - If relevant, also run: `search_takanon__ethics_decisions__dev`
    - After each retrieval, respond with your findings. Explain if the content is relevant or not.
@@ -59,9 +59,9 @@ IMPORTANT: If there is no relevant result, reply: **"לא ניתן להשיב ע
 | Query Type                             | Search Mode       |
 |----------------------------------------|-------------------|
 | General legal/ethics queries           | REGULAR           |
-| Named clause (e.g., סעיף 12ב...)       | TAKANON_SECTION_NUMBER    |
+| Named clause (e.g., סעיף 12ב...)       | SECTION_NUMBER    |
 
-Always retry with REGULAR if TAKANON_SECTION_NUMBER yields nothing.
+Always retry with REGULAR if SECTION_NUMBER yields nothing.
 
 ## Forbidden Behaviors
 

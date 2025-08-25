@@ -2,10 +2,10 @@ from typing import Dict
 from types import MappingProxyType
 from .search_config import SearchModeConfig, SearchFieldConfig, FieldWeight
 
-# Define the TAKANON_SECTION_NUMBER mode config
-TAKANON_SECTION_NUMBER_CONFIG = SearchModeConfig(
-    name="TAKANON_SECTION_NUMBER",
-    description="Specialized search mode for finding Takanon sections by their number (e.g. 'סעיף 12'). Requires both section number and resource name. The resource name can be provided in a flexible format (e.g. 'חוק הכנסת' or 'חוק-הכנסת').",
+# Define the SECTION_NUMBER mode config
+SECTION_NUMBER_CONFIG = SearchModeConfig(
+    name="SECTION_NUMBER",
+    description="Specialized search mode for finding legal text sections by their number (e.g. 'סעיף 12'). Requires both section number and resource name. The resource name can be provided in a flexible format (e.g. 'חוק הכנסת' or 'חוק-הכנסת').",
     min_score=0.5,
     num_results=3,  # Default for section/resource search
     use_vector_search=False,
@@ -157,7 +157,7 @@ RELATED_RESOURCE_CONFIG = SearchModeConfig(
 
 # Immutable registry of all search modes
 SEARCH_MODES = MappingProxyType({
-    "TAKANON_SECTION_NUMBER": TAKANON_SECTION_NUMBER_CONFIG,
+    "SECTION_NUMBER": SECTION_NUMBER_CONFIG,
     "REGULAR": REGULAR_CONFIG,
     # Add more modes here as needed
 })

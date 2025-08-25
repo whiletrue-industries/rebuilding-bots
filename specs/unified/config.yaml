@@ -1,52 +1,331 @@
 slug: unified
-name: בוט מאוחד - תקנון ותקציב
+name: בוט מאוחד - תקנון, חוקים ותקציב
 description: עונה על שאלות מתוך תקנון הכנסת וחוקים נלווים וכן על שאלות בנושאי תקציב המדינה, הכנסות המדינה, התקשרויות ותמיכות תקציביות
 instructions: agent.txt
 tools:
   - code-interpreter
   - budgetkey
 context:
-  - slug: budgetkey__common_knowledge
+  - slug: common_budget_knowledge
     name: ידע רלוונטי על התקציב
     type: split
     source: common-knowledge.md
     max_num_results: 7
 
-  - slug: takanon__common_knowledge
-    name: ידע רלוונטי על התקנון
+  - slug: common_takanon_knowledge
+    name: ידע רלוונטי על התקנון ועל האופן בו הכנסת מתנהלת
     max_num_results: 7
     sources:
     - type: google-spreadsheet
       source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=0#gid=0
-    - type: google-spreadsheet
-      source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=656974237#gid=656974237
+    - type: csv
+      source: extraction/lexicon.csv
+      fetcher:
+        kind: lexicon
     - type: split
-      source: ../takanon/extraction/כללי אתיקה לחברי הכנסת_structure_content.json
+      source: extraction/כללי_אתיקה_לחברי_הכנסת_structure_content.json
+      fetcher:
+        kind: wikitext
+        input_url: https://he.wikisource.org/wiki/%D7%9B%D7%9C%D7%9C%D7%99_%D7%90%D7%AA%D7%99%D7%A7%D7%94_%D7%9C%D7%97%D7%91%D7%A8%D7%99_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
     - type: split
-      source: ../takanon/extraction/חוק הפרשנות_structure_content.json
+      source: extraction/חוק_הפרשנות_structure_content.json
+      fetcher:
+        kind: wikitext
+        input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%A4%D7%A8%D7%A9%D7%A0%D7%95%D7%AA
+    - type: csv
+      source: extraction/knesset_legal_advisor.csv
+      fetcher:
+        kind: pdf
+        external_source_url: https://next.obudget.org/datapackages/knesset/knesset_legal_advisor
+        fields:
+          - name: "מספר_מסמך"
+            description: "מספר המסמך או מזהה ייחודי"
+            example: "מכתב מס' 2023/123"
+            hint: "חפש מספרי מסמכים או מזהה ייחודי בכותרות או בתחילת המסמך"
+          - name: "תאריך_מכתב"
+            description: "תאריך כתיבת המכתב"
+            example: "2023-05-12"
+            hint: "חפש תאריכים בכותרות המסמך או בתחילתו"
+          - name: "סוג_מסמך"
+            description: "סוג המסמך (מכתב פנייה או מכתב תשובה)"
+            example: "מכתב פנייה, מכתב תשובה"
+            hint: "זהה אם זה מכתב פנייה או מכתב תשובה"
+          - name: "סוג_הפניה"
+            description: "סוג הפנייה לפי הקטגוריות המוגדרות"
+            example: "פניות ומענה לחברי הכנסת"
+            hint: "בחר אחת מהאפשרויות: פניות ומענה לחברי הכנסת, פניות ומענה לגורמים ברשות המבצעת, פניות ומענה לציבור"
+          - name: "שולח"
+            description: "שם השולח או הגורם השולח"
+            example: "יושב ראש הכנסת, מזכיר הכנסת"
+            hint: "זהה את הגורם השולח את המכתב"
+          - name: "נמען"
+            description: "שם הנמען או הגורם הנמען"
+            example: "חבר הכנסת יוסי כהן, שר האוצר"
+          - name: "נושא_כללי"
+            description: "נושא כללי מתוך הרשימה המוגדרת"
+            example: "ועדות הכנסת"
+            hint: "בחר אחת מהאפשרויות: חברי הכנסת, ועדות הכנסת, הליך החקיקה, מליאת הכנסת, מינויים מיוחדים, עובדי הכנסת, כללי"
+          - name: "נושא_ספציפי"
+            description: "נושא ספציפי של המסמך"
+            example: "הסדרת ניגוד עניינים לחברי ועדה"
+            hint: "הפק את הנושא הספציפי של המסמך כפי שמופיע בתוכן"
+          - name: "תקציר"
+            description: "תקציר קצר של עיקרי המסמך"
+            example: "המסמך עוסק בהנחיות למינוי יועצים משפטיים לוועדות הכנסת..."
+            hint: "כתוב תקציר קצר של הנושא העיקרי במסמך"
+          - name: "המלצות_הנחיות"
+            description: "עיקרי ההמלצות או ההנחיות במסמך"
+            example: "יש להקפיד על ניגוד עניינים במינוי יועצים"
+            hint: "הפק את עיקרי ההמלצות או ההנחיות"
+          - name: "הערות"
+            description: "הערות נוספות או פרטים חשובים"
+            example: "המסמך הופץ לכל חברי הכנסת"
+            hint: "הוסף הערות או פרטים חשובים נוספים"
+          - name: "קישור_למקור"
+            description: "קישור ישיר לקובץ ה-PDF"
+            example: "https://knesset.gov.il/legal/opinions/opinion_2024_01.pdf"
+          - name: "טקסט_מלא"
+            description: "תוכן מלא של המסמך"
+            hint: "תמיד כלול את כל הטקסט של מסמך כפי שהופק מה-PDF, בעברית."
+            example: "..."
+        extraction_instructions: |
+          הפק את השדות הנדרשים מהטקסט של קובץ ה-PDF. השתמש ברשימת השדות וההנחיות. החזר אובייקט JSON שבו שמות השדות, אך כל הערכים בשפה המקורית (עברית) כפי שמופיעים במסמך. אל תתרגם או תשנה את הטקסט המקורי. ודא ששדה טקסט_מלא תמיד מכיל את כל הטקסט של המסמך כפי שהופק מה-PDF.
+          עבור שדה נושא_כללי, בחר אחת מהאפשרויות הבאות:
+          - חברי הכנסת
+          - ועדות הכנסת
+          - הליך החקיקה
+          - מליאת הכנסת
+          - מינויים מיוחדים
+          - עובדי הכנסת
+          - כללי
+          עבור שדה נושא_ספציפי, הפק את הנושא הספציפי של המסמך כפי שמופיע בתוכן.
+          אם המסמך מכיל מספר חוות דעת/הנחיות/מכתבים נפרדים, הפק מידע עבור כל אחד בנפרד. החזר מערך של אובייקטים JSON, כל אובייקט מייצג מסמך אחד.
+    - type: csv
+      source: extraction/knesset_legal_advisor_letters.csv
+      fetcher:
+        kind: pdf
+        external_source_url: https://next.obudget.org/datapackages/knesset/knesset_legal_advisor_letters
+        fields:
+          - name: "מספר_מסמך"
+            description: "מספר המסמך או מזהה ייחודי"
+            example: "מכתב מס' 2023/123"
+            hint: "חפש מספרי מסמכים או מזהה ייחודי בכותרות או בתחילת המסמך"
+          - name: "תאריך_מכתב"
+            description: "תאריך כתיבת המכתב"
+            example: "2023-05-12"
+            hint: "חפש תאריכים בכותרות המסמך או בתחילתו"
+          - name: "סוג_מסמך"
+            description: "סוג המסמך (מכתב פנייה או מכתב תשובה)"
+            example: "מכתב פנייה, מכתב תשובה"
+            hint: "זהה אם זה מכתב פנייה או מכתב תשובה"
+          - name: "סוג_הפניה"
+            description: "סוג הפנייה לפי הקטגוריות המוגדרות"
+            example: "פניות ומענה לחברי הכנסת"
+            hint: "בחר אחת מהאפשרויות: פניות ומענה לחברי הכנסת, פניות ומענה לגורמים ברשות המבצעת, פניות ומענה לציבור"
+          - name: "שולח"
+            description: "שם השולח או הגורם השולח"
+            example: "יושב ראש הכנסת, מזכיר הכנסת"
+            hint: "זהה את הגורם השולח את המכתב"
+          - name: "נמען"
+            description: "שם הנמען או הגורם הנמען"
+            example: "חבר הכנסת יוסי כהן, שר האוצר"
+          - name: "נושא_כללי"
+            description: "נושא כללי מתוך הרשימה המוגדרת"
+            example: "ועדות הכנסת"
+            hint: "בחר אחת מהאפשרויות: חברי הכנסת, ועדות הכנסת, הליך החקיקה, מליאת הכנסת, מינויים מיוחדים, עובדי הכנסת, כללי"
+          - name: "נושא_ספציפי"
+            description: "נושא ספציפי של המסמך"
+            example: "הסדרת ניגוד עניינים לחברי ועדה"
+            hint: "הפק את הנושא הספציפי של המסמך כפי שמופיע בתוכן"
+          - name: "תקציר"
+            description: "תקציר קצר של עיקרי המסמך"
+            example: "המסמך עוסק בהנחיות למינוי יועצים משפטיים לוועדות הכנסת..."
+            hint: "כתוב תקציר קצר של הנושא העיקרי במסמך"
+          - name: "המלצות_הנחיות"
+            description: "עיקרי ההמלצות או ההנחיות במסמך"
+            example: "יש להקפיד על ניגוד עניינים במינוי יועצים"
+            hint: "הפק את עיקרי ההמלצות או ההנחיות"
+          - name: "הערות"
+            description: "הערות נוספות או פרטים חשובים"
+            example: "המסמך הופץ לכל חברי הכנסת"
+            hint: "הוסף הערות או פרטים חשובים נוספים"
+          - name: "קישור_למקור"
+            description: "קישור ישיר לקובץ ה-PDF"
+            example: "https://knesset.gov.il/legal/opinions/opinion_2024_01.pdf"
+          - name: "טקסט_מלא"
+            description: "תוכן מלא של המסמך"
+            hint: "תמיד כלול את כל הטקסט של מסמך כפי שהופק מה-PDF, בעברית."
+            example: "..."
+        extraction_instructions: |
+          הפק את השדות הנדרשים מהטקסט של קובץ ה-PDF. השתמש ברשימת השדות וההנחיות. החזר אובייקט JSON שבו שמות השדות, אך כל הערכים בשפה המקורית (עברית) כפי שמופיעים במסמך. אל תתרגם או תשנה את הטקסט המקורי. ודא ששדה טקסט_מלא תמיד מכיל את כל הטקסט של המסמך כפי שהופק מה-PDF.
+          עבור שדה נושא_כללי, בחר אחת מהאפשרויות הבאות:
+          - חברי הכנסת
+          - ועדות הכנסת
+          - הליך החקיקה
+          - מליאת הכנסת
+          - מינויים מיוחדים
+          - עובדי הכנסת
+          - כללי
+          עבור שדה נושא_ספציפי, הפק את הנושא הספציפי של המסמך כפי שמופיע בתוכן.
+          אם המסמך מכיל מספר חוות דעת/הנחיות/מכתבים נפרדים, הפק מידע עבור כל אחד בנפרד. החזר מערך של אובייקטים JSON, כל אובייקט מייצג מסמך אחד.
+    - type: csv
+      source: extraction/knesset_committee_decisions.csv
+      fetcher:
+        kind: pdf
+        external_source_url: https://next.obudget.org/datapackages/knesset/knesset_committee_decisions
+        fields:
+          - name: "שם_החלטה"
+            description: "שם ההחלטה או הנושא המרכזי"
+            example: "החלטה בעניין סדרי עבודה בוועדה"
+            hint: "חפש את הכותרת או שם ההחלטה בתחילת המסמך"
+          - name: "מספר_החלטה"
+            description: "מספר החלטה (אם קיים)"
+            example: "החלטה מס' 12"
+            hint: "חפש מספר החלטה בכותרת או בתחילת המסמך"
+          - name: "תאריך"
+            description: "תאריך קבלת ההחלטה"
+            example: "2024-03-15"
+            hint: "חפש תאריכים בכותרות או בתחילת המסמך"
+          - name: "תקופת_כנסת"
+            description: "תקופת הכנסת (למשל הכנסת ה-25)"
+            example: "הכנסת העשרים וחמש"
+            hint: "חפש אזכורים של תקופות כנסת בכותרות או במבוא"
+          - name: "נושא_החלטה"
+            description: "נושא עיקרי של ההחלטה"
+            example: "שינוי סדרי עבודה"
+            hint: "הפק את הנושא המרכזי של ההחלטה"
+          - name: "רקע"
+            description: "רקע או הסבר להחלטה"
+            example: "ההחלטה התקבלה בעקבות פנייה של חברי הוועדה..."
+            hint: "חפש פסקאות רקע או הסבר להחלטה"
+          - name: "משתתפים"
+            description: "שמות חברי הכנסת/משתתפים עיקריים"
+            example: "ח\"כ יוסי כהן, ח\"כ דנה לוי"
+            hint: "זהה את המשתתפים המרכזיים בדיון"
+          - name: "החלטה"
+            description: "נוסח ההחלטה עצמה"
+            example: "הוועדה החליטה לאשר את..."
+            hint: "הפק את נוסח ההחלטה כפי שמופיע במסמך"
+          - name: "הערות"
+            description: "הערות נוספות או הסתייגויות"
+            example: "ההחלטה התקבלה פה אחד"
+            hint: "הוסף הערות או הסתייגויות אם קיימות"
+          - name: "קישור_למקור"
+            description: "קישור ישיר לקובץ ה-PDF"
+            example: "https://knesset.gov.il/committee/decisions/decision_2024_12.pdf"
+          - name: "טקסט_מלא"
+            description: "תוכן מלא של ההחלטה"
+            hint: "תמיד כלול את כל הטקסט של מסמך כפי שהופק מה-PDF, בעברית."
+            example: "..."
+        extraction_instructions: |
+          הפק את השדות הנדרשים מהטקסט של קובץ ה-PDF. השתמש ברשימת השדות וההנחיות. החזר אובייקט JSON שבו שמות השדות, אך כל הערכים בשפה המקורית (עברית) כפי שמופיעים במסמך. אל תתרגם או תשנה את הטקסט המקורי. ודא ששדה טקסט_מלא תמיד מכיל את כל הטקסט של המסמך כפי שהופק מה-PDF.
+          אם המסמך מכיל מספר החלטות נפרדות, הפק מידע עבור כל החלטה בנפרד. החזר מערך של אובייקטים JSON, כל אובייקט מייצג החלטה אחת. עבור כל החלטה, מלא את השדות הרלוונטיים לאותה החלטה ספציפית. אם יש מספר החלטות, החזר מערך של אובייקטים במקום אובייקט בודד.        
 
-  - slug: takanon__legal_text
+  - slug: legal_text
     name: Knesset Bylaws (תקנון הכנסת) and related laws
     sources:
       - type: split
-        source: ../takanon/extraction/חוק הכנסת_structure_content.json
+        source: extraction/חוק_הכנסת_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
       - type: split
-        source: ../takanon/extraction/חוק משכן הכנסת, רחבתו ומשמר הכנסת_structure_content.json
+        source: extraction/חוק_משכן_הכנסת,_רחבתו_ומשמר_הכנסת_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%9E%D7%A9%D7%9B%D7%9F_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA,_%D7%A8%D7%97%D7%91%D7%AA%D7%95_%D7%95%D7%9E%D7%A9%D7%9E%D7%A8_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
       - type: split
-        source: ../takanon/extraction/חוק-יסוד__הכנסת_structure_content.json
+        source: extraction/חוק-יסוד_הכנסת_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
       - type: split
-        source: ../takanon/extraction/חוק_חסינות_חברי_הכנסת,_זכויותיהם_וחובותיהם_structure_content.json
+        source: extraction/חוק_חסינות_חברי_הכנסת,_זכויותיהם_וחובותיהם_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%97%D7%A1%D7%99%D7%A0%D7%95%D7%AA_%D7%97%D7%91%D7%A8%D7%99_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA,_%D7%96%D7%9B%D7%95%D7%99%D7%95%D7%AA%D7%99%D7%94%D7%9D_%D7%95%D7%97%D7%95%D7%91%D7%95%D7%AA%D7%99%D7%94%D7%9D
       - type: split
-        source: ../takanon/extraction/חוק_לציון_מידע_בדבר_השפעת_חקיקה_על_זכויות_הילד_structure_content.json
+        source: extraction/חוק_לציון_מידע_בדבר_השפעת_חקיקה_על_זכויות_הילד_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%9C%D7%A6%D7%99%D7%95%D7%9F_%D7%9E%D7%99%D7%93%D7%A2_%D7%91%D7%93%D7%91%D7%A8_%D7%94%D7%A9%D7%A4%D7%A2%D7%AA_%D7%97%D7%A7%D7%99%D7%A7%D7%94_%D7%A2%D7%9C_%D7%96%D7%9B%D7%95%D7%99%D7%95%D7%AA_%D7%94%D7%99%D7%9C%D7%93
       - type: split
-        source: ../takanon/extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
+        source: extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%A8%D7%A6%D7%99%D7%A4%D7%95%D7%AA_%D7%94%D7%93%D7%99%D7%95%D7%9F_%D7%91%D7%94%D7%A6%D7%A2%D7%95%D7%AA_%D7%97%D7%95%D7%A7
       - type: split
-        source: ../takanon/extraction/תקנון הכנסת_structure_content.json
+        source: extraction/תקנון_הכנסת_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.wikisource.org/wiki/%D7%AA%D7%A7%D7%A0%D7%95%D7%9F_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
       - type: split
-        source: ../takanon/extraction/חוק הפרשנות_structure_content.json
+        source: extraction/החלטת_שכר_חברי_הכנסת_(הענקות_ותשלומים)_structure_content.json
+        fetcher:
+          kind: wikitext
+          input_url: https://he.m.wikisource.org/wiki/%D7%94%D7%97%D7%9C%D7%98%D7%AA_%D7%A9%D7%9B%D7%A8_%D7%97%D7%91%D7%A8%D7%99_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA_(%D7%94%D7%A2%D7%A0%D7%A7%D7%95%D7%AA_%D7%95%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D)
 
-  - slug: takanon__ethics_decisions
+  - slug: ethics_decisions
     name: "החלטות ועדת אתיקה בדבר כללי אתיקה לחברי הכנסת"
     sources:
-      - type: google-spreadsheet
-        source: https://docs.google.com/spreadsheets/d/1fEgiCLNMQQZqBgQFlkABXgke8I2kI1i1XUvj8Yba9Ow/edit?gid=328434674#gid=328434674
+      - type: csv
+        source: extraction/ethics_committee_decisions.csv
+        fetcher:
+          kind: pdf
+          external_source_url: https://next.obudget.org/datapackages/knesset/ethics_committee_decisions
+          fields:
+            - name: "שם_החלטה"
+              description: "שם ההחלטה או ההודעה"
+              example: "החלטה בעניין תלונה נגד חבר הכנסת יוסי כהן"
+              hint: "חפש את הכותרת או שם ההחלטה בתחילת המסמך"
+            - name: "תקופת_כנסת"
+              description: "תקופת הכנסת (למשל - הכנסת הראשונה, הכנסת השנייה וכו')"
+              example: "הכנסת העשרים וחמש"
+              hint: "חפש אזכורים של תקופות כנסת בכותרות המסמך או במבוא"
+            - name: "תאריך"
+              description: "תאריך החלטת ועדת האתיקה"
+              example: "2023-05-12"
+              hint: "חפש תאריכים בכותרות המסמך"
+            - name: "סדר_החלטה"
+              description: "סדר ההחלטה בתוך מסמך ההחלטות"
+              example: "החלטה מס' 5"
+              hint: "חפש החלטות ממוספרות או אינדיקטורים של סדר במסמך"
+            - name: "נושא_אדם_מעורב"
+              description: "נושא/אדם מעורב במקרה"
+              example: "חבר הכנסת יוסי כהן"
+              hint: "זהה את האדם או הנושא שההחלטה מתייחסת אליו"
+            - name: "אופי_תלונה"
+              description: "אופי התלונה"
+              example: "ניגוד עניינים, הפרת כללי אתיקה"
+              hint: "הפק את סוג או אופי הפרת האתיקה או התלונה"
+            - name: "רקע"
+              description: "רקע המקרה"
+              example: "התלונה הוגשה על ידי אזרח בעניין..."
+              hint: "חפש מידע רקע על המקרה והנסיבות"
+            - name: "ממצאי_הוועדה"
+              description: "ממצאי הוועדה"
+              example: "הוועדה מצאה כי..."
+              hint: "הפק את הממצאים העובדתיים והמסקנות של הוועדה"
+            - name: "נימוקים"
+              description: "נימוקים והצדקה של הוועדה"
+              example: "תבסס על..."
+              hint: "חפש את הנימוקים וההצדקה המשפטית/אתית של הוועדה"
+            - name: "סוג_החלטה"
+              description: "סוג החלטה"
+              example: "החלטה, אזהרה, נזיפה"
+              hint: "זהה את סוג ההחלטה שהתקבלה על ידי הוועדה"
+            - name: "תוצאה_עונש"
+              description: "תוצאה/עונש שהוטל"
+              example: "נזיפה חמורה, אזהרה"
+              hint: "הפק את העונש או התוצאה הספציפית שהוטלה"
+            - name: "תנאים"
+              description: "תנאים או דרישות שהוטלו"
+              example: "על חבר הכנסת להימנע מפעילות מסוימת"
+              hint: "חפש תנאים, דרישות או הגבלות שהוטלו"
+            - name: "טקסט_מלא"
+              description: "תוכן מלא של ההחלטה"
+              hint: "תמיד כלול את כל הטקסט של מסמך כפי שהופק מה-PDF, בעברית."
+              example: "..."
+          extraction_instructions: |
+            הפק את השדות הנדרשים מהטקסט של קובץ ה-PDF. השתמש ברשימת השדות וההנחיות. החזר אובייקט JSON שבו שמות השדות, אך כל הערכים בשפה המקורית (עברית) כפי שמופיעים במסמך. אל תתרגם או תשנה את הטקסט המקורי. ודא ששדה full_text תמיד מכיל את כל הטקסט של המסמך כפי שהופק מה-PDF.
+            אם המסמך מכיל מספר החלטות או מקרים נפרדים (למשל החלטות ממוספרות 1, 2, 3, 4 או מקרים שונים של אנשים שונים), הפק מידע עבור כל החלטה בנפרד. החזר מערך של אובייקטים JSON, כל אובייקט מייצג החלטה אחת. עבור כל החלטה, מלא את השדות הרלוונטיים לאותה החלטה ספציפית. אם יש מספר החלטות, החזר מערך של אובייקטים במקום אובייקט בודד.
