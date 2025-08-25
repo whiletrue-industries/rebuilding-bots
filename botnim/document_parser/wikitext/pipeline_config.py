@@ -14,6 +14,16 @@ import tempfile
 from enum import Enum
 
 
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:136.0) Gecko/20100101 Firefox/136.0',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Accept-Encoding': 'gzip, deflate',
+    'Content-Type': 'application/json',
+    'Connection': 'keep-alive',
+}
+
+
 def sanitize_filename(filename):
     """
     Sanitize filename for filesystem compatibility.
@@ -62,7 +72,7 @@ class WikitextProcessorConfig:
     def __post_init__(self):
         """Initialize derived paths."""
         with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as tf:
-            tf.write(requests.get(self.input_url).content)
+            tf.write(requests.get(self.input_url, headers=HEADERS).content)
             tf.flush()
             self.input_html_file = Path(tf.name)
         self.output_base_dir = Path(self.output_base_dir)
