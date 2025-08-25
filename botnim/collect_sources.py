@@ -139,8 +139,8 @@ def collect_sources_google_spreadsheet(context_name, source, offset=0):
             )
     return file_streams
 
-def collect_sources_csv(context_name, source, offset=0):
-    with open(source, 'r', encoding='utf-8') as f:
+def collect_sources_csv(config_dir, context_name, source, offset=0):
+    with open(config_dir / source, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         file_streams = []
         for idx, row in enumerate(reader):
@@ -162,7 +162,7 @@ def file_streams_for_context(config_dir, context_name, context_, offset=0):
     elif context_type == 'google-spreadsheet':
         file_streams = collect_sources_google_spreadsheet(context_name, source, offset=offset)
     elif context_type == 'csv':
-        file_streams = collect_sources_csv(context_name, source, offset=offset)
+        file_streams = collect_sources_csv(config_dir, context_name, source, offset=offset)
     else:
         raise ValueError(f'Unknown context type: {context_type}')
     return file_streams
