@@ -221,9 +221,12 @@ def _format_metadata_browse_results(results: List[SearchResult]) -> Dict[str, An
             "title": metadata.get('title', '') or extracted_data.get('DocumentTitle', 'ללא כותרת')
         }
         
-        # Add all extracted_data fields, truncating long text
+        # Add all extracted_data fields, truncating long text except full text indicator
         if extracted_data:
             truncated_data = _truncate_text_fields(extracted_data)
+            # For full text, just provide length and availability info instead of the full content
+            if 'טקסט_מלא' in truncated_data and len(extracted_data.get('טקסט_מלא', '')) > 0:
+                truncated_data['טקסט_מלא'] = f"Available ({len(extracted_data.get('טקסט_מלא', '')):,} characters)"
             browse_item["metadata"] = truncated_data
         
         # Add any other metadata fields (excluding 'extracted_data' to avoid duplication)
@@ -242,6 +245,97 @@ def _format_metadata_browse_results(results: List[SearchResult]) -> Dict[str, An
     }
     
     return browse_response
+
+def _format_metadata_browse_text(results: List[SearchResult]) -> str:
+    """
+    Format search results for METADATA_BROWSE mode as human-readable text
+    Shows metadata summaries instead of full content
+    """
+    if not results:
+        return "No results found."
+    
+    def _determine_document_type_display(result_id: str) -> str:
+        """Get a display-friendly document type from result ID"""
+        if not result_id:
+            return "unknown"
+        
+        id_parts = result_id.split('__')
+        if len(id_parts) > 2:
+            type_part = id_parts[-1]
+            import re
+            type_part = re.sub(r'_\d+$', '', type_part)
+            return type_part.replace('_', ' ')
+        else:
+            return result_id.replace('_', ' ')
+    
+    formatted_results = []
+    
+    header = f"🔍 **BROWSE MODE: {len(results)} documents found**\n"
+    header += "=" * 60 + "\n\n"
+    
+    for i, result in enumerate(results, 1):
+        metadata = result.metadata or {}
+        extracted_data = metadata.get('extracted_data', {})
+        
+        # Get document type and title
+        doc_type = _determine_document_type_display(result.id)
+        title = extracted_data.get('DocumentTitle', 'ללא כותרת')
+        
+        # Format individual result
+        result_text = f"📄 **{i}. {title}**\n"
+        result_text += f"   **Type:** {doc_type}\n"
+        result_text += f"   **Score:** {result.score:.2f}\n"
+        
+        # Add key metadata fields based on what's available
+        if extracted_data.get('תאריך') or extracted_data.get('תאריך_מכתב'):
+            date = extracted_data.get('תאריך') or extracted_data.get('תאריך_מכתב')
+            result_text += f"   **Date:** {date}\n"
+            
+        if extracted_data.get('PublicationDate'):
+            result_text += f"   **Date:** {extracted_data.get('PublicationDate')}\n"
+            
+        # Add summary/description
+        if extracted_data.get('תקציר'):
+            summary = extracted_data.get('תקציר', '')[:150] + "..." if len(extracted_data.get('תקציר', '')) > 150 else extracted_data.get('תקציר', '')
+            result_text += f"   **Summary:** {summary}\n"
+        elif extracted_data.get('רקע'):
+            summary = extracted_data.get('רקע', '')[:150] + "..." if len(extracted_data.get('רקע', '')) > 150 else extracted_data.get('רקע', '')
+            result_text += f"   **Background:** {summary}\n"
+        elif extracted_data.get('Description'):
+            summary = extracted_data.get('Description', '')[:150] + "..." if len(extracted_data.get('Description', '')) > 150 else extracted_data.get('Description', '')
+            result_text += f"   **Description:** {summary}\n"
+            
+        # Add full text availability indicator 
+        full_text_available = False
+        full_text_length = 0
+        
+        # Check for full text in extracted_data (CSV sources)
+        if extracted_data.get('טקסט_מלא'):
+            full_text_available = True
+            full_text_length = len(extracted_data.get('טקסט_מלא', ''))
+        # Check for full text in the content itself (markdown sources that include CSV data)
+        elif 'טקסט_מלא:' in result.full_content:
+            full_text_available = True
+            full_text_start = result.full_content.find('טקסט_מלא:')
+            full_text_content = result.full_content[full_text_start:]
+            full_text_length = len(full_text_content)
+        
+        if full_text_available:
+            result_text += f"   **Full Text Available:** {full_text_length:,} characters\n"
+            
+        # Add source link if available
+        source_url = metadata.get('source_url', '')
+        if source_url:
+            result_text += f"   **Link:** {source_url}\n"
+            
+        result_text += f"   **ID:** {result.id}\n"
+        
+        formatted_results.append(result_text)
+    
+    footer = f"\n{'=' * 60}\n"
+    footer += f"💡 **Tip:** Use document ID or ask for specific details to get full content of any document.\n"
+    
+    return header + "\n".join(formatted_results) + footer
 
 def format_search_results(results: List[SearchResult], format: str, explain: bool, search_mode: SearchModeConfig = None) -> str:
     """
@@ -268,6 +362,8 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
     elif is_browse_mode and format == 'yaml':
         browse_results = _format_metadata_browse_results(results)
         return yaml.dump(browse_results, allow_unicode=True, width=1000000, sort_keys=False)
+    elif is_browse_mode and format == 'text':
+        return _format_metadata_browse_text(results)
     
     for result in results:
         if format == 'text-short':
