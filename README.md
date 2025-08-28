@@ -189,13 +189,21 @@ botnim query list-modes
 #### Example search mode usage
 
 ```bash
+# Find specific sections
 botnim query search staging takanon legal_text "סעיף 12" --search-mode SECTION_NUMBER
+
+# Browse committee decisions and legal advisor documents
+botnim query search staging takanon legal_text "החלטות ועדת הכנסת" --search-mode METADATA_BROWSE
+
+# Browse ethics committee decisions
+botnim query search staging takanon ethics_decisions "ניגוד עניינים" --search-mode METADATA_BROWSE
 ```
 
 #### Current search modes (from registry):
 
 - **REGULAR**: Standard semantic search across all main fields. Default num_results: 7
 - **SECTION_NUMBER**: Specialized search mode for finding Takanon sections by their number (e.g. 'סעיף 12'). Default num_results: 3
+- **METADATA_BROWSE**: Browse mode for exploring committee decisions, legal advisor documents, and ethics decisions with metadata summaries instead of full content. Default num_results: 25
 
 (For a full, up-to-date list, use `botnim query list-modes`)
 

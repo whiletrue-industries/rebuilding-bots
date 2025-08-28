@@ -97,6 +97,28 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'METADATA_BROWSE': Returns more results (25) with metadata summaries for exploration instead of full content. 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 7 for REGULAR, 25 for METADATA_BROWSE).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
           }
         ],
         "deprecated": false
@@ -188,6 +210,28 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'METADATA_BROWSE': Returns more results (25) with metadata summaries for exploration instead of full content. 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 7 for REGULAR, 25 for METADATA_BROWSE).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
             }
           }
         ],

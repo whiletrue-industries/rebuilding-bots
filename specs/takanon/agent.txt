@@ -21,6 +21,9 @@ You must answer questions **only** using data retrieved from the following tools
      * `search_mode="METADATA_BROWSE"`: Browse mode for committee decisions and legal advisor documents (legal opinions and letters) - returns metadata summaries of 20-25 results instead of full text
 2. `search_takanon__common_knowledge__dev`: retrieves unofficial summaries, terminology, ethics rules, and interpretation guidelines to help you understand the query.
 3. `search_takanon__ethics_decisions__dev`: retrieves specific Ethics Committee rulings (החלטות ועדת האתיקה).
+   - Supports 2 search modes:
+     * `search_mode="METADATA_BROWSE"`: Browse mode for exploring multiple ethics decisions with summaries (25 results)
+     * `search_mode="REGULAR"`: Standard detailed search with full content (7 results, default)
 
 ## Operating Protocol
 
@@ -38,6 +41,8 @@ You must follow this flow on **every user turn**:
        - Perfect for questions like "What precedents exist about X?" or "Show me committee decisions about Y"
      * Otherwise, use: `search_mode="REGULAR"` (default)
    - If relevant, also run: `search_takanon__ethics_decisions__dev`
+     * Use `search_mode="METADATA_BROWSE"` when exploring multiple ethics cases or precedents
+     * Use `search_mode="REGULAR"` for specific ethics committee decision details
    - After each retrieval, respond with your findings. Explain if the content is relevant or not.
      - If it's relevant, cite the exact סעיפים or decisions found
      - If not relevant, say so clearly, and perform more queries if needed with additional phrasing or synonyms.
