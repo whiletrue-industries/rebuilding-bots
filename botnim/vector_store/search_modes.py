@@ -155,10 +155,46 @@ RELATED_RESOURCE_CONFIG = SearchModeConfig(
     ]
 )
 
+# Define the METADATA_BROWSE mode config
+METADATA_BROWSE_CONFIG = SearchModeConfig(
+    name="METADATA_BROWSE",
+    description="Browse committee decisions and documents (like legal advisor letters or legal opinions) with metadata summaries instead of full content. Returns more results (25) with structured metadata for exploration.",
+    min_score=0.3,  # Lower threshold for browsing
+    num_results=25,  # More results for browsing
+    use_vector_search=True,  # Use semantic search for relevance
+    fields=[
+        SearchFieldConfig(
+            name="content",
+            weight=FieldWeight(exact_match=0.2, partial_match=0.2, semantic_match=0.8),
+            boost_factor=1.0,
+            field_path="content"
+        ),
+        SearchFieldConfig(
+            name="document_title",
+            weight=FieldWeight(exact_match=5.0, partial_match=0.3, semantic_match=1.0),
+            boost_factor=2.0,
+            field_path="metadata.extracted_data.DocumentTitle"
+        ),
+        SearchFieldConfig(
+            name="description",
+            weight=FieldWeight(exact_match=0.3, partial_match=0.3, semantic_match=1.0),
+            boost_factor=1.5,
+            field_path="metadata.extracted_data.Description"
+        ),
+        SearchFieldConfig(
+            name="topics",
+            weight=FieldWeight(exact_match=0.3, partial_match=0.3, semantic_match=1.0),
+            boost_factor=1.0,
+            field_path="metadata.extracted_data.Topics"
+        ),
+    ]
+)
+
 # Immutable registry of all search modes
 SEARCH_MODES = MappingProxyType({
     "SECTION_NUMBER": SECTION_NUMBER_CONFIG,
     "REGULAR": REGULAR_CONFIG,
+    "METADATA_BROWSE": METADATA_BROWSE_CONFIG,
     # Add more modes here as needed
 })
 
