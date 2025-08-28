@@ -109,6 +109,7 @@ class QueryClient:
             )
             
             # Format results with enhanced explanations
+            # For METADATA_BROWSE mode, we'll format differently in the format_search_results function
             return [
                 SearchResult(
                     score=hit['_score'],
@@ -160,7 +161,7 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         logger.info(f"Search results: {results}")
 
         # Format results if requested
-        formatted_results = format_search_results(results, format, explain)
+        formatted_results = format_search_results(results, format, explain, search_mode)
         if format.startswith('text') or format == 'yaml':
             logger.info(f"Formatted results: {formatted_results}")
         return formatted_results
@@ -169,7 +170,80 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         # Return a meaningful error message instead of raising
         return f"Error performing search: {str(e)}"
 
-def format_search_results(results: List[SearchResult], format: str, explain: bool) -> str:
+def _format_metadata_browse_results(results: List[SearchResult]) -> Dict[str, Any]:
+    """
+    Format search results specifically for METADATA_BROWSE mode
+    Returns structured metadata for browsing instead of full content
+    """
+    def _truncate_text_fields(data: Dict, max_length: int = 200) -> Dict:
+        """Recursively truncate long text fields in metadata"""
+        if isinstance(data, dict):
+            truncated = {}
+            for key, value in data.items():
+                if isinstance(value, str) and len(value) > max_length:
+                    truncated[key] = value[:max_length] + "..."
+                elif isinstance(value, dict):
+                    truncated[key] = _truncate_text_fields(value, max_length)
+                elif isinstance(value, list):
+                    truncated[key] = [_truncate_text_fields(item, max_length) if isinstance(item, dict) else item for item in value]
+                else:
+                    truncated[key] = value
+            return truncated
+        return data
+    
+    def _extract_metadata_fields(result: SearchResult) -> Dict[str, Any]:
+        """Extract and structure metadata fields for browse display"""
+        metadata = result.metadata or {}
+        extracted_data = metadata.get('extracted_data', {})
+        
+        # Extract document type from result ID by replacing underscores with spaces
+        document_type = "unknown"
+        if result.id:
+            # Extract the meaningful part of the ID (usually after the context name)
+            # Example: "takanon__legal_text__staging_knesset_legal_advisor_123" -> "knesset legal advisor"
+            id_parts = result.id.split('__')
+            if len(id_parts) > 2:
+                # Take the part after context name and remove numeric suffixes
+                type_part = id_parts[-1]
+                # Remove any trailing numbers and clean up
+                import re
+                type_part = re.sub(r'_\d+$', '', type_part)  # Remove trailing numbers like "_123"
+                document_type = type_part.replace('_', ' ')
+            else:
+                document_type = result.id.replace('_', ' ')
+        
+        # Base structure with common fields
+        browse_item = {
+            "document_type": document_type,
+            "document_id": result.id,
+            "relevance_score": round(result.score, 2),
+            "source_url": metadata.get('source_url', ''),
+            "title": metadata.get('title', '') or extracted_data.get('DocumentTitle', 'ללא כותרת')
+        }
+        
+        # Add all extracted_data fields, truncating long text
+        if extracted_data:
+            truncated_data = _truncate_text_fields(extracted_data)
+            browse_item["metadata"] = truncated_data
+        
+        # Add any other metadata fields (excluding 'extracted_data' to avoid duplication)
+        other_metadata = {k: v for k, v in metadata.items() if k not in ['extracted_data', 'source_url', 'title']}
+        if other_metadata:
+            truncated_other = _truncate_text_fields(other_metadata)
+            browse_item["additional_metadata"] = truncated_other
+        
+        return browse_item
+    
+    # Format the response
+    browse_response = {
+        "search_mode": "METADATA_BROWSE",
+        "total_results": len(results),
+        "documents": [_extract_metadata_fields(result) for result in results]
+    }
+    
+    return browse_response
+
+def format_search_results(results: List[SearchResult], format: str, explain: bool, search_mode: SearchModeConfig = None) -> str:
     """
     Format search results as a human-readable text string
 
@@ -181,9 +255,20 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
     Returns:
         str: Formatted search results as a text string
     """
+    # Check if we're in METADATA_BROWSE mode for special formatting
+    is_browse_mode = search_mode and search_mode.name == "METADATA_BROWSE"
+    
     # Format results for human-readable text output
     formatted_results = []
     join = format.startswith('text')
+    
+    # Special handling for METADATA_BROWSE mode
+    if is_browse_mode and format == 'dict':
+        return _format_metadata_browse_results(results)
+    elif is_browse_mode and format == 'yaml':
+        browse_results = _format_metadata_browse_results(results)
+        return yaml.dump(browse_results, allow_unicode=True, width=1000000, sort_keys=False)
+    
     for result in results:
         if format == 'text-short':
             formatted_results.append(
