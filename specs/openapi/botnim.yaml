@@ -31,7 +31,7 @@
     },
     "/botnim/retrieve/takanon/common_knowledge__dev": {
       "get": {
-        "description": "Full text search on the takanon common knowledge",
+        "description": "Search backfround infromation, terminology, ethics rules, and interpretation guidelines for the Knesset bylaws",
         "operationId": "search_takanon__common_knowledge__dev",
         "parameters": [
           {
@@ -49,7 +49,7 @@
     },
     "/botnim/retrieve/takanon/legal_text__dev": {
       "get": {
-        "description": "Full text search on the takanon legal text",
+        "description": "Search official Knesset laws, legal advisor documents, committee decisions, and legal opinions",
         "operationId": "search_takanon__legal_text__dev",
         "parameters": [
           {
