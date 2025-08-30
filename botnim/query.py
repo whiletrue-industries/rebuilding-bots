@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import List, Dict, Union, Optional, Any
 from dataclasses import dataclass
@@ -8,6 +7,8 @@ from botnim.vector_store.search_config import SearchModeConfig
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 import yaml
 import json
+import re
+
 
 logger = get_logger(__name__)
 
@@ -206,7 +207,6 @@ def _format_metadata_browse_results(results: List[SearchResult]) -> Dict[str, An
                 # Take the part after context name and remove numeric suffixes
                 type_part = id_parts[-1]
                 # Remove any trailing numbers and clean up
-                import re
                 type_part = re.sub(r'_\d+$', '', type_part)  # Remove trailing numbers like "_123"
                 document_type = type_part.replace('_', ' ')
             else:
@@ -262,7 +262,6 @@ def _format_metadata_browse_text(results: List[SearchResult]) -> str:
         id_parts = result_id.split('__')
         if len(id_parts) > 2:
             type_part = id_parts[-1]
-            import re
             type_part = re.sub(r'_\d+$', '', type_part)
             return type_part.replace('_', ' ')
         else:
