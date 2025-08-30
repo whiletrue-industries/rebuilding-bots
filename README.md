@@ -4,6 +4,8 @@
 
 This is a repository for the rebuilding anew bots (bot-nim).
 
+For understanding the updated version, try [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/whiletrue-industries/rebuilding-bots)
+
 ## Getting Started
 
 ```bash
