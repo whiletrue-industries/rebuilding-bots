@@ -176,10 +176,10 @@ METADATA_BROWSE_CONFIG = SearchModeConfig(
             field_path="metadata.extracted_data.DocumentTitle"
         ),
         SearchFieldConfig(
-            name="description",
+            name="summary",
             weight=FieldWeight(exact_match=0.3, partial_match=0.3, semantic_match=1.0),
             boost_factor=1.5,
-            field_path="metadata.extracted_data.Description"
+            field_path="metadata.extracted_data.Summary"
         ),
         SearchFieldConfig(
             name="topics",

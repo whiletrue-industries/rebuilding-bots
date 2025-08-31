@@ -516,6 +516,8 @@ class VectorStoreES(VectorStoreBase):
         # Context-specific descriptions for search modes
         if 'legal_text' in vector_store:
             search_mode_description = "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results). 'METADATA_BROWSE': Browse committee decisions and legal advisor documents with metadata summaries (default 25 results)."
+        elif 'ethics_decisions' in vector_store:
+            search_mode_description = "Search mode. 'METADATA_BROWSE': Browse mode for exploring multiple ethics decisions with summaries (25 results). 'REGULAR': Standard detailed search with full content (7 results, default). 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results)."
         else:
             search_mode_description = "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results)."
         
