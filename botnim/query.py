@@ -292,14 +292,19 @@ def _format_metadata_browse_results(results: List[SearchResult]) -> Dict[str, An
                 relevant_metadata['date'] = extracted_data[date_field]
                 break
         
-        # Add specific metadata fields (only if they exist)
-        for field in METADATA_BROWSE_FIELDS['metadata_fields']:
-            if field in extracted_data:
-                value = extracted_data[field]
-                # Skip קישור_למקור if it's the same as source_url to avoid duplication
-                if field == 'קישור_למקור' and value == browse_item.get('source_url'):
-                    continue
-                    
+        # Add all available metadata fields (dynamically, excluding core fields already shown)
+        core_fields = {'DocumentTitle', 'Summary', 'title', 'status', 'document_type'}
+        for field, value in extracted_data.items():
+            # Skip core fields that are already displayed at top level
+            if field in core_fields:
+                continue
+                
+            # Skip קישור_למקור if it's the same as source_url to avoid duplication
+            if field == 'קישור_למקור' and value == browse_item.get('source_url'):
+                continue
+                
+            # Only include fields that have meaningful content
+            if value:
                 # Truncate long text fields (but preserve arrays and objects as-is)
                 if isinstance(value, str) and len(value) > 200:
                     relevant_metadata[field] = value[:200] + "..."
@@ -365,6 +370,26 @@ def _format_metadata_browse_text(results: List[SearchResult]) -> str:
         if summary:
             summary_truncated = _truncate_with_ellipsis(summary)
             result_text += f"   **Summary:** {summary_truncated}\n"
+        
+        # Add all additional metadata fields (excluding already shown fields)
+        excluded_fields = {'date', 'טקסט_מלא'}  # Already handled separately
+        for field_name, field_value in metadata.items():
+            if field_name not in excluded_fields and field_value:
+                # Format field name for display (convert to title case)
+                display_name = field_name.replace('_', ' ').title()
+                
+                # Handle different value types
+                if isinstance(field_value, list):
+                    if field_value:  # Only show non-empty lists
+                        value_str = ', '.join(str(v) for v in field_value[:3])  # Show first 3 items
+                        if len(field_value) > 3:
+                            value_str += f" (+{len(field_value)-3} more)"
+                        result_text += f"   **{display_name}:** {value_str}\n"
+                elif isinstance(field_value, str):
+                    truncated_value = _truncate_with_ellipsis(field_value, 150)
+                    result_text += f"   **{display_name}:** {truncated_value}\n"
+                else:
+                    result_text += f"   **{display_name}:** {field_value}\n"
             
         # Add full text availability if indicated
         if metadata.get('טקסט_מלא') and 'Available' in metadata.get('טקסט_מלא', ''):
