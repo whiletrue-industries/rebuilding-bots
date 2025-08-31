@@ -513,23 +513,34 @@ class VectorStoreES(VectorStoreBase):
     def update_tools(self, context_, vector_store):
         # vector_store is now just the index name string
         
-        # Context-specific descriptions for search modes
+        # Context-specific descriptions and search modes
         if 'legal_texts' in vector_store:
+            tool_description = "Search laws, bylaws and regulations (חוקים ותקנונים). Use for: specific legal text, section numbers, law content, bylaws, constitutional texts. Examples: 'סעיף 12 בתקנון', 'חוק הכנסת', 'חוק יסוד הכנסת', 'כללי אתיקה'."
             search_mode_description = "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results). 'METADATA_BROWSE': Browse mode for exploring multiple documents with metadata summaries (25 results)."
-        elif 'legal_advisor_opinions' in vector_store or 'legal_advisor_letters' in vector_store or 'committee_decisions' in vector_store:
+        elif 'legal_advisor_opinions' in vector_store:
+            tool_description = "Search formal legal opinions by Knesset legal advisor (חוות דעת משפטיות). Use for: legal interpretations, formal legal guidance, precedents, legal analysis. Examples: 'חוות דעת על ניגוד עניינים', 'פרשנות משפטית', 'הנחיה פורמלית'."
+            search_mode_description = "Search mode. 'METADATA_BROWSE': Browse mode for exploring multiple documents with metadata summaries (25 results). 'REGULAR': Standard detailed search with full content (7 results, default)."
+        elif 'legal_advisor_letters' in vector_store:
+            tool_description = "Search correspondence with the knesset legal advisor (מכתבי היועצת המשפטית לכנסת). Use for: informal inquiries, correspondence, questions and answers, clarifications by the knesset legal advisor. Examples: 'מכתב בעניין פנייה', 'תשובה על שאלה', 'בירור משפטי'."
+            search_mode_description = "Search mode. 'METADATA_BROWSE': Browse mode for exploring multiple documents with metadata summaries (25 results). 'REGULAR': Standard detailed search with full content (7 results, default)."
+        elif 'committee_decisions' in vector_store:
+            tool_description = "Search the knesset committee decisions (החלטות ועדת הכנסת). Use for: the knesset committee resolutions, procedural decisions, administrative committee matters. Examples: 'החלטת ועדת הכנסת על נוהל', 'החלטה פרוצדורלית', 'הסדר עבודה'."
             search_mode_description = "Search mode. 'METADATA_BROWSE': Browse mode for exploring multiple documents with metadata summaries (25 results). 'REGULAR': Standard detailed search with full content (7 results, default)."
         elif 'ethics_decisions' in vector_store:
+            tool_description = "Search ethics committee decisions (החלטות ועדת אתיקה). Use for: ethics violations, complaints against MKs, ethical sanctions, ethics-related matters. Examples: 'תלונה נגד חבר כנסת', 'נזיפה', 'הפרת כללי אתיקה'."
             search_mode_description = "Search mode. 'METADATA_BROWSE': Browse mode for exploring multiple ethics decisions with summaries (25 results). 'REGULAR': Standard detailed search with full content (7 results, default)."
         elif 'common_knowledge' in vector_store:
+            tool_description = "Search general knowledge about Knesset procedures and explanations (ידע כללי). Use for: explanatory questions, procedural questions, 'how does X work', general understanding. Examples: 'איך עובד הליך החקיקה?', 'מה זה ועדת אתיקה?', 'הסבר על תקנון'."
             search_mode_description = "Search mode. 'REGULAR': Standard semantic search across all fields (default 7 results). 'METADATA_BROWSE': Browse mode for exploring multiple documents with metadata summaries (25 results)."
         else:
+            tool_description = f"Semantic search the '{vector_store}' vector store"
             search_mode_description = "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results). 'METADATA_BROWSE': Browse mode for exploring multiple documents with metadata summaries (25 results)."
         
         self.tools.append({
             "type": "function",
             "function": {
                 "name": f"search_{vector_store}",
-                "description": f"Semantic search the '{vector_store}' vector store",
+                "description": tool_description,
                 "parameters": {
                     "type": "object",
                     "properties": {
