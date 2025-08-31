@@ -512,6 +512,13 @@ class VectorStoreES(VectorStoreBase):
 
     def update_tools(self, context_, vector_store):
         # vector_store is now just the index name string
+        
+        # Context-specific descriptions for search modes
+        if 'legal_text' in vector_store:
+            search_mode_description = "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results). 'METADATA_BROWSE': Browse committee decisions and legal advisor documents with metadata summaries (default 25 results)."
+        else:
+            search_mode_description = "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results)."
+        
         self.tools.append({
             "type": "function",
             "function": {
@@ -526,7 +533,7 @@ class VectorStoreES(VectorStoreBase):
                         },
                         "search_mode": {
                             "type": "string",
-                            "description": "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results).",
+                            "description": search_mode_description,
                             "enum": [mode.name for mode in SEARCH_MODES.values()],
                             "default": DEFAULT_SEARCH_MODE.name
                         },

@@ -21,6 +21,7 @@ def extract_structured_content(text: str, template: str = None, document_type: s
     if template is None:
         template = """{
             "DocumentTitle": "",
+            "Summary": "",
             "PublicationDate": "",
             "OfficialSource": "",
             "ReferenceLinks": [],
@@ -46,7 +47,6 @@ def extract_structured_content(text: str, template: str = None, document_type: s
                 "Quote": ""
               }
             ],
-            "Description": "",
             "LegalReferences": [
             {
               "ReferenceTitle": "",
@@ -70,13 +70,14 @@ def extract_structured_content(text: str, template: str = None, document_type: s
         2. Output must be valid JSON that exactly follows the provided schema—do not add any extra keys or commentary.
         3. Ensure all special characters, especially quotes within text, are properly escaped.
         4. At the document level (DocumentMetadata), extract:
-            - "DocumentTitle" from the heading.
+            - "DocumentTitle": Extract the main title or heading that describes the document content in a single line. This should be descriptive of what the document is about.
+            - "Summary": Create a comprehensive paragraph summarizing the essence and output of the document. Include the background, main issues discussed, and final results/decisions/conclusions. This should capture the document's purpose, process, and outcome in one cohesive paragraph.
             - "OfficialSource" from any indicated section (e.g. "סעיף 137") and include any associated URL in "ReferenceLinks".
             - "ClauseRepresentation" should indicate whether the metadata pertains to a main clause, sub-clause, or specific section.
             - Extract any official roles/positions mentioned in the document and list them in "OfficialRoles".
             - Extract any official organizations mentioned in the document and list them in "OfficialOrganizations".
             - Extract any real-world locations or placenames mentioned in the document and list them in "Placenames".
-            - "Description" should be a one-line summary describing the entire document's clauses content.
+
         5. At the document level, also extract:
             - "LegalReferences": For each legal reference
             - "Amendments": If any amendment information is present

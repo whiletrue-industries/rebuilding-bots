@@ -18,7 +18,7 @@
       "children": [
         {
           "depth": 2,
-          "section_name": "סעיף 1 - חסינות במילוי התפקיד",
+          "section_name": "סעיף 1",
           "html_id": "סעיף_1",
           "section_type": "סעיף",
           "children": [],
@@ -26,7 +26,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 2 - חסינות בפני חיפוש",
+          "section_name": "סעיף 2",
           "html_id": "סעיף_2",
           "section_type": "סעיף",
           "children": [],
@@ -34,7 +34,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 2א - חסינות בפני האזנת סתר",
+          "section_name": "סעיף 2א",
           "html_id": "סעיף_2א",
           "section_type": "סעיף",
           "children": [],
@@ -42,7 +42,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 3 - חסינות בפני מעצר",
+          "section_name": "סעיף 3",
           "html_id": "סעיף_3",
           "section_type": "סעיף",
           "children": [],
@@ -50,7 +50,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 4 - חסינות בפני דיון פלילי",
+          "section_name": "סעיף 4",
           "html_id": "סעיף_4",
           "section_type": "סעיף",
           "children": [],
@@ -58,7 +58,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 4א - חסינות בפני קובלנה פלילית",
+          "section_name": "סעיף 4א",
           "html_id": "סעיף_4א",
           "section_type": "סעיף",
           "children": [],
@@ -90,7 +90,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 6 - התישנות של עבירות",
+          "section_name": "סעיף 6",
           "html_id": "סעיף_6",
           "section_type": "סעיף",
           "children": [],
@@ -98,7 +98,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 7 - שירות חובה",
+          "section_name": "סעיף 7",
           "html_id": "סעיף_7",
           "section_type": "סעיף",
           "children": [],
@@ -106,7 +106,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 8 - מועד למתן עדות",
+          "section_name": "סעיף 8",
           "html_id": "סעיף_8",
           "section_type": "סעיף",
           "children": [],
@@ -114,7 +114,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 9 - חופש התנועה בתחום המדינה",
+          "section_name": "סעיף 9",
           "html_id": "סעיף_9",
           "section_type": "סעיף",
           "children": [],
@@ -122,7 +122,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 9א - תעודת חבר הכנסת",
+          "section_name": "סעיף 9א",
           "html_id": "סעיף_9א",
           "section_type": "סעיף",
           "children": [],
@@ -130,7 +130,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 10 - יציאה לחוץ־לארץ",
+          "section_name": "סעיף 10",
           "html_id": "סעיף_10",
           "section_type": "סעיף",
           "children": [],
@@ -138,7 +138,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 10א - השתתפות בהוצאות משפטיות",
+          "section_name": "סעיף 10א",
           "html_id": "סעיף_10א",
           "section_type": "סעיף",
           "children": [],
@@ -154,7 +154,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 12 - פרסומי הממשלה",
+          "section_name": "סעיף 12",
           "html_id": "סעיף_12",
           "section_type": "סעיף",
           "children": [],
@@ -162,7 +162,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 12א - כלי יריה",
+          "section_name": "סעיף 12א",
           "html_id": "סעיף_12א",
           "section_type": "סעיף",
           "children": [],
@@ -170,7 +170,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 12ב - אבטחה אישית לחבר הכנסת",
+          "section_name": "סעיף 12ב",
           "html_id": "סעיף_12ב",
           "section_type": "סעיף",
           "children": [],
@@ -178,7 +178,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 13 - קביעת חסינות ונטילת חסינות",
+          "section_name": "סעיף 13",
           "html_id": "סעיף_13",
           "section_type": "סעיף",
           "children": [],
@@ -186,7 +186,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 13א - איסור עיסוק נוסף",
+          "section_name": "סעיף 13א",
           "html_id": "סעיף_13א",
           "section_type": "סעיף",
           "children": [],
@@ -194,7 +194,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 13א1 - איסור לכהן כנבחר ציבור",
+          "section_name": "סעיף 13א1",
           "html_id": "סעיף_13א1",
           "section_type": "סעיף",
           "children": [],
@@ -202,7 +202,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 13ב - הצהרת הון",
+          "section_name": "סעיף 13ב",
           "html_id": "סעיף_13ב",
           "section_type": "סעיף",
           "children": [],
@@ -218,7 +218,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 13ד - ועדת אתיקה",
+          "section_name": "סעיף 13ד",
           "html_id": "סעיף_13ד",
           "section_type": "סעיף",
           "children": [],
@@ -226,7 +226,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 13ה - כללי אתיקה",
+          "section_name": "סעיף 13ה",
           "html_id": "סעיף_13ה",
           "section_type": "סעיף",
           "children": [],
@@ -234,7 +234,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 14 - איסורים",
+          "section_name": "סעיף 14",
           "html_id": "סעיף_14",
           "section_type": "סעיף",
           "children": [],
@@ -242,7 +242,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 14א - איסור הנאה מהקצבה ייחודית",
+          "section_name": "סעיף 14א",
           "html_id": "סעיף_14א",
           "section_type": "סעיף",
           "children": [],
@@ -250,7 +250,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 15 - דין שר או סגן שר שאינו חבר הכנסת",
+          "section_name": "סעיף 15",
           "html_id": "סעיף_15",
           "section_type": "סעיף",
           "children": [],
@@ -258,7 +258,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 16 - ביצוע",
+          "section_name": "סעיף 16",
           "html_id": "סעיף_16",
           "section_type": "סעיף",
           "children": [],

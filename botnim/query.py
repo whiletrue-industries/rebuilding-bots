@@ -18,12 +18,85 @@ TRAILING_NUMBERS_PATTERN = re.compile(r'_\d+$')
 # Constants for text formatting
 DEFAULT_TRUNCATE_LENGTH = 150
 
+# Hardcoded field configuration for metadata browse mode
+METADATA_BROWSE_FIELDS = {
+    # Core fields that appear at top level (no duplication)
+    'core': {
+        'document_type': 'computed',  # Intelligently extracted from content using _extract_document_type()
+        'document_id': 'result.id',
+        'relevance_score': 'result.score', 
+        'title': 'extracted_data.DocumentTitle',
+        'summary': 'extracted_data.Summary',
+        'source_url': 'metadata.source_url'
+    },
+    
+    # Date fields (pick first available)
+    'date_fields': ['תאריך', 'תאריך_מכתב', 'PublicationDate'],
+    
+    # Specific metadata fields to include (only if they exist)
+    'metadata_fields': [
+        # Document identification
+        'מספר_מסמך',        # Document number
+        'סוג_מסמך',         # Document type  
+        'סוג_הפניה',        # Type of inquiry
+        'תקופת_כנסת',       # Knesset term
+        'סדר_החלטה',        # Decision order
+        
+        # People/entities involved
+        'שולח',            # Sender
+        'נמען',            # Recipient  
+        'נושא_אדם_מעורב',   # Person involved
+        'משתתפים',         # Participants
+        
+        # Content classification
+        'נושא_כללי',        # General subject
+        'נושא_ספציפי',      # Specific subject
+        'אופי_תלונה',       # Nature of complaint
+        'סוג_החלטה',        # Decision type
+        
+        # Key content summaries
+        'המלצות_הנחיות',    # Recommendations/Guidelines
+        'ממצאי_הוועדה',     # Committee findings
+        'נימוקים',          # Reasoning
+        'תוצאה_עונש',       # Punishment/outcome
+        'תנאים',           # Conditions
+        'רקע',             # Background
+        
+        # References (only include if different from source_url)
+        'קישור_למקור',      # Source link
+        'OfficialSource',   # Official source
+        
+        # Additional context
+        'הערות',           # Notes
+    ],
+    
+    # Special handling field
+    'full_text_field': 'טקסט_מלא'
+}
+
 
 def _truncate_with_ellipsis(text: str, max_length: int = DEFAULT_TRUNCATE_LENGTH) -> str:
     """Helper function to truncate text with ellipsis if needed"""
     if not text or len(text) <= max_length:
         return text
     return text[:max_length] + "..."
+
+
+def _extract_document_type(extracted_data: Dict[str, Any]) -> str:
+    """
+    Extract document type from the extracted data.
+    Uses existing document type fields from the extraction process.
+    """
+    if not extracted_data:
+        return "unknown"
+    
+    # Use the document type field from PDF extraction (if available)
+    document_type = extracted_data.get('סוג_מסמך', '')
+    if document_type:
+        return document_type
+    
+    # Fallback to "document" if no type was extracted
+    return ""
 
 @dataclass
 class SearchResult:
@@ -189,64 +262,60 @@ def _format_metadata_browse_results(results: List[SearchResult]) -> Dict[str, An
     Format search results specifically for METADATA_BROWSE mode
     Returns structured metadata for browsing instead of full content
     """
-    def _truncate_text_fields(data: Dict, max_length: int = 200) -> Dict:
-        """Recursively truncate long text fields in metadata"""
-        if isinstance(data, dict):
-            truncated = {}
-            for key, value in data.items():
-                if isinstance(value, str) and len(value) > max_length:
-                    truncated[key] = value[:max_length] + "..."
-                elif isinstance(value, dict):
-                    truncated[key] = _truncate_text_fields(value, max_length)
-                elif isinstance(value, list):
-                    truncated[key] = [_truncate_text_fields(item, max_length) if isinstance(item, dict) else item for item in value]
-                else:
-                    truncated[key] = value
-            return truncated
-        return data
+
     
     def _extract_metadata_fields(result: SearchResult) -> Dict[str, Any]:
-        """Extract and structure metadata fields for browse display"""
+        """Extract and structure metadata fields for browse display - optimized with hardcoded fields"""
         metadata = result.metadata or {}
         extracted_data = metadata.get('extracted_data', {})
         
-        # Extract document type from result ID by replacing underscores with spaces
-        document_type = "unknown"
-        if result.id:
-            # Extract the meaningful part of the ID (usually after the context name)
-            # Example: "takanon__legal_text__staging_knesset_legal_advisor_123" -> "knesset legal advisor"
-            id_parts = result.id.split('__')
-            if len(id_parts) > 2:
-                # Take the part after context name and remove numeric suffixes
-                type_part = id_parts[-1]
-                # Remove any trailing numbers and clean up
-                type_part = TRAILING_NUMBERS_PATTERN.sub('', type_part)  # Remove trailing numbers like "_123"
-                document_type = type_part.replace('_', ' ')
-            else:
-                document_type = result.id.replace('_', ' ')
-        
-        # Base structure with common fields
+        # 1. Build core fields (no duplication) 
         browse_item = {
-            "document_type": document_type,
+            "document_type": _extract_document_type(extracted_data),
             "document_id": result.id,
             "relevance_score": round(result.score, 2),
-            "source_url": metadata.get('source_url', ''),
-            "title": metadata.get('title', '') or extracted_data.get('DocumentTitle', 'ללא כותרת')
+            "title": extracted_data.get('DocumentTitle', 'ללא כותרת'),
+            "summary": extracted_data.get('Summary', '')
         }
         
-        # Add all extracted_data fields, truncating long text except full text indicator
-        if extracted_data:
-            truncated_data = _truncate_text_fields(extracted_data)
-            # For full text, just provide length and availability info instead of the full content
-            if 'טקסט_מלא' in truncated_data and len(extracted_data.get('טקסט_מלא', '')) > 0:
-                truncated_data['טקסט_מלא'] = f"Available ({len(extracted_data.get('טקסט_מלא', '')):,} characters)"
-            browse_item["metadata"] = truncated_data
+        # 2. Add source URL (prefer metadata.source_url, fallback to קישור_למקור)
+        source_url = metadata.get('source_url', '') or extracted_data.get('קישור_למקור', '')
+        if source_url:
+            browse_item["source_url"] = source_url
         
-        # Add any other metadata fields (excluding 'extracted_data' to avoid duplication)
-        other_metadata = {k: v for k, v in metadata.items() if k not in ['extracted_data', 'source_url', 'title']}
-        if other_metadata:
-            truncated_other = _truncate_text_fields(other_metadata)
-            browse_item["additional_metadata"] = truncated_other
+        # 3. Extract only relevant metadata fields
+        relevant_metadata = {}
+        
+        # Add date (pick first available from configured date fields)
+        for date_field in METADATA_BROWSE_FIELDS['date_fields']:
+            if extracted_data.get(date_field):
+                relevant_metadata['date'] = extracted_data[date_field]
+                break
+        
+        # Add specific metadata fields (only if they exist)
+        for field in METADATA_BROWSE_FIELDS['metadata_fields']:
+            if field in extracted_data:
+                value = extracted_data[field]
+                # Skip קישור_למקור if it's the same as source_url to avoid duplication
+                if field == 'קישור_למקור' and value == browse_item.get('source_url'):
+                    continue
+                    
+                # Truncate long text fields (but preserve arrays and objects as-is)
+                if isinstance(value, str) and len(value) > 200:
+                    relevant_metadata[field] = value[:200] + "..."
+                else:
+                    relevant_metadata[field] = value
+        
+        # 4. Special handling for full text field
+        full_text_field = METADATA_BROWSE_FIELDS['full_text_field']
+        if extracted_data.get(full_text_field):
+            char_count = len(extracted_data[full_text_field])
+            if char_count > 0:
+                relevant_metadata[full_text_field] = f"Available ({char_count:,} characters)"
+        
+        # 5. Only add metadata section if we have relevant fields
+        if relevant_metadata:
+            browse_item["metadata"] = relevant_metadata
         
         return browse_item
     
@@ -285,24 +354,17 @@ def _format_metadata_browse_text(results: List[SearchResult]) -> str:
         result_text += f"   **Type:** {doc_type}\n"
         result_text += f"   **Relevance:** {relevance:.2f}\n"
         
-        # Add date if available
+        # Add date if available (now using standardized date field)
         metadata = doc.get('metadata', {})
-        date = (metadata.get('תאריך') or 
-                metadata.get('תאריך_מכתב') or 
-                metadata.get('PublicationDate'))
+        date = metadata.get('date')
         if date:
             result_text += f"   **Date:** {date}\n"
             
-        # Add summary/description
-        if metadata.get('תקציר'):
-            summary = _truncate_with_ellipsis(metadata.get('תקציר', ''))
-            result_text += f"   **Summary:** {summary}\n"
-        elif metadata.get('רקע'):
-            summary = _truncate_with_ellipsis(metadata.get('רקע', ''))
-            result_text += f"   **Background:** {summary}\n"
-        elif metadata.get('Description'):
-            summary = _truncate_with_ellipsis(metadata.get('Description', ''))
-            result_text += f"   **Description:** {summary}\n"
+        # Add summary (using the new standardized summary field)
+        summary = doc.get('summary', '')
+        if summary:
+            summary_truncated = _truncate_with_ellipsis(summary)
+            result_text += f"   **Summary:** {summary_truncated}\n"
             
         # Add full text availability if indicated
         if metadata.get('טקסט_מלא') and 'Available' in metadata.get('טקסט_מלא', ''):
