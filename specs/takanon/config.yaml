@@ -5,6 +5,8 @@ instructions: agent.txt
 context:
   - slug: common_knowledge
     name: ידע רלוונטי על התקנון ועל האופן בו הכנסת מתנהלת
+    description: "Search general knowledge about Knesset procedures and explanations. Use for: explanatory questions, procedural questions, 'how does X work', general understanding."
+    examples: "איך עובד הליך החקיקה?, מה זה ועדת אתיקה?, הסבר על תקנון"
     max_num_results: 7
     sources:
     - type: google-spreadsheet
@@ -24,8 +26,10 @@ context:
         kind: wikitext
         input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%A4%D7%A8%D7%A9%D7%A0%D7%95%D7%AA
 
-  - slug: legal_text
-    name: Knesset Bylaws (תקנון הכנסת) and related laws
+  - slug: legal_texts
+    name: חוקים ותקנונים
+    description: "Search laws, bylaws and regulations. Use for: specific legal text, section numbers, law content, bylaws, constitutional texts."
+    examples: "סעיף 12 בתקנון, חוק הכנסת, חוק יסוד הכנסת, כללי אתיקה"
     sources:
       - type: split
         source: extraction/חוק_הכנסת_structure_content.json
@@ -67,6 +71,12 @@ context:
         fetcher:
           kind: wikitext
           input_url: https://he.m.wikisource.org/wiki/%D7%94%D7%97%D7%9C%D7%98%D7%AA_%D7%A9%D7%9B%D7%A8_%D7%97%D7%91%D7%A8%D7%99_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA_(%D7%94%D7%A2%D7%A0%D7%A7%D7%95%D7%AA_%D7%95%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D)
+
+  - slug: legal_advisor_opinions
+    name: חוות דעת היועצת המשפטית לכנסת
+    description: "Search formal legal opinions by Knesset legal advisor. Use for: legal interpretations, formal legal guidance, precedents, legal analysis."
+    examples: "חוות דעת על ניגוד עניינים, פרשנות משפטית, הנחיה פורמלית"
+    sources:
       - type: csv
         source: extraction/knesset_legal_advisor.csv
         fetcher:
@@ -135,6 +145,11 @@ context:
             - כללי
             עבור שדה נושא_ספציפי, הפק את הנושא הספציפי של המסמך כפי שמופיע בתוכן.
             אם המסמך מכיל מספר חוות דעת/הנחיות/מכתבים נפרדים, הפק מידע עבור כל אחד בנפרד. החזר מערך של אובייקטים JSON, כל אובייקט מייצג מסמך אחד.
+  - slug: legal_advisor_letters
+    name: מכתבי היועצת המשפטית לכנסת
+    description: "Search correspondence with the knesset legal advisor. Use for: informal inquiries, correspondence, questions and answers, clarifications."
+    examples: "מכתב בעניין פנייה, תשובה על שאלה, בירור משפטי"
+    sources:
       - type: csv
         source: extraction/knesset_legal_advisor_letters.csv
         fetcher:
@@ -203,6 +218,12 @@ context:
             - כללי
             עבור שדה נושא_ספציפי, הפק את הנושא הספציפי של המסמך כפי שמופיע בתוכן.
             אם המסמך מכיל מספר חוות דעת/הנחיות/מכתבים נפרדים, הפק מידע עבור כל אחד בנפרד. החזר מערך של אובייקטים JSON, כל אובייקט מייצג מסמך אחד.
+
+  - slug: committee_decisions
+    name: החלטות ועדות הכנסת
+    description: "Search the knesset committee decisions. Use for: the knesset committee resolutions, procedural decisions, administrative committee matters."
+    examples: "החלטת ועדת הכנסת על נוהל, החלטה פרוצדורלית, הסדר עבודה"
+    sources:
       - type: csv
         source: extraction/knesset_committee_decisions.csv
         fetcher:
@@ -257,7 +278,9 @@ context:
             אם המסמך מכיל מספר החלטות נפרדות, הפק מידע עבור כל החלטה בנפרד. החזר מערך של אובייקטים JSON, כל אובייקט מייצג החלטה אחת. עבור כל החלטה, מלא את השדות הרלוונטיים לאותה החלטה ספציפית. אם יש מספר החלטות, החזר מערך של אובייקטים במקום אובייקט בודד.
 
   - slug: ethics_decisions
-    name: "החלטות ועדת אתיקה בדבר כללי אתיקה לחברי הכנסת"
+    name: החלטות ועדת האתיקה
+    description: "Search ethics committee decisions. Use for: ethics violations, complaints against MKs, ethical sanctions, ethics-related matters."
+    examples: "תלונה נגד חבר כנסת, נזיפה, הפרת כללי אתיקה, החלטת ועדת אתיקה"
     sources:
       - type: csv
         source: extraction/ethics_committee_decisions.csv

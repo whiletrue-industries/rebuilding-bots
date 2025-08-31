@@ -22,7 +22,7 @@ DEFAULT_TRUNCATE_LENGTH = 150
 METADATA_BROWSE_FIELDS = {
     # Core fields that appear at top level (no duplication)
     'core': {
-        'document_type': 'computed',  # Intelligently extracted from content using _extract_document_type()
+        'document_type': 'context_name',  # Derived from context name
         'document_id': 'result.id',
         'relevance_score': 'result.score', 
         'title': 'extracted_data.DocumentTitle',
@@ -82,21 +82,15 @@ def _truncate_with_ellipsis(text: str, max_length: int = DEFAULT_TRUNCATE_LENGTH
     return text[:max_length] + "..."
 
 
-def _extract_document_type(extracted_data: Dict[str, Any]) -> str:
-    """
-    Extract document type from the extracted data.
-    Uses existing document type fields from the extraction process.
-    """
-    if not extracted_data:
-        return "unknown"
-    
-    # Use the document type field from PDF extraction (if available)
-    document_type = extracted_data.get('סוג_מסמך', '')
-    if document_type:
-        return document_type
-    
-    # Fallback to "document" if no type was extracted
-    return ""
+# Context name to display name mapping for document types
+CONTEXT_DISPLAY_NAMES = {
+    'legal_texts': 'מסמך משפטי',
+    'legal_advisor_opinions': 'חוות דעת משפטית', 
+    'legal_advisor_letters': 'מכתב יועצת משפטית',
+    'committee_decisions': 'החלטת ועדה',
+    'ethics_decisions': 'החלטת ועדת אתיקה',
+    'common_knowledge': 'ידע כללי'
+}
 
 @dataclass
 class SearchResult:
@@ -109,6 +103,7 @@ class SearchResult:
     _explanation: dict = None  # Elasticsearch explanation
     text_score: float = None  # Text similarity score
     vector_score: float = None  # Vector similarity score
+    context_name: str = None  # Context name for document type derivation
     
     @property
     def explanation(self) -> Optional[Dict[str, Any]]:
@@ -204,7 +199,8 @@ class QueryClient:
                     content=hit['_source']['content'].strip().split('\n')[0],
                     full_content=hit['_source']['content'],
                     metadata=hit['_source'].get('metadata', None),
-                    _explanation=hit.get('_explanation', None) if explain else None
+                    _explanation=hit.get('_explanation', None) if explain else None,
+                    context_name=self.context_name
                 )
                 for hit in results['hits']['hits']
             ]
@@ -271,7 +267,7 @@ def _format_metadata_browse_results(results: List[SearchResult]) -> Dict[str, An
         
         # 1. Build core fields (no duplication) 
         browse_item = {
-            "document_type": _extract_document_type(extracted_data),
+            "document_type": CONTEXT_DISPLAY_NAMES.get(result.context_name, result.context_name or 'unknown'),
             "document_id": result.id,
             "relevance_score": round(result.score, 2),
             "title": extracted_data.get('DocumentTitle', 'ללא כותרת'),
