@@ -110,8 +110,10 @@ The available datasets (מאגרי המידע) are:
 - budget_items_data: Data from the budget book (ספר התקציב), detailing the planned and executed expense budget of the state of Israel (תקציב המדינה).
   The state budget is divided into various items, describing the allocation and execution of funds in different subjects and purposes.
   To see how much money a particular organization received, it is necessary to check the supports and contracts datasets.
-- supports_data: Data on budgetary supports (נתונים על תמיכות תקציביות)
+- support_programs_data: Data on budgetary support programs (נתונים על תוכניות תמיכה תקציביות)
   These are supports provided by the state to various organizations.
+- supports_transactions_data: Data on individual payments for budgetary supports (נתונים על תשלומים במסגרת תמיכות תקציביות)
+  This dataset contains detailed information regarding specific funds allocated and paid to specific organizations under these support programs.
 - contracts_data: Data on the government's procurement contracts (נתונים על התקשרויות רכש) for products and services.
   In this dataset, you can find information on the government's contracts with various suppliers and their purposes.
 - entities_data: Data on corporations, companies, associations, local authorities, etc. (נתונים על תאגידים, חברות, עמותות, רשויות מקומיות וכו׳)
