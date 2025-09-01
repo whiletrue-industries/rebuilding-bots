@@ -514,7 +514,7 @@ class VectorStoreES(VectorStoreBase):
         # vector_store is now just the index name string
         
         # Context-specific descriptions and search modes
-        if 'legal_texts' in vector_store:
+        if 'legal_text' in vector_store:
             tool_description = "Search laws, bylaws and regulations (חוקים ותקנונים). Use for: specific legal text, section numbers, law content, bylaws, constitutional texts. Examples: 'סעיף 12 בתקנון', 'חוק הכנסת', 'חוק יסוד הכנסת', 'כללי אתיקה'."
             search_mode_description = "Search mode. 'SECTION_NUMBER': Specialized search for finding legal text sections by their number (e.g. 'סעיף 12'). Requires both section number and resource name (default 3 results). 'REGULAR': Semantic + full text search across all main fields (default 7 results). 'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)."
         elif 'legal_advisor_opinions' in vector_store:
