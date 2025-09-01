@@ -17,6 +17,8 @@ TRAILING_NUMBERS_PATTERN = re.compile(r'_\d+$')
 
 # Constants for text formatting
 DEFAULT_TRUNCATE_LENGTH = 150
+DEFAULT_NUM_RESULTS = 7
+LIST_PREVIEW_LIMIT = 3
 
 # Hardcoded field configuration for metadata browse mode
 METADATA_BROWSE_FIELDS = {
@@ -173,7 +175,7 @@ class QueryClient:
             if num_results is None:
                 num_results = search_mode.num_results
             if num_results is None:
-                num_results = self.context_config.get('default_num_results', 7)
+                num_results = self.context_config.get('default_num_results', DEFAULT_NUM_RESULTS)
 
             # Get embedding using the vector store's OpenAI client
             response = self.vector_store.openai_client.embeddings.create(
@@ -219,7 +221,7 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str='dict', explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> Union[List[Dict], str]:
+def run_query(*, store_id: str, query_text: str, num_results: int=DEFAULT_NUM_RESULTS, format: str='dict', explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> Union[List[Dict], str]:
     """
     Run a query against the vector store
     
@@ -400,12 +402,12 @@ def _format_metadata_browse_text(results: List[SearchResult]) -> str:
                 # Handle different value types
                 if isinstance(field_value, list):
                     if field_value:  # Only show non-empty lists
-                        value_str = ', '.join(str(v) for v in field_value[:3])  # Show first 3 items
-                        if len(field_value) > 3:
-                            value_str += f" (+{len(field_value)-3} more)"
+                        value_str = ', '.join(str(v) for v in field_value[:LIST_PREVIEW_LIMIT])  # Show first few items
+                        if len(field_value) > LIST_PREVIEW_LIMIT:
+                            value_str += f" (+{len(field_value)-LIST_PREVIEW_LIMIT} more)"
                         result_text += f"   **{display_name}:** {value_str}\n"
                 elif isinstance(field_value, str):
-                    truncated_value = _truncate_with_ellipsis(field_value, 150)
+                    truncated_value = _truncate_with_ellipsis(field_value, DEFAULT_TRUNCATE_LENGTH)
                     result_text += f"   **{display_name}:** {truncated_value}\n"
                 else:
                     result_text += f"   **{display_name}:** {field_value}\n"
