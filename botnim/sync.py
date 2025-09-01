@@ -7,6 +7,7 @@ from openai import OpenAI
 from .config import SPECS, get_openai_client, is_production
 from .vector_store import VectorStoreOpenAI, VectorStoreES
 
+
 def openapi_to_tools(openapi_spec):
     ret = []
     for path in openapi_spec['paths'].values():
