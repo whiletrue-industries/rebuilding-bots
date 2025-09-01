@@ -430,6 +430,61 @@ def _format_metadata_browse_text(results: List[SearchResult]) -> str:
     
     return header + "\n".join(formatted_results) + footer
 
+def _format_browse_mode_results(results: List[SearchResult], format: str) -> str:
+    """Handle METADATA_BROWSE mode formatting"""
+    if format == 'dict':
+        return _format_metadata_browse_results(results)
+    elif format == 'yaml':
+        browse_results = _format_metadata_browse_results(results)
+        return yaml.dump(browse_results, allow_unicode=True, width=1000000, sort_keys=False)
+    elif format == 'text':
+        return _format_metadata_browse_text(results)
+    else:
+        # Fallback for unsupported formats in browse mode
+        return _format_metadata_browse_text(results)
+
+def _format_result_as_text_short(result: SearchResult) -> str:
+    """Format a single result as text-short"""
+    return f"{result.full_content}"
+
+def _format_result_as_text(result: SearchResult, explain: bool) -> str:
+    """Format a single result as detailed text"""
+    metadata_str = ''
+    if result.metadata:
+        metadata_str = f"Metadata:\n{json.dumps(result.metadata, indent=2, ensure_ascii=False)}\n"
+    
+    explanation_str = ''
+    if explain and hasattr(result, '_explanation'):
+        explanation_str = f"\nScoring Explanation:\n{json.dumps(result._explanation, indent=2, ensure_ascii=False)}\n"
+    
+    return (
+        f"[Score: {result.score:.2f}]\n"
+        f"ID: {result.id}\n"
+        f"Content:\n{result.full_content}\n"
+        f"{metadata_str}"
+        f"{explanation_str}"
+    )
+
+def _format_result_as_dict(result: SearchResult, explain: bool) -> Dict[str, Any]:
+    """Format a single result as dictionary"""
+    result_dict = dict(
+        id=result.id,
+        score=result.score,
+        content=result.full_content,
+        metadata=result.metadata
+    )
+    if explain and hasattr(result, '_explanation'):
+        result_dict['_explanation'] = result._explanation
+    return result_dict
+
+def _format_result_as_yaml_entry(result: SearchResult) -> Dict[str, str]:
+    """Format a single result for YAML output"""
+    parts = result.full_content.split('\n\n', 1)
+    return dict(
+        header=parts[0].strip(),
+        text=parts[1].strip() if len(parts) > 1 else '',
+    )
+
 def format_search_results(results: List[SearchResult], format: str, explain: bool, search_mode: SearchModeConfig = None) -> str:
     """
     Format search results as a human-readable text string
@@ -445,64 +500,28 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
     # Check if we're in METADATA_BROWSE mode for special formatting
     is_browse_mode = search_mode and search_mode.name == "METADATA_BROWSE"
     
-    # Format results for human-readable text output
+    if is_browse_mode:
+        return _format_browse_mode_results(results, format)
+    
+    # Process regular results
     formatted_results = []
-    join = format.startswith('text')
-    
-    # Special handling for METADATA_BROWSE mode
-    if is_browse_mode and format == 'dict':
-        return _format_metadata_browse_results(results)
-    elif is_browse_mode and format == 'yaml':
-        browse_results = _format_metadata_browse_results(results)
-        return yaml.dump(browse_results, allow_unicode=True, width=1000000, sort_keys=False)
-    elif is_browse_mode and format == 'text':
-        return _format_metadata_browse_text(results)
-    
     for result in results:
         if format == 'text-short':
-            formatted_results.append(
-                f"{result.full_content}"
-            )
+            formatted_results.append(_format_result_as_text_short(result))
         elif format == 'text':
-            metadata_str = ''
-            if result.metadata:
-                metadata_str = f"Metadata:\n{json.dumps(result.metadata, indent=2, ensure_ascii=False)}\n"
-            
-            explanation_str = ''
-            if explain and hasattr(result, '_explanation'):
-                explanation_str = f"\nScoring Explanation:\n{json.dumps(result._explanation, indent=2, ensure_ascii=False)}\n"
-            
-            formatted_results.append(
-                f"[Score: {result.score:.2f}]\n"
-                f"ID: {result.id}\n"
-                f"Content:\n{result.full_content}\n"
-                f"{metadata_str}"
-                f"{explanation_str}"
-            )
+            formatted_results.append(_format_result_as_text(result, explain))
         elif format == 'dict':
-            result_dict = dict(
-                id=result.id,
-                score=result.score,
-                content=result.full_content,
-                metadata=result.metadata
-            )
-            if explain and hasattr(result, '_explanation'):
-                result_dict['_explanation'] = result._explanation
-            formatted_results.append(result_dict)
+            formatted_results.append(_format_result_as_dict(result, explain))
         elif format == 'yaml':
-            # For YAML, split header/text for each result
-            parts = result.full_content.split('\n\n', 1)
-            result_dict = dict(
-                header=parts[0].strip(),
-                text=parts[1].strip() if len(parts) > 1 else '',
-            )
-            formatted_results.append(result_dict)
+            formatted_results.append(_format_result_as_yaml_entry(result))
     
-    if join:
-        formatted_results = '\n\n\n------------\n\n'.join(formatted_results)
-    if format == 'yaml':
+    # Post-process results based on format
+    if format.startswith('text'):
+        return '\n\n\n------------\n\n'.join(formatted_results)
+    elif format == 'yaml':
         return yaml.dump(formatted_results, allow_unicode=True, width=1000000, sort_keys=True)
-    return formatted_results or 'No results found.'
+    else:
+        return formatted_results or 'No results found.'
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     """
