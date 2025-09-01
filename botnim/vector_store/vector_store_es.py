@@ -149,39 +149,44 @@ class VectorStoreES(VectorStoreBase):
                             field_es_path: match_query_body
                         }
                     })
-        should_clauses = field_queries.copy()
-        # Only add vector search if enabled in config and embedding is provided
+
+        # Build the base query structure
         if search_mode.use_vector_search and embedding:
-            should_clauses.append({
-                "nested": {
-                    "path": "vectors",
-                    "query": {
-                        "bool": {
-                            "must": [
-                                {"term": {"vectors.source": "content"}},
-                                {
-                                    "knn": {
-                                        "field": "vectors.vector",
-                                        "query_vector": embedding,
-                                        "k": num_results,
-                                        "num_candidates": 20
-                                    }
-                                }
-                            ]
-                        }
+            # For ES 8.x compatibility: Use top-level knn with filter instead of nested knn in bool
+            search_query = {
+                "size": num_results,
+                "knn": {
+                    "field": "vectors.vector",
+                    "query_vector": embedding,
+                    "k": num_results,
+                    "num_candidates": 100,
+                    "filter": {
+                        "term": {"vectors.source": "content"}
                     }
                 }
-            })
-        query = {
-            "bool": {
-                "should": should_clauses,
-                "minimum_should_match": 1
             }
-        }
-        return {
-            "size": num_results,
-            "query": query
-        }
+            
+            # Add text queries if they exist
+            if field_queries:
+                search_query["query"] = {
+                    "bool": {
+                        "should": field_queries,
+                        "minimum_should_match": 1
+                    }
+                }
+        else:
+            # Text-only search
+            search_query = {
+                "size": num_results,
+                "query": {
+                    "bool": {
+                        "should": field_queries,
+                        "minimum_should_match": 1
+                    }
+                }
+            }
+        
+        return search_query
 
     def verify_document_vectors(self, index_name: str, document_id: str) -> Dict:
         """Verify vectors stored for a specific document"""
