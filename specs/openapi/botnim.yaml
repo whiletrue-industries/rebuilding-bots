@@ -358,6 +358,126 @@
         "deprecated": false
       }
     },
+    "/botnim/retrieve/unified/legal_advisor_opinions__dev": {
+      "get": {
+        "description": "Full text search on formal legal opinions by Knesset legal advisor",
+        "operationId": "search_unified__legal_advisor_opinions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query for legal advisor opinions",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'METADATA_BROWSE': Returns more results (25) with metadata summaries for exploration instead of full content. 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 7 for REGULAR, 25 for METADATA_BROWSE).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/unified/legal_advisor_letters__dev": {
+      "get": {
+        "description": "Full text search on correspondence with the Knesset legal advisor",
+        "operationId": "search_unified__legal_advisor_letters__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query for legal advisor letters",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'METADATA_BROWSE': Returns more results (25) with metadata summaries for exploration instead of full content. 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 7 for REGULAR, 25 for METADATA_BROWSE).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/unified/committee_decisions__dev": {
+      "get": {
+        "description": "Full text search on Knesset committee decisions",
+        "operationId": "search_unified__committee_decisions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query for committee decisions",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'METADATA_BROWSE': Returns more results (25) with metadata summaries for exploration instead of full content. 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 7 for REGULAR, 25 for METADATA_BROWSE).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
 
   },
   "components": {
