@@ -243,6 +243,286 @@
         ],
         "deprecated": false
       }
+    },
+    "/botnim/retrieve/unified/common_budget_knowledge__dev": {
+      "get": {
+        "description": "Search general budget knowledge in the unified knowledge base",
+        "operationId": "search_unified__common_budget_knowledge__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["REGULAR", "METADATA_BROWSE"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/unified/common_takanon_knowledge__dev": {
+      "get": {
+        "description": "Search general Knesset procedures and explanations in the unified knowledge base",
+        "operationId": "search_unified__common_takanon_knowledge__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["REGULAR", "METADATA_BROWSE"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/unified/legal_text__dev": {
+      "get": {
+        "description": "Search laws, bylaws and regulations in the unified legal knowledge base",
+        "operationId": "search_unified__legal_text__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["SECTION_NUMBER", "REGULAR", "METADATA_BROWSE"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/unified/legal_advisor_opinions__dev": {
+      "get": {
+        "description": "Search formal legal opinions by Knesset legal advisor in the unified knowledge base",
+        "operationId": "search_unified__legal_advisor_opinions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/unified/legal_advisor_letters__dev": {
+      "get": {
+        "description": "Search correspondence with the Knesset legal advisor in the unified knowledge base",
+        "operationId": "search_unified__legal_advisor_letters__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/unified/committee_decisions__dev": {
+      "get": {
+        "description": "Search Knesset committee decisions in the unified knowledge base",
+        "operationId": "search_unified__committee_decisions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/unified/ethics_decisions__dev": {
+      "get": {
+        "description": "Search ethics committee decisions in the unified knowledge base",
+        "operationId": "search_unified__ethics_decisions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
     }
   },
   "components": {
