@@ -197,7 +197,7 @@ class QueryClient:
                     score=hit['_score'],
                     id=hit['_id'],
                     content=hit['_source']['content'].strip().split('\n')[0],
-                    full_content=hit['_source']['content'],
+                    full_content=hit['_source']['content'] if search_mode.name != "METADATA_BROWSE" else None,
                     metadata=hit['_source'].get('metadata', None),
                     _explanation=hit.get('_explanation', None) if explain else None,
                     context_name=self.context_name
