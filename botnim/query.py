@@ -253,81 +253,104 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         # Return a meaningful error message instead of raising
         return f"Error performing search: {str(e)}"
 
+def _build_core_browse_item(result: SearchResult) -> Dict[str, Any]:
+    """Build the core fields for a browse item"""
+    metadata = result.metadata or {}
+    extracted_data = metadata.get('extracted_data', {})
+    
+    return {
+        "document_type": CONTEXT_DISPLAY_NAMES.get(result.context_name, result.context_name or 'unknown'),
+        "document_id": result.id,
+        "relevance_score": round(result.score, 2),
+        "title": extracted_data.get('DocumentTitle', 'ללא כותרת'),
+        "summary": extracted_data.get('Summary', '')
+    }
+
+def _extract_source_url(metadata: Dict, extracted_data: Dict) -> Optional[str]:
+    """Extract source URL with fallback logic"""
+    return metadata.get('source_url', '') or extracted_data.get('קישור_למקור', '')
+
+def _extract_date_field(extracted_data: Dict) -> Optional[str]:
+    """Extract the first available date field from configured date fields"""
+    for date_field in METADATA_BROWSE_FIELDS['date_fields']:
+        if extracted_data.get(date_field):
+            return extracted_data[date_field]
+    return None
+
+def _process_metadata_fields(extracted_data: Dict, browse_item: Dict) -> Dict[str, Any]:
+    """Process and filter metadata fields, excluding core fields and duplicates"""
+    relevant_metadata = {}
+    core_fields = {'DocumentTitle', 'Summary', 'title', 'status', 'document_type'}
+    
+    # Add date if available
+    date_value = _extract_date_field(extracted_data)
+    if date_value:
+        relevant_metadata['date'] = date_value
+    
+    # Process all other metadata fields
+    for field, value in extracted_data.items():
+        if _should_include_metadata_field(field, value, core_fields, browse_item):
+            relevant_metadata[field] = _format_metadata_value(value)
+    
+    return relevant_metadata
+
+def _should_include_metadata_field(field: str, value: Any, core_fields: set, browse_item: Dict) -> bool:
+    """Determine if a metadata field should be included"""
+    if field in core_fields:
+        return False
+    if field == 'קישור_למקור' and value == browse_item.get('source_url'):
+        return False
+    return bool(value)
+
+def _format_metadata_value(value: Any) -> Any:
+    """Format a metadata value, truncating long strings"""
+    if isinstance(value, str) and len(value) > DEFAULT_TRUNCATE_LENGTH:
+        return value[:DEFAULT_TRUNCATE_LENGTH] + "..."
+    return value
+
+def _add_full_text_indicator(extracted_data: Dict, relevant_metadata: Dict) -> None:
+    """Add full text availability indicator if present"""
+    full_text_field = METADATA_BROWSE_FIELDS['full_text_field']
+    if extracted_data.get(full_text_field):
+        char_count = len(extracted_data[full_text_field])
+        if char_count > 0:
+            relevant_metadata[full_text_field] = f"Available ({char_count:,} characters)"
+
+def _extract_metadata_fields(result: SearchResult) -> Dict[str, Any]:
+    """Extract and structure metadata fields for browse display"""
+    metadata = result.metadata or {}
+    extracted_data = metadata.get('extracted_data', {})
+    
+    # Build core fields
+    browse_item = _build_core_browse_item(result)
+    
+    # Add source URL if available
+    source_url = _extract_source_url(metadata, extracted_data)
+    if source_url:
+        browse_item["source_url"] = source_url
+    
+    # Process metadata fields
+    relevant_metadata = _process_metadata_fields(extracted_data, browse_item)
+    
+    # Add full text indicator
+    _add_full_text_indicator(extracted_data, relevant_metadata)
+    
+    # Only add metadata section if we have relevant fields
+    if relevant_metadata:
+        browse_item["metadata"] = relevant_metadata
+    
+    return browse_item
+
 def _format_metadata_browse_results(results: List[SearchResult]) -> Dict[str, Any]:
     """
     Format search results specifically for METADATA_BROWSE mode
     Returns structured metadata for browsing instead of full content
     """
-
-    
-    def _extract_metadata_fields(result: SearchResult) -> Dict[str, Any]:
-        """Extract and structure metadata fields for browse display - optimized with hardcoded fields"""
-        metadata = result.metadata or {}
-        extracted_data = metadata.get('extracted_data', {})
-        
-        # 1. Build core fields (no duplication) 
-        browse_item = {
-            "document_type": CONTEXT_DISPLAY_NAMES.get(result.context_name, result.context_name or 'unknown'),
-            "document_id": result.id,
-            "relevance_score": round(result.score, 2),
-            "title": extracted_data.get('DocumentTitle', 'ללא כותרת'),
-            "summary": extracted_data.get('Summary', '')
-        }
-        
-        # 2. Add source URL (prefer metadata.source_url, fallback to קישור_למקור)
-        source_url = metadata.get('source_url', '') or extracted_data.get('קישור_למקור', '')
-        if source_url:
-            browse_item["source_url"] = source_url
-        
-        # 3. Extract only relevant metadata fields
-        relevant_metadata = {}
-        
-        # Add date (pick first available from configured date fields)
-        for date_field in METADATA_BROWSE_FIELDS['date_fields']:
-            if extracted_data.get(date_field):
-                relevant_metadata['date'] = extracted_data[date_field]
-                break
-        
-        # Add all available metadata fields (dynamically, excluding core fields already shown)
-        core_fields = {'DocumentTitle', 'Summary', 'title', 'status', 'document_type'}
-        for field, value in extracted_data.items():
-            # Skip core fields that are already displayed at top level
-            if field in core_fields:
-                continue
-                
-            # Skip קישור_למקור if it's the same as source_url to avoid duplication
-            if field == 'קישור_למקור' and value == browse_item.get('source_url'):
-                continue
-                
-            # Only include fields that have meaningful content
-            if value:
-                # Truncate long text fields (but preserve arrays and objects as-is)
-                if isinstance(value, str) and len(value) > 200:
-                    relevant_metadata[field] = value[:200] + "..."
-                else:
-                    relevant_metadata[field] = value
-        
-        # 4. Special handling for full text field
-        full_text_field = METADATA_BROWSE_FIELDS['full_text_field']
-        if extracted_data.get(full_text_field):
-            char_count = len(extracted_data[full_text_field])
-            if char_count > 0:
-                relevant_metadata[full_text_field] = f"Available ({char_count:,} characters)"
-        
-        # 5. Only add metadata section if we have relevant fields
-        if relevant_metadata:
-            browse_item["metadata"] = relevant_metadata
-        
-        return browse_item
-    
-    # Format the response
-    browse_response = {
+    return {
         "search_mode": "METADATA_BROWSE",
         "total_results": len(results),
         "documents": [_extract_metadata_fields(result) for result in results]
     }
-    
-    return browse_response
 
 def _format_metadata_browse_text(results: List[SearchResult]) -> str:
     """
