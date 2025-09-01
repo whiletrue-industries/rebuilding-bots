@@ -8,9 +8,10 @@ tools:
 context:
   - slug: common_budget_knowledge
     name: ידע רלוונטי על התקציב
-    type: split
-    source: common-knowledge.md
     max_num_results: 7
+    sources:
+      - type: split
+        source: common-knowledge.md
 
   - slug: common_takanon_knowledge
     name: ידע רלוונטי על התקנון ועל האופן בו הכנסת מתנהלת
