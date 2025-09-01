@@ -197,8 +197,7 @@ class VectorStoreES(VectorStoreBase):
                 source=['vectors']
             )
             vectors = result['_source'].get('vectors', [])
-            logger.info(f"Found {len(vectors)} vectors for document {document_id}")
-            logger.info(f"Vector sources: {[vec.get('source', 'unknown') for vec in vectors]}")
+            logger.debug(f"Found {len(vectors)} vectors for document {document_id}")
             return vectors
         except Exception as e:
             logger.error(f"Failed to verify vectors for document {document_id}: {str(e)}")
@@ -245,15 +244,10 @@ class VectorStoreES(VectorStoreBase):
         # Add vector similarity explanations if explain=True
         if explain:
             for hit in results['hits']['hits']:
-                logger.info(f"Processing hit: {hit['_id']}")
-                
-                # Verify stored vectors
-                stored_vectors = self.verify_document_vectors(index_name, hit['_id'])
-                logger.info(f"Stored vectors: {[vec.get('source', 'unknown') for vec in stored_vectors]}")
+                logger.debug(f"Processing explanation for document: {hit['_id']}")
                 
                 if 'vectors' in hit['_source']:
-                    logger.info(f"Found {len(hit['_source']['vectors'])} vectors in document")
-                    logger.debug(f"Vector sources: {[vec.get('source', 'unknown') for vec in hit['_source']['vectors']]}")
+                    logger.debug(f"Found {len(hit['_source']['vectors'])} vectors in document {hit['_id']}")
                     
                     # Calculate vector similarity scores
                     vector_score = explain_vector_scores(
@@ -269,7 +263,7 @@ class VectorStoreES(VectorStoreBase):
                         vector_score=vector_score
                     )
                     
-                    logger.info(f"Final explanation for {hit['_id']}: {json.dumps(hit['_explanation'], indent=2)}")
+                    logger.debug(f"Generated explanation for document {hit['_id']}")
                     
                 else:
                     logger.warning(f"No vectors found in document: {hit['_id']}")
@@ -288,13 +282,12 @@ class VectorStoreES(VectorStoreBase):
         
         # Delete existing index if replace_context is True
         if replace_context and self.es_client.indices.exists(index=index_name):
-            logger.info(f"Deleting existing index due to replace_context flag: {index_name}")
+            logger.info(f"Replacing existing index: {index_name}")
             self.es_client.indices.delete(index=index_name)
-            logger.info(f"Deleted existing index: {index_name}")
         
         # Create new index if it doesn't exist
         if not self.es_client.indices.exists(index=index_name):
-            logger.info(f"Creating new index with updated mapping: {index_name}")
+            logger.info(f"Creating index: {index_name}")
             # Create index with proper mappings
             mapping = {
                 "mappings": {
@@ -354,7 +347,7 @@ class VectorStoreES(VectorStoreBase):
                 }
             }
             self.es_client.indices.create(index=index_name, **mapping)
-            logger.info(f"Created new index: {index_name}")
+            logger.info(f"Index created successfully: {index_name}")
         
         return index_name
 
@@ -409,35 +402,24 @@ class VectorStoreES(VectorStoreBase):
                     description = metadata.get('Description')  # Direct access to Description field
                     if description:
                         try:
-                            logger.info(f"Found description for {filename}: {description[:100]}...")
                             logger.debug(f"Generating description embedding for {filename}")
-                            try:
-                                description_response = self.openai_client.embeddings.create(
-                                    input=description,
-                                    model=DEFAULT_EMBEDDING_MODEL,
-                                )
-                                description_vector = description_response.data[0].embedding
-                                logger.debug(f"Generated description vector of length {len(description_vector)}")
-                                
-                                document['vectors'].append({
-                                    "vector": description_vector,
-                                    "source": "description"
-                                })
-                                logger.info(f"Successfully added description vector for {filename}")
-                                
-                                # Verify the vector was added
-                                if not any(v.get('source') == 'description' for v in document['vectors']):
-                                    logger.error(f"Description vector was not properly added to document vectors for {filename}")
-                            except Exception as e:
-                                logger.error(f"Failed to generate description embedding for {filename}: {str(e)}")
-                                logger.error(f"Description text: {description[:200]}...")
-                                raise
+                            description_response = self.openai_client.embeddings.create(
+                                input=description,
+                                model=DEFAULT_EMBEDDING_MODEL,
+                            )
+                            description_vector = description_response.data[0].embedding
+                            
+                            document['vectors'].append({
+                                "vector": description_vector,
+                                "source": "description"
+                            })
+                            logger.debug(f"Added description vector for {filename}")
+                            
                         except Exception as e:
-                            logger.error(f"Error processing description for {filename}: {str(e)}")
-                            logger.error(f"Full error details: {str(e)}")
+                            logger.error(f"Failed to generate description embedding for {filename}: {str(e)}")
+                            # Continue processing without description vector
                     else:
-                        logger.warning(f"No description found in metadata for {filename}")
-                        logger.debug(f"Available metadata fields: {list(metadata.keys())}")
+                        logger.debug(f"No description found in metadata for {filename}")
 
                 
                 # Index document
@@ -446,7 +428,7 @@ class VectorStoreES(VectorStoreBase):
                     id=filename,
                     document=document
                 )
-                logger.debug(f"Index result: {result}")
+                logger.debug(f"Indexed document {filename} successfully")
                 
             except Exception as e:
                 logger.error(f"Failed to process file {filename}: {str(e)}")
