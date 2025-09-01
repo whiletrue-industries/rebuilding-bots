@@ -30,7 +30,7 @@ class VectorStoreBase(ABC):
             should_process = replace_context in ('all', context_name)
             vector_store = self.get_or_create_vector_store(context_, context_name, should_process or reindex)    
         
-            if should_process:
+            if should_process or reindex:
                 print(f'Processing context: {context_name}')
                 file_streams = collect_context_sources(context_, self.config_dir)
                 file_streams = [((fname if self.production else '_' + fname), f, t, m) for fname, f, t, m in file_streams]
