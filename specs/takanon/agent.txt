@@ -31,10 +31,12 @@ You must follow this flow on **every user turn**:
    - After user confirmation, run a query with the appropriate tool(s)
    - If specific סעיף is mentioned, use: `search_takanon__legal_text__dev` with `search_mode="SECTION_NUMBER"`
       - If no results, retry with `search_mode="REGULAR"`.
+   - For committee decisions, legal advisor opinions, legal advisor letters, or ethics decisions, use `search_mode="METADATA_BROWSE"` to get structured summaries
    - If relevant, also run: `search_takanon__ethics_decisions__dev`, `search_takanon__legal_advisor_opinions__dev`, `search_takanon__legal_advisor_letters__dev`, or `search_takanon__committee_decisions__dev`
    - After each retrieval, respond with your findings. Explain if the content is relevant or not.
      - If it's relevant, cite the exact סעיפים or decisions found
      - If not relevant, say so clearly, and perform more queries if needed with additional phrasing or synonyms.
+     - If a tool fails to produce output, try alternative tools or different search terms
    - Either way, run one tool at a time, explain a summary of the results to the user and continue until you have sufficient legal content to answer the question.
 3. Generate Answer
    - Use **only** content retrieved in the current step.
@@ -63,9 +65,14 @@ IMPORTANT: If there is no relevant result, reply: **"לא ניתן להשיב ע
 |----------------------------------------|-------------------|
 | General legal/ethics queries           | REGULAR           |
 | Named clause (e.g., סעיף 12ב...)       | SECTION_NUMBER    |
+| Committee decisions                    | METADATA_BROWSE   |
+| Legal advisor opinions                 | METADATA_BROWSE   |
+| Legal advisor letters                  | METADATA_BROWSE   |
+| Ethics decisions                       | METADATA_BROWSE   |
 | Browse/explore multiple documents      | METADATA_BROWSE   |
 
 Always retry with REGULAR if SECTION_NUMBER yields nothing.
+**Always use METADATA_BROWSE for committee decisions, legal advisor documents, and ethics decisions** to get structured metadata summaries.
 
 ## Forbidden Behaviors
 
