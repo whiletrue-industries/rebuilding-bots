@@ -26,11 +26,16 @@ class VectorStoreBase(ABC):
         self.tools = []
         for context_ in context:
             context_name = context_['slug']
-            # Determine if we should process this context
-            should_process = replace_context in ('all', context_name)
-            vector_store = self.get_or_create_vector_store(context_, context_name, should_process or reindex)    
+            # Determine if we should process this context:
+            # - replace_context matches this context name or is 'all'
+            # - reindex flag forces processing regardless of replace_context
+            should_replace_context = replace_context in ('all', context_name)
+            should_force_reindex = reindex
+            should_process_context = should_replace_context or should_force_reindex
+            
+            vector_store = self.get_or_create_vector_store(context_, context_name, should_process_context)    
         
-            if should_process or reindex:
+            if should_process_context:
                 print(f'Processing context: {context_name}')
                 file_streams = collect_context_sources(context_, self.config_dir)
                 file_streams = [((fname if self.production else '_' + fname), f, t, m) for fname, f, t, m in file_streams]
