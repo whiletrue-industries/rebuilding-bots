@@ -479,31 +479,57 @@ class VectorStoreES(VectorStoreBase):
             logger.error(f"Failed to delete files: {str(e)}")
             return 0
 
+    def _get_tool_description_from_config(self, context_) -> str:
+        """Get tool description from context configuration"""
+        description = context_.get('description', '')
+        examples = context_.get('examples', '')
+        
+        if description and examples:
+            return f"{description}. Examples: {examples}"
+        elif description:
+            return description
+        else:
+            # Fallback if no description in config
+            context_name = context_.get('slug', 'unknown')
+            return f"Semantic search the '{context_name}' vector store"
+
+    def _get_search_mode_description(self, context_) -> str:
+        """Get search mode description based on context configuration"""
+        # Default search mode description for all contexts
+        base_description = "Search mode. "
+        
+        # Build the description based on context type and available modes
+        context_slug = context_.get('slug', '')
+        
+        # Determine which modes are most relevant for this context type
+        if any(keyword in context_slug for keyword in ['legal_text', 'common_knowledge']):
+            # Legal text contexts support SECTION_NUMBER mode
+            modes = [
+                "'SECTION_NUMBER': Specialized search for finding legal text sections by their number (e.g. 'סעיף 12'). Requires both section number and resource name (default 3 results)",
+                "'REGULAR': Semantic + full text search across all main fields (default 7 results)", 
+                "'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)"
+            ]
+        elif any(keyword in context_slug for keyword in ['legal_advisor_opinions', 'legal_advisor_letters', 'committee_decisions', 'ethics_decisions']):
+            # Document-based contexts prioritize METADATA_BROWSE
+            modes = [
+                "'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)",
+                "'REGULAR': Semantic + full text search across all main fields (7 results)"
+            ]
+        else:
+            # Default mode list for unknown contexts
+            modes = [
+                "'REGULAR': Semantic + full text search across all main fields (default 7 results)",
+                "'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)"
+            ]
+        
+        return base_description + ". ".join(modes) + "."
+
     def update_tools(self, context_, vector_store):
         # vector_store is now just the index name string
         
-        # Context-specific descriptions and search modes
-        if 'legal_text' in vector_store:
-            tool_description = "Search laws, bylaws and regulations (חוקים ותקנונים). Use for: specific legal text, section numbers, law content, bylaws, constitutional texts. Examples: 'סעיף 12 בתקנון', 'חוק הכנסת', 'חוק יסוד הכנסת', 'כללי אתיקה'."
-            search_mode_description = "Search mode. 'SECTION_NUMBER': Specialized search for finding legal text sections by their number (e.g. 'סעיף 12'). Requires both section number and resource name (default 3 results). 'REGULAR': Semantic + full text search across all main fields (default 7 results). 'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)."
-        elif 'legal_advisor_opinions' in vector_store:
-            tool_description = "Search formal legal opinions by Knesset legal advisor (חוות דעת משפטיות). Use for: legal interpretations, formal legal guidance, precedents, legal analysis. Examples: 'חוות דעת על ניגוד עניינים', 'פרשנות משפטית', 'הנחיה פורמלית'."
-            search_mode_description = "Search mode. 'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results). 'REGULAR': Semantic + full text search across all main fields (7 results, default)."
-        elif 'legal_advisor_letters' in vector_store:
-            tool_description = "Search correspondence with the knesset legal advisor (מכתבי היועצת המשפטית לכנסת). Use for: informal inquiries, correspondence, questions and answers, clarifications by the knesset legal advisor. Examples: 'מכתב בעניין פנייה', 'תשובה על שאלה', 'בירור משפטי'."
-            search_mode_description = "Search mode. 'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results). 'REGULAR': Semantic + full text search across all main fields (7 results, default)."
-        elif 'committee_decisions' in vector_store:
-            tool_description = "Search Knesset committee decisions (החלטות ועדת הכנסת). Use for: committee resolutions, discussion procedures, special debate arrangements, voting procedures, administrative decisions. Examples: 'סדרי דיון מיוחדים', 'החלטת ועדת הכנסת על נוהל', 'הסדרי הצבעה', 'זמני דיבור'."
-            search_mode_description = "Search mode. 'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results, default). 'REGULAR': Semantic + full text search across all main fields (7 results)."
-        elif 'ethics_decisions' in vector_store:
-            tool_description = "Search ethics committee decisions (החלטות ועדת אתיקה). Use for: ethics violations, complaints against MKs, ethical sanctions, ethics-related matters. Examples: 'תלונה נגד חבר כנסת', 'נזיפה', 'הפרת כללי אתיקה'."
-            search_mode_description = "Search mode. 'METADATA_BROWSE': Browse ethics decisions with structured metadata summaries instead of full content (25 results). 'REGULAR': Semantic + full text search across all main fields (7 results, default)."
-        elif 'common_knowledge' in vector_store:
-            tool_description = "Search general knowledge about Knesset procedures and explanations (ידע כללי). Use for: explanatory questions, procedural questions, 'how does X work', general understanding. Examples: 'איך עובד הליך החקיקה?', 'מה זה ועדת אתיקה?', 'הסבר על תקנון'."
-            search_mode_description = "Search mode. 'REGULAR': Semantic + full text search across all main fields (default 7 results). 'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)."
-        else:
-            tool_description = f"Semantic search the '{vector_store}' vector store"
-            search_mode_description = "Search mode. 'SECTION_NUMBER': Specialized search for finding legal text sections by their number (e.g. 'סעיף 12'). Requires both section number and resource name (default 3 results). 'REGULAR': Semantic + full text search across all main fields (default 7 results). 'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)."
+        # Get tool description from configuration instead of hardcoded values
+        tool_description = self._get_tool_description_from_config(context_)
+        search_mode_description = self._get_search_mode_description(context_)
         
         self.tools.append({
             "type": "function",
