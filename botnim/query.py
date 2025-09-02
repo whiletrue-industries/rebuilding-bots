@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import List, Dict, Union, Optional, Any
 from dataclasses import dataclass
@@ -8,8 +7,92 @@ from botnim.vector_store.search_config import SearchModeConfig
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 import yaml
 import json
+import re
+
 
 logger = get_logger(__name__)
+
+# Compiled regex patterns for performance
+TRAILING_NUMBERS_PATTERN = re.compile(r'_\d+$')
+
+# Constants for text formatting
+DEFAULT_TRUNCATE_LENGTH = 150
+DEFAULT_NUM_RESULTS = 7
+LIST_PREVIEW_LIMIT = 3
+
+# Hardcoded field configuration for metadata browse mode
+METADATA_BROWSE_FIELDS = {
+    # Core fields that appear at top level (no duplication)
+    'core': {
+        'document_type': 'context_name',  # Derived from context name
+        'document_id': 'result.id',
+        'relevance_score': 'result.score', 
+        'title': 'extracted_data.DocumentTitle',
+        'summary': 'extracted_data.Summary',
+        'source_url': 'metadata.source_url'
+    },
+    
+    # Date fields (pick first available)
+    'date_fields': ['תאריך', 'תאריך_מכתב', 'PublicationDate'],
+    
+    # Specific metadata fields to include (only if they exist)
+    'metadata_fields': [
+        # Document identification
+        'מספר_מסמך',        # Document number
+        'סוג_מסמך',         # Document type  
+        'סוג_הפניה',        # Type of inquiry
+        'תקופת_כנסת',       # Knesset term
+        'סדר_החלטה',        # Decision order
+        
+        # People/entities involved
+        'שולח',            # Sender
+        'נמען',            # Recipient  
+        'נושא_אדם_מעורב',   # Person involved
+        'משתתפים',         # Participants
+        
+        # Content classification
+        'נושא_כללי',        # General subject
+        'נושא_ספציפי',      # Specific subject
+        'אופי_תלונה',       # Nature of complaint
+        'סוג_החלטה',        # Decision type
+        
+        # Key content summaries
+        'המלצות_הנחיות',    # Recommendations/Guidelines
+        'ממצאי_הוועדה',     # Committee findings
+        'נימוקים',          # Reasoning
+        'תוצאה_עונש',       # Punishment/outcome
+        'תנאים',           # Conditions
+        'רקע',             # Background
+        
+        # References (only include if different from source_url)
+        'קישור_למקור',      # Source link
+        'OfficialSource',   # Official source
+        
+        # Additional context
+        'הערות',           # Notes
+    ],
+    
+    # Special handling field
+    'full_text_field': 'טקסט_מלא'
+}
+
+
+def _truncate_with_ellipsis(text: str, max_length: int = DEFAULT_TRUNCATE_LENGTH) -> str:
+    """Helper function to truncate text with ellipsis if needed"""
+    if not text or len(text) <= max_length:
+        return text
+    return text[:max_length] + "..."
+
+
+# Context name to display name mapping for document types
+CONTEXT_DISPLAY_NAMES = {
+    'legal_texts': 'מסמך משפטי',
+    'legal_advisor_opinions': 'חוות דעת משפטית', 
+    'legal_advisor_letters': 'מכתב יועצת משפטית',
+    'committee_decisions': 'החלטת ועדה',
+    'ethics_decisions': 'החלטת ועדת אתיקה',
+    'common_knowledge': 'ידע כללי'
+}
 
 @dataclass
 class SearchResult:
@@ -22,6 +105,7 @@ class SearchResult:
     _explanation: dict = None  # Elasticsearch explanation
     text_score: float = None  # Text similarity score
     vector_score: float = None  # Vector similarity score
+    context_name: str = None  # Context name for document type derivation
     
     @property
     def explanation(self) -> Optional[Dict[str, Any]]:
@@ -91,7 +175,7 @@ class QueryClient:
             if num_results is None:
                 num_results = search_mode.num_results
             if num_results is None:
-                num_results = self.context_config.get('default_num_results', 7)
+                num_results = self.context_config.get('default_num_results', DEFAULT_NUM_RESULTS)
 
             # Get embedding using the vector store's OpenAI client
             response = self.vector_store.openai_client.embeddings.create(
@@ -109,14 +193,16 @@ class QueryClient:
             )
             
             # Format results with enhanced explanations
+            # For METADATA_BROWSE mode, we'll format differently in the format_search_results function
             return [
                 SearchResult(
                     score=hit['_score'],
                     id=hit['_id'],
                     content=hit['_source']['content'].strip().split('\n')[0],
-                    full_content=hit['_source']['content'],
+                    full_content=hit['_source']['content'] if search_mode.name != "METADATA_BROWSE" else None,
                     metadata=hit['_source'].get('metadata', None),
-                    _explanation=hit.get('_explanation', None) if explain else None
+                    _explanation=hit.get('_explanation', None) if explain else None,
+                    context_name=self.context_name
                 )
                 for hit in results['hits']['hits']
             ]
@@ -135,7 +221,7 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str='dict', explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> Union[List[Dict], str]:
+def run_query(*, store_id: str, query_text: str, num_results: int=DEFAULT_NUM_RESULTS, format: str='dict', explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> Union[List[Dict], str]:
     """
     Run a query against the vector store
     
@@ -160,7 +246,7 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         logger.info(f"Search results: {results}")
 
         # Format results if requested
-        formatted_results = format_search_results(results, format, explain)
+        formatted_results = format_search_results(results, format, explain, search_mode)
         if format.startswith('text') or format == 'yaml':
             logger.info(f"Formatted results: {formatted_results}")
         return formatted_results
@@ -169,7 +255,237 @@ def run_query(*, store_id: str, query_text: str, num_results: int=7, format: str
         # Return a meaningful error message instead of raising
         return f"Error performing search: {str(e)}"
 
-def format_search_results(results: List[SearchResult], format: str, explain: bool) -> str:
+def _build_core_browse_item(result: SearchResult) -> Dict[str, Any]:
+    """Build the core fields for a browse item"""
+    metadata = result.metadata or {}
+    extracted_data = metadata.get('extracted_data', {})
+    
+    return {
+        "document_type": CONTEXT_DISPLAY_NAMES.get(result.context_name, result.context_name or 'unknown'),
+        "document_id": result.id,
+        "relevance_score": round(result.score, 2),
+        "title": extracted_data.get('DocumentTitle', 'ללא כותרת'),
+        "summary": extracted_data.get('Summary', '')
+    }
+
+def _extract_source_url(metadata: Dict, extracted_data: Dict) -> Optional[str]:
+    """Extract source URL with fallback logic"""
+    return metadata.get('source_url', '') or extracted_data.get('קישור_למקור', '')
+
+def _extract_date_field(extracted_data: Dict) -> Optional[str]:
+    """Extract the first available date field from configured date fields"""
+    for date_field in METADATA_BROWSE_FIELDS['date_fields']:
+        if extracted_data.get(date_field):
+            return extracted_data[date_field]
+    return None
+
+def _process_metadata_fields(extracted_data: Dict, browse_item: Dict) -> Dict[str, Any]:
+    """Process and filter metadata fields, excluding core fields and duplicates"""
+    relevant_metadata = {}
+    core_fields = {'DocumentTitle', 'Summary', 'title', 'status', 'document_type'}
+    
+    # Add date if available
+    date_value = _extract_date_field(extracted_data)
+    if date_value:
+        relevant_metadata['date'] = date_value
+    
+    # Process all other metadata fields
+    for field, value in extracted_data.items():
+        if _should_include_metadata_field(field, value, core_fields, browse_item):
+            relevant_metadata[field] = _format_metadata_value(value)
+    
+    return relevant_metadata
+
+def _should_include_metadata_field(field: str, value: Any, core_fields: set, browse_item: Dict) -> bool:
+    """Determine if a metadata field should be included"""
+    if field in core_fields:
+        return False
+    if field == 'קישור_למקור' and value == browse_item.get('source_url'):
+        return False
+    return bool(value)
+
+def _format_metadata_value(value: Any) -> Any:
+    """Format a metadata value, truncating long strings"""
+    if isinstance(value, str) and len(value) > DEFAULT_TRUNCATE_LENGTH:
+        return value[:DEFAULT_TRUNCATE_LENGTH] + "..."
+    return value
+
+def _add_full_text_indicator(extracted_data: Dict, relevant_metadata: Dict) -> None:
+    """Add full text availability indicator if present"""
+    full_text_field = METADATA_BROWSE_FIELDS['full_text_field']
+    if extracted_data.get(full_text_field):
+        char_count = len(extracted_data[full_text_field])
+        if char_count > 0:
+            relevant_metadata[full_text_field] = f"Available ({char_count:,} characters)"
+
+def _extract_metadata_fields(result: SearchResult) -> Dict[str, Any]:
+    """Extract and structure metadata fields for browse display"""
+    metadata = result.metadata or {}
+    extracted_data = metadata.get('extracted_data', {})
+    
+    # Build core fields
+    browse_item = _build_core_browse_item(result)
+    
+    # Add source URL if available
+    source_url = _extract_source_url(metadata, extracted_data)
+    if source_url:
+        browse_item["source_url"] = source_url
+    
+    # Process metadata fields
+    relevant_metadata = _process_metadata_fields(extracted_data, browse_item)
+    
+    # Add full text indicator
+    _add_full_text_indicator(extracted_data, relevant_metadata)
+    
+    # Only add metadata section if we have relevant fields
+    if relevant_metadata:
+        browse_item["metadata"] = relevant_metadata
+    
+    return browse_item
+
+def _format_metadata_browse_results(results: List[SearchResult]) -> Dict[str, Any]:
+    """
+    Format search results specifically for METADATA_BROWSE mode
+    Returns structured metadata for browsing instead of full content
+    """
+    return {
+        "search_mode": "METADATA_BROWSE",
+        "total_results": len(results),
+        "documents": [_extract_metadata_fields(result) for result in results]
+    }
+
+def _format_metadata_browse_text(results: List[SearchResult]) -> str:
+    """
+    Format search results for METADATA_BROWSE mode as human-readable text
+    Uses the structured data from _format_metadata_browse_results for consistency
+    """
+    if not results:
+        return "No results found."
+    
+    # Get structured data 
+    browse_data = _format_metadata_browse_results(results)
+    documents = browse_data.get('documents', [])
+    
+    formatted_results = []
+    header = f"🔍 **BROWSE MODE: {browse_data.get('total_results', 0)} documents found**\n"
+    header += "=" * 60 + "\n\n"
+    
+    for i, doc in enumerate(documents, 1):
+        title = doc.get('title', 'ללא כותרת')
+        doc_type = doc.get('document_type', 'unknown')
+        relevance = doc.get('relevance_score', 0)
+        
+        # Format individual result
+        result_text = f"📄 **{i}. {title}**\n"
+        result_text += f"   **Type:** {doc_type}\n"
+        result_text += f"   **Relevance:** {relevance:.2f}\n"
+        
+        # Add date if available (now using standardized date field)
+        metadata = doc.get('metadata', {})
+        date = metadata.get('date')
+        if date:
+            result_text += f"   **Date:** {date}\n"
+            
+        # Add summary (using the new standardized summary field)
+        summary = doc.get('summary', '')
+        if summary:
+            summary_truncated = _truncate_with_ellipsis(summary)
+            result_text += f"   **Summary:** {summary_truncated}\n"
+        
+        # Add all additional metadata fields (excluding already shown fields)
+        excluded_fields = {'date', 'טקסט_מלא'}  # Already handled separately
+        for field_name, field_value in metadata.items():
+            if field_name not in excluded_fields and field_value:
+                # Format field name for display (convert to title case)
+                display_name = field_name.replace('_', ' ').title()
+                
+                # Handle different value types
+                if isinstance(field_value, list):
+                    if field_value:  # Only show non-empty lists
+                        value_str = ', '.join(str(v) for v in field_value[:LIST_PREVIEW_LIMIT])  # Show first few items
+                        if len(field_value) > LIST_PREVIEW_LIMIT:
+                            value_str += f" (+{len(field_value)-LIST_PREVIEW_LIMIT} more)"
+                        result_text += f"   **{display_name}:** {value_str}\n"
+                elif isinstance(field_value, str):
+                    truncated_value = _truncate_with_ellipsis(field_value, DEFAULT_TRUNCATE_LENGTH)
+                    result_text += f"   **{display_name}:** {truncated_value}\n"
+                else:
+                    result_text += f"   **{display_name}:** {field_value}\n"
+            
+        # Add full text availability if indicated
+        if metadata.get('טקסט_מלא') and 'Available' in metadata.get('טקסט_מלא', ''):
+            result_text += f"   **Full Text:** {metadata.get('טקסט_מלא')}\n"
+            
+        # Add source link if available
+        source_url = doc.get('source_url', '')
+        if source_url:
+            result_text += f"   **Link:** {source_url}\n"
+            
+        result_text += f"   **ID:** {doc.get('document_id', '')}\n"
+        
+        formatted_results.append(result_text)
+    
+    footer = f"\n{'=' * 60}\n"
+    footer += f"💡 **Tip:** Use regular search mode or specify document ID to get full content of any document.\n"
+    
+    return header + "\n".join(formatted_results) + footer
+
+def _format_browse_mode_results(results: List[SearchResult], format: str) -> str:
+    """Handle METADATA_BROWSE mode formatting"""
+    if format == 'dict':
+        return _format_metadata_browse_results(results)
+    elif format == 'yaml':
+        browse_results = _format_metadata_browse_results(results)
+        return yaml.dump(browse_results, allow_unicode=True, width=1000000, sort_keys=False)
+    elif format == 'text':
+        return _format_metadata_browse_text(results)
+    else:
+        # Fallback for unsupported formats in browse mode
+        return _format_metadata_browse_text(results)
+
+def _format_result_as_text_short(result: SearchResult) -> str:
+    """Format a single result as text-short"""
+    return f"{result.full_content}"
+
+def _format_result_as_text(result: SearchResult, explain: bool) -> str:
+    """Format a single result as detailed text"""
+    metadata_str = ''
+    if result.metadata:
+        metadata_str = f"Metadata:\n{json.dumps(result.metadata, indent=2, ensure_ascii=False)}\n"
+    
+    explanation_str = ''
+    if explain and hasattr(result, '_explanation'):
+        explanation_str = f"\nScoring Explanation:\n{json.dumps(result._explanation, indent=2, ensure_ascii=False)}\n"
+    
+    return (
+        f"[Score: {result.score:.2f}]\n"
+        f"ID: {result.id}\n"
+        f"Content:\n{result.full_content}\n"
+        f"{metadata_str}"
+        f"{explanation_str}"
+    )
+
+def _format_result_as_dict(result: SearchResult, explain: bool) -> Dict[str, Any]:
+    """Format a single result as dictionary"""
+    result_dict = dict(
+        id=result.id,
+        score=result.score,
+        content=result.full_content,
+        metadata=result.metadata
+    )
+    if explain and hasattr(result, '_explanation'):
+        result_dict['_explanation'] = result._explanation
+    return result_dict
+
+def _format_result_as_yaml_entry(result: SearchResult) -> Dict[str, str]:
+    """Format a single result for YAML output"""
+    parts = result.full_content.split('\n\n', 1)
+    return dict(
+        header=parts[0].strip(),
+        text=parts[1].strip() if len(parts) > 1 else '',
+    )
+
+def format_search_results(results: List[SearchResult], format: str, explain: bool, search_mode: SearchModeConfig = None) -> str:
     """
     Format search results as a human-readable text string
 
@@ -181,54 +497,31 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
     Returns:
         str: Formatted search results as a text string
     """
-    # Format results for human-readable text output
+    # Check if we're in METADATA_BROWSE mode for special formatting
+    is_browse_mode = search_mode and search_mode.name == "METADATA_BROWSE"
+    
+    if is_browse_mode:
+        return _format_browse_mode_results(results, format)
+    
+    # Process regular results
     formatted_results = []
-    join = format.startswith('text')
     for result in results:
         if format == 'text-short':
-            formatted_results.append(
-                f"{result.full_content}"
-            )
+            formatted_results.append(_format_result_as_text_short(result))
         elif format == 'text':
-            metadata_str = ''
-            if result.metadata:
-                metadata_str = f"Metadata:\n{json.dumps(result.metadata, indent=2, ensure_ascii=False)}\n"
-            
-            explanation_str = ''
-            if explain and hasattr(result, '_explanation'):
-                explanation_str = f"\nScoring Explanation:\n{json.dumps(result._explanation, indent=2, ensure_ascii=False)}\n"
-            
-            formatted_results.append(
-                f"[Score: {result.score:.2f}]\n"
-                f"ID: {result.id}\n"
-                f"Content:\n{result.full_content}\n"
-                f"{metadata_str}"
-                f"{explanation_str}"
-            )
+            formatted_results.append(_format_result_as_text(result, explain))
         elif format == 'dict':
-            result_dict = dict(
-                id=result.id,
-                score=result.score,
-                content=result.full_content,
-                metadata=result.metadata
-            )
-            if explain and hasattr(result, '_explanation'):
-                result_dict['_explanation'] = result._explanation
-            formatted_results.append(result_dict)
+            formatted_results.append(_format_result_as_dict(result, explain))
         elif format == 'yaml':
-            # For YAML, split header/text for each result
-            parts = result.full_content.split('\n\n', 1)
-            result_dict = dict(
-                header=parts[0].strip(),
-                text=parts[1].strip() if len(parts) > 1 else '',
-            )
-            formatted_results.append(result_dict)
+            formatted_results.append(_format_result_as_yaml_entry(result))
     
-    if join:
-        formatted_results = '\n\n\n------------\n\n'.join(formatted_results)
-    if format == 'yaml':
+    # Post-process results based on format
+    if format.startswith('text'):
+        return '\n\n\n------------\n\n'.join(formatted_results)
+    elif format == 'yaml':
         return yaml.dump(formatted_results, allow_unicode=True, width=1000000, sort_keys=True)
-    return formatted_results or 'No results found.'
+    else:
+        return formatted_results or 'No results found.'
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
     """

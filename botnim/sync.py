@@ -7,6 +7,7 @@ from openai import OpenAI
 from .config import SPECS, get_openai_client, is_production
 from .vector_store import VectorStoreOpenAI, VectorStoreES
 
+
 def openapi_to_tools(openapi_spec):
     ret = []
     for path in openapi_spec['paths'].values():
@@ -52,7 +53,7 @@ def update_assistant(client, config, config_dir, backend, environment, replace_c
     if config.get('context'):
         ## create vector store based on backend parameter
         if backend == 'openai':
-            vs = VectorStoreOpenAI(config, config_dir, production, client)
+            vs = VectorStoreOpenAI(config, config_dir, is_production(environment), client)
         ## Elasticsearch
         elif backend == 'es':
             vs = VectorStoreES(config, config_dir, environment=environment)

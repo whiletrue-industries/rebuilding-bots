@@ -64,20 +64,140 @@
           {
             "name": "search_mode",
             "in": "query",
-            "description": "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "description": "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results). 'METADATA_BROWSE': Browse committee decisions and legal advisor documents with metadata summaries (default 25 results).",
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["SECTION_NUMBER", "REGULAR"]
+              "enum": ["SECTION_NUMBER", "REGULAR", "METADATA_BROWSE"]
             }
           },
           {
             "name": "num_results",
             "in": "query",
-            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 3 for SECTION_NUMBER, 7 for REGULAR).",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 3 for SECTION_NUMBER, 7 for REGULAR, 25 for METADATA_BROWSE).",
             "required": false,
             "schema": {
               "type": "integer"
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/takanon/legal_advisor_opinions__dev": {
+      "get": {
+        "description": "Full text search on formal legal opinions by Knesset legal advisor",
+        "operationId": "search_takanon__legal_advisor_opinions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query for legal advisor opinions",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'METADATA_BROWSE': Returns more results (25) with metadata summaries for exploration instead of full content. 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 7 for REGULAR, 25 for METADATA_BROWSE).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/takanon/legal_advisor_letters__dev": {
+      "get": {
+        "description": "Full text search on correspondence with the Knesset legal advisor",
+        "operationId": "search_takanon__legal_advisor_letters__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query for legal advisor letters",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'METADATA_BROWSE': Returns more results (25) with metadata summaries for exploration instead of full content. 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 7 for REGULAR, 25 for METADATA_BROWSE).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/takanon/committee_decisions__dev": {
+      "get": {
+        "description": "Full text search on Knesset committee decisions",
+        "operationId": "search_takanon__committee_decisions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query for committee decisions",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'METADATA_BROWSE': Returns more results (25) with metadata summaries for exploration instead of full content. 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 7 for REGULAR, 25 for METADATA_BROWSE).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
             }
           }
         ],
@@ -97,15 +217,36 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode. 'METADATA_BROWSE': Returns more results (25) with metadata summaries for exploration instead of full content. 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 7 for REGULAR, 25 for METADATA_BROWSE).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
           }
         ],
         "deprecated": false
       }
     },
-
     "/botnim/retrieve/unified/common_budget_knowledge__dev": {
       "get": {
-        "description": "Full text search on the budgetkey common knowledge",
+        "description": "Search general budget knowledge in the unified knowledge base",
         "operationId": "search_unified__common_budget_knowledge__dev",
         "parameters": [
           {
@@ -116,6 +257,28 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["REGULAR", "METADATA_BROWSE"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
           }
         ],
         "deprecated": false
@@ -123,7 +286,7 @@
     },
     "/botnim/retrieve/unified/common_takanon_knowledge__dev": {
       "get": {
-        "description": "Full text search on the takanon common knowledge",
+        "description": "Search general Knesset procedures and explanations in the unified knowledge base",
         "operationId": "search_unified__common_takanon_knowledge__dev",
         "parameters": [
           {
@@ -134,6 +297,28 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["REGULAR", "METADATA_BROWSE"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
           }
         ],
         "deprecated": false
@@ -141,7 +326,7 @@
     },
     "/botnim/retrieve/unified/legal_text__dev": {
       "get": {
-        "description": "Full text search on the takanon legal text",
+        "description": "Search laws, bylaws and regulations in the unified legal knowledge base",
         "operationId": "search_unified__legal_text__dev",
         "parameters": [
           {
@@ -156,20 +341,143 @@
           {
             "name": "search_mode",
             "in": "query",
-            "description": "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results).",
+            "description": "Search mode for different types of queries",
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["SECTION_NUMBER", "REGULAR"]
+              "enum": ["SECTION_NUMBER", "REGULAR", "METADATA_BROWSE"],
+              "default": "REGULAR"
             }
           },
           {
             "name": "num_results",
             "in": "query",
-            "description": "Number of results to return. If not provided, the default for the selected search mode will be used (e.g., 3 for SECTION_NUMBER, 7 for REGULAR).",
+            "description": "Number of results to return",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/unified/legal_advisor_opinions__dev": {
+      "get": {
+        "description": "Search formal legal opinions by Knesset legal advisor in the unified knowledge base",
+        "operationId": "search_unified__legal_advisor_opinions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/unified/legal_advisor_letters__dev": {
+      "get": {
+        "description": "Search correspondence with the Knesset legal advisor in the unified knowledge base",
+        "operationId": "search_unified__legal_advisor_letters__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
+    "/botnim/retrieve/unified/committee_decisions__dev": {
+      "get": {
+        "description": "Search Knesset committee decisions in the unified knowledge base",
+        "operationId": "search_unified__committee_decisions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
             }
           }
         ],
@@ -178,23 +486,44 @@
     },
     "/botnim/retrieve/unified/ethics_decisions__dev": {
       "get": {
-        "description": "Full text search on the ethics committee decisions",
+        "description": "Search ethics committee decisions in the unified knowledge base",
         "operationId": "search_unified__ethics_decisions__dev",
         "parameters": [
           {
             "name": "query",
             "in": "query",
-            "description": "Free text search query for ethics committee decisions",
+            "description": "Free text search query",
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
             }
           }
         ],
         "deprecated": false
       }
-    },
-
+    }
   },
   "components": {
     "schemas": {}

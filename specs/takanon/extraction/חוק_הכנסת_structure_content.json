@@ -5,7 +5,7 @@
     "environment": "staging",
     "model": "gpt-4.1",
     "max_tokens": null,
-    "total_items": 95,
+    "total_items": 94,
     "structure_type": "nested_hierarchy",
     "mark_type": "סעיף"
   },
@@ -750,15 +750,7 @@
       "section_name": "תוספת",
       "html_id": "תוספת",
       "section_type": "חלק",
-      "children": [
-        {
-          "depth": 2,
-          "section_name": "(סעיף 1(ב))",
-          "html_id": "(סעיף_1(ב))",
-          "section_type": "סימן",
-          "children": []
-        }
-      ]
+      "children": []
     },
     {
       "depth": 1,

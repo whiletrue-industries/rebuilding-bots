@@ -5,7 +5,7 @@
     "environment": "staging",
     "model": "gpt-4.1",
     "max_tokens": null,
-    "total_items": 60,
+    "total_items": 61,
     "structure_type": "nested_hierarchy",
     "mark_type": "סעיף"
   },
@@ -14,11 +14,11 @@
       "depth": 1,
       "section_name": "חוק־יסוד: הכנסת",
       "html_id": null,
-      "section_type": null,
+      "section_type": "חלק",
       "children": [
         {
           "depth": 2,
-          "section_name": "סעיף 1",
+          "section_name": "סעיף 1 – המהות",
           "html_id": "סעיף_1",
           "section_type": "סעיף",
           "children": [],
@@ -26,7 +26,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 2",
+          "section_name": "סעיף 2 – מקום המושב",
           "html_id": "סעיף_2",
           "section_type": "סעיף",
           "children": [],
@@ -34,7 +34,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 3",
+          "section_name": "סעיף 3 – ההרכב",
           "html_id": "סעיף_3",
           "section_type": "סעיף",
           "children": [],
@@ -42,7 +42,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 4",
+          "section_name": "סעיף 4 – שיטת הבחירות",
           "html_id": "סעיף_4",
           "section_type": "סעיף",
           "children": [],
@@ -50,7 +50,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 5",
+          "section_name": "סעיף 5 – הזכות לבחור",
           "html_id": "סעיף_5",
           "section_type": "סעיף",
           "children": [],
@@ -58,7 +58,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 5א",
+          "section_name": "סעיף 5א – הזכות להגיש רשימת מועמדים",
           "html_id": "סעיף_5א",
           "section_type": "סעיף",
           "children": [],
@@ -66,7 +66,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 6",
+          "section_name": "סעיף 6 – הזכות להיבחר",
           "html_id": "סעיף_6",
           "section_type": "סעיף",
           "children": [],
@@ -74,7 +74,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 6א",
+          "section_name": "סעיף 6א – סייג למועמדות חבר הכנסת שפרש מסיעתו",
           "html_id": "סעיף_6א",
           "section_type": "סעיף",
           "children": [],
@@ -82,7 +82,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 7",
+          "section_name": "סעיף 7 – מי לא יהיה מועמד",
           "html_id": "סעיף_7",
           "section_type": "סעיף",
           "children": [],
@@ -90,7 +90,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 7א",
+          "section_name": "סעיף 7א – מניעת השתתפות בבחירות",
           "html_id": "סעיף_7א",
           "section_type": "סעיף",
           "children": [],
@@ -98,7 +98,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 8",
+          "section_name": "סעיף 8 – תקופת כהונת הכנסת",
           "html_id": "סעיף_8",
           "section_type": "סעיף",
           "children": [],
@@ -114,7 +114,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 9",
+          "section_name": "סעיף 9 – מועד הבחירות",
           "html_id": "סעיף_9",
           "section_type": "סעיף",
           "children": [],
@@ -122,7 +122,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 9א",
+          "section_name": "סעיף 9א – הארכת תקופת כהונה",
           "html_id": "סעיף_9א",
           "section_type": "סעיף",
           "children": [],
@@ -130,7 +130,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 10",
+          "section_name": "סעיף 10 – יום הבחירות – שבתון",
           "html_id": "סעיף_10",
           "section_type": "סעיף",
           "children": [],
@@ -138,7 +138,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 11",
+          "section_name": "סעיף 11 – פרסום תוצאות הבחירות",
           "html_id": "סעיף_11",
           "section_type": "סעיף",
           "children": [],
@@ -146,7 +146,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 12",
+          "section_name": "סעיף 12 – כינוס הכנסת",
           "html_id": "סעיף_12",
           "section_type": "סעיף",
           "children": [],
@@ -162,7 +162,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 14",
+          "section_name": "סעיף 14 – ישיבת הפתיחה",
           "html_id": "סעיף_14",
           "section_type": "סעיף",
           "children": [],
@@ -170,7 +170,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 15",
+          "section_name": "סעיף 15 – הצהרת אמונים של חבר הכנסת",
           "html_id": "סעיף_15",
           "section_type": "סעיף",
           "children": [],
@@ -178,7 +178,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 16",
+          "section_name": "סעיף 16 – אי־הצהרה",
           "html_id": "סעיף_16",
           "section_type": "סעיף",
           "children": [],
@@ -186,7 +186,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 16א",
+          "section_name": "סעיף 16א – אי הצהרה בשל אזרחות כפולה",
           "html_id": "סעיף_16א",
           "section_type": "סעיף",
           "children": [],
@@ -194,7 +194,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 17",
+          "section_name": "סעיף 17 – חסינות חברי הכנסת",
           "html_id": "סעיף_17",
           "section_type": "סעיף",
           "children": [],
@@ -202,7 +202,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 18",
+          "section_name": "סעיף 18 – חסינות בנייני הכנסת",
           "html_id": "סעיף_18",
           "section_type": "סעיף",
           "children": [],
@@ -210,7 +210,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 19",
+          "section_name": "סעיף 19 – סדרי העבודה והתקנון",
           "html_id": "סעיף_19",
           "section_type": "סעיף",
           "children": [],
@@ -218,7 +218,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 20",
+          "section_name": "סעיף 20 – היושב ראש והסגנים",
           "html_id": "סעיף_20",
           "section_type": "סעיף",
           "children": [],
@@ -226,7 +226,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 20א",
+          "section_name": "סעיף 20א – ממלא מקום של יושב ראש הכנסת ויושב ראש הכנסת בפועל",
           "html_id": "סעיף_20א",
           "section_type": "סעיף",
           "children": [],
@@ -234,7 +234,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 21",
+          "section_name": "סעיף 21 – ועדות",
           "html_id": "סעיף_21",
           "section_type": "סעיף",
           "children": [],
@@ -250,7 +250,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 22",
+          "section_name": "סעיף 22 – ועדות חקירה",
           "html_id": "סעיף_22",
           "section_type": "סעיף",
           "children": [],
@@ -258,7 +258,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 23",
+          "section_name": "סעיף 23 – דינם של שר וסגן שר שאינם חברי הכנסת",
           "html_id": "סעיף_23",
           "section_type": "סעיף",
           "children": [],
@@ -266,7 +266,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 24",
+          "section_name": "סעיף 24 – מנין",
           "html_id": "סעיף_24",
           "section_type": "סעיף",
           "children": [],
@@ -274,7 +274,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 25",
+          "section_name": "סעיף 25 – רוב",
           "html_id": "סעיף_25",
           "section_type": "סעיף",
           "children": [],
@@ -282,7 +282,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 26",
+          "section_name": "סעיף 26 – ישיבות",
           "html_id": "סעיף_26",
           "section_type": "סעיף",
           "children": [],
@@ -290,7 +290,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 27",
+          "section_name": "סעיף 27 – פומביות",
           "html_id": "סעיף_27",
           "section_type": "סעיף",
           "children": [],
@@ -298,7 +298,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 28",
+          "section_name": "סעיף 28 – פרסום",
           "html_id": "סעיף_28",
           "section_type": "סעיף",
           "children": [],
@@ -322,7 +322,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 31",
+          "section_name": "סעיף 31 – כנסים",
           "html_id": "סעיף_31",
           "section_type": "סעיף",
           "children": [],
@@ -346,7 +346,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 34",
+          "section_name": "סעיף 34 – התפזרות הכנסת",
           "html_id": "סעיף_34",
           "section_type": "סעיף",
           "children": [],
@@ -354,7 +354,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 35",
+          "section_name": "סעיף 35 – מועד הבחירות לאחר התפזרות הכנסת",
           "html_id": "סעיף_35",
           "section_type": "סעיף",
           "children": [],
@@ -362,7 +362,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 36",
+          "section_name": "סעיף 36 – תקופת כהונת הכנסת לאחר התפזרות",
           "html_id": "סעיף_36",
           "section_type": "סעיף",
           "children": [],
@@ -370,7 +370,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 36א",
+          "section_name": "סעיף 36א – התפזרות בשל אי קבלת חוק תקציב",
           "html_id": "סעיף_36א",
           "section_type": "סעיף",
           "children": [],
@@ -378,7 +378,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 37",
+          "section_name": "סעיף 37 – רציפות הכנסת",
           "html_id": "סעיף_37",
           "section_type": "סעיף",
           "children": [],
@@ -386,7 +386,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 38",
+          "section_name": "סעיף 38 – הארכת תקפם של חיקוקים",
           "html_id": "סעיף_38",
           "section_type": "סעיף",
           "children": [],
@@ -394,7 +394,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 39",
+          "section_name": "סעיף 39 – שכר חברי הכנסת",
           "html_id": "סעיף_39",
           "section_type": "סעיף",
           "children": [],
@@ -402,7 +402,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 40",
+          "section_name": "סעיף 40 – התפטרות של חבר כנסת",
           "html_id": "סעיף_40",
           "section_type": "סעיף",
           "children": [],
@@ -410,7 +410,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 41",
+          "section_name": "סעיף 41 – תוצאות ההתפטרות",
           "html_id": "סעיף_41",
           "section_type": "סעיף",
           "children": [],
@@ -418,7 +418,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 42",
+          "section_name": "סעיף 42 – פקיעת כהונה או מועמדות",
           "html_id": "סעיף_42",
           "section_type": "סעיף",
           "children": [],
@@ -426,7 +426,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 42א",
+          "section_name": "סעיף 42א – הפסקת חברות של חבר הכנסת",
           "html_id": "סעיף_42א",
           "section_type": "סעיף",
           "children": [],
@@ -434,7 +434,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 42ב",
+          "section_name": "סעיף 42ב – השעיה",
           "html_id": "סעיף_42ב",
           "section_type": "סעיף",
           "children": [],
@@ -442,7 +442,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 42ג",
+          "section_name": "סעיף 42ג – הפסקת חברות בכנסת של שר או סגן שר",
           "html_id": "סעיף_42ג",
           "section_type": "סעיף",
           "children": [],
@@ -450,7 +450,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 43",
+          "section_name": "סעיף 43 – חילופים של חברי כנסת",
           "html_id": "סעיף_43",
           "section_type": "סעיף",
           "children": [],
@@ -458,7 +458,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 44",
+          "section_name": "סעיף 44 – יציבות החוק",
           "html_id": "סעיף_44",
           "section_type": "סעיף",
           "children": [],
@@ -466,7 +466,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 45",
+          "section_name": "סעיף 45 – נוקשות סעיפים",
           "html_id": "סעיף_45",
           "section_type": "סעיף",
           "children": [],
@@ -474,7 +474,7 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 45א",
+          "section_name": "סעיף 45א – תחולת נוקשות",
           "html_id": "סעיף_45א",
           "section_type": "סעיף",
           "children": [],
@@ -482,11 +482,18 @@
         },
         {
           "depth": 2,
-          "section_name": "סעיף 46",
+          "section_name": "סעיף 46 – מתי דרוש רוב מיוחד",
           "html_id": "סעיף_46",
           "section_type": "סעיף",
           "children": [],
           "content": "[46.](https://he.wikisource.org/wiki/חוק-יסוד:_הכנסת#סעיף_46)\n\nמתי דרוש רוב מיוחד [תיקון: תשי״ט־3, תש״ן, תשנ״ב־2]\n\nהרוב הדרוש לפי חוק זה לשינוי [הסעיפים 4](https://he.wikisource.org/wiki/חוק-יסוד:_הכנסת#סעיף_4), [9א](https://he.wikisource.org/wiki/חוק-יסוד:_הכנסת#סעיף_9א), [34](https://he.wikisource.org/wiki/חוק-יסוד:_הכנסת#סעיף_34), [44](https://he.wikisource.org/wiki/חוק-יסוד:_הכנסת#סעיף_44) [או 45](https://he.wikisource.org/wiki/חוק-יסוד:_הכנסת#סעיף_45) יהא דרוש להחלטות מליאת הכנסת בקריאה הראשונה, בקריאה השניה ובקריאה השלישית. לענין סעיף זה ”שינוי“ – בין מפורש ובין משתמע.\n\n---\n\nנתקבל בכנסת ביום כ״ב בשבט תשי״ח (12 בפברואר 1958).\n\n* **דוד בן־גוריון**  \n  ראש הממשלה\n* **יצחק בן־צבי**  \n  נשיא המדינה"
+        },
+        {
+          "depth": 2,
+          "section_name": "חתימות",
+          "html_id": "חתימות",
+          "section_type": "חלק",
+          "children": []
         }
       ]
     }

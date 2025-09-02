@@ -149,39 +149,44 @@ class VectorStoreES(VectorStoreBase):
                             field_es_path: match_query_body
                         }
                     })
-        should_clauses = field_queries.copy()
-        # Only add vector search if enabled in config and embedding is provided
+
+        # Build the base query structure
         if search_mode.use_vector_search and embedding:
-            should_clauses.append({
-                "nested": {
-                    "path": "vectors",
-                    "query": {
-                        "bool": {
-                            "must": [
-                                {"term": {"vectors.source": "content"}},
-                                {
-                                    "knn": {
-                                        "field": "vectors.vector",
-                                        "query_vector": embedding,
-                                        "k": num_results,
-                                        "num_candidates": 20
-                                    }
-                                }
-                            ]
-                        }
+            # For ES 8.x compatibility: Use top-level knn with filter instead of nested knn in bool
+            search_query = {
+                "size": num_results,
+                "knn": {
+                    "field": "vectors.vector",
+                    "query_vector": embedding,
+                    "k": num_results,
+                    "num_candidates": 100,
+                    "filter": {
+                        "term": {"vectors.source": "content"}
                     }
                 }
-            })
-        query = {
-            "bool": {
-                "should": should_clauses,
-                "minimum_should_match": 1
             }
-        }
-        return {
-            "size": num_results,
-            "query": query
-        }
+            
+            # Add text queries if they exist
+            if field_queries:
+                search_query["query"] = {
+                    "bool": {
+                        "should": field_queries,
+                        "minimum_should_match": 1
+                    }
+                }
+        else:
+            # Text-only search
+            search_query = {
+                "size": num_results,
+                "query": {
+                    "bool": {
+                        "should": field_queries,
+                        "minimum_should_match": 1
+                    }
+                }
+            }
+        
+        return search_query
 
     def verify_document_vectors(self, index_name: str, document_id: str) -> Dict:
         """Verify vectors stored for a specific document"""
@@ -192,8 +197,7 @@ class VectorStoreES(VectorStoreBase):
                 source=['vectors']
             )
             vectors = result['_source'].get('vectors', [])
-            logger.info(f"Found {len(vectors)} vectors for document {document_id}")
-            logger.info(f"Vector sources: {[vec.get('source', 'unknown') for vec in vectors]}")
+            logger.debug(f"Found {len(vectors)} vectors for document {document_id}")
             return vectors
         except Exception as e:
             logger.error(f"Failed to verify vectors for document {document_id}: {str(e)}")
@@ -240,15 +244,10 @@ class VectorStoreES(VectorStoreBase):
         # Add vector similarity explanations if explain=True
         if explain:
             for hit in results['hits']['hits']:
-                logger.info(f"Processing hit: {hit['_id']}")
-                
-                # Verify stored vectors
-                stored_vectors = self.verify_document_vectors(index_name, hit['_id'])
-                logger.info(f"Stored vectors: {[vec.get('source', 'unknown') for vec in stored_vectors]}")
+                logger.debug(f"Processing explanation for document: {hit['_id']}")
                 
                 if 'vectors' in hit['_source']:
-                    logger.info(f"Found {len(hit['_source']['vectors'])} vectors in document")
-                    logger.debug(f"Vector sources: {[vec.get('source', 'unknown') for vec in hit['_source']['vectors']]}")
+                    logger.debug(f"Found {len(hit['_source']['vectors'])} vectors in document {hit['_id']}")
                     
                     # Calculate vector similarity scores
                     vector_score = explain_vector_scores(
@@ -264,7 +263,7 @@ class VectorStoreES(VectorStoreBase):
                         vector_score=vector_score
                     )
                     
-                    logger.info(f"Final explanation for {hit['_id']}: {json.dumps(hit['_explanation'], indent=2)}")
+                    logger.debug(f"Generated explanation for document {hit['_id']}")
                     
                 else:
                     logger.warning(f"No vectors found in document: {hit['_id']}")
@@ -283,13 +282,12 @@ class VectorStoreES(VectorStoreBase):
         
         # Delete existing index if replace_context is True
         if replace_context and self.es_client.indices.exists(index=index_name):
-            logger.info(f"Deleting existing index due to replace_context flag: {index_name}")
+            logger.info(f"Replacing existing index: {index_name}")
             self.es_client.indices.delete(index=index_name)
-            logger.info(f"Deleted existing index: {index_name}")
         
         # Create new index if it doesn't exist
         if not self.es_client.indices.exists(index=index_name):
-            logger.info(f"Creating new index with updated mapping: {index_name}")
+            logger.info(f"Creating index: {index_name}")
             # Create index with proper mappings
             mapping = {
                 "mappings": {
@@ -349,7 +347,7 @@ class VectorStoreES(VectorStoreBase):
                 }
             }
             self.es_client.indices.create(index=index_name, **mapping)
-            logger.info(f"Created new index: {index_name}")
+            logger.info(f"Index created successfully: {index_name}")
         
         return index_name
 
@@ -404,72 +402,25 @@ class VectorStoreES(VectorStoreBase):
                     description = metadata.get('Description')  # Direct access to Description field
                     if description:
                         try:
-                            logger.info(f"Found description for {filename}: {description[:100]}...")
                             logger.debug(f"Generating description embedding for {filename}")
-                            try:
-                                description_response = self.openai_client.embeddings.create(
-                                    input=description,
-                                    model=DEFAULT_EMBEDDING_MODEL,
-                                )
-                                description_vector = description_response.data[0].embedding
-                                logger.debug(f"Generated description vector of length {len(description_vector)}")
-                                
-                                document['vectors'].append({
-                                    "vector": description_vector,
-                                    "source": "description"
-                                })
-                                logger.info(f"Successfully added description vector for {filename}")
-                                
-                                # Verify the vector was added
-                                if not any(v.get('source') == 'description' for v in document['vectors']):
-                                    logger.error(f"Description vector was not properly added to document vectors for {filename}")
-                            except Exception as e:
-                                logger.error(f"Failed to generate description embedding for {filename}: {str(e)}")
-                                logger.error(f"Description text: {description[:200]}...")
-                                raise
+                            description_response = self.openai_client.embeddings.create(
+                                input=description,
+                                model=DEFAULT_EMBEDDING_MODEL,
+                            )
+                            description_vector = description_response.data[0].embedding
+                            
+                            document['vectors'].append({
+                                "vector": description_vector,
+                                "source": "description"
+                            })
+                            logger.debug(f"Added description vector for {filename}")
+                            
                         except Exception as e:
-                            logger.error(f"Error processing description for {filename}: {str(e)}")
-                            logger.error(f"Full error details: {str(e)}")
+                            logger.error(f"Failed to generate description embedding for {filename}: {str(e)}")
+                            # Continue processing without description vector
                     else:
-                        logger.warning(f"No description found in metadata for {filename}")
-                        logger.debug(f"Available metadata fields: {list(metadata.keys())}")
-                
-                #TODO: REMOVED FOR NOW
-                # # Try to load metadata from the metadata file
-                # clean_filename = filename[1:] if filename.startswith('_') else filename
-                # metadata_path = Path('specs/takanon/extraction/metadata') / f"{clean_filename}.metadata.json"
-                
-                # try:
-                #     if metadata_path.exists() and not metadata_path.name.endswith('.metadata.json.metadata.json'):
-                #         logger.info(f"Found metadata file at {metadata_path}")
-                #         with open(metadata_path, 'r', encoding='utf-8') as f:
-                #             loaded_metadata = json.load(f)
-                #             document["metadata"] = loaded_metadata
-                #             logger.info(f"Loaded metadata from file for {filename}")
-                #     else:
-                #         logger.warning(f"No metadata file found at {metadata_path}")
-                #         document["metadata"] = {
-                #             "title": Path(filename).stem,
-                #             "document_type": str(file_type),
-                #             "extracted_at": datetime.now().isoformat(),
-                #             "status": "no_metadata",
-                #             "context_type": context.get("type", ""),
-                #             "context_name": context_name,
-                #             "extracted_data": {}
-                #         }
-                # except Exception as e:
-                #     logger.warning(f"Failed to load metadata for {filename}: {str(e)}")
-                #     document["metadata"] = {
-                #         "title": Path(filename).stem,
-                #         "document_type": str(file_type),
-                #         "extracted_at": datetime.now().isoformat(),
-                #         "status": "error",
-                #         "context_type": context.get("type", ""),
-                #         "context_name": context_name,
-                #         "extracted_data": {"error": str(e)}
-                #     }
-                
-                # logger.info(f"Final document metadata for {filename}: {document['metadata']}")
+                        logger.debug(f"No description found in metadata for {filename}")
+
                 
                 # Index document
                 result = self.es_client.index(
@@ -477,7 +428,7 @@ class VectorStoreES(VectorStoreBase):
                     id=filename,
                     document=document
                 )
-                logger.debug(f"Index result: {result}")
+                logger.debug(f"Indexed document {filename} successfully")
                 
             except Exception as e:
                 logger.error(f"Failed to process file {filename}: {str(e)}")
@@ -510,13 +461,63 @@ class VectorStoreES(VectorStoreBase):
             logger.error(f"Failed to delete files: {str(e)}")
             return 0
 
+    def _get_tool_description_from_config(self, context_) -> str:
+        """Get tool description from context configuration"""
+        description = context_.get('description', '')
+        examples = context_.get('examples', '')
+        
+        if description and examples:
+            return f"{description}. Examples: {examples}"
+        elif description:
+            return description
+        else:
+            # Fallback if no description in config
+            context_name = context_.get('slug', 'unknown')
+            return f"Semantic search the '{context_name}' vector store"
+
+    def _get_search_mode_description(self, context_) -> str:
+        """Get search mode description based on context configuration"""
+        # Default search mode description for all contexts
+        base_description = "Search mode. "
+        
+        # Build the description based on context type and available modes
+        context_slug = context_.get('slug', '')
+        
+        # Determine which modes are most relevant for this context type
+        if any(keyword in context_slug for keyword in ['legal_text', 'common_knowledge']):
+            # Legal text contexts support SECTION_NUMBER mode
+            modes = [
+                "'SECTION_NUMBER': Specialized search for finding legal text sections by their number (e.g. 'סעיף 12'). Requires both section number and resource name (default 3 results)",
+                "'REGULAR': Semantic + full text search across all main fields (default 7 results)", 
+                "'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)"
+            ]
+        elif any(keyword in context_slug for keyword in ['legal_advisor_opinions', 'legal_advisor_letters', 'committee_decisions', 'ethics_decisions']):
+            # Document-based contexts prioritize METADATA_BROWSE
+            modes = [
+                "'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)",
+                "'REGULAR': Semantic + full text search across all main fields (7 results)"
+            ]
+        else:
+            # Default mode list for unknown contexts
+            modes = [
+                "'REGULAR': Semantic + full text search across all main fields (default 7 results)",
+                "'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)"
+            ]
+        
+        return base_description + ". ".join(modes) + "."
+
     def update_tools(self, context_, vector_store):
         # vector_store is now just the index name string
+        
+        # Get tool description from configuration instead of hardcoded values
+        tool_description = self._get_tool_description_from_config(context_)
+        search_mode_description = self._get_search_mode_description(context_)
+        
         self.tools.append({
             "type": "function",
             "function": {
                 "name": f"search_{vector_store}",
-                "description": f"Semantic search the '{vector_store}' vector store",
+                "description": tool_description,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -526,7 +527,7 @@ class VectorStoreES(VectorStoreBase):
                         },
                         "search_mode": {
                             "type": "string",
-                            "description": "Search mode. 'SECTION_NUMBER': Optimized for finding specific section numbers (e.g., 'סעיף 12', default 3 results). 'REGULAR': Standard semantic search across all fields (default 7 results).",
+                            "description": search_mode_description,
                             "enum": [mode.name for mode in SEARCH_MODES.values()],
                             "default": DEFAULT_SEARCH_MODE.name
                         },
