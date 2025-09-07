@@ -5,7 +5,7 @@ from firebase_admin.auth import verify_id_token
 from firebase_admin import initialize_app
 from firebase_admin.credentials import Certificate
 
-firebase_app = initialize_app(credential=Certificate('/srv/firebase-credentials.json'))
+firebase_app = initialize_app(credential=Certificate('firebase-credentials.json'))
 
 # use of a simple bearer scheme as auth is handled by firebase and not fastapi
 # we set auto_error to False because fastapi incorrectly returns a 403 intead 
