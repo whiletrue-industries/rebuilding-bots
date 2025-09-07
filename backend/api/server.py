@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 from firebase_admin import firestore
 from pydantic import BaseModel
 
-from backend.api.resolve_firebase_user import FireBaseUser, firebase_app
+from .resolve_firebase_user import FireBaseUser
 from botnim.query import run_query
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 
@@ -54,9 +54,9 @@ router = APIRouter(
 )
 
 class UserUpdateRequest(BaseModel):
-    user_display_name: Optional[str] = None
-    user_role: Optional[str] = None
-    user_password: Optional[str] = None
+    display_name: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
 
 @router.get("/users")
 async def get_users(
@@ -120,13 +120,13 @@ async def update_user(
         if user_doc.exists:
             # User exists - update only the provided fields
             updates = {}
-            if update_request.user_display_name is not None:
-                updates['display_name'] = update_request.user_display_name
-            if update_request.user_role is not None:
-                updates['role'] = update_request.user_role
-            if update_request.user_password is not None:
-                updates['password'] = update_request.user_password
-            
+            if update_request.display_name is not None:
+                updates['display_name'] = update_request.display_name
+            if update_request.role is not None:
+                updates['role'] = update_request.role
+            if update_request.password is not None:
+                updates['password'] = update_request.password
+
             # Only update if there are fields to update
             if updates:
                 user_ref.update(updates)
