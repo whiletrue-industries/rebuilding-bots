@@ -126,6 +126,7 @@ async def update_user(
                 updates['role'] = update_request.role
             if update_request.password is not None:
                 updates['password'] = update_request.password
+            updates['updated_at'] = firestore.SERVER_TIMESTAMP
 
             # Only update if there are fields to update
             if updates:
@@ -134,12 +135,16 @@ async def update_user(
             # User doesn't exist - create a new user record
             new_user_data = {
                 'id': user_id,
-                'display_name': update_request.user_display_name or '',
-                'role': update_request.user_role or '',
-                'password': update_request.user_password or '',
                 'created_at': firestore.SERVER_TIMESTAMP,
                 'updated_at': firestore.SERVER_TIMESTAMP
             }
+            if update_request.display_name is not None:
+                new_user_data['display_name'] = update_request.display_name
+            if update_request.role is not None:
+                new_user_data['role'] = update_request.role
+            if update_request.password is not None:
+                new_user_data['password'] = update_request.password
+
             user_ref.set(new_user_data)
         
         # Fetch the final document (whether updated or created)
