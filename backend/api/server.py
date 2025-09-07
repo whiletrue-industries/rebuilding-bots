@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 from firebase_admin import firestore
 from pydantic import BaseModel
 
-from .resolve_firebase_user import FireBaseUser
+from resolve_firebase_user import FireBaseUser
 from botnim.query import run_query
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 

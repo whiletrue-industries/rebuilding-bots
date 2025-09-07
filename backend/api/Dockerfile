@@ -9,6 +9,7 @@ COPY botnim/ ./botnim
 COPY specs/ ./specs
 COPY setup.py ./
 COPY backend/api/server.py .
+COPY backend/api/resolve_firebase_user.py .
 COPY backend/api/api_server.sh .
 COPY firebase-credentials.json ./firebase-credentials.json
 RUN pip install -e .
