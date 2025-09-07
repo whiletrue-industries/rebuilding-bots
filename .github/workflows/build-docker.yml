@@ -16,6 +16,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCKER_APP_IMAGE_NAME_API: "ghcr.io/whiletrue-industries/botnim/botnim-api"
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
         run: |
           echo "${GITHUB_TOKEN}" | docker login ghcr.io -u whiletrue-industries --password-stdin &&\
 
@@ -24,6 +25,7 @@ jobs:
           else
             CACHE_FROM_ARG=""
           fi &&\
+          echo "${FIREBASE_CREDENTIALS}" | base64 -d > firebase-credentials.json &&\
           docker build $CACHE_FROM_ARG --build-arg VERSION=${GITHUB_SHA} -t app -f backend/api/Dockerfile . &&\
           docker tag app "${DOCKER_APP_IMAGE_NAME_API}:${GITHUB_SHA}" &&\
           docker push "${DOCKER_APP_IMAGE_NAME_API}:${GITHUB_SHA}" &&\

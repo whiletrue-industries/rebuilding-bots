@@ -10,6 +10,7 @@ COPY specs/ ./specs
 COPY setup.py ./
 COPY backend/api/server.py .
 COPY backend/api/api_server.sh .
+COPY firebase-credentials.json ./firebase-credentials.json
 RUN pip install -e .
 ENV PYTHONUNBUFFERED=1
 ENTRYPOINT ["/bin/bash", "-c"]
