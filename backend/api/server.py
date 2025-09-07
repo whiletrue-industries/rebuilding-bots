@@ -81,6 +81,7 @@ async def get_users(
         for doc in users_docs:
             user_data = doc.to_dict()
             user_data['id'] = doc.id  # Include document ID
+            user_data.pop('password', None)  # Remove password from user data
             users.append(user_data)
         
         return users
