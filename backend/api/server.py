@@ -56,6 +56,7 @@ router = APIRouter(
 class UserUpdateRequest(BaseModel):
     display_name: Optional[str] = None
     role: Optional[str] = None
+    email: Optional[str] = None
     password: Optional[str] = None
 
 @router.get("/users")
@@ -125,6 +126,8 @@ async def update_user(
                 updates['display_name'] = update_request.display_name
             if update_request.role is not None:
                 updates['role'] = update_request.role
+            if update_request.email is not None:
+                updates['email'] = update_request.email
             if update_request.password is not None:
                 updates['password'] = update_request.password
             updates['updated_at'] = firestore.SERVER_TIMESTAMP
@@ -143,6 +146,8 @@ async def update_user(
                 new_user_data['display_name'] = update_request.display_name
             if update_request.role is not None:
                 new_user_data['role'] = update_request.role
+            if update_request.email is not None:
+                new_user_data['email'] = update_request.email
             if update_request.password is not None:
                 new_user_data['password'] = update_request.password
 
