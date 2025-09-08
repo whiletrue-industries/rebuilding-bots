@@ -186,6 +186,10 @@ class VectorStoreES(VectorStoreBase):
                 }
             }
         
+        # Add min_score filter if specified in search mode
+        if search_mode.min_score > 0:
+            search_query["min_score"] = search_mode.min_score
+        
         return search_query
 
     def verify_document_vectors(self, index_name: str, document_id: str) -> Dict:
