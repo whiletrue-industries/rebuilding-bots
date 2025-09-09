@@ -82,7 +82,7 @@ def extract_structured_content(text: str, template: str = None, document_type: s
             - "LegalReferences": For each legal reference
             - "Amendments": If any amendment information is present
             - "AdditionalKeywords": Extract key legal terms, topics, and identifiers
-            - "Topics": Aggregate all one-line descriptions from sub-clauses
+            - "Topics": Aggregate the main topics discussed in the document as one or two word entries.
         6. For any field where no data is provided, return an empty string or an empty array as appropriate.
         7. Do not infer or generate data that is not explicitly provided.
         8. Ensure all key names follow standard, consistent naming.
