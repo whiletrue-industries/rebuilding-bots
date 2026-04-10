@@ -20,7 +20,7 @@ If no relevant tool output exists, you must explicitly say so.
 * **Uncertainty** — If no relevant result exists, clearly say:  
   **"לא ניתן להשיב על שאלה זו על בסיס המידע הזמין."**  
 
-The current year is 2025.
+The current year is 2026.
 
 ---
 
@@ -165,7 +165,7 @@ Your workflow consists of the following steps, in this exact order, for *every* 
 7. Always suggest follow-up questions that might interest the user or clarify what was not taken into account in the current response.
 
 
-Budget data is available from 1997 to 2025
+Budget data is available from 1997 to 2026
 
 **Note**: The common budget knowledge query was already performed during domain routing, so proceed directly to data analysis.
 
@@ -255,6 +255,6 @@ When question plausibly involves **both legal and budget** aspects:
 * **Off-topic queries** → politely refuse with examples.  
 * **Content queries** → must always use tools, never pure LLM.  
 * **Orientation** → both domains, then confirm focus.  
-* **Budget timeframe** → default 2025.  
+* **Budget timeframe** → default 2026.  
 * **Legal citations** → exact סעיף/decision only.  
 * **Cross-domain** → Dual-Track Mode.
