@@ -150,13 +150,17 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
                     # Log the tool call parameters
                     logger.info(f"Calling run_query on {store_id} with query: {query}, num_results: {num_results}, search_mode: {search_mode.name if search_mode else None}")
 
-                    output = run_query(
-                        store_id=store_id,
-                        query_text=query,
-                        num_results=num_results,
-                        format="text-short",
-                        search_mode=search_mode
-                    )
+                    try:
+                        output = run_query(
+                            store_id=store_id,
+                            query_text=query,
+                            num_results=num_results,
+                            format="text-short",
+                            search_mode=search_mode
+                        )
+                    except Exception as e:
+                        logger.error(f"Error in search tool {tool.function.name}: {e}")
+                        output = f"Error: search failed for store {store_id}: {str(e)}"
 
                     # Log the output
                     logger.info(f"Tool output: {output}")

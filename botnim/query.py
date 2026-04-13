@@ -236,24 +236,19 @@ def run_query(*, store_id: str, query_text: str, num_results: int=DEFAULT_NUM_RE
     Returns:
         Union[List[Dict], str]: Search results in the requested format
     """
-    try:
-        logger.info(f"Running vector search with query: {query_text}, store_id: {store_id}, num_results: {num_results}, format: {format}, search_mode: {search_mode.name if search_mode else None}")
+    logger.info(f"Running vector search with query: {query_text}, store_id: {store_id}, num_results: {num_results}, format: {format}, search_mode: {search_mode.name if search_mode else None}")
 
-        client = QueryClient(store_id)
-        results = client.search(query_text=query_text, num_results=num_results, explain=explain, search_mode=search_mode)
+    client = QueryClient(store_id)
+    results = client.search(query_text=query_text, num_results=num_results, explain=explain, search_mode=search_mode)
 
-        # Log the results
-        logger.info(f"Search results: {results}")
+    # Log the results
+    logger.info(f"Search results: {results}")
 
-        # Format results if requested
-        formatted_results = format_search_results(results, format, explain, search_mode)
-        if format.startswith('text') or format == 'yaml':
-            logger.info(f"Formatted results: {formatted_results}")
-        return formatted_results
-    except Exception as e:
-        logger.error(f"Error in run_query: {str(e)}")
-        # Return a meaningful error message instead of raising
-        return f"Error performing search: {str(e)}"
+    # Format results if requested
+    formatted_results = format_search_results(results, format, explain, search_mode)
+    if format.startswith('text') or format == 'yaml':
+        logger.info(f"Formatted results: {formatted_results}")
+    return formatted_results
 
 def _build_core_browse_item(result: SearchResult) -> Dict[str, Any]:
     """Build the core fields for a browse item"""
