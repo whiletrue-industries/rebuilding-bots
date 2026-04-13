@@ -1,0 +1,87 @@
+name: Deploy to ECS
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Specific image tag to deploy (defaults to commit SHA)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write  # for OIDC to AWS
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    env:
+      AWS_REGION: il-central-1
+      TF_VERSION: "1.9.8"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          TAG="${{ inputs.image_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_SHA}"
+          fi
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          ECR_REPOSITORY: botnim-api
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: |
+          echo "${FIREBASE_CREDENTIALS}" | base64 -d > firebase-credentials.json
+          docker build -f backend/api/Dockerfile \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" .
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform init
+        working-directory: infra/prod
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: infra/prod
+        env:
+          TF_VAR_image_tag: ${{ steps.tag.outputs.image_tag }}
+          TF_VAR_desired_count: "1"
+        run: terraform apply -auto-approve
+
+      - name: Force new deployment
+        run: |
+          aws ecs update-service \
+            --cluster buildup-shared \
+            --service botnim-api-prod-api \
+            --force-new-deployment
+
+      - name: Wait for service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster buildup-shared \
+            --services botnim-api-prod-api
