@@ -1,3 +1,15 @@
+variable "region" {
+  description = "AWS region for the deployment (injected by terragrunt)."
+  type        = string
+  default     = "il-central-1"
+}
+
+variable "environment" {
+  description = "Deployment environment name (injected by terragrunt)."
+  type        = string
+  default     = "prod"
+}
+
 variable "image_tag" {
   description = "Docker image tag to deploy from the module-managed ECR repository. Use 'bootstrap' for the first apply, then a real SHA."
   type        = string
@@ -5,7 +17,7 @@ variable "image_tag" {
 }
 
 variable "desired_count" {
-  description = "Desired ECS task count. Set to 0 for first bootstrap apply (before an image has been pushed), then 1 for real operation. Must stay at 1 — the task has a stateful Elasticsearch sidecar with an EFS volume that cannot be safely shared across tasks."
+  description = "Desired ECS task count. Set to 0 for first bootstrap apply, then 1 for real operation. Must stay at 1 — the task has a stateful Elasticsearch sidecar with an EFS volume that cannot be safely shared across tasks."
   type        = number
   default     = 0
 
@@ -22,7 +34,7 @@ variable "listener_priority" {
 }
 
 variable "elasticsearch_image" {
-  description = "Elasticsearch Docker image tag. Must match the version the botnim code expects."
+  description = "Elasticsearch Docker image tag. Must match the version botnim code expects."
   type        = string
   default     = "docker.elastic.co/elasticsearch/elasticsearch:8.11.0"
 }

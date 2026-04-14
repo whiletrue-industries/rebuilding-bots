@@ -12,7 +12,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write  # for OIDC to AWS
+  id-token: write
 
 jobs:
   deploy:
@@ -20,6 +20,7 @@ jobs:
     env:
       AWS_REGION: il-central-1
       TF_VERSION: "1.9.8"
+      TG_VERSION: "0.72.8"
 
     steps:
       - uses: actions/checkout@v4
@@ -62,16 +63,19 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Terraform init
-        working-directory: infra/prod
-        run: terraform init
+      - name: Setup Terragrunt
+        uses: autero1/action-terragrunt@v3
+        with:
+          terragrunt-version: ${{ env.TG_VERSION }}
 
-      - name: Terraform apply
-        working-directory: infra/prod
+      - name: Terragrunt apply
+        working-directory: infra/live/prod
         env:
           TF_VAR_image_tag: ${{ steps.tag.outputs.image_tag }}
           TF_VAR_desired_count: "1"
-        run: terraform apply -auto-approve
+        run: |
+          terragrunt init --non-interactive
+          terragrunt apply --non-interactive -auto-approve
 
       - name: Force new deployment
         run: |

@@ -3,7 +3,7 @@
 ################################################################################
 
 resource "aws_s3_bucket" "es_backups" {
-  bucket = "botnim-api-es-backups-prod"
+  bucket = "botnim-api-es-backups-${var.environment}"
 }
 
 resource "aws_s3_bucket_public_access_block" "es_backups" {
@@ -45,13 +45,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "es_backups" {
     }
   }
 }
-
-################################################################################
-# IAM policy granting the botnim-api task role write access to the backup bucket
-#
-# The mongodump/elasticdump runs inside the same task (as a cron sidecar or
-# on-demand via ECS Exec) using the task role's S3 write permissions.
-################################################################################
 
 data "aws_iam_policy_document" "es_backups_write" {
   statement {

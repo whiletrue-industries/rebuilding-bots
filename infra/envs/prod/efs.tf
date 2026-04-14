@@ -1,12 +1,12 @@
 ################################################################################
-# EFS filesystem for the Elasticsearch sidecar's /usr/share/elasticsearch/data
+# EFS filesystem for the Elasticsearch sidecar's data directory
 #
-# Single access point (posix 1000:1000) owned by the elasticsearch container
-# user. Survives task restarts; backups via the scheduled task in backup.tf.
+# One access point (posix 1000:1000) owned by the elasticsearch container user.
+# Survives task restarts; snapshots are written to the S3 bucket in backups.tf.
 ################################################################################
 
 module "es_efs" {
-  source = "git::https://github.com/Build-Up-IL/org-infra.git//modules/ecs-app-efs?ref=feat/ecs-efs-and-sidecars"
+  source = "git::https://github.com/Build-Up-IL/org-infra.git//modules/ecs-app-efs?ref=feat/ecs-efs-and-sidecars-v2"
 
   name               = "botnim-api-es"
   vpc_id             = local.contract.network.vpc_id

@@ -9,7 +9,7 @@ output "ecr_repository_url" {
 }
 
 output "task_role_arn" {
-  description = "IAM task role ARN (for debugging or adding extra permissions)"
+  description = "IAM task role ARN"
   value       = module.botnim_api.task_role_arn
 }
 

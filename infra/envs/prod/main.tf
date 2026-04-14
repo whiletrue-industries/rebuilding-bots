@@ -1,39 +1,42 @@
 ################################################################################
 # botnim-api ECS task
 #
-# Runs two containers in the same task definition:
-#  1. botnim-api (primary) — FastAPI, port 8000, handles /botnim/retrieve/*
-#  2. elasticsearch (sidecar) — single-node ES, reachable via localhost:9200
+# One Fargate task with two containers:
+#  1. api (primary) — FastAPI on :8000, handles /botnim/retrieve/* via ALB
+#  2. elasticsearch (sidecar) — single-node ES, reachable at localhost:9200,
+#     data persisted on EFS so it survives task restarts
 #
-# The sidecar's data dir is mounted from an EFS filesystem so it survives
-# task restarts. Task count is fixed at 1 (no horizontal scaling).
+# Uses modules/app directly (new preferred pattern — see docs/shared-ecs-app-techdebt.md
+# in buildup-org-infra). The `public = {...}` block wires up the shared ALB.
 ################################################################################
 
 module "botnim_api" {
-  source = "git::https://github.com/Build-Up-IL/org-infra.git//modules/shared-ecs-app?ref=feat/ecs-efs-and-sidecars"
+  source = "git::https://github.com/Build-Up-IL/org-infra.git//modules/app?ref=feat/ecs-efs-and-sidecars-v2"
 
-  app_name          = "botnim-api"
-  container_port    = 8000
-  container_name    = "api"
-  health_check_path = "/health"
+  app_name       = "botnim-api"
+  container_port = 8000
+  container_name = "api"
 
-  # Route /botnim/* on the shared botnim.build-up.team host to this task.
-  host_headers      = ["botnim.build-up.team"]
-  path_patterns     = ["/botnim/*"]
-  listener_priority = var.listener_priority
+  environment = var.environment
 
   image_tag     = var.image_tag
   desired_count = var.desired_count
 
-  # No horizontal autoscaling — the task owns stateful ES data on EFS.
   enable_autoscaling = false
   max_capacity       = 1
   min_capacity       = 1
 
-  # Resource allocation: botnim-api itself is light (256/512) but
-  # elasticsearch needs real memory. Total task = 1 vCPU, 3 GB.
+  # Resource allocation: api is light; elasticsearch needs real memory.
+  # Total task = 1 vCPU, 3 GB.
   cpu    = 1024
   memory = 3072
+
+  public = {
+    health_check_path = "/health"
+    host_headers      = ["botnim.build-up.team"]
+    listener_priority = var.listener_priority
+    path_patterns     = ["/botnim/*"]
+  }
 
   environment_variables = {
     ENVIRONMENT            = "production"
@@ -46,13 +49,11 @@ module "botnim_api" {
     ES_PASSWORD_PRODUCTION    = aws_secretsmanager_secret.elasticsearch_password.arn
   }
 
-  # Elasticsearch sidecar with EFS-backed data directory.
   sidecar_containers = [
     {
       name  = "elasticsearch"
       image = var.elasticsearch_image
 
-      # ES needs root user to write the pid file, then drops to elasticsearch user.
       environment = {
         "node.name"                         = "es01"
         "cluster.name"                      = "botnim-cluster"
@@ -68,7 +69,7 @@ module "botnim_api" {
         ELASTIC_PASSWORD = aws_secretsmanager_secret.elasticsearch_password.arn
       }
 
-      port_mappings = [] # not exposed to the ALB — only reachable via localhost
+      port_mappings = [] # localhost-only, no ALB exposure
 
       mount_points = [
         {
@@ -81,7 +82,7 @@ module "botnim_api" {
       health_check = {
         command = [
           "CMD-SHELL",
-          "curl -s -u elastic:$ELASTIC_PASSWORD http://localhost:9200 | grep -q 'missing authentication credentials\\|You Know, for Search'",
+          "curl -s -u elastic:$ELASTIC_PASSWORD http://localhost:9200 | grep -q 'You Know, for Search'",
         ]
         interval     = 30
         retries      = 5
@@ -107,6 +108,6 @@ module "botnim_api" {
 
   efs_security_group_ids = [module.es_efs.mount_target_security_group_id]
 
-  # Grant S3 write access for on-demand / scheduled ES snapshots.
+  # Grant S3 write access for on-demand Elasticsearch snapshots.
   task_role_policy_json = data.aws_iam_policy_document.es_backups_write.json
 }
