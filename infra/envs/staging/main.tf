@@ -42,6 +42,16 @@ module "botnim_api" {
     path_patterns     = ["/botnim/*"]
   }
 
+  # Publish botnim-api as an internal Service Connect endpoint so librechat
+  # (same VPC, different Fargate task) can call it without hairpinning
+  # through the public ALB. The public /botnim/* route above still works for
+  # external callers; this just adds an in-VPC path for siblings.
+  #
+  # Defaults: discovery_name = app_name = "botnim-api", client_alias_port =
+  # container_port = 8000, app_protocol = "http". In-cluster URL:
+  #   http://botnim-api:8000
+  internal_server = {}
+
   environment_variables = merge(
     {
       ENVIRONMENT      = var.environment
