@@ -25,7 +25,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/health")
+@app.get("/botnim/health")
+async def health():
+    return "OK"
+
+
 @app.get("/retrieve/{bot}/{context}")
+@app.get("/botnim/retrieve/{bot}/{context}")
 async def search_datasets_handler(
     bot: str,
     context: str,
