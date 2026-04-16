@@ -1,3 +1,17 @@
+"""Benchmark runner -- legacy, uses the Assistants API.
+
+.. deprecated:: 2026-04
+
+    This offline benchmark harness still wires up OpenAI Assistants and
+    Threads (``client.beta.assistants.list`` / ``beta.threads.*``). Both
+    APIs retire 2026-08-26. It is NOT on the production chat path, nor on
+    the sync path; it runs on demand via ``botnim benchmarks`` for quality
+    regression testing against Airtable-managed question sets.
+
+    Migration target: replace ``assistant_loop`` with a ``response_loop``
+    that consumes :func:`botnim.bot_config.load_bot_config` and
+    ``client.responses.create``. Tracked as task T6 in MIGRATION_TASKS.md.
+"""
 import codecs
 import os
 import dotenv

@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from resolve_firebase_user import FireBaseUser
 from botnim.query import run_query
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
+from botnim.bot_config import load_bot_config
+from botnim.config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,68 @@ app.add_middleware(
 @app.get("/botnim/health")
 async def health():
     return "OK"
+
+
+# ---------------------------------------------------------------------------
+# Bot config endpoints (post-Assistants-API migration)
+#
+# These endpoints expose the code-managed Responses-API BotConfig objects that
+# replace the server-side OpenAI Assistant objects. Consumers (LibreChat) use
+# them to build client.responses.create(model=..., instructions=..., tools=...)
+# calls at chat time.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/bots")
+@app.get("/botnim/bots")
+async def list_bots() -> List[Dict[str, Any]]:
+    """Return slug + display name + description for every available bot."""
+    bots = []
+    for slug in AVAILABLE_BOTS:
+        try:
+            # Default environment is fine here; we only use this for the
+            # listing, which just needs the slug + human-readable name.
+            cfg = load_bot_config(slug, DEFAULT_ENVIRONMENT)
+        except FileNotFoundError:
+            continue
+        bots.append({
+            "slug": cfg.slug,
+            "name": cfg.name,
+            "description": cfg.description,
+        })
+    return bots
+
+
+@app.get("/config/{bot}")
+@app.get("/botnim/config/{bot}")
+async def get_bot_config(
+    bot: str,
+    environment: Optional[str] = Query(None, description=f"Target environment. One of {VALID_ENVIRONMENTS}. Defaults to server default."),
+) -> Dict[str, Any]:
+    """Return the Responses-API BotConfig (model, instructions, tools) for ``bot``.
+
+    The returned payload is suitable for direct use as kwargs to
+    ``client.responses.create(...)`` (drop the ``slug`` / ``name`` /
+    ``description`` metadata fields). It is freshly loaded from
+    ``specs/<bot>/`` on every call, so CI-synced spec changes are picked up
+    without a server restart.
+    """
+    env = environment or DEFAULT_ENVIRONMENT
+    if env not in VALID_ENVIRONMENTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid environment '{env}'. Valid: {VALID_ENVIRONMENTS}",
+        )
+    if bot not in AVAILABLE_BOTS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown bot '{bot}'. Valid: {AVAILABLE_BOTS}",
+        )
+    try:
+        cfg = load_bot_config(bot, env)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return cfg.to_dict()
 
 
 @app.get("/retrieve/{bot}/{context}")

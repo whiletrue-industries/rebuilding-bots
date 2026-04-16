@@ -20,15 +20,20 @@ def cli():
     """A simple CLI tool."""
     pass
 
-# Sync command, receives two arguments: production/staging and a list of bots to sync ('budgetkey'/'takanon' or 'all')
+# Sync command. Two args: env (production/staging/local) and a bot slug or 'all'.
+# Post-Assistants-API migration (2026-04): sync does (a) Elasticsearch indexing
+# and (b) publishing a code-managed Responses-API BotConfig JSON to
+# specs/.published/<env>/<bot>.json. It no longer creates or updates any remote
+# OpenAI Assistant / Prompt object -- those are dashboard-only and are replaced
+# by this repo's published config artifact.
 @cli.command(name='sync')
 @click.argument('environment', type=click.Choice(VALID_ENVIRONMENTS))
 @click.argument('bots', type=click.Choice(AVAILABLE_BOTS + ['all']))
 @click.option('--replace-context', type=str, help='Replace existing context with a specific context name or use "all" to replace all contexts')
-@click.option('--backend', type=click.Choice(['es', 'openai']), default='openai', help='Vector store backend')
+@click.option('--backend', type=click.Choice(['es', 'openai']), default='es', help='Vector store backend (default: es)')
 @click.option('--reindex', is_flag=True, default=False, help='Force reindexing to update mapping changes')
 def sync(environment, bots, replace_context, backend, reindex):
-    """Sync bots to Airtable."""
+    """Sync bot configs and vector indices for ``bots`` in ``environment``."""
     click.echo(f"Syncing {bots} to {environment}")
     sync_agents(environment, bots, backend=backend, replace_context=replace_context, reindex=reindex)
 
