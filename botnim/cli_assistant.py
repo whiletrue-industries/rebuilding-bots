@@ -1,3 +1,17 @@
+"""Interactive assistant REPL -- legacy, uses the Assistants API.
+
+.. deprecated:: 2026-04
+
+    This module talks to ``client.beta.assistants.*`` and
+    ``client.beta.threads.*``, both retiring 2026-08-26. It is an OFFLINE
+    developer tool (``botnim assistant``) and is NOT exercised by the
+    production chat flow, the sync pipeline, or the FastAPI server. It
+    continues to work against live Assistants until the deprecation date.
+
+    Migration target: port this REPL to the Responses API using
+    :func:`botnim.bot_config.load_bot_config` + a future ``response_loop``
+    helper. Tracked as task T5 in MIGRATION_TASKS.md.
+"""
 import openai
 import time
 from dotenv import load_dotenv
