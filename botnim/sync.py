@@ -80,7 +80,7 @@ def update_assistant(client, config, config_dir, backend, environment, replace_c
     asst_params = dict(
         name=assistant_name,
         description=config['description'],
-        model='gpt-4.1',
+        model='gpt-5.4-mini',
         instructions=config['instructions'],
         temperature=0.00001,
     )
