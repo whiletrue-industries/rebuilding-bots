@@ -1,7 +1,8 @@
 import dataclasses
+import logging
 from fastapi import APIRouter, FastAPI, HTTPException, Response, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from typing import List, Dict, Any, Optional
 from firebase_admin import firestore
@@ -10,6 +11,8 @@ from pydantic import BaseModel
 from resolve_firebase_user import FireBaseUser
 from botnim.query import run_query
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(openapi_url=None, redirect_slashes=False)
 
@@ -37,13 +40,32 @@ async def search_datasets_handler(
     # Use num_results from mode if not provided
     if num_results is None:
         num_results = mode_config.num_results
-    results = run_query(
-        store_id=store_id,
-        query_text=query,
-        num_results=num_results,
-        format=format,
-        search_mode=mode_config
-    )
+    try:
+        results = run_query(
+            store_id=store_id,
+            query_text=query,
+            num_results=num_results,
+            format=format,
+            search_mode=mode_config
+        )
+    except ConnectionError as e:
+        logger.error(f"Upstream connection error in search: {e}")
+        return JSONResponse(
+            status_code=502,
+            content={"error": "upstream_connection_error", "detail": str(e), "store_id": store_id},
+        )
+    except TimeoutError as e:
+        logger.error(f"Timeout in search: {e}")
+        return JSONResponse(
+            status_code=504,
+            content={"error": "search_timeout", "detail": str(e), "store_id": store_id},
+        )
+    except Exception as e:
+        logger.error(f"Search failed: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "search_error", "detail": str(e), "store_id": store_id},
+        )
     if format == 'yaml':
         return Response(content=results, media_type="application/x-yaml")
     return Response(content=results, media_type="text/plain")

@@ -152,17 +152,14 @@ class VectorStoreES(VectorStoreBase):
 
         # Build the base query structure
         if search_mode.use_vector_search and embedding:
-            # For ES 8.x compatibility: Use top-level knn with filter instead of nested knn in bool
+            # For ES 8.x compatibility: Use top-level knn with flat vector field
             search_query = {
                 "size": num_results,
                 "knn": {
-                    "field": "vectors.vector",
+                    "field": "vector",
                     "query_vector": embedding,
                     "k": num_results,
-                    "num_candidates": 100,
-                    "filter": {
-                        "term": {"vectors.source": "content"}
-                    }
+                    "num_candidates": 100
                 }
             }
             
@@ -297,19 +294,11 @@ class VectorStoreES(VectorStoreBase):
                 "mappings": {
                     "properties": {
                         "content": {"type": "text"},
-                        "vectors": {
-                            "type": "nested",
-                            "properties": {
-                                "vector": {
-                                    "type": "dense_vector",
-                                    "dims": DEFAULT_EMBEDDING_SIZE,
-                                    "index": True,
-                                    "similarity": "cosine"
-                                },
-                                "source": {
-                                    "type": "keyword"
-                                }
-                            }
+                        "vector": {
+                            "type": "dense_vector",
+                            "dims": DEFAULT_EMBEDDING_SIZE,
+                            "index": True,
+                            "similarity": "cosine"
                         },
                         "metadata": {
                             "type": "object",
@@ -383,10 +372,7 @@ class VectorStoreES(VectorStoreBase):
                 # Prepare base document with content vector
                 document = {
                     "content": content,
-                    "vectors": [{
-                        "vector": vector,
-                        "source": "content"
-                    }]
+                    "vector": vector
                 }
                 
                 # Add metadata to document
