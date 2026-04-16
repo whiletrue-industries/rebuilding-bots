@@ -326,6 +326,11 @@ context:
         '
 - slug: ethics_decisions
   name: החלטות ועדת אתיקה בדבר כללי אתיקה לחברי הכנסת
+  description: 'Search ethics committee rulings and ethics rules for Knesset members.
+    Use for: donations and gifts to MKs (תרומות, מתנות), conflicts of interest (ניגוד
+    עניינים), ethical violations, sanctions, complaints against MKs, outside employment
+    restrictions, financial disclosure requirements.'
+  examples: תרומה לחבר כנסת, ניגוד עניינים, הפרת כללי אתיקה, סנקציות
   sources:
   - type: csv
     source: extraction/ethics_committee_decisions.csv
