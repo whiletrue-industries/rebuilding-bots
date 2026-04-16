@@ -1,13 +1,18 @@
 # Terragrunt root config for botnim-api app state.
 #
-# Apps share the same S3 state bucket as buildup-org-infra but live under
-# their own project-scoped key prefix. Each environment under live/<env>/
+# Apps share the same S3 state buckets as buildup-org-infra, one per env,
+# under a project-scoped key prefix. Each environment under live/<env>/
 # gets its own state file at projects/botnim-api/<env>/terraform.tfstate.
 
 locals {
   region             = "il-central-1"
-  state_bucket       = "buildup-org-tfstate-prod"
   project_state_name = "botnim-api"
+  environment        = basename(path_relative_to_include())
+  state_buckets = {
+    prod    = "buildup-org-tfstate-prod"
+    staging = "buildup-org-tfstate-staging"
+  }
+  state_bucket = local.state_buckets[local.environment]
 }
 
 remote_state {
