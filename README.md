@@ -376,3 +376,40 @@ botnim assistant --rtl
 ```bash
 botnim assistant --environment production  # or staging (default)
 ```
+
+## Elasticsearch Snapshots (offline backups)
+
+The `botnim-api` container on ECS takes S3 snapshots of its Elasticsearch
+indices automatically, so we can recover a warm ES state without running the
+~5-hour `botnim sync --reindex` from scratch. ECS Exec is not required — the
+container backs itself up on its own schedule.
+
+**Where**:
+- Bucket: `s3://botnim-api-es-backups-<env>/snapshots/` (Glacier after 30 d, expire at 90 d, per `infra/envs/<env>/backups.tf`)
+- ES repo name inside the task: `s3_repo` (registered at cold-sync completion by `backend/api/api_server.sh`)
+
+**Naming**:
+- `post-cold-sync-<UTC-ts>` — one snapshot taken right after the cold-sync `reindex` finishes
+- `scheduled-<UTC-ts>` — one snapshot every 6 h while uvicorn is running
+
+**Sanity-check from your laptop**:
+```bash
+AWS_PROFILE=anubanu-staging aws s3 ls s3://botnim-api-es-backups-staging/snapshots/ --recursive | tail
+```
+
+**Restore** (requires shell access to the task — SSM Exec or equivalent):
+```bash
+# Delete current indices
+curl -u elastic:$ES_PASSWORD_STAGING -X DELETE "http://localhost:9200/botnim__*"
+# Restore from the most recent snapshot
+curl -u elastic:$ES_PASSWORD_STAGING \
+  -X POST "http://localhost:9200/_snapshot/s3_repo/<snapshot-name>/_restore?wait_for_completion=true"
+# Verify
+curl -u elastic:$ES_PASSWORD_STAGING "http://localhost:9200/botnim__*/_count"
+```
+
+**IAM**: the task role in `infra/envs/<env>/backups.tf` is granted exactly the
+S3 actions the `repository-s3` ES module needs (GetBucketLocation, ListBucket,
+ListBucketMultipartUploads, GetObject, PutObject, DeleteObject,
+AbortMultipartUpload, ListMultipartUploadParts). ES reads credentials from the
+ECS container credentials endpoint — no static keys.
