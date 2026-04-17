@@ -96,14 +96,21 @@ register_snapshot_repo() {
     return 1
   fi
 
-  echo "[api_server.sh] snapshot: registering S3 repo s3://${bucket}/snapshots (region=${region})"
+  # ES 8.11 bundles an AWS SDK that, for regions launched after its cut-off
+  # (il-central-1 went GA 2023-08), picks the wrong regional S3 endpoint
+  # and hits IllegalLocationConstraintException. Passing the endpoint
+  # explicitly bypasses the SDK's regional-discovery path. `path_style_access`
+  # is required for virtual-hosted-style incompatibilities on the newer
+  # regions; it costs nothing on older ones.
+  local endpoint="s3.${region}.amazonaws.com"
+  echo "[api_server.sh] snapshot: registering S3 repo s3://${bucket}/snapshots (region=${region}, endpoint=${endpoint})"
   local code body
   body=$(mktemp)
   code=$(curl -s -o "$body" -w '%{http_code}' \
     -u "elastic:$pw" \
     -X PUT "http://localhost:9200/_snapshot/s3_repo" \
     -H 'Content-Type: application/json' \
-    -d "{\"type\":\"s3\",\"settings\":{\"bucket\":\"$bucket\",\"region\":\"$region\",\"base_path\":\"snapshots\"}}") || code=000
+    -d "{\"type\":\"s3\",\"settings\":{\"bucket\":\"$bucket\",\"region\":\"$region\",\"endpoint\":\"$endpoint\",\"path_style_access\":true,\"base_path\":\"snapshots\"}}") || code=000
 
   if [ "$code" = "200" ] || [ "$code" = "201" ]; then
     echo "[api_server.sh] snapshot: repo registered (HTTP $code)"
