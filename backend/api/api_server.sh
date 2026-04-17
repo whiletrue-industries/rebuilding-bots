@@ -127,7 +127,9 @@ register_snapshot_repo() {
 # completion so callers see the real outcome (SUCCESS vs failure).
 take_snapshot() {
   local prefix="$1"  # "post-cold-sync" or "scheduled"
-  local name="${prefix}-$(date -u +%Y%m%dT%H%M%SZ)"
+  # ES requires snapshot names to be all lowercase, so timestamp uses
+  # lowercase separators (e.g. 20260417t120934z) instead of ISO's T/Z.
+  local name="${prefix}-$(date -u +%Y%m%dt%H%M%Sz)"
   local pw
   pw=$(resolve_es_password)
   if [ -z "$pw" ]; then
