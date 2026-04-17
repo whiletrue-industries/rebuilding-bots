@@ -1,3 +1,4 @@
+import asyncio
 import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -8,9 +9,12 @@ from abc import ABC, abstractmethod
 
 from kvfile.kvfile_sqlite import CachedKVFileSQLite as KVFile
 from elasticsearch import Elasticsearch
-from openai import OpenAI
+from elasticsearch.helpers import bulk
+from openai import OpenAI, AsyncOpenAI
 from ..config import DEFAULT_ENVIRONMENT, get_logger, ElasticsearchConfig, is_production
 from ..config import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_SIZE
+from ..config import get_async_openai_client
+from .._concurrency import SyncConcurrency, async_retry_openai, run_async
 
 from .vector_store_base import VectorStoreBase
 from .vector_score_explainer import explain_vector_scores, combine_text_and_vector_scores
@@ -345,94 +349,176 @@ class VectorStoreES(VectorStoreBase):
         return index_name
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
-        """Upload files to vector store"""
-        count = 0
-        embedding_cache = KVFile(location=str(Path(__file__).parent.parent.parent / 'cache' / 'embedding'))
-        for filename, content_file, file_type, metadata in file_streams:
-            try:
-                # Skip metadata files to prevent recursion
-                if not filename.endswith('.md'):
-                    logger.debug(f"Skipping non-markdown file: {filename}")
-                    continue
+        """Upload files to vector store.
 
-                # Read content
-                content = content_file.read().decode('utf-8')
-                cache_key = hashlib.sha256(content.strip().encode('utf-8')).hexdigest()[:16]
-                vector = embedding_cache.get(cache_key, default=None)
-                if not vector:                                
-                    # Generate content embedding
-                    response = self.openai_client.embeddings.create(
-                        input=content,
-                        model=DEFAULT_EMBEDDING_MODEL,
+        Thin sync wrapper around the async pipeline. Concurrency is
+        controlled by ``SYNC_CONCURRENCY`` (default 10). At
+        ``SYNC_CONCURRENCY=1`` the async path is effectively serial and
+        produces byte-equal output to the pre-parallel implementation.
+        """
+        concurrency = SyncConcurrency()
+        return run_async(
+            self._upload_files_async(context, context_name, vector_store, file_streams, callback, concurrency)
+        )
+
+    async def _build_embedding_async(
+        self,
+        client: AsyncOpenAI,
+        text: str,
+        concurrency: SyncConcurrency,
+        embedding_cache: KVFile,
+    ) -> List[float]:
+        """Return the embedding vector for ``text``.
+
+        - Cache check happens BEFORE acquiring the semaphore so cache hits
+          don't consume OpenAI slots (DoD).
+        - Cache write happens under ``concurrency.cache_lock`` so the
+          sqlite KVFile never sees concurrent writers (sqlite-over-NFS on
+          the EFS cache mount is not concurrent-writer safe).
+        """
+        cache_key = hashlib.sha256(text.strip().encode('utf-8')).hexdigest()[:16]
+        cached = embedding_cache.get(cache_key, default=None)
+        if cached:
+            return cached
+
+        vector = await concurrency.run_bounded(self._embeddings_create_async, client, text)
+        async with concurrency.cache_lock:
+            embedding_cache.set(cache_key, vector)
+        return vector
+
+    @staticmethod
+    @async_retry_openai()
+    async def _embeddings_create_async(client: AsyncOpenAI, text: str) -> List[float]:
+        """Single OpenAI embeddings call, wrapped in the retry decorator so
+        429s get exponential backoff without cascading to the whole sync."""
+        response = await client.embeddings.create(
+            input=text,
+            model=DEFAULT_EMBEDDING_MODEL,
+        )
+        return response.data[0].embedding
+
+    async def _prepare_document_async(
+        self,
+        client: AsyncOpenAI,
+        context: dict,
+        context_name: str,
+        filename: str,
+        content_file,
+        file_type,
+        metadata,
+        concurrency: SyncConcurrency,
+        embedding_cache: KVFile,
+    ) -> Dict[str, Any] | None:
+        """Build the ES document for one file, including embeddings.
+
+        Returns None when the file should be skipped (non-markdown).
+        Raises on fatal errors (caught by the caller for error isolation).
+        """
+        if not filename.endswith('.md'):
+            logger.debug(f"Skipping non-markdown file: {filename}")
+            return None
+
+        content = content_file.read().decode('utf-8')
+        vector = await self._build_embedding_async(client, content, concurrency, embedding_cache)
+
+        document: Dict[str, Any] = {"content": content, "vector": vector}
+
+        if metadata:
+            logger.info(f"Using extracted metadata for {filename}")
+            document['metadata'] = {
+                'title': Path(filename).stem,
+                'document_type': str(file_type),
+                'extracted_at': datetime.now().isoformat(),
+                'status': 'extracted',
+                'context_type': context.get("type", ""),
+                'context_name': context_name,
+                'extracted_data': metadata,
+            }
+            description = metadata.get('Description')
+            if description:
+                try:
+                    description_vector = await self._build_embedding_async(
+                        client, description, concurrency, embedding_cache,
                     )
-                    vector = response.data[0].embedding
-                    # Cache the vector
-                    embedding_cache.set(cache_key, vector)
-                
-                # Prepare base document with content vector
-                document = {
-                    "content": content,
-                    "vector": vector
-                }
-                
-                # Add metadata to document
-                if metadata:
-                    logger.info(f"Using extracted metadata for {filename}")
-                    document['metadata'] = {
-                        'title': Path(filename).stem,
-                        'document_type': str(file_type),
-                        'extracted_at': datetime.now().isoformat(),
-                        'status': 'extracted',
-                        'context_type': context.get("type", ""),
-                        'context_name': context_name,
-                        'extracted_data': metadata
-                    }
+                    # The legacy sync code assumed ``document['vectors']``
+                    # existed; it never did, so the append would have
+                    # raised KeyError. Create it here so the description
+                    # vector is actually attached.
+                    document.setdefault('vectors', []).append({
+                        "vector": description_vector,
+                        "source": "description",
+                    })
+                    logger.debug(f"Added description vector for {filename}")
+                except Exception as e:
+                    logger.error(f"Failed to generate description embedding for {filename}: {e}")
+            else:
+                logger.debug(f"No description found in metadata for {filename}")
 
-                    # Generate description embedding if available
-                    description = metadata.get('Description')  # Direct access to Description field
-                    if description:
-                        try:
-                            logger.debug(f"Generating description embedding for {filename}")
-                            description_response = self.openai_client.embeddings.create(
-                                input=description,
-                                model=DEFAULT_EMBEDDING_MODEL,
-                            )
-                            description_vector = description_response.data[0].embedding
-                            
-                            document['vectors'].append({
-                                "vector": description_vector,
-                                "source": "description"
-                            })
-                            logger.debug(f"Added description vector for {filename}")
-                            
-                        except Exception as e:
-                            logger.error(f"Failed to generate description embedding for {filename}: {str(e)}")
-                            # Continue processing without description vector
-                    else:
-                        logger.debug(f"No description found in metadata for {filename}")
+        return document
 
-                
-                # Index document
-                result = self.es_client.index(
-                    index=vector_store,
-                    id=filename,
-                    document=document
+    async def _upload_files_async(
+        self,
+        context,
+        context_name,
+        vector_store,
+        file_streams,
+        callback,
+        concurrency: SyncConcurrency,
+    ):
+        embedding_cache = KVFile(location=str(Path(__file__).parent.parent.parent / 'cache' / 'embedding'))
+        async_client = get_async_openai_client(self.environment)
+
+        # Phase 1: prepare ES documents (embeddings in parallel).
+        # asyncio.gather preserves input order, which with SYNC_CONCURRENCY=1
+        # gives byte-equal behavior to the serial implementation.
+        prepared = await asyncio.gather(
+            *[
+                self._prepare_document_async(
+                    async_client, context, context_name,
+                    fn, cf, ft, md,
+                    concurrency, embedding_cache,
                 )
-                logger.debug(f"Indexed document {filename} successfully")
-                
-            except Exception as e:
-                logger.error(f"Failed to process file {filename}: {str(e)}")
-            
-            count += 1
-            if count % 32 == 0 and callable(callback):
-                callback(count)
+                for fn, cf, ft, md in file_streams
+            ],
+            return_exceptions=True,
+        )
 
-        # Final callback for remaining files
-        if count % 32 != 0 and callable(callback):
-            callback(count)
+        # Phase 2: bulk-index everything in one ES call. Each failure
+        # from Phase 1 stays on its file; others still get indexed.
+        # (Error isolation per DoD: "one failed doc does NOT poison the
+        # batch".)
+        actions: list[Dict[str, Any]] = []
+        successful = 0
+        for (fn, _, _, _), result in zip(file_streams, prepared):
+            if isinstance(result, BaseException):
+                logger.error(f"Failed to process file {fn}: {result}")
+                continue
+            if result is None:  # non-markdown, skipped
+                continue
+            actions.append({
+                "_op_type": "index",
+                "_index": vector_store,
+                "_id": fn,
+                "_source": result,
+            })
+            successful += 1
 
+        if actions:
+            # elasticsearch-py's helpers.bulk is sync but handles the
+            # batching + per-item error reporting for us. Run it in a
+            # threadpool so it doesn't block the event loop for any
+            # awaiting callers (the CLI path has none; this is defensive).
+            loop = asyncio.get_running_loop()
+            def _do_bulk():
+                return bulk(self.es_client, actions, raise_on_error=False)
+            ok, errors = await loop.run_in_executor(None, _do_bulk)
+            if errors:
+                logger.error(f"Bulk index: {len(errors)} errors out of {len(actions)}; first={errors[0]!r}")
+
+        if callable(callback):
+            callback(successful)
         embedding_cache.close()
-        logger.info(f"Completed upload of {count} files to {vector_store}")
+        logger.info(f"Completed upload of {successful} files to {vector_store}")
         
     def delete_existing_files(self, context_, vector_store, file_names):
         try:

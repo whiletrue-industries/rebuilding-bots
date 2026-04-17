@@ -5,7 +5,7 @@ import os
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
 
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 
 ROOT = Path(__file__).parent.parent
 SPECS = ROOT / 'specs'
@@ -27,8 +27,7 @@ def get_logger(name: str) -> logging.Logger:
     #     logger.addHandler(handler)
     return logger
 
-def get_openai_client(environment: str = 'staging') -> OpenAI:
-    """Get OpenAI client for the given environment"""
+def _resolve_openai_api_key(environment: str = 'staging') -> str:
     api_key = os.environ.get(f'OPENAI_API_KEY_{environment.upper()}')
     if not api_key:
         api_key = os.environ.get('OPENAI_API_KEY_STAGING')
@@ -36,7 +35,22 @@ def get_openai_client(environment: str = 'staging') -> OpenAI:
         api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
         raise ValueError(f'Missing OPENAI_API_KEY_{environment.upper()} or OPENAI_API_KEY environment variable')
-    return OpenAI(api_key=api_key)
+    return api_key
+
+
+def get_openai_client(environment: str = 'staging') -> OpenAI:
+    """Get OpenAI client for the given environment"""
+    return OpenAI(api_key=_resolve_openai_api_key(environment))
+
+
+def get_async_openai_client(environment: str = 'staging') -> AsyncOpenAI:
+    """Get async OpenAI client for the given environment.
+
+    Used by the concurrent sync pipeline (see botnim/_concurrency.py) so
+    embedding and chat.completions calls can run under asyncio.gather with
+    a bounded semaphore.
+    """
+    return AsyncOpenAI(api_key=_resolve_openai_api_key(environment))
 
 
 # Embedding model settings
