@@ -1,14 +1,8 @@
 # Prompt Management — `agent.txt` version-control workflow
 
-Each bot's system prompt lives in git as `specs/<bot>/agent.txt`:
-
-| Bot | File | Lines | Purpose |
-|---|---|---:|---|
-| Unified (production) | `specs/unified/agent.txt` | ~263 | Main Botnim agent — combines legal + budget domains |
-| Takanon (legal-only dev) | `specs/takanon/agent.txt` | ~113 | Legal-only bot used in dev/compare runs |
-| BudgetKey (budget-only dev) | `specs/budgetkey/agent.txt` | ~67 | Budget-only bot used in dev/compare runs |
-
-Only `unified/agent.txt` is actually deployed to staging/production. `takanon` and `budgetkey` exist for targeted A/B comparisons and historical benchmarking.
+The Botnim agent's system prompt lives in git at `specs/unified/agent.txt`
+(~263 lines). It combines the legal and budget domains in a single assistant
+and is the only bot deployed to staging/production.
 
 ---
 
@@ -118,30 +112,6 @@ Keep this in sync when you restructure the prompt. Line numbers are approximate.
 | 227-242 | Citation & Link Rules (Legal) | How to cite clauses, committee decisions, and source URLs |
 | 243-255 | Forbidden Behaviors | Hard nos (no pretraining answers, no improvisation, no paraphrasing law) |
 | 256-263 | Summary of Defaults | Terminal cheat-sheet: default year, default language, default refusal phrase |
-
-## Section map — `takanon/agent.txt`
-
-| Line | Section |
-|---:|---|
-| 1-10 | Preamble + main characteristics |
-| 11-14 | Objective |
-| 15-23 | Available Tools |
-| 24-52 | Resource Suggestion (which context covers which question type) |
-| 53-85 | Operating Protocol (retrieve → summarize → cite loop) |
-| 86-91 | Tone & Style |
-| 92-106 | Search Mode Selection (keyword vs semantic vs hybrid) |
-| 107-113 | Forbidden Behaviors |
-
-## Section map — `budgetkey/agent.txt`
-
-No Markdown headers in this one; the logical sections are:
-
-| Approx. paragraph | Purpose |
-|---|---|
-| Opening | Identity + dataset scope (ספר התקציב, תמיכות, התקשרויות, מכרזים) + Hebrew requirement |
-| Tool-use paragraph | Mandatory `DatasetInfo` before `DatasetDBQuery` / `DatasetFullTextSearch`; always prefer SQL over code-interpreter |
-| Response-style paragraph | Formal tone, clarifying questions when uncertain, always include time period, always surface `download_url` |
-| Datasets enumeration | `budget_items_data`, `supports_data`, `contracts_data`, `tenders_data` — what each contains and when to reach for it |
 
 ---
 

@@ -214,18 +214,8 @@ def run_benchmarks(environment, bots, local, reuse_answers, select, concurrency)
     specific_test = None if select in ('all', 'failed') else select
     config = get_config()
     suffix = '' if environment == 'production' else ' - פיתוח'
-    if bots in ('all', 'budgetkey'):
-        run_benchmark(
-            'BUDGET QA', 'בוט נתונים תקציביים' + suffix, 'budgetkey.yaml', config,
-            lambda row: row.get('question') and (row.get('reference answer') or row.get('sql')),
-            get_budget_prompt,
-            local, reuse_answers, only_failed, specific_test, concurrency
-        )
-    if bots in ('all', 'takanon'):
-        run_benchmark(
-            'TAKANON QA', 'בוט תקנון הכנסת' + suffix, 'takanon.yaml', config,
-            lambda row: row.get('reference answer') and row.get('references') and row.get('citations'),
-            get_takanon_prompt,
-            local, reuse_answers, only_failed, specific_test, concurrency
-        )
-    # print(get_openapi_output('budgetkey.yaml', 'DatasetInfo', {'dataset': 'supports_data'}).json())
+    raise NotImplementedError(
+        'Legacy Assistants-API benchmark runner only supported the removed '
+        'takanon/budgetkey bots. Port to the Responses-API flow before '
+        'wiring benchmarks for the unified bot.'
+    )

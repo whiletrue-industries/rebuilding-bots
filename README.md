@@ -78,13 +78,13 @@ ES_CA_CERT=/path/to/generic-ca.crt
 **Usage Examples:**
 ```bash
 # Local development
-botnim sync local takanon --backend es
+botnim sync local unified --backend es
 
 # Staging
-botnim sync staging takanon --backend es
+botnim sync staging unified --backend es
 
 # Production
-botnim sync production takanon --backend es
+botnim sync production unified --backend es
 
 # Demo scripts (environment is required)
 python backend/es/demo-load-data-to-es.py local
@@ -113,15 +113,12 @@ python backend/es/demo-query-es.py "your query" local
     - `run-benchmark.py`: Main benchmarking script.
     - `assistant_loop.py`: Local assistant loop tool.
 - `specs/`: Specifications for the bots.
-  - `budgetkey/`: Specifications for the budgetkey bot.
+  - `unified/`: Specifications for the unified bot (legal + budget).
     - `config.yaml`: Agent configuration file.
     - `agent.txt`: Agent instructions.
-  - `takanon/`: Specifications for the takanon bot.
-    - `config.yaml`: Agent configuration file.
-    - `agent.txt`: Agent instructions.
-    - `extraction/`: Extracted and processed text from the Knesset Takanon
-  - `openapi/`: OpenAPI definitions of the BudgetKey (and other deprecated) APIs.
-- `botnim/document_parser/`: Document extraction and processing tools (formerly takanon_extractions/)
+    - `extraction/`: Extracted and processed text from the Knesset legal corpus.
+  - `openapi/`: OpenAPI definitions of the BudgetKey and other APIs.
+- `botnim/document_parser/`: Document extraction and processing tools.
   - `dynamic_extractions/`: Main extraction pipeline and utilities
     - `process_document.py`: Full document processing pipeline (now accessible via `botnim process-document`)
     - `extract_structure.py`: Structure extraction (now accessible via `botnim extract-structure`)
@@ -138,26 +135,26 @@ The `botnim query` command provides several ways to interact with the vector sto
 
 ```bash
 # Search in the vector store
-botnim query search staging takanon common_knowledge "מה עושה יושב ראש הכנסת?"
-botnim query search staging takanon common_knowledge --num-results 5 "your query here"
-botnim query search staging takanon common_knowledge -n 5 "your query here"
+botnim query search staging unified common_knowledge "מה עושה יושב ראש הכנסת?"
+botnim query search staging unified common_knowledge --num-results 5 "your query here"
+botnim query search staging unified common_knowledge -n 5 "your query here"
 # Show full content of search results
-botnim query search staging takanon common_knowledge "your query here" --full
+botnim query search staging unified common_knowledge "your query here" --full
 # or use the short flag
-botnim query search staging takanon common_knowledge "your query here" -f
+botnim query search staging unified common_knowledge "your query here" -f
 # Display results in right-to-left order
-botnim query search staging takanon common_knowledge "your query here" --rtl
+botnim query search staging unified common_knowledge "your query here" --rtl
 
 # List all available indexes
-botnim query list-indexes staging --bot budgetkey
+botnim query list-indexes staging --bot unified
 botnim query list-indexes staging
 # Display indexes in right-to-left order
 botnim query list-indexes staging --rtl
 
 # Show fields/structure of an index
-botnim query show-fields staging budgetkey common_knowledge
+botnim query show-fields staging unified common_knowledge
 # Display fields in right-to-left order
-botnim query show-fields staging budgetkey common_knowledge --rtl
+botnim query show-fields staging unified common_knowledge --rtl
 
 # List all available search modes
 botnim query list-modes
@@ -192,13 +189,13 @@ botnim query list-modes
 
 ```bash
 # Find specific sections
-botnim query search staging takanon legal_text "סעיף 12" --search-mode SECTION_NUMBER
+botnim query search staging unified legal_text "סעיף 12" --search-mode SECTION_NUMBER
 
 # Browse committee decisions and legal advisor documents
-botnim query search staging takanon legal_text "החלטות ועדת הכנסת" --search-mode METADATA_BROWSE
+botnim query search staging unified legal_text "החלטות ועדת הכנסת" --search-mode METADATA_BROWSE
 
 # Browse ethics committee decisions
-botnim query search staging takanon ethics_decisions "ניגוד עניינים" --search-mode METADATA_BROWSE
+botnim query search staging unified ethics_decisions "ניגוד עניינים" --search-mode METADATA_BROWSE
 ```
 
 #### Current search modes (from registry):
@@ -214,14 +211,14 @@ botnim query search staging takanon ethics_decisions "ניגוד עניינים"
 To update or add content to the vector store:
 
 ```bash
-# Update all contexts for the takanon bot (complete rebuild)
-botnim sync staging takanon --backend es --replace-context all
+# Update all contexts for the unified bot (complete rebuild)
+botnim sync staging unified --backend es --replace-context all
 
 # Update only a specific context without rebuilding others
-botnim sync staging takanon --backend es --replace-context <context name>
+botnim sync staging unified --backend es --replace-context <context name>
 
 # Check the content after updating
-botnim query search staging takanon ethics_rules "<query>" --num-results 3
+botnim query search staging unified ethics_rules "<query>" --num-results 3
 ```
 
 ### Evaluating Query Performance
@@ -230,10 +227,10 @@ The `botnim evaluate` command allows you to evaluate the performance of queries 
 
 ```bash
 # Basic usage
-botnim evaluate takanon legal_text staging path/to/query_evaluations.csv
+botnim evaluate unified legal_text staging path/to/query_evaluations.csv
 
 # With custom parameters
-botnim evaluate takanon legal_text staging path/to/query_evaluations.csv --max-results 30 --adjusted-f1-limit 10
+botnim evaluate unified legal_text staging path/to/query_evaluations.csv --max-results 30 --adjusted-f1-limit 10
 ```
 
 Required CSV columns:
@@ -254,7 +251,7 @@ The command will:
 
 To find available contexts for a bot, use:
 ```bash
-botnim query list-indexes staging --bot takanon
+botnim query list-indexes staging --bot unified
 ```
 
 ### Updating the Specifications
@@ -264,7 +261,7 @@ botnim query list-indexes staging --bot takanon
    - Configure the source URL in the bot's `config.yaml`
    - The content will be automatically downloaded during sync
 Either:
-3. `botnim sync {staging/production} {budgetkey/takanon} --backend {openai/es}` to sync the specifications with the OpenAI account.
+3. `botnim sync {staging/production} unified --backend {openai/es}` to sync the specifications with the OpenAI account.
    - Use `--replace-context` flag to force a complete rebuild of the vector store (useful when context files have been modified)
    - Use `--context-to-update` option to update only a specific context (e.g., `--context-to-update ethics_rules`) without replacing all contexts
 Or
@@ -276,23 +273,23 @@ Or
 Running the benchmark in production is best done using the action in the GitHub Actions tab.
 
 For running locally:
-`botnim benchmarks {staging/production} {budgetkey/takanon} {TRUE/FALSE whether to save results locally}`
+`botnim benchmarks {staging/production} unified {TRUE/FALSE whether to save results locally}`
 
 ## Document Extraction and Sync (Updated)
 
-- The document processing pipeline now saves only the final `*_structure_content.json` files in the `specs/takanon/extraction/` folder. These are the only files required for sync/ingestion.
+- The document processing pipeline now saves only the final `*_structure_content.json` files in the `specs/unified/extraction/` folder. These are the only files required for sync/ingestion.
 - All intermediate files (structure.json, pipeline metadata, and markdown files if generated) are saved in `botnim/document_parser/dynamic_extractions/logs/`.
 - Markdown files are **not required** for sync—they are only for manual inspection.
 - To generate markdown files for manual inspection, use the `--generate-markdown` flag with the pipeline:
 
 ```bash
-botnim process-document botnim/document_parser/extract_sources/חוק הכנסת.html specs/takanon/extraction/ --generate-markdown
+botnim process-document botnim/document_parser/extract_sources/חוק הכנסת.html specs/unified/extraction/ --generate-markdown
 ```
 
 - For advanced/manual markdown generation, you can use the CLI directly:
 
 ```bash
-botnim generate-markdown-files specs/takanon/extraction/חוק הכנסת_structure_content.json --write-files --output-dir botnim/document_parser/dynamic_extractions/logs/chunks/
+botnim generate-markdown-files specs/unified/extraction/חוק הכנסת_structure_content.json --write-files --output-dir botnim/document_parser/dynamic_extractions/logs/chunks/
 ```
 
   - Use `--write-files` to actually write files to disk.
@@ -304,7 +301,7 @@ botnim generate-markdown-files specs/takanon/extraction/חוק הכנסת_struct
 ### Example Directory Layout
 
 ```
-specs/takanon/extraction/
+specs/unified/extraction/
     תקנון הכנסת_structure_content.json
     חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
 
@@ -334,7 +331,7 @@ botnim/document_parser/dynamic_extractions/logs/
 
 - To generate markdown files for manual review, run:
   ```bash
-  botnim process-document botnim/document_parser/extract_sources/חוק הכנסת.html specs/takanon/extraction/ --generate-markdown
+  botnim process-document botnim/document_parser/extract_sources/חוק הכנסת.html specs/unified/extraction/ --generate-markdown
   ```
 - Markdown files will be written to `botnim/document_parser/dynamic_extractions/logs/chunks/`.
 

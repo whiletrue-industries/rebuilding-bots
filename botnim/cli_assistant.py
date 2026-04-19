@@ -176,7 +176,7 @@ def assistant_main(assistant_id=None, openapi_spec=None, rtl=False, environment=
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start a conversation with an OpenAI assistant')
     parser.add_argument('--assistant-id', type=str, help='ID of the assistant to chat with')
-    parser.add_argument('--openapi-spec', type=str, default='budgetkey', help='either "budgetkey" or "takanon"')
+    parser.add_argument('--openapi-spec', type=str, default='budgetkey', help='OpenAPI spec name under specs/openapi/ (e.g. "budgetkey")')
     parser.add_argument('--rtl', action='store_true', help='Enable RTL support for Hebrew/Arabic')
     parser.add_argument('--environment', type=str, default=DEFAULT_ENVIRONMENT, help='Specify the environment')
     args = parser.parse_args()

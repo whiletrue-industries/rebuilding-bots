@@ -57,7 +57,7 @@ class TestSearchErrorHandling:
     def test_happy_path_returns_200(self):
         """Happy path: successful search returns 200 with results."""
         with patch("backend.api.server.run_query", return_value="result1\nresult2\n"):
-            response = client.get("/retrieve/budgetkey/common_knowledge?query=test")
+            response = client.get("/retrieve/unified/common_knowledge?query=test")
 
         assert response.status_code == 200
         assert "result1" in response.text
@@ -65,20 +65,20 @@ class TestSearchErrorHandling:
     def test_general_exception_returns_500(self):
         """General exceptions from run_query should return HTTP 500."""
         with patch("backend.api.server.run_query",
-                   side_effect=RuntimeError("ES index not found: budgetkey__fake")):
-            response = client.get("/retrieve/budgetkey/fake?query=test")
+                   side_effect=RuntimeError("ES index not found: unified__fake")):
+            response = client.get("/retrieve/unified/fake?query=test")
 
         assert response.status_code == 500
         body = response.json()
         assert body["error"] == "search_error"
         assert "ES index not found" in body["detail"]
-        assert body["store_id"] == "budgetkey__fake"
+        assert body["store_id"] == "unified__fake"
 
     def test_connection_error_returns_502(self):
         """ConnectionError (ES down) should return HTTP 502."""
         with patch("backend.api.server.run_query",
                    side_effect=ConnectionError("Connection refused: localhost:9200")):
-            response = client.get("/retrieve/budgetkey/common_knowledge?query=test")
+            response = client.get("/retrieve/unified/common_knowledge?query=test")
 
         assert response.status_code == 502
         body = response.json()
@@ -89,7 +89,7 @@ class TestSearchErrorHandling:
         """TimeoutError should return HTTP 504."""
         with patch("backend.api.server.run_query",
                    side_effect=TimeoutError("Search timed out after 30s")):
-            response = client.get("/retrieve/budgetkey/common_knowledge?query=test")
+            response = client.get("/retrieve/unified/common_knowledge?query=test")
 
         assert response.status_code == 504
         body = response.json()
@@ -100,18 +100,18 @@ class TestSearchErrorHandling:
         """Error responses must be structured JSON with error, detail, store_id."""
         with patch("backend.api.server.run_query",
                    side_effect=ValueError("Invalid query format")):
-            response = client.get("/retrieve/takanon/legal_text?query=bad")
+            response = client.get("/retrieve/unified/legal_text?query=bad")
 
         assert response.status_code == 500
         body = response.json()
         assert set(body.keys()) == {"error", "detail", "store_id"}
-        assert body["store_id"] == "takanon__legal_text"
+        assert body["store_id"] == "unified__legal_text"
 
     def test_error_not_returned_as_200(self):
         """Critical: errors must NOT return HTTP 200 (the bug we're fixing)."""
         with patch("backend.api.server.run_query",
                    side_effect=Exception("Something broke")):
-            response = client.get("/retrieve/budgetkey/common_knowledge?query=test")
+            response = client.get("/retrieve/unified/common_knowledge?query=test")
 
         # This was the bug: errors returned 200 with error text
         assert response.status_code != 200
