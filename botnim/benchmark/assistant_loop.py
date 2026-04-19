@@ -33,7 +33,7 @@ def get_openapi_output(openapi_spec, tool_name, parameters):
 
 def get_dataset_info_cache(arguments, output):
     dataset = arguments['dataset']
-    path = Path('specs') / 'budgetkey' / 'dataset-info-cache' / f'{dataset}.yaml'
+    path = Path('specs') / 'unified' / 'dataset-info-cache' / f'{dataset}.yaml'
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w') as f:
@@ -135,7 +135,7 @@ def assistant_loop(client: OpenAI, assistant_id, question=None, thread=None, not
 
                 # Handle different tool types
                 if tool.function.name.startswith('search_'):
-                    # Handle the search_takanon__context__dev pattern
+                    # Handle the search_<bot>__<context>__<env> pattern
                     # Store ID is the part after 'search_'
                     store_id = tool.function.name[len('search_'):]
 

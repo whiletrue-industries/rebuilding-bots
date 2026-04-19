@@ -29,15 +29,13 @@ Returns the list of available bots.
 
 ```json
 [
-  {"slug": "unified",   "name": "בוט מאוחד ...",   "description": "..."},
-  {"slug": "takanon",   "name": "בוט תקנון ...",   "description": "..."},
-  {"slug": "budgetkey", "name": "בוט נתונים ...",  "description": "..."}
+  {"slug": "unified", "name": "בוט מאוחד ...", "description": "..."}
 ]
 ```
 
 ### `GET /botnim/config/<bot>?environment=<env>`
 
-`bot` is one of `unified`, `takanon`, `budgetkey`.
+`bot` is `unified`.
 `environment` is one of `production`, `staging`, `local`; defaults to the
 server-side default (`staging`).
 
@@ -45,8 +43,8 @@ Returns the full BotConfig bundle:
 
 ```json
 {
-  "slug": "budgetkey",
-  "name": "בוט נתונים תקציביים - פיתוח",
+  "slug": "unified",
+  "name": "בוט מאוחד - תקנון, חוקים ותקציב - פיתוח",
   "description": "...",
   "environment": "staging",
   "model": "gpt-5.4-mini",
@@ -55,7 +53,7 @@ Returns the full BotConfig bundle:
   "tools": [
     {
       "type": "function",
-      "name": "search_budgetkey__common_knowledge__dev",
+      "name": "search_unified__common_budget_knowledge__dev",
       "description": "ידע רלוונטי על התקציב",
       "parameters": {
         "type": "object",
@@ -125,17 +123,9 @@ input item type is documented at
 
 ## Configuration / deploy changes
 
-- **Drop `LIBRECHAT_BOTNIM_ASSISTANT_ID`** (or whatever env var currently
-  holds `asst_Dr24jZ... / asst_AoVYZk... / asst_PEvYnT...`). Replace with
-  `BOTNIM_BOT_SLUG` (`unified` / `takanon` / `budgetkey`) and
-  `BOTNIM_ENVIRONMENT` (`staging` / `production`). The bot config is
-  fetched from the botnim API; LibreChat holds no OpenAI IDs.
-- The existing three Assistants on OpenAI (`asst_Dr24jZ...`,
-  `asst_AoVYZk...`, `asst_PEvYnT...`) can stay untouched. They are
-  referenced by nothing in code after this change, cost nothing, and
-  will be auto-deleted by OpenAI on 2026-08-26. Suggested action:
-  rename them in the dashboard to `ARCHIVED - <slug> - replaced by
-  Responses API 2026-04` so future operators can tell at a glance.
+- **Drop `LIBRECHAT_BOTNIM_ASSISTANT_ID`**. Replace with `BOTNIM_BOT_SLUG`
+  (`unified`) and `BOTNIM_ENVIRONMENT` (`staging` / `production`). The bot
+  config is fetched from the botnim API; LibreChat holds no OpenAI IDs.
 - `botnim sync` prints `Bot config published: <slug> (<env>) -> <path>`
   on success (replaces the old `Assistant updated: asst_...` line).
   `LibreChat/sync-*.sh` scripts that greppped for `Assistant updated`
@@ -170,7 +160,7 @@ INFO:botnim.sync:Bot config published: slug=unified env=staging model=gpt-5.4-mi
  tools=11 instructions_chars=21511 path=/srv/specs/.published/staging/unified.json
 Bot config published: unified (staging) -> /srv/specs/.published/staging/unified.json
 
-$ docker exec botnim_api curl -s 'http://localhost:8000/config/budgetkey?environment=staging' | jq 'keys'
+$ docker exec botnim_api curl -s 'http://localhost:8000/config/unified?environment=staging' | jq 'keys'
 [
   "description",
   "environment",
@@ -195,8 +185,6 @@ dashboard interaction required to deploy a prompt change.
    questions with real content:
    - "מה תקציב משרד החינוך לשנת 2025?" cites the ~89.8B NIS figure.
    - "האם ניתן לתת לח״כ תרומה?" cites the ethics rules.
-3. Existing Assistants (`asst_Dr24jZ...`, `asst_AoVYZk...`, `asst_PEvYnT...`)
-   are untouched. They self-retire on 2026-08-26.
 
 ## Open questions / blockers
 

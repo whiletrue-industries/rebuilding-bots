@@ -17,7 +17,7 @@ This tool processes HTML legal documents through three automated stages:
 The simplest way to process a document:
 
 ```bash
-botnim process-document botnim/document_parser/extract_sources/your_document.html specs/takanon/extraction/ --generate-markdown
+botnim process-document botnim/document_parser/extract_sources/your_document.html specs/unified/extraction/ --generate-markdown
 ```
 
 This will:
@@ -40,7 +40,7 @@ This will:
 ### Quick Start
 
 ```bash
-botnim process-document botnim/document_parser/extract_sources/your_document.html specs/takanon/extraction/ --generate-markdown
+botnim process-document botnim/document_parser/extract_sources/your_document.html specs/unified/extraction/ --generate-markdown
 ```
 
 ### Advanced Usage
@@ -51,11 +51,11 @@ botnim process-document botnim/document_parser/extract_sources/your_document.htm
   ```
 - Content extraction only:
   ```bash
-  botnim extract-content "botnim/document_parser/extract_sources/your_document.html" "botnim/document_parser/dynamic_extractions/logs/your_document_structure.json" "סעיף" --output specs/takanon/extraction/your_document_structure_content.json
+  botnim extract-content "botnim/document_parser/extract_sources/your_document.html" "botnim/document_parser/dynamic_extractions/logs/your_document_structure.json" "סעיף" --output specs/unified/extraction/your_document_structure_content.json
   ```
 - Markdown generation only:
   ```bash
-  botnim generate-markdown-files specs/takanon/extraction/your_document_structure_content.json --write-files --output-dir botnim/document_parser/dynamic_extractions/logs/chunks/
+  botnim generate-markdown-files specs/unified/extraction/your_document_structure_content.json --write-files --output-dir botnim/document_parser/dynamic_extractions/logs/chunks/
   ```
 
 ### In-Memory Markdown Generation for Sync/Automation
@@ -78,7 +78,7 @@ The pipeline produces outputs as follows:
 ### Example Directory Layout
 
 ```
-specs/takanon/extraction/
+specs/unified/extraction/
     תקנון הכנסת_structure_content.json
     חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
 
@@ -115,7 +115,7 @@ While the CLI is preferred for most users, you can also use the Python API direc
 
 ```python
 from botnim.document_parser.dynamic_extractions.generate_markdown_files import generate_markdown_from_json
-markdown_dict = generate_markdown_from_json("specs/takanon/extraction/your_document_structure_content.json")
+markdown_dict = generate_markdown_from_json("specs/unified/extraction/your_document_structure_content.json")
 ```
 
 ---

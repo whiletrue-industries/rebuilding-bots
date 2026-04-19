@@ -37,7 +37,7 @@ def sync(environment, bots, replace_context, backend, reindex):
     click.echo(f"Syncing {bots} to {environment}")
     sync_agents(environment, bots, backend=backend, replace_context=replace_context, reindex=reindex)
 
-# Run benchmarks command, receives three arguments: production/staging, a list of bots to run benchmarks on ('budgetkey'/'takanon' or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
+# Run benchmarks command, receives three arguments: production/staging, a bot from AVAILABLE_BOTS (or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command(name='benchmarks')
 @click.argument('environment', type=click.Choice(VALID_ENVIRONMENTS))
 @click.argument('bots', type=click.Choice(AVAILABLE_BOTS + ['all']))
@@ -144,7 +144,7 @@ def list_modes():
 
 @cli.command(name='assistant')
 @click.option('--assistant-id', type=click.STRING, help='ID of the assistant to chat with')
-@click.option('--openapi-spec', type=click.STRING, default=None, help='either "budgetkey" or "takanon"')
+@click.option('--openapi-spec', type=click.STRING, default=None, help='OpenAPI spec name under specs/openapi/ (e.g. "budgetkey")')
 @click.option('--rtl', is_flag=True, help='Display results in right-to-left order')
 @click.option('--environment', type=click.Choice(VALID_ENVIRONMENTS), default=DEFAULT_ENVIRONMENT,
               help='Environment to use for vector search')
