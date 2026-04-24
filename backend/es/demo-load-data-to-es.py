@@ -14,7 +14,7 @@ ES_INDEX = 'test'
 OPENAI_EMBEDDING_SIZE = 1536
 OPENAI_TEXT_EMBEDDING_MODEL = 'text-embedding-3-small'
 
-DATA_SOURCES_PATH = Path(__file__).parent.parent.parent / 'specs' / 'takanon' / 'extraction'
+DATA_SOURCES_PATH = Path(__file__).parent.parent.parent / 'specs' / 'unified' / 'extraction'
 CHUNK_SIZE = 256
 CHUNK_OVERLAP = 64
 RECREATE_INDEX = True

@@ -18,7 +18,7 @@
 Inside the folder 'backend/es/'...
 
 1. Run `python demo-load-data-to-es.py`.
-   This will load the `takanon` data files from the local repo.
+   This will load the `unified` bot's extracted data files from the local repo.
    You can change the source location of the data, as well as chunking parameters in the script itself.
 
 ## To try out querying the data from elasticsearch:

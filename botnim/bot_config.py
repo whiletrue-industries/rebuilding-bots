@@ -190,8 +190,7 @@ def load_bot_config(bot_slug: str, environment: str,
     Parameters
     ----------
     bot_slug:
-        Directory name under ``specs/``, e.g. ``"unified"`` / ``"takanon"`` /
-        ``"budgetkey"``.
+        Directory name under ``specs/``, e.g. ``"unified"``.
     environment:
         ``"production"`` / ``"staging"`` / ``"local"``. Controls the
         ``__dev`` suffix on search-tool names and the ``__dev`` / Hebrew
