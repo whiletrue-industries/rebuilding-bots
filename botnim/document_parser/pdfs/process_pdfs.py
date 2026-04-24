@@ -9,6 +9,7 @@ from ...config import get_openai_client, get_logger
 from .pdf_extraction_config import SourceConfig
 from .config import REVISION
 from .pdf_processor import process_single_pdf
+from .exceptions import EmptyUpstreamIndex
 
 logger = get_logger(__name__)
 
@@ -22,6 +23,12 @@ def process_pdf_source(config: SourceConfig):
     input_csv = StringIO(input_csv)
     input_csv = csv.DictReader(input_csv)
     input_records = list(input_csv)
+
+    if len(input_records) == 0:
+        raise EmptyUpstreamIndex(
+            f"{external_source}: upstream index.csv is empty — refusing to "
+            f"overwrite {output_csv}"
+        )
 
     existing_urls = dict()
     if output_csv.exists():
