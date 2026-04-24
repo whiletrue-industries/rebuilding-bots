@@ -1,3 +1,4 @@
+import os
 import requests
 from io import StringIO
 import csv
@@ -62,14 +63,27 @@ def process_pdf_source(config: SourceConfig):
             except Exception as e:
                 print(f"Error processing {pdf_url}: {e}")
 
-    # Write the output CSV
-    with open(output_csv, 'w', newline='') as csv_file:
-        fieldnames = ['url', 'revision']
-        for r in out:
-            for k in r.keys():
-                if k not in fieldnames:
-                    fieldnames.append(k)
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in out:
-            writer.writerow(row)
+    # Write the output CSV atomically: write to a sibling .tmp, then os.replace.
+    # Kernel guarantees the rename is atomic on the same filesystem (including
+    # EFS) so readers never see a half-written file, and a mid-loop crash
+    # leaves the previous CSV untouched.
+    tmp_output = output_csv.with_suffix(output_csv.suffix + '.tmp')
+    try:
+        with open(tmp_output, 'w', newline='') as csv_file:
+            fieldnames = ['url', 'revision']
+            for r in out:
+                for k in r.keys():
+                    if k not in fieldnames:
+                        fieldnames.append(k)
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in out:
+                writer.writerow(row)
+        os.replace(tmp_output, output_csv)
+    except Exception:
+        # Clean up the partial .tmp and re-raise so the caller (refresh job) sees the failure
+        try:
+            tmp_output.unlink()
+        except FileNotFoundError:
+            pass
+        raise
