@@ -99,3 +99,35 @@ class TestAtomicWrite:
         # No stray .tmp file in the output directory
         tmp_leftovers = list(tmp_path.glob("*.tmp"))
         assert tmp_leftovers == [], f"unexpected .tmp files left behind: {tmp_leftovers}"
+
+
+class TestRevisionShortCircuit:
+    def test_unchanged_upstream_revision_is_noop(self, tmp_path: Path) -> None:
+        """If datapackage.json revision matches the `upstream_revision` stored
+        in the first row of the existing CSV, skip the fetch loop entirely."""
+        config = _make_config(tmp_path)
+        existing_csv = tmp_path / "out.csv"
+        existing_csv.write_text(
+            "url,revision,upstream_revision,x\n"
+            "https://foo,1,2025.09.01-01,old\n",
+            encoding="utf-8",
+        )
+        original_mtime = existing_csv.stat().st_mtime
+
+        datapackage_body = '{"revision": "2025.09.01-01", "count_of_rows": 1}'
+
+        calls = []
+        def fake_get(url: str, *args, **kwargs):
+            calls.append(url)
+            if url.endswith("/datapackage.json"):
+                return _mock_get_response(datapackage_body)
+            raise AssertionError(f"should not fetch {url}")
+
+        with patch.object(process_pdfs, "get_openai_client", return_value=MagicMock()), \
+             patch.object(process_pdfs.requests, "get", side_effect=fake_get):
+            process_pdfs.process_pdf_source(config)
+
+        # File unchanged
+        assert existing_csv.stat().st_mtime == original_mtime
+        # Only the datapackage.json fetch happened — no index.csv, no PDFs
+        assert calls == ["https://example.com/feed/datapackage.json"]
