@@ -68,6 +68,9 @@ module "botnim_api" {
   secret_environment_variables = {
     "OPENAI_API_KEY_${upper(var.environment)}" = aws_secretsmanager_secret.openai_api_key.arn
     "ES_PASSWORD_${upper(var.environment)}"    = aws_secretsmanager_secret.elasticsearch_password.arn
+    # Consumed by backend/api/refresh_auth.py to authenticate the Lambda's
+    # calls to /admin/refresh. Value is set out-of-band via Secrets Manager.
+    BOTNIM_ADMIN_API_KEY = aws_secretsmanager_secret.refresh_admin_api_key.arn
   }
 
   sidecar_containers = [
