@@ -178,13 +178,29 @@ module "botnim_api" {
       iam_authorization  = "DISABLED"
       root_directory     = "/"
     },
+    # Daily refresh job writes fresh extraction CSVs to this AP via the
+    # /admin/refresh endpoint's background thread. Single-writer (api task
+    # only) — same sqlite-over-NFS rationale as /srv/cache applies, though
+    # this AP stores plain CSVs with no locking concerns.
+    {
+      name               = "specs-extraction"
+      file_system_id     = module.es_efs.file_system_id
+      access_point_id    = module.es_efs.access_point_ids["specs-extraction"]
+      transit_encryption = "ENABLED"
+      iam_authorization  = "DISABLED"
+      root_directory     = "/"
+    },
   ]
 
-  # Mount both EFS volumes in the primary container:
+  # Mount EFS volumes in the primary container:
   #  - /mnt/es-data: lets api_server.sh touch the ES data dir (historical,
   #    no longer used now that init-clean-es handles lock cleanup, but kept
   #    until that split is cleaned up).
   #  - /srv/cache: the persistent sqlite KV caches described above.
+  #  - /srv/specs/unified/extraction: the daily refresh job's output CSVs,
+  #    persisted across task restarts so a new deploy doesn't lose fresh
+  #    scrape results. Seeded from the image on first boot via
+  #    seed_extraction_if_empty in api_server.sh.
   primary_container_mount_points = [
     {
       container_path = "/mnt/es-data"
@@ -194,6 +210,11 @@ module "botnim_api" {
     {
       container_path = "/srv/cache"
       source_volume  = "cache"
+      read_only      = false
+    },
+    {
+      container_path = "/srv/specs/unified/extraction"
+      source_volume  = "specs-extraction"
       read_only      = false
     },
   ]
