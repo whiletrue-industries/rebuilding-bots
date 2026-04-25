@@ -43,17 +43,18 @@ resource "aws_sns_topic_subscription" "refresh_failures_email" {
 # ---------------------------------------------------------------------------
 # CloudWatch Logs metric filter + alarm on REFRESH_FAILED
 #
-# The botnim-api log group is created by the ECS module (modules/app).
-# Its name follows the convention "/ecs/<app_name>-<env>/<container_name>".
+# The botnim-api log group is created by Build-Up-IL/org-infra//modules/app
+# (which delegates to modules/ecs-service). Its actual name follows the
+# convention "/ecs/<environment>/<service_name>" and is exported as
+# module.botnim_api.log_group_name. Using the module output (instead of
+# reconstructing the name) gives us an implicit dependency on the log
+# group's creation, so this metric filter cannot apply before the log
+# group exists.
 # ---------------------------------------------------------------------------
-
-locals {
-  api_log_group_name = "/ecs/botnim-api-${var.environment}/api"
-}
 
 resource "aws_cloudwatch_log_metric_filter" "refresh_failed" {
   name           = "botnim-refresh-failed-${var.environment}"
-  log_group_name = local.api_log_group_name
+  log_group_name = module.botnim_api.log_group_name
   pattern        = "REFRESH_FAILED"
 
   metric_transformation {
