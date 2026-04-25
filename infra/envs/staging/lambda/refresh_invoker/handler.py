@@ -11,7 +11,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import socket
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import boto3
@@ -23,10 +25,33 @@ SECRET_ARN = os.environ["ADMIN_API_KEY_SECRET_ARN"]
 ENDPOINT_URL = os.environ["REFRESH_ENDPOINT_URL"]
 
 
+def _diagnose_endpoint(url: str) -> str:
+    """Resolve and TCP-probe the endpoint host before opening the HTTP
+    connection. Lambda VPC + Route53 split-horizon DNS quirks tend to
+    surface as opaque urlopen errors (e.g. EBUSY on connect when the
+    name resolves to an IP that isn't reachable from the Lambda ENI).
+    Returning a structured trace string up front makes the actual
+    failure mode visible in CloudWatch instead of buried in a stack
+    trace inside `do_open`.
+    """
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.hostname or ""
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        ips = sorted({info[4][0] for info in infos})
+    except socket.gaierror as e:
+        return f"DNS_FAIL host={host} err={e}"
+    return f"DNS_OK host={host} port={port} ips={ips}"
+
+
 def handler(event, context):  # noqa: ARG001 (Lambda entrypoint signature)
     sm = boto3.client("secretsmanager")
     secret = sm.get_secret_value(SecretId=SECRET_ARN)
     api_key = secret["SecretString"]
+
+    diag = _diagnose_endpoint(ENDPOINT_URL)
+    logger.info(f"endpoint diag: {diag}")
 
     req = urllib.request.Request(
         url=ENDPOINT_URL,
@@ -47,7 +72,7 @@ def handler(event, context):  # noqa: ARG001 (Lambda entrypoint signature)
         logger.error(f"refresh endpoint returned {status}: {body}")
         raise RuntimeError(f"refresh endpoint returned {status}: {body}") from e
     except urllib.error.URLError as e:
-        logger.error(f"refresh endpoint unreachable: {e}")
+        logger.error(f"refresh endpoint unreachable: {e} (diag: {diag})")
         raise
 
     logger.info(f"refresh endpoint returned {status}: {body}")
