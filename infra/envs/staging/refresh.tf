@@ -155,7 +155,7 @@ resource "aws_security_group_rule" "api_ingress_from_refresh_lambda" {
   protocol                 = "tcp"
   security_group_id        = module.botnim_api.security_group_id
   source_security_group_id = aws_security_group.refresh_lambda.id
-  description              = "refresh-invoker Lambda → botnim-api"
+  description              = "refresh-invoker Lambda -> botnim-api"
 }
 
 resource "aws_lambda_function" "refresh_invoker" {
