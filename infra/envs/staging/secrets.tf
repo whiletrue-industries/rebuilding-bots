@@ -17,3 +17,9 @@ resource "aws_secretsmanager_secret" "elasticsearch_password" {
   description = "Password for the elasticsearch 'elastic' superuser"
   kms_key_id  = local.contract.ecs.kms_key_arn
 }
+
+resource "aws_secretsmanager_secret" "refresh_admin_api_key" {
+  name        = "botnim-api/${var.environment}/refresh-admin-api-key"
+  description = "API key the refresh-invoker Lambda sends as X-API-Key to /admin/refresh"
+  kms_key_id  = local.contract.ecs.kms_key_arn
+}

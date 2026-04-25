@@ -10,6 +10,33 @@ set -eu
 mkdir -p /srv/cache/metadata /srv/cache/embedding
 
 # ─────────────────────────────────────────────────────────────────────────
+# EFS seed: /srv/specs/unified/extraction is an EFS access point in
+# staging/prod. On a fresh EFS (first deploy or after a wipe) it's empty;
+# botnim sync then finds no extraction CSVs and the bot serves nothing for
+# knesset PDF contexts. Seed from the image-baked copy at /srv/specs-seed
+# when the mount is empty. This is a no-op locally (both paths live in the
+# container) and a no-op after the first successful refresh writes real
+# content to EFS.
+# ─────────────────────────────────────────────────────────────────────────
+seed_extraction_if_empty() {
+  local mount_dir=/srv/specs/unified/extraction
+  local seed_dir=/srv/specs-seed/unified/extraction
+  if [ ! -d "$seed_dir" ]; then
+    return 0
+  fi
+  mkdir -p "$mount_dir"
+  if [ -z "$(ls -A "$mount_dir" 2>/dev/null)" ]; then
+    echo "[seed_extraction_if_empty] $mount_dir is empty; seeding from $seed_dir"
+    cp -R "$seed_dir"/. "$mount_dir"/
+    echo "[seed_extraction_if_empty] done; $(ls "$mount_dir" | wc -l) files seeded"
+  else
+    echo "[seed_extraction_if_empty] $mount_dir already populated; skip"
+  fi
+}
+
+seed_extraction_if_empty
+
+# ─────────────────────────────────────────────────────────────────────────
 # Cold-start flow (when SYNC_ON_STARTUP=1, i.e. ECS staging/prod):
 #
 #   1. Kick off `botnim sync --reindex` in the background. This populates

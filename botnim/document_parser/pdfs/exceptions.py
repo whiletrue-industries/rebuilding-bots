@@ -35,3 +35,15 @@ class CSVOutputError(PDFExtractionError):
 class ValidationError(PDFExtractionError):
     """Raised when data validation fails."""
     pass
+
+
+class EmptyUpstreamIndex(PDFExtractionError):
+    """Raised when an upstream PDF source returns an empty index.csv.
+
+    This is the signal that upstream (typically
+    https://next.obudget.org/datapackages/knesset/<feed>/) has gone empty.
+    Callers must not overwrite existing extraction CSVs with nothing; the
+    caller expectation is to propagate the exception so the refresh job
+    fails loudly and the last-known-good CSV on EFS stays untouched.
+    """
+    pass

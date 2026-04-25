@@ -1,6 +1,8 @@
 import dataclasses
 import logging
-from fastapi import APIRouter, FastAPI, HTTPException, Response, Query, Body
+import os
+import threading
+from fastapi import APIRouter, FastAPI, HTTPException, Response, Query, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,10 +11,13 @@ from firebase_admin import firestore
 from pydantic import BaseModel
 
 from resolve_firebase_user import FireBaseUser
+from refresh_auth import require_refresh_api_key
 from botnim.query import run_query
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 from botnim.bot_config import load_bot_config
 from botnim.config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT
+from botnim.fetch_and_process import fetch_and_process
+from botnim.sync import sync_agents
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +145,49 @@ async def search_datasets_handler(
     if format == 'yaml':
         return Response(content=results, media_type="application/x-yaml")
     return Response(content=results, media_type="text/plain")
+
+
+# ---------------------------------------------------------------------------
+# Admin refresh endpoint
+#
+# Called by the VPC-local `botnim-refresh-invoker` Lambda on an EventBridge
+# schedule (daily). Runs the whole fetch-and-process + sync pipeline in a
+# background thread so the HTTP response returns quickly. Failures are
+# surfaced via ERROR-level "REFRESH_FAILED: ..." log lines that a CloudWatch
+# Logs metric filter watches — see infra/envs/<env>/refresh.tf.
+# ---------------------------------------------------------------------------
+
+
+def _run_refresh_job() -> None:
+    env = os.environ.get("ENVIRONMENT", DEFAULT_ENVIRONMENT)
+    logger.info(f"REFRESH_START: env={env}")
+    # fetch_and_process(environment, bot, context, kind)
+    fetch_and_process(env, "all", "all", "pdf")
+    # sync_agents(environment, bots, backend='es')
+    sync_agents(env, "all", backend="es")
+    logger.info("REFRESH_OK")
+
+
+def _run_refresh_job_background() -> None:
+    try:
+        _run_refresh_job()
+    except Exception as e:
+        logger.error(f"REFRESH_FAILED: {type(e).__name__}: {e}", exc_info=True)
+
+
+@app.post("/admin/refresh", status_code=202)
+@app.post("/botnim/admin/refresh", status_code=202)
+async def refresh(
+    _auth: None = Depends(require_refresh_api_key),
+) -> Dict[str, str]:
+    """Kick off a full knesset-PDF refresh in the background.
+
+    Returns 202 Accepted immediately. The actual refresh runs in a thread;
+    check CloudWatch logs for REFRESH_START / REFRESH_OK / REFRESH_FAILED.
+    """
+    thread = threading.Thread(target=_run_refresh_job_background, daemon=True)
+    thread.start()
+    return {"status": "accepted"}
 
 
 router = APIRouter(
