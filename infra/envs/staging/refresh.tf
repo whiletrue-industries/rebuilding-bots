@@ -256,3 +256,39 @@ resource "aws_scheduler_schedule" "refresh" {
     input    = jsonencode({})
   }
 }
+
+# ---------------------------------------------------------------------------
+# kms:Decrypt for the ECS task execution role on the CMK that encrypts our
+# Secrets Manager entries.
+#
+# Build-Up-IL/org-infra//modules/app grants the execution role
+# secretsmanager:GetSecretValue on every ARN in secret_environment_variables,
+# but does NOT grant kms:Decrypt on the CMK. Existing secrets (openai, es)
+# work today because their stored ciphertext predates the move to a CMK
+# (encrypted with the AWS-managed aws/secretsmanager key). New secrets
+# (and any future put-secret-value on the existing ones) get encrypted with
+# the CMK and fail at task-start with "AccessDeniedException: Access to KMS
+# is not allowed". Granting decrypt on the CMK to the exec role closes that
+# gap once and for all. Scoped narrowly: kms:Decrypt only, on this CMK only,
+# only when invoked via the secretsmanager service.
+# ---------------------------------------------------------------------------
+
+data "aws_iam_policy_document" "exec_role_kms_decrypt" {
+  statement {
+    sid       = "DecryptSMSecretsCMK"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = [local.contract.ecs.kms_key_arn]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["secretsmanager.${data.aws_region.current.name}.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "exec_role_kms_decrypt" {
+  name   = "kms-decrypt-sm-cmk"
+  role   = "botnim-api-${var.environment}-api-execution-role"
+  policy = data.aws_iam_policy_document.exec_role_kms_decrypt.json
+}
