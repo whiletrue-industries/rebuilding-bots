@@ -146,16 +146,14 @@ resource "aws_security_group" "refresh_lambda" {
 }
 
 # Allow this Lambda SG into the botnim-api service's SG on port 8000.
-# The app module exposes the task SG via module.botnim_api outputs. The exact
-# output name may be `task_security_group_id` or similar — verify against
-# modules/app/outputs.tf in Build-Up-IL/org-infra before applying. If the
-# name differs, update the reference below.
+# Build-Up-IL/org-infra//modules/app exports this as `security_group_id`
+# (the SG attached to the ECS service / task ENIs; see modules/app/outputs.tf).
 resource "aws_security_group_rule" "api_ingress_from_refresh_lambda" {
   type                     = "ingress"
   from_port                = 8000
   to_port                  = 8000
   protocol                 = "tcp"
-  security_group_id        = module.botnim_api.task_security_group_id
+  security_group_id        = module.botnim_api.security_group_id
   source_security_group_id = aws_security_group.refresh_lambda.id
   description              = "refresh-invoker Lambda → botnim-api"
 }
