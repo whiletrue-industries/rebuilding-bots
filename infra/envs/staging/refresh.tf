@@ -107,11 +107,12 @@ resource "aws_iam_role" "refresh_lambda" {
   assume_role_policy = data.aws_iam_policy_document.refresh_lambda_assume.json
 }
 
-# AWS-managed policy that grants the Lambda everything it needs to run in a VPC:
-# ENI management, CloudWatch Logs write, etc.
-resource "aws_iam_role_policy_attachment" "refresh_lambda_vpc" {
+# AWS-managed basic Lambda execution role — grants CloudWatch Logs write.
+# (Switched from AWSLambdaVPCAccessExecutionRole when the Lambda came out
+#  of the VPC; see the Lambda function block for the full reasoning.)
+resource "aws_iam_role_policy_attachment" "refresh_lambda_basic" {
   role       = aws_iam_role.refresh_lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 data "aws_iam_policy_document" "refresh_lambda_secrets" {
@@ -133,32 +134,6 @@ resource "aws_iam_role_policy" "refresh_lambda_secrets" {
   policy = data.aws_iam_policy_document.refresh_lambda_secrets.json
 }
 
-resource "aws_security_group" "refresh_lambda" {
-  name        = "botnim-refresh-invoker-${var.environment}"
-  description = "Egress for refresh-invoker Lambda to reach botnim-api and AWS APIs"
-  vpc_id      = local.contract.network.vpc_id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# Allow this Lambda SG into the botnim-api service's SG on port 8000.
-# Build-Up-IL/org-infra//modules/app exports this as `security_group_id`
-# (the SG attached to the ECS service / task ENIs; see modules/app/outputs.tf).
-resource "aws_security_group_rule" "api_ingress_from_refresh_lambda" {
-  type                     = "ingress"
-  from_port                = 8000
-  to_port                  = 8000
-  protocol                 = "tcp"
-  security_group_id        = module.botnim_api.security_group_id
-  source_security_group_id = aws_security_group.refresh_lambda.id
-  description              = "refresh-invoker Lambda to botnim-api on 8000"
-}
-
 resource "aws_lambda_function" "refresh_invoker" {
   function_name = "botnim-refresh-invoker-${var.environment}"
   role          = aws_iam_role.refresh_lambda.arn
@@ -170,20 +145,23 @@ resource "aws_lambda_function" "refresh_invoker" {
   filename         = data.archive_file.refresh_invoker.output_path
   source_code_hash = data.archive_file.refresh_invoker.output_base64sha256
 
-  vpc_config {
-    subnet_ids         = local.contract.network.private_subnet_ids
-    security_group_ids = [aws_security_group.refresh_lambda.id]
-  }
+  # Intentionally NOT VPC-attached. The Lambda needs to:
+  #   (1) read the admin API key secret — works via the public AWS
+  #       Secrets Manager regional endpoint, no VPC needed
+  #   (2) POST to https://botnim.staging.build-up.team/botnim/admin/refresh —
+  #       which resolves to public ALB IPs and is reachable from any
+  #       internet-connected client
+  # Putting the Lambda in the VPC was breaking it: the runtime's libc
+  # resolver only had `nameserver 169.254.100.5` (the local extension
+  # proxy) active in /etc/resolv.conf with the VPC resolver commented
+  # out, and that proxy returned `OSError(16, EBUSY)` for every
+  # getaddrinfo call. Diagnostic logs confirmed it. Pulling out of the
+  # VPC avoids the broken runtime resolver path entirely.
 
   environment {
     variables = {
       ADMIN_API_KEY_SECRET_ARN = aws_secretsmanager_secret.refresh_admin_api_key.arn
-      # Public ALB endpoint, not Service Connect: ECS Service Connect is
-      # cluster-internal (Envoy-proxied) and doesn't resolve from Lambda's
-      # VPC ENI even when the function is in the same VPC. Going through
-      # the public ALB adds a small hop but works without Cloud Map plumbing.
-      # The botnim-api ALB listener forwards /botnim/* to this same task.
-      REFRESH_ENDPOINT_URL = "https://botnim.staging.build-up.team/botnim/admin/refresh"
+      REFRESH_ENDPOINT_URL     = "https://botnim.staging.build-up.team/botnim/admin/refresh"
     }
   }
 }
