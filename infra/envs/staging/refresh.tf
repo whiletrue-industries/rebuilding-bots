@@ -178,7 +178,12 @@ resource "aws_lambda_function" "refresh_invoker" {
   environment {
     variables = {
       ADMIN_API_KEY_SECRET_ARN = aws_secretsmanager_secret.refresh_admin_api_key.arn
-      REFRESH_ENDPOINT_URL     = "http://botnim-api:8000/botnim/admin/refresh"
+      # Public ALB endpoint, not Service Connect: ECS Service Connect is
+      # cluster-internal (Envoy-proxied) and doesn't resolve from Lambda's
+      # VPC ENI even when the function is in the same VPC. Going through
+      # the public ALB adds a small hop but works without Cloud Map plumbing.
+      # The botnim-api ALB listener forwards /botnim/* to this same task.
+      REFRESH_ENDPOINT_URL = "https://botnim.staging.build-up.team/botnim/admin/refresh"
     }
   }
 }
