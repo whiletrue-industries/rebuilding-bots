@@ -37,12 +37,22 @@ def _diagnose_endpoint(url: str) -> str:
     parsed = urllib.parse.urlparse(url)
     host = parsed.hostname or ""
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
+
+    # Read the Lambda runtime's resolver config — useful if getaddrinfo
+    # blows up with EBUSY (often filesystem contention reading these).
+    resolv = ""
+    try:
+        with open("/etc/resolv.conf", "r") as f:
+            resolv = f.read().strip()
+    except OSError as e:
+        resolv = f"<resolv.conf read failed: {e}>"
+
     try:
         infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
         ips = sorted({info[4][0] for info in infos})
-    except socket.gaierror as e:
-        return f"DNS_FAIL host={host} err={e}"
-    return f"DNS_OK host={host} port={port} ips={ips}"
+        return f"DNS_OK host={host} port={port} ips={ips} resolv={resolv!r}"
+    except OSError as e:
+        return f"DNS_FAIL host={host} errno={getattr(e, 'errno', '?')} err={e!r} resolv={resolv!r}"
 
 
 def handler(event, context):  # noqa: ARG001 (Lambda entrypoint signature)
