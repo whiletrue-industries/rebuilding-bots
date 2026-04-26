@@ -227,3 +227,31 @@ module "botnim_api" {
   # Grant S3 write access for on-demand Elasticsearch snapshots.
   task_role_policy_json = data.aws_iam_policy_document.es_backups_write.json
 }
+
+################################################################################
+# Private-zone alias for botnim.staging.build-up.team -> public ALB.
+#
+# Background: Route53 split-horizon DNS for staging.build-up.team. The public
+# zone has botnim.staging.build-up.team (created automatically by org-infra's
+# modules/app from public.subdomain), but the private zone (associated with
+# the staging VPC) does NOT — it only had auth-admin until now. VPC-internal
+# clients (LibreChat ECS tasks calling the OpenAPI tool) get NXDOMAIN because
+# the private zone shadows the public one for the staging.build-up.team
+# suffix. Adding the same alias in the private zone makes VPC clients resolve
+# to the public ALB address (which is reachable from the VPC).
+#
+# Hairpin / asymmetric-routing concern: VPC -> public-ALB-IP traffic
+# generally works on AWS as long as the security group allows the source
+# CIDR. The shared ALB already accepts 0.0.0.0/0:443 so this works.
+################################################################################
+resource "aws_route53_record" "botnim_private" {
+  zone_id = local.contract.operator_ingress.private_zone_id
+  name    = "botnim.${trimsuffix(local.contract.dns.zone_name, ".")}"
+  type    = "A"
+
+  alias {
+    name                   = local.contract.alb.dns_name
+    zone_id                = local.contract.alb.zone_id
+    evaluate_target_health = false
+  }
+}
