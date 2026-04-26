@@ -161,8 +161,11 @@ async def search_datasets_handler(
 def _run_refresh_job() -> None:
     env = os.environ.get("ENVIRONMENT", DEFAULT_ENVIRONMENT)
     logger.info(f"REFRESH_START: env={env}")
-    # fetch_and_process(environment, bot, context, kind)
-    fetch_and_process(env, "all", "all", "pdf")
+    # fetch_and_process(environment, bot, context, kind). 'all' kind so any
+    # newly-added fetcher type (bk_csv for government_decisions, future
+    # additions) gets picked up without a code change here. Static fetchers
+    # (lexicon, wikitext) re-run cheaply when nothing changed upstream.
+    fetch_and_process(env, "all", "all", "all")
     # sync_agents(environment, bots, backend='es')
     sync_agents(env, "all", backend="es")
     logger.info("REFRESH_OK")
