@@ -523,6 +523,46 @@
         ],
         "deprecated": false
       }
+    },
+    "/botnim/retrieve/unified/government_decisions__dev": {
+      "get": {
+        "description": "Search Israeli cabinet (government) decisions from gov.il / Ma'agar HaHachlatot. Use for cabinet resolutions, government decisions on legislation, ministerial appointments, decisions on Knesset bills (support/oppose at preliminary reading), and policy decisions. Each result includes a procedure_number_str (the official decision number) and url_id for citation.",
+        "operationId": "search_unified__government_decisions__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
     }
   },
   "components": {

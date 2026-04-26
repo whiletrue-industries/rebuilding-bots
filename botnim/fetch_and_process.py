@@ -37,6 +37,15 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         process_pdf_source(config)
     elif fetcher_kind == 'lexicon':
         scrape_lexicon(output_path=config_dir / source['source'])
+    elif fetcher_kind == 'bk_csv':
+        # BudgetKey single-CSV datapackage (e.g. government_decisions). Different
+        # from `pdf` which downloads PDF binaries listed in an index.csv and runs
+        # OpenAI extraction per file — `bk_csv` consumes a single CSV resource
+        # whose rows are already parsed by BudgetKey upstream. See
+        # botnim/document_parser/bk_datapackage/process_bk_csv.py for details.
+        from .document_parser.bk_datapackage.process_bk_csv import process_bk_csv_source
+        output_csv_path = config_dir / source['source']
+        process_bk_csv_source(output_csv_path=output_csv_path, **fetcher)
 
 def fetch_and_process_context(environment, context, config_dir: Path, kind):
     context_name = context['name']
