@@ -161,8 +161,108 @@ class VectorStoreAurora(VectorStoreBase):
             ), {"cid": cid, "names": list(file_names)})
             return result.rowcount
 
+    def search(
+        self,
+        context_name: str,
+        query_text: str,
+        search_mode,           # SearchModeConfig — kept for ES-parity signature
+        embedding: list[float],
+        num_results: int = 7,
+        explain: bool = False,
+        metadata_filter: dict | None = None,
+    ) -> dict:
+        """Hybrid retrieval: pgvector cosine + tsvector BM25, fused via
+        reciprocal-rank-fusion. Mirrors VectorStoreES.search's return shape
+        so downstream code (search_modes.py, the LLM tool layer) doesn't
+        need to know which backend it talked to.
+
+        Returns: {"hits": {"hits": [{"_id", "_score", "_source": {...}}, ...]}}
+        """
+        bot = self.config["slug"]
+        fetch = num_results * 3  # over-fetch then RRF-trim
+
+        # Resolve context_id from (bot, name) — small extra round-trip but
+        # keeps the search call self-contained and resilient to context
+        # rows being added/removed mid-process.
+        with get_session() as sess:
+            row = sess.execute(text(
+                "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
+            ), {"bot": bot, "name": context_name}).fetchone()
+            if not row:
+                logger.warning("search: context (%s, %s) not found", bot, context_name)
+                return {"hits": {"hits": []}}
+            cid = str(row[0])
+
+            md_filter_sql = ""
+            md_params = {}
+            if metadata_filter:
+                md_filter_sql = " AND metadata @> CAST(:mfilter AS jsonb)"
+                md_params["mfilter"] = json.dumps(metadata_filter)
+
+            vector_rows = sess.execute(text(
+                f"""
+                SELECT id, content, metadata, 1 - (embedding <=> CAST(:emb AS vector)) AS score
+                FROM documents
+                WHERE context_id = :cid{md_filter_sql}
+                ORDER BY embedding <=> CAST(:emb AS vector)
+                LIMIT :limit
+                """
+            ), {"cid": cid, "emb": str(embedding), "limit": fetch, **md_params}).fetchall()
+
+            bm25_rows = sess.execute(text(
+                f"""
+                SELECT id, content, metadata,
+                       ts_rank(tsv, plainto_tsquery('simple', :q)) AS score
+                FROM documents
+                WHERE context_id = :cid
+                  AND tsv @@ plainto_tsquery('simple', :q){md_filter_sql}
+                ORDER BY score DESC
+                LIMIT :limit
+                """
+            ), {"cid": cid, "q": query_text, "limit": fetch, **md_params}).fetchall()
+
+        return _rrf_fuse(vector_rows, bm25_rows, num_results)
+
     def update_tools(self, context_, vector_store):
         raise NotImplementedError("update_tools: implemented in Task 2.4")
 
     def update_tool_resources(self, context_, vector_store):
         raise NotImplementedError("update_tool_resources: implemented in Task 2.4")
+
+
+def _rrf_fuse(
+    vector_rows: list,
+    bm25_rows: list,
+    num_results: int,
+    k: int = 60,
+) -> dict:
+    """Reciprocal-rank-fusion with the standard k=60 constant.
+    Returns the ES-shaped hits dict so callers don't notice the backend swap.
+    """
+    scores: dict[str, float] = {}
+    docs: dict[str, tuple] = {}
+
+    for rank, row in enumerate(vector_rows):
+        doc_id = str(row[0])
+        scores[doc_id] = scores.get(doc_id, 0.0) + 1.0 / (k + rank + 1)
+        docs[doc_id] = row
+
+    for rank, row in enumerate(bm25_rows):
+        doc_id = str(row[0])
+        scores[doc_id] = scores.get(doc_id, 0.0) + 1.0 / (k + rank + 1)
+        docs.setdefault(doc_id, row)
+
+    ordered = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:num_results]
+
+    hits = []
+    for doc_id, fused_score in ordered:
+        row = docs[doc_id]
+        hits.append({
+            "_id": doc_id,
+            "_score": fused_score,
+            "_source": {
+                "content": row[1],
+                "metadata": row[2] if isinstance(row[2], dict) else json.loads(row[2]),
+            },
+        })
+    return {"hits": {"hits": hits}}

@@ -1,6 +1,7 @@
 """Tests for VectorStoreAurora — mirrors VectorStoreES test shape."""
 import hashlib
 import io
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -242,3 +243,131 @@ def test_delete_existing_files_removes_by_filename(aurora_db, monkeypatch):
         ), {"cid": cid}).fetchall()
     names = {r[0] for r in rows}
     assert names == {"keep.md"}
+
+
+def _seed_documents(database_url, context_id, docs):
+    """docs: [(content, embedding, metadata)]"""
+    from sqlalchemy import create_engine
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        for content, embedding, metadata in docs:
+            content_hash = hashlib.sha256(content.encode()).hexdigest()
+            conn.execute(text(
+                "INSERT INTO documents (context_id, content, content_hash, metadata, embedding) "
+                "VALUES (:cid, :c, :h, CAST(:m AS jsonb), CAST(:e AS vector))"
+            ), {
+                "cid": context_id, "c": content, "h": content_hash,
+                "m": json.dumps(metadata), "e": str(embedding),
+            })
+        conn.commit()
+
+
+def test_search_returns_top_k_by_vector_similarity(aurora_db, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    # Three docs with hand-picked embeddings
+    target_embedding = [1.0] * 1536
+    near_embedding = [0.99] * 1536
+    far_embedding = [-1.0] * 1536
+    _seed_documents(database_url, cid, [
+        ("matches well",      target_embedding, {"title": "match"}),
+        ("close-ish",          near_embedding,  {"title": "near"}),
+        ("totally different",  far_embedding,   {"title": "far"}),
+    ])
+
+    results = store.search(
+        context_name="x",
+        query_text="anything",
+        search_mode=DEFAULT_SEARCH_MODE,
+        embedding=target_embedding,
+        num_results=2,
+    )
+
+    assert "hits" in results
+    titles = [hit["_source"]["metadata"]["title"] for hit in results["hits"]["hits"]]
+    assert titles[0] == "match"
+    assert "far" not in titles
+
+
+def test_search_combines_vector_and_text_via_rrf(aurora_db, database_url, monkeypatch):
+    """A doc that's a perfect text match but mediocre vector match should
+    still rank high thanks to RRF."""
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    query_embedding = [1.0] * 1536
+    weak_match_embedding = [0.5] * 1536
+    _seed_documents(database_url, cid, [
+        ("the medical complaints commissioner is a public role",
+         weak_match_embedding, {"title": "text-strong"}),
+        ("unrelated content about budgets",
+         query_embedding, {"title": "vector-strong"}),
+    ])
+
+    results = store.search(
+        context_name="x",
+        query_text="medical complaints commissioner",
+        search_mode=DEFAULT_SEARCH_MODE,
+        embedding=query_embedding,
+        num_results=2,
+    )
+
+    titles = [hit["_source"]["metadata"]["title"] for hit in results["hits"]["hits"]]
+    # Both should appear; ordering proves RRF combined them
+    assert set(titles) == {"text-strong", "vector-strong"}
+
+
+def test_search_respects_metadata_filter(aurora_db, database_url, monkeypatch):
+    """The Aurora backend's search must filter by metadata jsonb when
+    the search_mode requests it (mirroring ES's behavior)."""
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    e = [1.0] * 1536
+    _seed_documents(database_url, cid, [
+        ("doc A", e, {"category": "legal"}),
+        ("doc B", e, {"category": "budget"}),
+    ])
+
+    results = store.search(
+        context_name="x",
+        query_text="anything",
+        search_mode=DEFAULT_SEARCH_MODE,
+        embedding=e,
+        num_results=10,
+        metadata_filter={"category": "legal"},
+    )
+
+    titles = [hit["_source"]["content"] for hit in results["hits"]["hits"]]
+    assert titles == ["doc A"]
