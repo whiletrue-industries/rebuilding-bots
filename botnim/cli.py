@@ -163,7 +163,7 @@ cli.add_command(evaluate)
 @cli.command(name='fetch-and-process')
 @click.argument('bot', type=click.Choice(AVAILABLE_BOTS + ['all']))
 @click.argument('context', type=click.STRING)
-@click.argument('kind', type=click.Choice(['all', 'wikitext', 'pdf', 'lexicon']))
+@click.argument('kind', type=click.Choice(['all', 'wikitext', 'pdf', 'lexicon', 'bk_csv']))
 @click.option('--environment', default='staging')
 def fetch_and_process_(bot, context, kind, environment):
     """Fetch and process documents from various sources."""
