@@ -25,7 +25,7 @@ import yaml
 
 from .bot_config import BotConfig, load_bot_config, publish_bot_config
 from .config import SPECS, get_logger, get_openai_client, is_production
-from .vector_store import VectorStoreES, VectorStoreOpenAI
+from .vector_store import VectorStoreES, VectorStoreOpenAI, VectorStoreAurora
 
 logger = get_logger(__name__)
 
@@ -47,6 +47,8 @@ def _sync_vector_store(config: dict, config_dir, backend: str, environment: str,
         vs = VectorStoreOpenAI(config, config_dir, is_production(environment), client)
     elif backend == 'es':
         vs = VectorStoreES(config, config_dir, environment=environment)
+    elif backend == 'aurora':
+        vs = VectorStoreAurora(config, config_dir, environment=environment)
     else:
         raise ValueError(f'Unsupported backend: {backend}')
     vs.vector_store_update(
@@ -75,7 +77,7 @@ def publish_bot(bot_slug: str, environment: str) -> BotConfig:
     return config
 
 
-def sync_agents(environment: str, bots: str, backend: str = 'es',
+def sync_agents(environment: str, bots: str, backend: str = 'aurora',
                 replace_context=False, reindex: bool = False) -> None:
     """Sync one or more bots: ES indices + published config.
 
@@ -86,7 +88,9 @@ def sync_agents(environment: str, bots: str, backend: str = 'es',
     bots:
         A single bot slug (e.g. ``"unified"``) or ``"all"``.
     backend:
-        Vector-store backend: ``"es"`` (default) or ``"openai"``.
+        Vector-store backend: ``"aurora"`` (default), ``"es"`` (legacy
+        escape hatch, kept for one-release deprecation window), or
+        ``"openai"``.
     replace_context:
         Forwarded to the vector store's update logic.
     reindex:

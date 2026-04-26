@@ -30,7 +30,7 @@ def cli():
 @click.argument('environment', type=click.Choice(VALID_ENVIRONMENTS))
 @click.argument('bots', type=click.Choice(AVAILABLE_BOTS + ['all']))
 @click.option('--replace-context', type=str, help='Replace existing context with a specific context name or use "all" to replace all contexts')
-@click.option('--backend', type=click.Choice(['es', 'openai']), default='es', help='Vector store backend (default: es)')
+@click.option('--backend', type=click.Choice(['aurora', 'es', 'openai']), default='aurora', help='Vector store backend (default: aurora; use --backend es for legacy rollback)')
 @click.option('--reindex', is_flag=True, default=False, help='Force reindexing to update mapping changes')
 def sync(environment, bots, replace_context, backend, reindex):
     """Sync bot configs and vector indices for ``bots`` in ``environment``."""
