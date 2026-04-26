@@ -8,6 +8,15 @@ import dataflows as DF
 from kvfile.kvfile_sqlite import CachedKVFileSQLite as KVFile
 import json
 
+# Bump CSV field-size limit globally for this module. Some BudgetKey-sourced
+# extraction CSVs (notably government_decisions, where the `text` column is
+# the full HTML-stripped decision body) carry rows whose largest field
+# exceeds Python's default 131072-byte cap. Without this, _collect_raw_streams_csv
+# raises `_csv.Error: field larger than field limit (131072)` at row N and
+# the whole sync aborts mid-loop. 10 MB ceiling is well above any single
+# decision body we've seen in practice (~500 KB max).
+csv.field_size_limit(10 * 1024 * 1024)
+
 from .config import get_logger
 from .dynamic_extraction import extract_structured_content, extract_structured_content_async
 from .document_parser.wikitext.generate_markdown_files import generate_markdown_dict
