@@ -79,3 +79,10 @@ def pg_connection(postgresql):
     container (start with: docker compose -f docker-compose.test.yml up -d test-pg).
     """
     return postgresql
+
+
+@pytest.fixture
+def database_url(postgresql) -> str:
+    info = postgresql.info
+    # Use the psycopg v3 dialect; psycopg2 is not installed in this project.
+    return f"postgresql+psycopg://{info.user}:{info.password}@{info.host}:{info.port}/{info.dbname}"

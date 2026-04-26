@@ -27,13 +27,6 @@ def _alembic(args: list[str], database_url: str) -> subprocess.CompletedProcess:
     )
 
 
-@pytest.fixture
-def database_url(postgresql) -> str:
-    info = postgresql.info
-    # Use the psycopg v3 dialect; psycopg2 is not installed in this project.
-    return f"postgresql+psycopg://{info.user}:{info.password}@{info.host}:{info.port}/{info.dbname}"
-
-
 def test_0001_creates_three_tables(database_url):
     _alembic(["upgrade", "0001"], database_url)
     eng = create_engine(database_url)
