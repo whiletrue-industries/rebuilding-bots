@@ -2,7 +2,7 @@ slug: unified
 name: בוט מאוחד - תקנון, חוקים ותקציב
 description: עונה על שאלות מתוך תקנון הכנסת וחוקים נלווים וכן על שאלות בנושאי תקציב
   המדינה, הכנסות המדינה, התקשרויות ותמיכות תקציביות
-instructions: agent.txt
+instructions: agent.md
 tools:
 - code-interpreter
 - budgetkey
