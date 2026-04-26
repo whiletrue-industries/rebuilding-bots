@@ -1,8 +1,34 @@
 from __future__ import annotations
 
+import socket
+
 import psycopg
 import pytest
 from pytest_postgresql import factories
+
+
+_TEST_PG_HOST = "localhost"
+_TEST_PG_PORT = 54329
+
+
+def pytest_configure(config):
+    """Fail fast (with a clear message) if the test-pg container isn't running.
+
+    Without this, psycopg.connect() in _load_vector_extension hangs ~33s
+    waiting for the healthcheck retry budget, then errors with a generic
+    "could not connect to server" — masking the real cause (the developer
+    forgot to start Docker).
+    """
+    try:
+        with socket.create_connection((_TEST_PG_HOST, _TEST_PG_PORT), timeout=1):
+            pass
+    except (OSError, socket.timeout):
+        pytest.exit(
+            f"\n\ntest-pg not reachable at {_TEST_PG_HOST}:{_TEST_PG_PORT}.\n"
+            "Start it with:\n"
+            "    docker compose -f docker-compose.test.yml up -d test-pg\n",
+            returncode=2,
+        )
 
 
 def _load_vector_extension(
@@ -35,8 +61,8 @@ def _load_vector_extension(
 # "already exists" if we reused "test". Using "pytest_db" as the base
 # name avoids that collision.
 postgresql_proc = factories.postgresql_noproc(
-    host="localhost",
-    port=54329,
+    host=_TEST_PG_HOST,
+    port=_TEST_PG_PORT,
     user="test",
     password="test",
     dbname="pytest_db",
