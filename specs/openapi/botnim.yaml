@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://staging.botnim.co.il"
+      "url": "https://botnim.staging.build-up.team"
     }
   ],
   "paths": {
