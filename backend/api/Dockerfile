@@ -1,10 +1,21 @@
 FROM --platform=linux/amd64 python:3.12
-RUN apt-get update && apt-get install -y ca-certificates && apt-get clean
+# tesseract-ocr (+ Hebrew language data) is needed by pytesseract for the
+# fallback OCR path on scanned-PDF refreshes. poppler-utils provides
+# pdftoppm/pdftotext used by pdf2image / PyMuPDF backends.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        tesseract-ocr \
+        tesseract-ocr-heb \
+        poppler-utils \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 RUN pip install --upgrade pip
 WORKDIR /srv
 COPY requirements.txt .
+COPY requirements-pdf-scraping.txt .
 COPY backend/api/requirements.txt requirements-server.txt
-RUN pip install -r requirements-server.txt -r requirements.txt
+RUN pip install -r requirements-server.txt -r requirements.txt -r requirements-pdf-scraping.txt
 COPY botnim/ ./botnim
 COPY specs/ ./specs
 # Seed copy for EFS bootstrap: when /srv/specs/unified/extraction is mounted
