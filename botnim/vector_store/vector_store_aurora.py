@@ -224,10 +224,82 @@ class VectorStoreAurora(VectorStoreBase):
         return _rrf_fuse(vector_rows, bm25_rows, num_results)
 
     def update_tools(self, context_, vector_store):
-        raise NotImplementedError("update_tools: implemented in Task 2.4")
+        """Emit an OpenAI function-tool definition for this context.
+        Uses the context_name (not the uuid) as the tool-name suffix so
+        the LLM sees the same tool names as today's ES backend.
+        """
+        from .search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
+        context_name = context_.get("slug", "unknown")
+        tool_description = self._tool_description(context_)
+        search_mode_description = self._search_mode_description(context_)
+
+        self.tools.append({
+            "type": "function",
+            "function": {
+                "name": f"search_{context_name}",
+                "description": tool_description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The query string to use for semantic/free text search",
+                        },
+                        "search_mode": {
+                            "type": "string",
+                            "description": search_mode_description,
+                            "enum": [mode.name for mode in SEARCH_MODES.values()],
+                            "default": DEFAULT_SEARCH_MODE.name,
+                        },
+                        "num_results": {
+                            "type": "integer",
+                            "description": "Number of results to return. Leave empty to use the default for the search mode.",
+                            "default": 7,
+                        },
+                    },
+                    "required": ["query"],
+                },
+            },
+        })
 
     def update_tool_resources(self, context_, vector_store):
-        raise NotImplementedError("update_tool_resources: implemented in Task 2.4")
+        """Aurora doesn't use OpenAI tool_resources (those are for OpenAI's
+        own vector stores). Mirror the ES backend by setting None."""
+        self.tool_resources = None
+
+    # Helpers — copied verbatim from VectorStoreES so behavior is identical
+    def _tool_description(self, context_) -> str:
+        description = context_.get("description", "")
+        examples = context_.get("examples", "")
+        if description and examples:
+            return f"{description}. Examples: {examples}"
+        if description:
+            return description
+        context_name = context_.get("slug", "unknown")
+        return f"Semantic search the '{context_name}' vector store"
+
+    def _search_mode_description(self, context_) -> str:
+        base = "Search mode. "
+        slug = context_.get("slug", "")
+        if any(k in slug for k in ("legal_text", "common_knowledge")):
+            modes = [
+                "'SECTION_NUMBER': Specialized search for finding legal text sections by their number "
+                "(e.g. 'סעיף 12'). Requires both section number and resource name (default 3 results)",
+                "'REGULAR': Semantic + full text search across all main fields (default 7 results)",
+                "'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)",
+            ]
+        elif any(k in slug for k in ("legal_advisor_opinions", "legal_advisor_letters",
+                                      "committee_decisions", "ethics_decisions")):
+            modes = [
+                "'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)",
+                "'REGULAR': Semantic + full text search across all main fields (7 results)",
+            ]
+        else:
+            modes = [
+                "'REGULAR': Semantic + full text search across all main fields (default 7 results)",
+                "'METADATA_BROWSE': Browse documents with structured metadata summaries instead of full content (25 results)",
+            ]
+        return base + ". ".join(modes) + "."
 
 
 def _rrf_fuse(

@@ -371,3 +371,26 @@ def test_search_respects_metadata_filter(aurora_db, database_url, monkeypatch):
 
     titles = [hit["_source"]["content"] for hit in results["hits"]["hits"]]
     assert titles == ["doc A"]
+
+
+def test_update_tools_emits_function_definition(aurora_db):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "legal_text"}, "legal_text", False)
+
+    store.update_tools({"slug": "legal_text", "description": "Legal Israeli law"}, "legal_text")
+    assert len(store.tools) == 1
+    fn = store.tools[0]["function"]
+    assert fn["name"] == "search_legal_text"
+    assert "Legal Israeli law" in fn["description"]
+    assert "query" in fn["parameters"]["properties"]
+    assert "search_mode" in fn["parameters"]["properties"]
+
+
+def test_update_tool_resources_sets_none(aurora_db):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    store.update_tool_resources({}, "anything")
+    assert store.tool_resources is None
