@@ -12,3 +12,7 @@ httpx>=0.28.0
 markdownify
 pydantic>=2.0.0
 pyquery
+alembic==1.13.2
+psycopg==3.2.1
+pgvector==0.3.2
+SQLAlchemy==2.0.31
