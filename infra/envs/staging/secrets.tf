@@ -12,6 +12,8 @@ resource "aws_secretsmanager_secret" "openai_api_key" {
   kms_key_id  = local.contract.ecs.kms_key_arn
 }
 
+# TODO(post-soak): remove after Window C closes (~T+30d) — rollback artifact.
+# Keep until Aurora migration soak period ends and we confirm no rollback to ES.
 resource "aws_secretsmanager_secret" "elasticsearch_password" {
   name        = "botnim-api/${var.environment}/elasticsearch-password"
   description = "Password for the elasticsearch 'elastic' superuser"

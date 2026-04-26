@@ -77,13 +77,14 @@ ES_CA_CERT=/path/to/generic-ca.crt
 
 **Usage Examples:**
 ```bash
-# Local development
+# New default (Aurora pgvector backend — see docs/superpowers/specs/2026-04-26-aurora-migration-design.md)
+botnim sync local unified
+botnim sync staging unified
+botnim sync production unified
+
+# Legacy ES backend (kept for one release as rollback escape hatch; remove after T+30d)
 botnim sync local unified --backend es
-
-# Staging
 botnim sync staging unified --backend es
-
-# Production
 botnim sync production unified --backend es
 
 # Demo scripts (environment is required)
