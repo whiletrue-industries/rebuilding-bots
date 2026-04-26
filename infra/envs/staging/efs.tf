@@ -1,9 +1,7 @@
 ################################################################################
 # Shared EFS filesystem for botnim-api
 #
-# Three POSIX-isolated access points on one filesystem:
-#  - es-data:         /usr/share/elasticsearch/data for the ES sidecar
-#                     (init-clean-es wipes this on every task start; see main.tf).
+# Two POSIX-isolated access points on one filesystem:
 #  - cache:           /srv/cache in the primary api container — sqlite KV caches
 #                     (metadata extraction + embeddings) warmed across task restarts
 #                     so the first botnim sync after a deploy is the only expensive one.
@@ -13,6 +11,12 @@
 #                     (empty EFS) api_server.sh seeds from the image-baked copy
 #                     at /srv/specs-seed. Backed up via the same aws_backup_plan
 #                     as the other APs (whole-filesystem snapshot).
+#
+# Note: the es-data access point has been removed as part of the Aurora migration
+# (the ES sidecar no longer runs). The EFS filesystem itself is retained for the
+# cache + specs-extraction APs.
+# TODO(post-soak): remove after Window C closes (~T+30d) — evaluate whether
+# the EFS filesystem itself can be decommissioned once the soak period ends.
 ################################################################################
 
 module "es_efs" {
@@ -23,12 +27,6 @@ module "es_efs" {
   private_subnet_ids = local.contract.network.private_subnet_ids
 
   access_points = [
-    {
-      name      = "es-data"
-      path      = "/es"
-      posix_uid = 1000
-      posix_gid = 1000
-    },
     {
       name      = "cache"
       path      = "/cache"

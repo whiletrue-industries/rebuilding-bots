@@ -1,8 +1,14 @@
 ################################################################################
-# EFS filesystem for the Elasticsearch sidecar's data directory
+# EFS filesystem for botnim-api
 #
-# One access point (posix 1000:1000) owned by the elasticsearch container user.
-# Survives task restarts; snapshots are written to the S3 bucket in backups.tf.
+# The es-data access point has been removed as part of the Aurora migration
+# (the ES sidecar no longer runs in production). The EFS filesystem module is
+# retained here because backups.tf still references module.es_efs.file_system_id
+# for AWS Backup.
+#
+# TODO(post-soak): after Window C closes (~T+30d), evaluate decommissioning
+# this EFS filesystem entirely if no access points remain and AWS Backup can
+# be pointed at a different target (or removed).
 ################################################################################
 
 module "es_efs" {
@@ -12,12 +18,5 @@ module "es_efs" {
   vpc_id             = local.contract.network.vpc_id
   private_subnet_ids = local.contract.network.private_subnet_ids
 
-  access_points = [
-    {
-      name      = "es-data"
-      path      = "/es"
-      posix_uid = 1000
-      posix_gid = 1000
-    },
-  ]
+  access_points = []
 }
