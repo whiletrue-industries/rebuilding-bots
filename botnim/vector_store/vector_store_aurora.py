@@ -99,10 +99,16 @@ class VectorStoreAurora(VectorStoreBase):
         """Insert one row per markdown file. Skips embedding API calls
         for content whose hash already exists in documents (content-hash
         skip — replaces the EFS sqlite embedding cache).
+
+        Per-file errors (embedding failures, oversize content, malformed
+        files) are logged and skipped — they do not abort the whole sync.
+        Mirrors VectorStoreES._upload_files_async's `return_exceptions=True`
+        semantics, which lets one bad doc not poison the batch.
         """
         cid = vector_store  # this is the context_id uuid (returned by get_or_create)
         client = _get_embedding_client(self.environment)
         successful = 0
+        skipped = 0
 
         with get_session() as sess:
             for fname, content_file, file_type, metadata in file_streams:
@@ -110,44 +116,55 @@ class VectorStoreAurora(VectorStoreBase):
                     logger.debug("Skipping non-markdown file: %s", fname)
                     continue
 
-                content = content_file.read().decode("utf-8")
-                content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+                try:
+                    content = content_file.read().decode("utf-8")
+                    content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-                # Content-hash skip: if this exact (context_id, content_hash)
-                # is already present, do nothing.
-                existing = sess.execute(text(
-                    "SELECT id FROM documents "
-                    "WHERE context_id=:cid AND content_hash=:h"
-                ), {"cid": cid, "h": content_hash}).fetchone()
-                if existing:
-                    logger.debug("Skipping unchanged content for %s", fname)
+                    # Content-hash skip: if this exact (context_id, content_hash)
+                    # is already present, do nothing.
+                    existing = sess.execute(text(
+                        "SELECT id FROM documents "
+                        "WHERE context_id=:cid AND content_hash=:h"
+                    ), {"cid": cid, "h": content_hash}).fetchone()
+                    if existing:
+                        logger.debug("Skipping unchanged content for %s", fname)
+                        successful += 1
+                        continue
+
+                    # New or changed content — embed and insert
+                    embedding = client.embed(content)
+                    doc_metadata = dict(metadata or {})
+                    doc_metadata["filename"] = fname
+                    doc_metadata["context_name"] = context_name
+                    doc_metadata["context_type"] = context.get("type", "")
+                    doc_metadata["extracted_at"] = datetime.utcnow().isoformat()
+
+                    sess.execute(text(
+                        "INSERT INTO documents "
+                        "(context_id, content, content_hash, metadata, embedding) "
+                        "VALUES (:cid, :c, :h, CAST(:m AS jsonb), CAST(:e AS vector))"
+                    ), {
+                        "cid": cid,
+                        "c": content,
+                        "h": content_hash,
+                        "m": json.dumps(doc_metadata),
+                        "e": str(embedding),
+                    })
                     successful += 1
+                except Exception as exc:
+                    logger.error("Failed to process file %s: %s", fname, exc)
+                    skipped += 1
                     continue
-
-                # New or changed content — embed and insert
-                embedding = client.embed(content)
-                doc_metadata = dict(metadata or {})
-                doc_metadata["filename"] = fname
-                doc_metadata["context_name"] = context_name
-                doc_metadata["context_type"] = context.get("type", "")
-                doc_metadata["extracted_at"] = datetime.utcnow().isoformat()
-
-                sess.execute(text(
-                    "INSERT INTO documents "
-                    "(context_id, content, content_hash, metadata, embedding) "
-                    "VALUES (:cid, :c, :h, CAST(:m AS jsonb), CAST(:e AS vector))"
-                ), {
-                    "cid": cid,
-                    "c": content,
-                    "h": content_hash,
-                    "m": json.dumps(doc_metadata),
-                    "e": str(embedding),
-                })
-                successful += 1
 
         if callable(callback):
             callback(successful)
-        logger.info("Uploaded %d files to context_id=%s", successful, cid)
+        if skipped:
+            logger.warning(
+                "Uploaded %d files to context_id=%s; skipped %d files with errors",
+                successful, cid, skipped,
+            )
+        else:
+            logger.info("Uploaded %d files to context_id=%s", successful, cid)
 
     def delete_existing_files(self, context_, vector_store, file_names):
         """Delete documents whose metadata.filename matches any in file_names.

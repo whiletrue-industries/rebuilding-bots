@@ -394,3 +394,48 @@ def test_update_tool_resources_sets_none(aurora_db):
     store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
     store.update_tool_resources({}, "anything")
     assert store.tool_resources is None
+
+
+def test_upload_files_skips_files_that_fail_to_embed(aurora_db, monkeypatch):
+    """A file whose embed() raises must NOT abort the whole batch — log + skip,
+    continue with the next file. Mirrors VectorStoreES._upload_files_async's
+    return_exceptions=True behavior.
+    """
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.db.session import get_engine
+
+    class _FlakyEmbeddingClient:
+        def __init__(self):
+            self.calls = 0
+        def embed(self, text):
+            self.calls += 1
+            if "BOOM" in text:
+                raise RuntimeError("simulated embedding failure")
+            return [(self.calls % 256) / 255.0] * 1536
+
+    fake = _FlakyEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    streams = _make_file_streams([
+        ("good1.md", "fine content", {"title": "good1"}),
+        ("bad.md",    "BOOM oversized content", {"title": "bad"}),
+        ("good2.md", "also fine", {"title": "good2"}),
+    ])
+    callback_calls = []
+    store.upload_files({"slug": "x"}, "x", cid, streams, callback_calls.append)
+
+    eng = get_engine()
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT (metadata->>'filename') FROM documents WHERE context_id=:cid"
+        ), {"cid": cid}).fetchall()
+    names = sorted(r[0] for r in rows)
+    assert names == ["good1.md", "good2.md"]
+    assert callback_calls == [2]
