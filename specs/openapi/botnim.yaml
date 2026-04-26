@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://botnim.staging.build-up.team"
+      "url": "http://botnim-api:8000"
     }
   ],
   "paths": {
