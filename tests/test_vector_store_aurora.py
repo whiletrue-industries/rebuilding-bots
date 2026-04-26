@@ -1,4 +1,6 @@
 """Tests for VectorStoreAurora — mirrors VectorStoreES test shape."""
+import hashlib
+import io
 import os
 import subprocess
 from pathlib import Path
@@ -103,3 +105,140 @@ def test_get_or_create_replace_context_clears_documents(aurora_db):
             "SELECT count(*) FROM documents WHERE context_id=:cid"
         ), {"cid": cid}).scalar()
     assert n == 0
+
+
+class _FakeEmbeddingClient:
+    """Stand-in for the OpenAI client. Counts calls so we can assert
+    content-hash skip is actually skipping embeds."""
+    def __init__(self):
+        self.call_count = 0
+
+    def embed(self, text: str) -> list:
+        self.call_count += 1
+        # Deterministic fake embedding — just a hash spread over 1536 dims
+        h = hashlib.sha256(text.encode()).digest()
+        return [(b / 255.0) for b in h] * 48  # 32 * 48 = 1536
+
+
+def _make_file_streams(items: list):
+    """items: [(filename, content, metadata)]. Returns the (fname, file, type, metadata) tuple shape."""
+    return [
+        (fname, io.BytesIO(content.encode()), "md", metadata)
+        for fname, content, metadata in items
+    ]
+
+
+def test_upload_files_inserts_new_documents(aurora_db, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.db.session import get_engine
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    streams = _make_file_streams([
+        ("a.md", "alpha content", {"title": "A"}),
+        ("b.md", "beta content",  {"title": "B"}),
+    ])
+    callback_calls = []
+    store.upload_files({"slug": "x"}, "x", cid, streams, callback_calls.append)
+
+    eng = get_engine()
+    with eng.connect() as conn:
+        n = conn.execute(text(
+            "SELECT count(*) FROM documents WHERE context_id=:cid"
+        ), {"cid": cid}).scalar()
+    assert n == 2
+    assert fake.call_count == 2  # one embed per new document
+    assert callback_calls == [2]
+
+
+def test_upload_files_skips_unchanged_content(aurora_db, monkeypatch):
+    """Re-uploading the same content must not call the embedding API."""
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    streams = _make_file_streams([("a.md", "same content", {"title": "A"})])
+    store.upload_files({"slug": "x"}, "x", cid, streams, lambda n: None)
+    assert fake.call_count == 1
+
+    # Second upload, same content: must skip embed entirely
+    streams = _make_file_streams([("a.md", "same content", {"title": "A"})])
+    store.upload_files({"slug": "x"}, "x", cid, streams, lambda n: None)
+    assert fake.call_count == 1  # unchanged
+
+    # Third upload, *different* content: re-embeds
+    streams = _make_file_streams([("a.md", "different content", {"title": "A"})])
+    store.upload_files({"slug": "x"}, "x", cid, streams, lambda n: None)
+    assert fake.call_count == 2
+
+
+def test_upload_files_skips_non_markdown(aurora_db, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.db.session import get_engine
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    streams = _make_file_streams([("a.txt", "ignored", {})])
+    store.upload_files({"slug": "x"}, "x", cid, streams, lambda n: None)
+
+    eng = get_engine()
+    with eng.connect() as conn:
+        n = conn.execute(text("SELECT count(*) FROM documents")).scalar()
+    assert n == 0
+    assert fake.call_count == 0
+
+
+def test_delete_existing_files_removes_by_filename(aurora_db, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.db.session import get_engine
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    streams = _make_file_streams([
+        ("keep.md", "kept", {}),
+        ("drop.md", "dropped", {}),
+    ])
+    store.upload_files({"slug": "x"}, "x", cid, streams, lambda n: None)
+
+    deleted = store.delete_existing_files({"slug": "x"}, cid, ["drop.md"])
+    assert deleted == 1
+
+    eng = get_engine()
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT (metadata->>'filename') FROM documents WHERE context_id=:cid"
+        ), {"cid": cid}).fetchall()
+    names = {r[0] for r in rows}
+    assert names == {"keep.md"}

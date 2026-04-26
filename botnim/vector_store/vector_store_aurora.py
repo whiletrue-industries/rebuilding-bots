@@ -7,16 +7,44 @@ for design rationale.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+from datetime import datetime
 from typing import Any
 
+from openai import OpenAI
 from sqlalchemy import text
 
-from ..config import is_production, get_logger, DEFAULT_EMBEDDING_SIZE
+from ..config import is_production, get_logger, DEFAULT_EMBEDDING_SIZE, DEFAULT_EMBEDDING_MODEL
 from ..db.session import get_engine, get_session
 from .vector_store_base import VectorStoreBase
 
 logger = get_logger(__name__)
+
+
+def _get_embedding_client(environment: str):
+    """Return an object with an .embed(text) -> list[float] method.
+
+    Real impl returns a thin wrapper around OpenAI; tests monkeypatch
+    this function to inject a fake. Kept as a module-level function
+    (not a method) so monkeypatch works without subclassing.
+    """
+    api_key = (
+        os.getenv("OPENAI_API_KEY_PRODUCTION")
+        if environment == "production"
+        else os.getenv("OPENAI_API_KEY_STAGING")
+    )
+    client = OpenAI(api_key=api_key)
+
+    class _Wrapper:
+        def embed(self, text: str) -> list:
+            response = client.embeddings.create(
+                input=text,
+                model=DEFAULT_EMBEDDING_MODEL,
+            )
+            return response.data[0].embedding
+
+    return _Wrapper()
 
 
 class VectorStoreAurora(VectorStoreBase):
@@ -68,10 +96,70 @@ class VectorStoreAurora(VectorStoreBase):
         return cid
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
-        raise NotImplementedError("upload_files: implemented in Task 2.2")
+        """Insert one row per markdown file. Skips embedding API calls
+        for content whose hash already exists in documents (content-hash
+        skip — replaces the EFS sqlite embedding cache).
+        """
+        cid = vector_store  # this is the context_id uuid (returned by get_or_create)
+        client = _get_embedding_client(self.environment)
+        successful = 0
+
+        with get_session() as sess:
+            for fname, content_file, file_type, metadata in file_streams:
+                if not fname.endswith(".md"):
+                    logger.debug("Skipping non-markdown file: %s", fname)
+                    continue
+
+                content = content_file.read().decode("utf-8")
+                content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+                # Content-hash skip: if this exact (context_id, content_hash)
+                # is already present, do nothing.
+                existing = sess.execute(text(
+                    "SELECT id FROM documents "
+                    "WHERE context_id=:cid AND content_hash=:h"
+                ), {"cid": cid, "h": content_hash}).fetchone()
+                if existing:
+                    logger.debug("Skipping unchanged content for %s", fname)
+                    successful += 1
+                    continue
+
+                # New or changed content — embed and insert
+                embedding = client.embed(content)
+                doc_metadata = dict(metadata or {})
+                doc_metadata["filename"] = fname
+                doc_metadata["context_name"] = context_name
+                doc_metadata["context_type"] = context.get("type", "")
+                doc_metadata["extracted_at"] = datetime.utcnow().isoformat()
+
+                sess.execute(text(
+                    "INSERT INTO documents "
+                    "(context_id, content, content_hash, metadata, embedding) "
+                    "VALUES (:cid, :c, :h, CAST(:m AS jsonb), CAST(:e AS vector))"
+                ), {
+                    "cid": cid,
+                    "c": content,
+                    "h": content_hash,
+                    "m": json.dumps(doc_metadata),
+                    "e": str(embedding),
+                })
+                successful += 1
+
+        if callable(callback):
+            callback(successful)
+        logger.info("Uploaded %d files to context_id=%s", successful, cid)
 
     def delete_existing_files(self, context_, vector_store, file_names):
-        raise NotImplementedError("delete_existing_files: implemented in Task 2.2")
+        """Delete documents whose metadata.filename matches any in file_names.
+        Returns the count of deleted rows.
+        """
+        cid = vector_store
+        with get_session() as sess:
+            result = sess.execute(text(
+                "DELETE FROM documents "
+                "WHERE context_id = :cid AND metadata->>'filename' = ANY(:names)"
+            ), {"cid": cid, "names": list(file_names)})
+            return result.rowcount
 
     def update_tools(self, context_, vector_store):
         raise NotImplementedError("update_tools: implemented in Task 2.4")
