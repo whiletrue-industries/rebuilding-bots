@@ -48,14 +48,19 @@ def upgrade() -> None:
 
     op.execute("""
         CREATE TABLE agent_prompts (
-            id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            section_key  text NOT NULL,
-            version      int  NOT NULL,
-            content      jsonb NOT NULL,
-            is_current   boolean NOT NULL DEFAULT false,
-            edited_by    text,
-            edited_at    timestamptz NOT NULL DEFAULT now(),
-            UNIQUE (section_key, version)
+            id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            agent_type         text NOT NULL,
+            section_key        text NOT NULL,
+            ordinal            int NOT NULL DEFAULT 0,
+            header_text        text NOT NULL DEFAULT '',
+            body               text NOT NULL,
+            active             boolean NOT NULL DEFAULT false,
+            is_draft           boolean NOT NULL DEFAULT true,
+            parent_version_id  uuid,
+            change_note        text,
+            created_at         timestamptz NOT NULL DEFAULT now(),
+            created_by         text,
+            published_at       timestamptz
         )
     """)
 

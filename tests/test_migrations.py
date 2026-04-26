@@ -88,29 +88,31 @@ def test_0002_creates_required_indexes(database_url):
     assert "documents_tsv_gin" in names
     assert "documents_metadata_gin" in names
     assert "documents_context_id" in names
-    assert "agent_prompts_one_current" in names
+    assert "active_by_agent_section" in names
+    assert "agent_prompts_section_recent" in names
 
 
 def test_0002_partial_unique_enforces_one_current(database_url):
     _alembic(["upgrade", "0002"], database_url)
     eng = create_engine(database_url)
     with eng.begin() as conn:
-        # Two non-current rows for the same section_key — fine
+        # Two non-active rows for the same (agent_type, section_key) — fine
         conn.execute(text("""
-            INSERT INTO agent_prompts (section_key, version, content, is_current)
-            VALUES ('intro', 1, '{}'::jsonb, false), ('intro', 2, '{}'::jsonb, false)
+            INSERT INTO agent_prompts (agent_type, section_key, body, active)
+            VALUES ('unified', 'intro', 'body text', false),
+                   ('unified', 'intro', 'body text 2', false)
         """))
-        # One current row — fine
+        # One active row — fine
         conn.execute(text("""
-            INSERT INTO agent_prompts (section_key, version, content, is_current)
-            VALUES ('intro', 3, '{}'::jsonb, true)
+            INSERT INTO agent_prompts (agent_type, section_key, body, active)
+            VALUES ('unified', 'intro', 'active body', true)
         """))
-    # Second current row for same section — should fail in its own transaction
+    # Second active row for same (agent_type, section_key) — should fail in its own transaction
     with eng.begin() as conn:
         with pytest.raises(Exception) as excinfo:
             conn.execute(text("""
-                INSERT INTO agent_prompts (section_key, version, content, is_current)
-                VALUES ('intro', 4, '{}'::jsonb, true)
+                INSERT INTO agent_prompts (agent_type, section_key, body, active)
+                VALUES ('unified', 'intro', 'another active body', true)
             """))
         assert "duplicate key" in str(excinfo.value).lower() or "unique" in str(excinfo.value).lower()
 
@@ -122,5 +124,43 @@ def test_0002_downgrade_drops_indexes(database_url):
     with eng.connect() as conn:
         rows = conn.execute(text(
             "SELECT indexname FROM pg_indexes WHERE indexname='documents_embedding_ivfflat'"
+        )).fetchall()
+    assert rows == []
+
+
+def test_0003_creates_test_questions_table(database_url):
+    _alembic(["upgrade", "0003"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT tablename FROM pg_tables "
+            "WHERE tablename='agent_prompt_test_questions'"
+        )).fetchall()
+    assert len(rows) == 1
+
+
+def test_0003_test_questions_has_required_columns(database_url):
+    _alembic(["upgrade", "0003"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name='agent_prompt_test_questions' ORDER BY column_name"
+        )).fetchall()
+    names = {r[0] for r in rows}
+    assert names == {
+        "id", "agent_type", "text", "ordinal", "enabled",
+        "created_at", "created_by",
+    }
+
+
+def test_0003_downgrade_drops_table(database_url):
+    _alembic(["upgrade", "0003"], database_url)
+    _alembic(["downgrade", "0002"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT tablename FROM pg_tables "
+            "WHERE tablename='agent_prompt_test_questions'"
         )).fetchall()
     assert rows == []

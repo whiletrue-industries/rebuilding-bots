@@ -27,13 +27,18 @@ def upgrade() -> None:
     )
     op.execute("CREATE INDEX documents_context_id ON documents(context_id)")
     op.execute(
-        "CREATE UNIQUE INDEX agent_prompts_one_current "
-        "ON agent_prompts (section_key) WHERE is_current = true"
+        "CREATE UNIQUE INDEX active_by_agent_section "
+        "ON agent_prompts (agent_type, section_key) WHERE active = true"
+    )
+    op.execute(
+        "CREATE INDEX agent_prompts_section_recent "
+        "ON agent_prompts (agent_type, section_key, created_at DESC)"
     )
 
 
 def downgrade() -> None:
-    op.execute("DROP INDEX IF EXISTS agent_prompts_one_current")
+    op.execute("DROP INDEX IF EXISTS agent_prompts_section_recent")
+    op.execute("DROP INDEX IF EXISTS active_by_agent_section")
     op.execute("DROP INDEX IF EXISTS documents_context_id")
     op.execute("DROP INDEX IF EXISTS documents_metadata_gin")
     op.execute("DROP INDEX IF EXISTS documents_tsv_gin")
