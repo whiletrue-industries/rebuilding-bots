@@ -164,3 +164,30 @@ def test_0003_downgrade_drops_table(database_url):
             "WHERE tablename='agent_prompt_test_questions'"
         )).fetchall()
     assert rows == []
+
+
+def test_0005_adds_source_id_column_and_index(database_url):
+    _alembic(["upgrade", "0005"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        cols = conn.execute(text(
+            "SELECT column_name, is_nullable FROM information_schema.columns "
+            "WHERE table_name='documents' AND column_name='source_id'"
+        )).fetchall()
+        assert cols == [("source_id", "YES")], "source_id should exist and be nullable"
+        idx = conn.execute(text(
+            "SELECT 1 FROM pg_indexes WHERE indexname='documents_context_source'"
+        )).fetchone()
+        assert idx is not None, "documents_context_source index missing"
+
+
+def test_0005_downgrade_drops_source_id(database_url):
+    _alembic(["upgrade", "0005"], database_url)
+    _alembic(["downgrade", "0004"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        cols = conn.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name='documents' AND column_name='source_id'"
+        )).fetchall()
+    assert cols == [], "source_id should be dropped"
