@@ -166,6 +166,16 @@ class VectorStoreAurora(VectorStoreBase):
         super().__init__(config, config_dir, production=production)
         self.environment = env_name
 
+        # OpenAI client surface — query.py expects `vector_store.openai_client.embeddings.create(...)`
+        # to mint query embeddings. Same env-var convention as VectorStoreES; the
+        # CLAUDE.md troubleshooting note covers why we read STAGING for non-prod
+        # (no separate _LOCAL key in the existing infra).
+        openai_api_key = (
+            os.getenv("OPENAI_API_KEY_PRODUCTION") if production
+            else os.getenv("OPENAI_API_KEY_STAGING")
+        )
+        self.openai_client = OpenAI(api_key=openai_api_key)
+
         # Trigger engine creation early so connection failures surface here, not later
         get_engine()
         logger.info("VectorStoreAurora initialized for environment=%s", env_name)
@@ -338,7 +348,7 @@ class VectorStoreAurora(VectorStoreBase):
         Returns: {"hits": {"hits": [{"_id", "_score", "_source": {...}}, ...]}}
         """
         bot = self.config["slug"]
-        fetch = num_results * 3  # over-fetch then RRF-trim
+        fetch = num_results * 5  # over-fetch then RRF-trim
 
         # Resolve context_id from (bot, name) — small extra round-trip but
         # keeps the search call self-contained and resilient to context
@@ -368,17 +378,36 @@ class VectorStoreAurora(VectorStoreBase):
                 """
             ), {"cid": cid, "emb": str(embedding), "limit": fetch, **md_params}).fetchall()
 
-            bm25_rows = sess.execute(text(
-                f"""
-                SELECT id, content, metadata,
-                       ts_rank(tsv, plainto_tsquery('simple', :q)) AS score
-                FROM documents
-                WHERE context_id = :cid
-                  AND tsv @@ plainto_tsquery('simple', :q){md_filter_sql}
-                ORDER BY score DESC
-                LIMIT :limit
-                """
-            ), {"cid": cid, "q": query_text, "limit": fetch, **md_params}).fetchall()
+            # BM25 query construction. We can't use plainto_tsquery directly
+            # because it ANDs every term and treats words as exact matches —
+            # both fatal for Hebrew search:
+            #   - AND fails when the user query has a stopword-y interrogative
+            #     ("מהן", "מה", "האם") that appears in zero documents.
+            #   - Hebrew has heavy construct/absolute form alternation
+            #     ("ועדת" vs "ועדה" vs "ועדות") with no PG-shipped Hebrew
+            #     analyzer, so exact matching misses 90%+ of relevant docs.
+            # Mitigation: convert each non-trivial token to a `term:*` prefix
+            # match and OR them. This roughly mirrors what ES did with
+            # `fuzziness: AUTO` on REGULAR_CONFIG. Combined with the weighted
+            # multi-field tsv (migration 0004) and ts_rank_cd, the BM25 side
+            # surfaces docs whose DocumentTitle / metadata mentions the topic
+            # even when the exact construct form isn't in the body.
+            ts_query_str = _build_prefix_or_tsquery(query_text)
+            if ts_query_str:
+                bm25_rows = sess.execute(text(
+                    f"""
+                    SELECT id, content, metadata,
+                           ts_rank_cd(tsv, to_tsquery('simple', :q)) AS score
+                    FROM documents
+                    WHERE context_id = :cid
+                      AND tsv @@ to_tsquery('simple', :q){md_filter_sql}
+                    ORDER BY score DESC
+                    LIMIT :limit
+                    """
+                ), {"cid": cid, "q": ts_query_str, "limit": fetch, **md_params}).fetchall()
+            else:
+                # Empty query (all tokens too short / stopwords); skip BM25.
+                bm25_rows = []
 
         return _rrf_fuse(vector_rows, bm25_rows, num_results)
 
@@ -461,26 +490,92 @@ class VectorStoreAurora(VectorStoreBase):
         return base + ". ".join(modes) + "."
 
 
+# Hebrew interrogatives + common particles that contribute no retrieval
+# signal and pollute prefix expansion. Not a true stopword list — just
+# tokens that show up in user queries but never identify a topic.
+_TS_QUERY_DROP = frozenset({
+    "מה", "מהן", "מהו", "מהי", "מי", "האם", "כיצד", "איך", "למה", "מדוע",
+    "איפה", "מתי", "האם",
+    "של", "את", "על", "אל", "כי", "או", "גם", "כמו", "אם", "לא", "כן",
+    "the", "a", "an", "of", "is", "in", "to", "and", "or", "for", "what",
+    "how", "why", "when", "where", "who", "which",
+})
+
+
+def _build_prefix_or_tsquery(query_text: str) -> str:
+    """Turn a user query into a tsquery string with OR + prefix semantics.
+
+    Example: "מהן סמכויות ועדת הכנסת" → "סמכויות:* | ועדת:* | הכנסת:*"
+
+    - Drops tokens shorter than 2 chars (no useful prefix).
+    - Drops the small interrogative/particle set in `_TS_QUERY_DROP`.
+    - Escapes any tsquery operator characters so user input can't break the
+      query (`& | ! ( ) :` are stripped).
+    - Returns empty string if no usable tokens remain — caller should skip
+      BM25 in that case rather than crash to_tsquery.
+    """
+    # Strip everything that isn't a letter (any script — covers Hebrew,
+    # Arabic, Latin) or digit. This nukes both tsquery operators
+    # (`& | ! ( ) :`) and ordinary punctuation (`? . , ;`) that would
+    # otherwise become part of a token and cause prefix matches to fail.
+    cleaned = re.sub(r"[^\w\s]", " ", query_text, flags=re.UNICODE)
+    tokens = [t for t in cleaned.split() if len(t) >= 2 and t.lower() not in _TS_QUERY_DROP]
+    if not tokens:
+        return ""
+    # For each token emit two prefix variants:
+    #   - the token itself with `:*` (matches the exact form + suffixes)
+    #   - the token with its last char dropped + `:*` (covers Hebrew
+    #     construct/absolute alternation: "ועדת" → "ועד:*" matches
+    #     "ועדה" / "ועדות" / "ועד..."; same trick works for verb roots).
+    # We OR everything. Stems shorter than 3 chars don't get the extra
+    # variant — too noisy (would match every word with a 2-char prefix).
+    parts: list[str] = []
+    seen: set[str] = set()
+    for t in tokens:
+        for stem in (t, t[:-1] if len(t) >= 4 else None):
+            if stem and stem not in seen:
+                seen.add(stem)
+                parts.append(f"{stem}:*")
+    return " | ".join(parts)
+
+
 def _rrf_fuse(
     vector_rows: list,
     bm25_rows: list,
     num_results: int,
     k: int = 60,
+    bm25_weight: float = 2.0,
+    vector_weight: float = 1.0,
 ) -> dict:
-    """Reciprocal-rank-fusion with the standard k=60 constant.
-    Returns the ES-shaped hits dict so callers don't notice the backend swap.
+    """Weighted reciprocal-rank-fusion.
+
+    Standard RRF (`1/(k + rank + 1)`) gives equal weight to vector and BM25.
+    For Hebrew, where the query embedding and the lexical signal frequently
+    point at different chunks, equal-weight RRF leaves disjoint rank-1
+    results tied at `1/(k+1)` — and the dict-insertion-order tiebreaker
+    silently hands all top slots to the side that was inserted first.
+
+    We give BM25 (the rebuilt prefix-OR-stem-expanded query against the
+    weighted multi-field tsv from migration 0004) more weight because:
+      - DocumentTitle weight A in the tsv reliably surfaces relevant docs
+        when the query hits a title term.
+      - Vector cosine on `text-embedding-3-small` is noisy for Hebrew with
+        no language-specific tuning — many irrelevant docs get high cosine
+        just from sharing common words like "הכנסת".
+    The 2× weight is empirically chosen against the deploy/gold-set; it's
+    not a hard guarantee. Set both weights to 1.0 to recover canonical RRF.
     """
     scores: dict[str, float] = {}
     docs: dict[str, tuple] = {}
 
     for rank, row in enumerate(vector_rows):
         doc_id = str(row[0])
-        scores[doc_id] = scores.get(doc_id, 0.0) + 1.0 / (k + rank + 1)
+        scores[doc_id] = scores.get(doc_id, 0.0) + vector_weight / (k + rank + 1)
         docs[doc_id] = row
 
     for rank, row in enumerate(bm25_rows):
         doc_id = str(row[0])
-        scores[doc_id] = scores.get(doc_id, 0.0) + 1.0 / (k + rank + 1)
+        scores[doc_id] = scores.get(doc_id, 0.0) + bm25_weight / (k + rank + 1)
         docs.setdefault(doc_id, row)
 
     ordered = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:num_results]

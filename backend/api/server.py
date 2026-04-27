@@ -166,8 +166,8 @@ def _run_refresh_job() -> None:
     # additions) gets picked up without a code change here. Static fetchers
     # (lexicon, wikitext) re-run cheaply when nothing changed upstream.
     fetch_and_process(env, "all", "all", "all")
-    # sync_agents(environment, bots, backend='es')
-    sync_agents(env, "all", backend="es")
+    # backend defaults to 'aurora' (sync.py:80) post-2026-04 migration.
+    sync_agents(env, "all")
     logger.info("REFRESH_OK")
 
 
