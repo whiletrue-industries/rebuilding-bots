@@ -191,3 +191,32 @@ def test_0005_downgrade_drops_source_id(database_url):
             "WHERE table_name='documents' AND column_name='source_id'"
         )).fetchall()
     assert cols == [], "source_id should be dropped"
+
+
+def test_0006_creates_context_snapshots_table(database_url):
+    _alembic(["upgrade", "0006"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        cols = sorted(conn.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name='context_snapshots' ORDER BY column_name"
+        )).fetchall())
+        assert cols == [
+            ("bot",), ("context",), ("doc_count",), ("id",),
+            ("snapshot_at",), ("source_id",),
+        ], f"unexpected columns: {cols}"
+        idx = conn.execute(text(
+            "SELECT 1 FROM pg_indexes WHERE indexname='context_snapshots_lookup'"
+        )).fetchone()
+        assert idx is not None, "context_snapshots_lookup index missing"
+
+
+def test_0006_downgrade_drops_table(database_url):
+    _alembic(["upgrade", "0006"], database_url)
+    _alembic(["downgrade", "0005"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT to_regclass('public.context_snapshots')"
+        )).fetchone()
+    assert rows[0] is None, "context_snapshots should be dropped"
