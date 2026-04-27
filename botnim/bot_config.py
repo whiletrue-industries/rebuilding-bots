@@ -182,6 +182,36 @@ def _search_tool_for_context(bot_slug: str, context_slug: str, environment: str,
     }
 
 
+def _load_instructions_from_aurora(bot_slug: str) -> str:
+    """Assemble the bot's system prompt from the agent_prompts table.
+
+    Returns the joined body text (one section per row, separated by blank
+    lines + the same `---` rules the source file used) when one or more
+    active rows exist for `agent_type=bot_slug`. Returns an empty string
+    when the table is empty, has no active rows, or the DB is unreachable
+    — caller falls back to the file-based prompt in those cases (covers
+    local-dev pytest runs, first-deploy bootstrap, and any rollback path).
+
+    Local import + bare try/except so that environments without Aurora
+    connectivity (e.g. unit tests that mock `botnim.sync` at the module
+    level) don't blow up at module-load time.
+    """
+    try:
+        from sqlalchemy import text as _text
+        from .db.session import get_session
+        with get_session() as sess:
+            rows = sess.execute(_text(
+                "SELECT body FROM agent_prompts "
+                "WHERE agent_type = :a AND active = true "
+                "ORDER BY ordinal"
+            ), {"a": bot_slug}).fetchall()
+    except Exception:
+        return ''
+    if not rows:
+        return ''
+    return '\n\n---\n\n'.join(r[0] for r in rows if r[0])
+
+
 def load_bot_config(bot_slug: str, environment: str,
                     model: str | None = None,
                     temperature: float | None = None) -> BotConfig:
@@ -213,8 +243,15 @@ def load_bot_config(bot_slug: str, environment: str,
     with config_path.open() as f:
         cfg = yaml.safe_load(f)
 
-    instructions_path = bot_dir / cfg['instructions']
-    instructions = instructions_path.read_text()
+    # Prefer the Aurora-stored prompt (post-Aurora-migration design).
+    # When agent_prompts has active rows for this bot, assemble them into
+    # the system prompt; otherwise fall back to the file at cfg['instructions']
+    # (which after the migration is just the banner pointer, but useful
+    # in local-dev / first-run environments where Aurora is empty).
+    instructions = _load_instructions_from_aurora(bot_slug)
+    if not instructions:
+        instructions_path = bot_dir / cfg['instructions']
+        instructions = instructions_path.read_text()
     # Match pre-migration behavior: in production, strip any __dev markers the
     # prompt author used to annotate dev-only guidance.
     if is_production(environment):
