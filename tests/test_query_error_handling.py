@@ -14,7 +14,10 @@ import types
 from typing import Annotated
 from unittest.mock import MagicMock
 
-# Mock all heavy dependencies before any imports
+# Mock all heavy dependencies before any imports.
+# server.py imports several botnim submodules at module load time; each must be
+# present in sys.modules or `from botnim.X import Y` raises ModuleNotFoundError
+# because MagicMock doesn't behave as a package for submodule resolution.
 for mod in [
     "firebase_admin", "firebase_admin.firestore", "firebase_admin.credentials",
     "firebase_admin.auth",
@@ -23,13 +26,28 @@ for mod in [
     "botnim.vector_store.vector_store_base", "botnim.vector_store.vector_store_openai",
     "botnim.vector_store.vector_store_es", "botnim.vector_store.search_modes",
     "botnim.query",
+    "botnim.bot_config", "botnim.config",
+    "botnim.fetch_and_process", "botnim.sync",
 ]:
     sys.modules[mod] = MagicMock()
+
+# server.py uses a few names from botnim.config as plain values (not callables);
+# make them concrete so module-load-time references behave.
+sys.modules["botnim.config"].AVAILABLE_BOTS = ["unified"]
+sys.modules["botnim.config"].VALID_ENVIRONMENTS = ["staging", "production", "local"]
+sys.modules["botnim.config"].DEFAULT_ENVIRONMENT = "local"
 
 # Create a proper resolve_firebase_user module with a real type annotation
 resolve_mod = types.ModuleType("resolve_firebase_user")
 resolve_mod.FireBaseUser = Annotated[dict, lambda: None]  # simple annotation
 sys.modules["resolve_firebase_user"] = resolve_mod
+
+# refresh_auth is also a top-level module imported by server.py from its own
+# directory at runtime. Mock its public surface so the import resolves; we
+# only test request-routing here, not auth.
+refresh_auth_mod = types.ModuleType("refresh_auth")
+refresh_auth_mod.require_refresh_api_key = lambda: None
+sys.modules["refresh_auth"] = refresh_auth_mod
 
 # Now set up the search modes mock properly
 mock_search_modes = sys.modules["botnim.vector_store.search_modes"]
