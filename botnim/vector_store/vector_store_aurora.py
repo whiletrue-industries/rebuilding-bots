@@ -354,6 +354,16 @@ class VectorStoreAurora(VectorStoreBase):
         # keeps the search call self-contained and resilient to context
         # rows being added/removed mid-process.
         with get_session() as sess:
+            # ivfflat default `probes = 1` searches only 1 of `lists` partitions,
+            # which makes top-K depend on which partition the query embedding
+            # lands in — different ivfflat builds (e.g. local vs staging
+            # rebuilt at slightly different times) can return materially
+            # different rankings even for the same query+data. Bumping probes
+            # to 10 trades a small latency hit for deterministic, near-exact
+            # top-K. We use SET LOCAL so the change is scoped to this txn
+            # and doesn't leak across the connection pool.
+            sess.execute(text("SET LOCAL ivfflat.probes = 10"))
+
             row = sess.execute(text(
                 "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
             ), {"bot": bot, "name": context_name}).fetchone()
