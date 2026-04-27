@@ -21,6 +21,9 @@ No ``client.beta.assistants.*`` calls remain.
 """
 from __future__ import annotations
 
+import urllib.parse
+from pathlib import Path
+
 import yaml
 
 from .bot_config import BotConfig, load_bot_config, publish_bot_config
@@ -28,6 +31,60 @@ from .config import SPECS, get_logger, get_openai_client, is_production
 from .vector_store import VectorStoreES, VectorStoreOpenAI, VectorStoreAurora
 
 logger = get_logger(__name__)
+
+
+def _source_id_for(fetcher: dict | None, source_path: str | None) -> str:
+    """Stable, human-readable label for the originating fetcher of a document.
+
+    Pure function — derived entirely from the spec config, no I/O. See
+    docs/superpowers/specs/2026-04-27-admin-sources-screen-design.md for
+    the per-kind derivation rules.
+    """
+    if fetcher:
+        kind = fetcher.get("kind")
+        if kind == "wikitext":
+            url = fetcher.get("input_url", "")
+            decoded = urllib.parse.unquote(url)
+            last_segment = decoded.rstrip("/").rsplit("/", 1)[-1]
+            return last_segment.split("#")[0]
+        if kind in {"lexicon", "bk_csv"}:
+            return kind
+        if kind == "pdf":
+            return Path(source_path or "").stem
+    if source_path:
+        return Path(source_path).stem
+    return "unknown"
+
+
+def _write_snapshots(bot_slug: str) -> None:
+    """Append per-(bot, context, source_id) and per-context aggregate rows
+    to context_snapshots, as a single transaction. Called at the end of a
+    successful sync_agents run; failures mid-sync skip this step so a
+    half-failed sync doesn't pollute the drift history.
+    """
+    from .db.session import get_session  # local import — keep sync.py import-cheap
+    from sqlalchemy import text as _text
+
+    with get_session() as sess:
+        sess.execute(_text(
+            """
+            INSERT INTO context_snapshots (bot, context, source_id, doc_count)
+            SELECT c.bot, c.name, COALESCE(d.source_id, '(unknown)'), count(*)
+            FROM contexts c JOIN documents d ON d.context_id = c.id
+            WHERE c.bot = :bot
+            GROUP BY c.bot, c.name, COALESCE(d.source_id, '(unknown)')
+            """
+        ), {"bot": bot_slug})
+        sess.execute(_text(
+            """
+            INSERT INTO context_snapshots (bot, context, source_id, doc_count)
+            SELECT c.bot, c.name, '*', count(*)
+            FROM contexts c JOIN documents d ON d.context_id = c.id
+            WHERE c.bot = :bot
+            GROUP BY c.bot, c.name
+            """
+        ), {"bot": bot_slug})
+    logger.info("snapshots written for bot=%s", bot_slug)
 
 
 def _sync_vector_store(config: dict, config_dir, backend: str, environment: str,
@@ -115,3 +172,8 @@ def sync_agents(environment: str, bots: str, backend: str = 'aurora',
 
         # 2. Publish the canonical Responses-API bot config.
         publish_bot(bot_id, environment)
+
+        # 3. Audit snapshot — drift history feed for /admin/sources.
+        # Inside the bot loop so a multi-bot future writes one snapshot per bot;
+        # any exception above this line skips the snapshot, which is the point.
+        _write_snapshots(bot_id)

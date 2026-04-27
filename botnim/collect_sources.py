@@ -135,11 +135,14 @@ async def _process_file_stream_async(
     filename: str,
     content: Union[str, io.BufferedReader],
     content_type: str,
+    source_id: str,
     concurrency: SyncConcurrency,
     client,
 ):
     fname, text, ctype = _prepare_file_content(filename, content, content_type)
     metadata = await _get_metadata_for_content_async(text, fname, ctype, concurrency, client=client)
+    metadata = dict(metadata or {})
+    metadata['source_id'] = source_id
     return (fname, io.BytesIO(text.encode('utf-8')), ctype, metadata)
 
 def _collect_raw_streams_files(config_dir: Path, source):
@@ -200,21 +203,29 @@ def _collect_raw_streams_csv(config_dir, context_name, source, offset=0):
         return raw
 
 def _raw_streams_for_context(config_dir, context_name, context_, offset=0):
-    """Gather raw (filename, content, content_type) without calling OpenAI.
+    """Gather raw (filename, content, content_type, source_id) tuples without calling OpenAI.
 
-    Mirrors ``file_streams_for_context`` but defers the extraction step.
+    Each tuple now carries the derived `source_id` so per-source attribution
+    survives through the async extraction pipeline into upload_files.
     """
+    from .sync import _source_id_for  # local import avoids circular at module load
     context_type = context_['type']
     source = context_['source']
+    fetcher = context_.get('fetcher')
+    source_id = _source_id_for(fetcher, source)
+
     if context_type == 'files':
-        return _collect_raw_streams_files(config_dir, source)
-    if context_type == 'split':
-        return _collect_raw_streams_split(config_dir, context_name, source, offset=offset)
-    if context_type == 'google-spreadsheet':
-        return _collect_raw_streams_google_spreadsheet(context_name, source, offset=offset)
-    if context_type == 'csv':
-        return _collect_raw_streams_csv(config_dir, context_name, source, offset=offset)
-    raise ValueError(f'Unknown context type: {context_type}')
+        raw = _collect_raw_streams_files(config_dir, source)
+    elif context_type == 'split':
+        raw = _collect_raw_streams_split(config_dir, context_name, source, offset=offset)
+    elif context_type == 'google-spreadsheet':
+        raw = _collect_raw_streams_google_spreadsheet(context_name, source, offset=offset)
+    elif context_type == 'csv':
+        raw = _collect_raw_streams_csv(config_dir, context_name, source, offset=offset)
+    else:
+        raise ValueError(f'Unknown context type: {context_type}')
+
+    return [(fname, content, ctype, source_id) for fname, content, ctype in raw]
 
 
 async def collect_context_sources_async(
@@ -233,7 +244,7 @@ async def collect_context_sources_async(
     cache = KVFile(location=str(Path(__file__).parent.parent / 'cache' / 'metadata'))
 
     context_name = context_['name']
-    raw: list[tuple[str, object, str]] = []
+    raw: list[tuple[str, object, str, str]] = []
     if 'sources' in context_:
         for source in context_['sources']:
             raw.extend(_raw_streams_for_context(config_dir, context_name, source, offset=len(raw)))
@@ -243,12 +254,12 @@ async def collect_context_sources_async(
     # asyncio.gather preserves input order in its output list — this is
     # what keeps SYNC_CONCURRENCY=1 byte-equal to the serial implementation.
     tasks = [
-        _process_file_stream_async(fn, content, ct, concurrency, client)
-        for fn, content, ct in raw
+        _process_file_stream_async(fn, content, ct, sid, concurrency, client)
+        for fn, content, ct, sid in raw
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
     file_streams: list = []
-    for r, (fn, _, _) in zip(results, raw):
+    for r, (fn, _, _, _) in zip(results, raw):
         if isinstance(r, BaseException):
             # Error isolation: one failed document must not poison the batch.
             logger.error(f"Extraction failed for {fn}: {r}")
