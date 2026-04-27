@@ -9,9 +9,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from datetime import datetime
 from typing import Any
 
+import tiktoken
 from openai import OpenAI
 from sqlalchemy import text
 
@@ -20,6 +22,104 @@ from ..db.session import get_engine, get_session
 from .vector_store_base import VectorStoreBase
 
 logger = get_logger(__name__)
+
+
+# Targets for content chunking when a source doc exceeds the embedding model's
+# token limit. text-embedding-3-{small,large} both cap at 8192. We chunk at
+# 6000 with 300 overlap to leave headroom for tokenizer drift between tiktoken's
+# estimate and OpenAI's actual tokenizer (the two are very close for cl100k_base
+# but not bit-identical), and to keep retrieval-quality high (chunks ≤ ~6k tokens
+# represent a single concept tightly; longer chunks average too much).
+CHUNK_MAX_TOKENS = 6000
+CHUNK_OVERLAP_TOKENS = 300
+EMBEDDING_TOKEN_LIMIT = 8192  # OpenAI text-embedding-3-* hard ceiling
+
+_tokenizer = None
+
+
+def _get_tokenizer():
+    global _tokenizer
+    if _tokenizer is None:
+        # cl100k_base matches text-embedding-3-small / -large.
+        _tokenizer = tiktoken.encoding_for_model(DEFAULT_EMBEDDING_MODEL)
+    return _tokenizer
+
+
+def _chunk_for_embedding(
+    content: str,
+    max_tokens: int = CHUNK_MAX_TOKENS,
+    overlap_tokens: int = CHUNK_OVERLAP_TOKENS,
+) -> list[str]:
+    """Split content into chunks each safely under the embedding token limit.
+
+    Splitting strategy, in priority order:
+        1. Markdown section boundaries (lines beginning with `##`)
+        2. Paragraph boundaries (blank lines)
+        3. Sentence boundaries (period+space, naive — Hebrew/English heuristic)
+        4. Hard token-count split (last resort, mid-sentence)
+
+    Each chunk includes ~`overlap_tokens` of the previous chunk's tail to
+    avoid losing context at split points (a query landing right at a chunk
+    boundary still hits at least one chunk that contains the surrounding
+    context). Standard RAG technique — see e.g. LangChain's
+    RecursiveCharacterTextSplitter for the same idea.
+
+    Content shorter than `max_tokens` returns as a single-element list — no
+    splitting work, no overlap. The vast majority of files take this path
+    and pay zero tokenization cost beyond the initial count.
+    """
+    enc = _get_tokenizer()
+    token_ids = enc.encode(content)
+    if len(token_ids) <= max_tokens:
+        return [content]
+
+    # Multi-chunk path: split at semantic boundaries first.
+    # Try ## section headers — split keeping the marker with the following text.
+    sections = re.split(r"(?m)(?=^##\s)", content)
+    sections = [s for s in sections if s.strip()]
+    if len(sections) <= 1:
+        # Fallback: split on blank-line paragraph boundaries.
+        sections = re.split(r"\n\s*\n", content)
+        sections = [s for s in sections if s.strip()]
+
+    # Greedy pack sections into chunks under the limit; if a single section
+    # is itself too large, hard-split it by token windows with overlap.
+    chunks: list[str] = []
+    current: list[str] = []
+    current_tokens = 0
+    for section in sections:
+        section_tokens = len(enc.encode(section))
+        if section_tokens > max_tokens:
+            # Section itself oversized — flush whatever we've packed, then
+            # hard-split this section by token windows.
+            if current:
+                chunks.append("\n\n".join(current))
+                current = []
+                current_tokens = 0
+            section_token_ids = enc.encode(section)
+            step = max_tokens - overlap_tokens
+            for start in range(0, len(section_token_ids), step):
+                window = section_token_ids[start : start + max_tokens]
+                chunks.append(enc.decode(window))
+                if start + max_tokens >= len(section_token_ids):
+                    break
+            continue
+        if current_tokens + section_tokens > max_tokens and current:
+            chunks.append("\n\n".join(current))
+            # Carry overlap from end of previous chunk into the new one.
+            prev_tail_tokens = enc.encode(chunks[-1])[-overlap_tokens:]
+            tail_text = enc.decode(prev_tail_tokens) if prev_tail_tokens else ""
+            current = [tail_text, section] if tail_text else [section]
+            current_tokens = (
+                len(prev_tail_tokens) + section_tokens
+            ) if tail_text else section_tokens
+        else:
+            current.append(section)
+            current_tokens += section_tokens
+    if current:
+        chunks.append("\n\n".join(current))
+
+    return chunks
 
 
 def _get_embedding_client(environment: str):
@@ -96,75 +196,117 @@ class VectorStoreAurora(VectorStoreBase):
         return cid
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):
-        """Insert one row per markdown file. Skips embedding API calls
-        for content whose hash already exists in documents (content-hash
-        skip — replaces the EFS sqlite embedding cache).
+        """Insert one row per chunk of each markdown file.
 
-        Per-file errors (embedding failures, oversize content, malformed
-        files) are logged and skipped — they do not abort the whole sync.
-        Mirrors VectorStoreES._upload_files_async's `return_exceptions=True`
-        semantics, which lets one bad doc not poison the batch.
+        Most files fit in a single chunk (and produce a single row, the
+        backward-compatible shape). Files whose content exceeds the embedding
+        model's token limit are split into multiple chunks at semantic
+        boundaries (`_chunk_for_embedding`); each chunk gets its own row,
+        its own embedding, its own content_hash. Retrieval naturally surfaces
+        whichever chunk(s) match a query best — this both eliminates the
+        oversize-doc skip behavior AND improves retrieval precision (chunked
+        embeddings represent one concept tightly rather than averaging an
+        entire long document).
+
+        Each row's `metadata.filename` is the source file. For multi-chunk
+        files, `metadata.chunk_index` and `metadata.total_chunks` are added so
+        the LLM citation layer can collapse same-source chunks into one
+        citation if it wants.
+
+        Per-chunk errors (embedding failures, malformed UTF-8) are logged and
+        skipped at the chunk level — one bad chunk does not abort the batch
+        nor the rest of the file's chunks. Mirrors VectorStoreES's
+        `return_exceptions=True` semantics for the file-level path.
         """
         cid = vector_store  # this is the context_id uuid (returned by get_or_create)
         client = _get_embedding_client(self.environment)
-        successful = 0
+        successful = 0  # row count, not file count
         skipped = 0
+        files_seen = 0
 
         with get_session() as sess:
             for fname, content_file, file_type, metadata in file_streams:
                 if not fname.endswith(".md"):
                     logger.debug("Skipping non-markdown file: %s", fname)
                     continue
+                files_seen += 1
 
                 try:
-                    content = content_file.read().decode("utf-8")
-                    content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
-
-                    # Content-hash skip: if this exact (context_id, content_hash)
-                    # is already present, do nothing.
-                    existing = sess.execute(text(
-                        "SELECT id FROM documents "
-                        "WHERE context_id=:cid AND content_hash=:h"
-                    ), {"cid": cid, "h": content_hash}).fetchone()
-                    if existing:
-                        logger.debug("Skipping unchanged content for %s", fname)
-                        successful += 1
-                        continue
-
-                    # New or changed content — embed and insert
-                    embedding = client.embed(content)
-                    doc_metadata = dict(metadata or {})
-                    doc_metadata["filename"] = fname
-                    doc_metadata["context_name"] = context_name
-                    doc_metadata["context_type"] = context.get("type", "")
-                    doc_metadata["extracted_at"] = datetime.utcnow().isoformat()
-
-                    sess.execute(text(
-                        "INSERT INTO documents "
-                        "(context_id, content, content_hash, metadata, embedding) "
-                        "VALUES (:cid, :c, :h, CAST(:m AS jsonb), CAST(:e AS vector))"
-                    ), {
-                        "cid": cid,
-                        "c": content,
-                        "h": content_hash,
-                        "m": json.dumps(doc_metadata),
-                        "e": str(embedding),
-                    })
-                    successful += 1
+                    raw_content = content_file.read().decode("utf-8")
                 except Exception as exc:
-                    logger.error("Failed to process file %s: %s", fname, exc)
+                    logger.error("Failed to read file %s: %s", fname, exc)
                     skipped += 1
                     continue
+
+                chunks = _chunk_for_embedding(raw_content)
+                total_chunks = len(chunks)
+                if total_chunks > 1:
+                    logger.info(
+                        "Chunked %s into %d pieces (oversize content)",
+                        fname, total_chunks,
+                    )
+
+                for chunk_index, chunk_content in enumerate(chunks):
+                    try:
+                        chunk_hash = hashlib.sha256(chunk_content.encode("utf-8")).hexdigest()
+
+                        # Content-hash skip: if this exact (context_id, content_hash)
+                        # is already present, do nothing.
+                        existing = sess.execute(text(
+                            "SELECT id FROM documents "
+                            "WHERE context_id=:cid AND content_hash=:h"
+                        ), {"cid": cid, "h": chunk_hash}).fetchone()
+                        if existing:
+                            logger.debug(
+                                "Skipping unchanged content for %s (chunk %d/%d)",
+                                fname, chunk_index + 1, total_chunks,
+                            )
+                            successful += 1
+                            continue
+
+                        # New or changed content — embed and insert
+                        embedding = client.embed(chunk_content)
+                        doc_metadata = dict(metadata or {})
+                        doc_metadata["filename"] = fname
+                        doc_metadata["context_name"] = context_name
+                        doc_metadata["context_type"] = context.get("type", "")
+                        doc_metadata["extracted_at"] = datetime.utcnow().isoformat()
+                        if total_chunks > 1:
+                            doc_metadata["chunk_index"] = chunk_index
+                            doc_metadata["total_chunks"] = total_chunks
+
+                        sess.execute(text(
+                            "INSERT INTO documents "
+                            "(context_id, content, content_hash, metadata, embedding) "
+                            "VALUES (:cid, :c, :h, CAST(:m AS jsonb), CAST(:e AS vector))"
+                        ), {
+                            "cid": cid,
+                            "c": chunk_content,
+                            "h": chunk_hash,
+                            "m": json.dumps(doc_metadata),
+                            "e": str(embedding),
+                        })
+                        successful += 1
+                    except Exception as exc:
+                        logger.error(
+                            "Failed to process %s (chunk %d/%d): %s",
+                            fname, chunk_index + 1, total_chunks, exc,
+                        )
+                        skipped += 1
+                        continue
 
         if callable(callback):
             callback(successful)
         if skipped:
             logger.warning(
-                "Uploaded %d files to context_id=%s; skipped %d files with errors",
-                successful, cid, skipped,
+                "Uploaded %d rows from %d files to context_id=%s; skipped %d chunks with errors",
+                successful, files_seen, cid, skipped,
             )
         else:
-            logger.info("Uploaded %d files to context_id=%s", successful, cid)
+            logger.info(
+                "Uploaded %d rows from %d files to context_id=%s",
+                successful, files_seen, cid,
+            )
 
     def delete_existing_files(self, context_, vector_store, file_names):
         """Delete documents whose metadata.filename matches any in file_names.

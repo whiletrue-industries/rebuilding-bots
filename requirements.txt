@@ -16,3 +16,4 @@ alembic==1.13.2
 psycopg[binary]==3.2.4
 pgvector==0.3.2
 SQLAlchemy==2.0.31
+tiktoken>=0.7.0,<1.0

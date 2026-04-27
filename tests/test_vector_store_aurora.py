@@ -439,3 +439,170 @@ def test_upload_files_skips_files_that_fail_to_embed(aurora_db, monkeypatch):
     names = sorted(r[0] for r in rows)
     assert names == ["good1.md", "good2.md"]
     assert callback_calls == [2]
+
+
+# ---- chunking (oversize content handling) ----
+
+def test_chunk_for_embedding_short_content_returns_single():
+    from botnim.vector_store.vector_store_aurora import _chunk_for_embedding
+    chunks = _chunk_for_embedding("hello world")
+    assert chunks == ["hello world"]
+
+
+def test_chunk_for_embedding_under_limit_returns_single():
+    from botnim.vector_store.vector_store_aurora import _chunk_for_embedding, CHUNK_MAX_TOKENS
+    # Roughly half the limit — must come back as a single chunk
+    content = "paragraph one.\n\n" + ("word " * (CHUNK_MAX_TOKENS // 4))
+    chunks = _chunk_for_embedding(content)
+    assert len(chunks) == 1
+
+
+def test_chunk_for_embedding_oversize_splits_at_section_boundaries():
+    """Content with ## section markers, each within the limit, must split
+    cleanly at the markers (not mid-section)."""
+    from botnim.vector_store.vector_store_aurora import (
+        _chunk_for_embedding,
+        CHUNK_MAX_TOKENS,
+    )
+    # Build content of 3 sections, each ~3000 tokens (well under the limit
+    # individually, but together over the limit so chunking must engage).
+    section_words = " ".join(["alpha"] * 2500)
+    content = (
+        f"## Section 1\n{section_words}\n\n"
+        f"## Section 2\n{section_words}\n\n"
+        f"## Section 3\n{section_words}\n"
+    )
+    chunks = _chunk_for_embedding(content, max_tokens=CHUNK_MAX_TOKENS)
+    assert len(chunks) >= 2
+    # Each chunk under the limit
+    import tiktoken
+    enc = tiktoken.get_encoding("cl100k_base")
+    for c in chunks:
+        assert len(enc.encode(c)) <= CHUNK_MAX_TOKENS
+    # Section markers preserved at chunk boundaries
+    joined = "\n".join(chunks)
+    assert "## Section 1" in joined
+    assert "## Section 3" in joined
+
+
+def test_chunk_for_embedding_no_section_markers_falls_back_to_paragraphs():
+    """Content with no ## markers must split on paragraph boundaries."""
+    from botnim.vector_store.vector_store_aurora import (
+        _chunk_for_embedding,
+        CHUNK_MAX_TOKENS,
+    )
+    para = "word " * 2500
+    content = f"{para}\n\n{para}\n\n{para}\n\n{para}\n"
+    chunks = _chunk_for_embedding(content, max_tokens=CHUNK_MAX_TOKENS)
+    assert len(chunks) >= 2
+    import tiktoken
+    enc = tiktoken.get_encoding("cl100k_base")
+    for c in chunks:
+        assert len(enc.encode(c)) <= CHUNK_MAX_TOKENS
+
+
+def test_chunk_for_embedding_single_oversized_section_hard_splits():
+    """A single section that itself exceeds the limit must be hard-split
+    by token windows (last-resort path)."""
+    from botnim.vector_store.vector_store_aurora import (
+        _chunk_for_embedding,
+        CHUNK_MAX_TOKENS,
+    )
+    # One paragraph, 9000 tokens — single section, must be hard-split
+    content = "## Only Section\n" + ("word " * 9000)
+    chunks = _chunk_for_embedding(content, max_tokens=CHUNK_MAX_TOKENS)
+    assert len(chunks) >= 2
+    import tiktoken
+    enc = tiktoken.get_encoding("cl100k_base")
+    for c in chunks:
+        assert len(enc.encode(c)) <= CHUNK_MAX_TOKENS
+
+
+def test_upload_files_chunks_oversize_content_into_multiple_rows(aurora_db, monkeypatch):
+    """An oversize file produces multiple `documents` rows, each with the
+    same `metadata.filename` and distinct `chunk_index`/`total_chunks`. No
+    skip-on-error happens — every chunk gets embedded and inserted."""
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.db.session import get_engine
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    # 3-section doc, each section ~3000 tokens → must chunk into ≥2 rows
+    section_words = " ".join(["alpha"] * 2500)
+    long_content = (
+        f"## Section 1\n{section_words}\n\n"
+        f"## Section 2\n{section_words}\n\n"
+        f"## Section 3\n{section_words}\n"
+    )
+    streams = _make_file_streams([
+        ("oversize.md", long_content, {"title": "long"}),
+        ("normal.md", "short content", {"title": "normal"}),
+    ])
+    store.upload_files({"slug": "x"}, "x", cid, streams, lambda n: None)
+
+    eng = get_engine()
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT metadata FROM documents WHERE context_id=:cid ORDER BY (metadata->>\x27filename\x27), (metadata->>\x27chunk_index\x27)::int NULLS FIRST"
+        ), {"cid": cid}).fetchall()
+
+    metadatas = [r[0] if isinstance(r[0], dict) else json.loads(r[0]) for r in rows]
+    oversize_rows = [m for m in metadatas if m["filename"] == "oversize.md"]
+    normal_rows = [m for m in metadatas if m["filename"] == "normal.md"]
+
+    # Oversize file produced ≥2 chunks, each tagged with chunk_index/total_chunks
+    assert len(oversize_rows) >= 2
+    assert all("chunk_index" in m for m in oversize_rows)
+    assert all("total_chunks" in m for m in oversize_rows)
+    indices = sorted(int(m["chunk_index"]) for m in oversize_rows)
+    assert indices == list(range(len(oversize_rows)))
+    total = oversize_rows[0]["total_chunks"]
+    assert all(int(m["total_chunks"]) == total for m in oversize_rows)
+
+    # Normal file produced exactly 1 row, no chunk_index/total_chunks
+    # (backward-compat: single-chunk path doesn't add the chunk metadata)
+    assert len(normal_rows) == 1
+    assert "chunk_index" not in normal_rows[0]
+    assert "total_chunks" not in normal_rows[0]
+
+
+def test_upload_files_oversize_content_replaces_old_skip_behavior(aurora_db, monkeypatch):
+    """The doc that USED to fail with `Invalid 'input': maximum context
+    length is 8192 tokens` now uploads successfully via chunking. This is
+    the regression check — previously upload_files raised, now it doesn't."""
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.db.session import get_engine
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    # ~10000-token single-blob content (no section markers, no paragraph
+    # breaks) — the worst case for chunking, hits the hard-token-split path.
+    content = "alpha " * 10000
+    streams = _make_file_streams([("biggie.md", content, {})])
+
+    callback_count = []
+    store.upload_files({"slug": "x"}, "x", cid, streams, callback_count.append)
+
+    eng = get_engine()
+    with eng.connect() as conn:
+        n = conn.execute(text(
+            "SELECT count(*) FROM documents WHERE context_id=:cid AND metadata->>\x27filename\x27=\x27biggie.md\x27"
+        ), {"cid": cid}).scalar()
+    assert n >= 2  # multiple chunks
+    assert callback_count[0] >= 2  # callback got the row count, not the file count
