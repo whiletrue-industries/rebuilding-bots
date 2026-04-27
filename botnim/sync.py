@@ -172,3 +172,8 @@ def sync_agents(environment: str, bots: str, backend: str = 'aurora',
 
         # 2. Publish the canonical Responses-API bot config.
         publish_bot(bot_id, environment)
+
+        # 3. Audit snapshot — drift history feed for /admin/sources.
+        # Inside the bot loop so a multi-bot future writes one snapshot per bot;
+        # any exception above this line skips the snapshot, which is the point.
+        _write_snapshots(bot_id)

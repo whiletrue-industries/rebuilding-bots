@@ -70,3 +70,17 @@ def test_write_snapshots_inserts_per_source_and_aggregate(database_url, monkeypa
         ("legal_text", "חוק_הכנסת", 2),
         ("legal_text", "תקנון_הכנסת", 1),
     ], f"unexpected rows: {rows}"
+
+
+def test_sync_agents_calls_write_snapshots_on_success(monkeypatch):
+    """Verify sync_agents invokes _write_snapshots once after iterating bots."""
+    from unittest.mock import patch
+
+    with patch("botnim.sync._sync_vector_store") as mock_sync, \
+         patch("botnim.sync.publish_bot") as mock_publish, \
+         patch("botnim.sync._write_snapshots") as mock_snapshots:
+        from botnim.sync import sync_agents
+        # Use 'unified' (only spec'd bot) so the SPECS.glob matches one config.
+        sync_agents("staging", "unified", backend="aurora")
+    assert mock_snapshots.called, "expected _write_snapshots to be called"
+    assert mock_snapshots.call_args.args == ("unified",)
