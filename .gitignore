@@ -1,6 +1,9 @@
 .checkpoints/
 .DS_Store
 .env
+# Local-dev launcher overrides — points at local pgvector docker, never
+# meant to be committed (would override prod env vars if pulled in by CI).
+.env.local-dev
 out/
 botnim.egg-info/
 __pycache__/

@@ -1,13 +1,41 @@
+import os
 from pathlib import Path
 from typing import List, Dict, Union, Optional, Any
 from dataclasses import dataclass
 from botnim.vector_store.vector_store_es import VectorStoreES
-from botnim.config import DEFAULT_EMBEDDING_MODEL, get_logger, SPECS, is_production
+from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+from botnim.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_ENVIRONMENT, get_logger, SPECS, is_production
 from botnim.vector_store.search_config import SearchModeConfig
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 import yaml
 import json
 import re
+
+# Backend selection at query/read time. Default = aurora (post-2026-04
+# migration). Override with `BOTNIM_QUERY_BACKEND=es` to keep using ES (only
+# matters as long as both backends coexist; once the parity tool is retired
+# we drop ES entirely).
+QUERY_BACKEND = os.environ.get("BOTNIM_QUERY_BACKEND", "aurora").lower()
+
+
+def parse_store_id(store_id: str) -> tuple[str, str, str]:
+    """Parse 'bot__context' (or legacy 'bot__context__dev') into (bot, context, env).
+
+    For Aurora callers, env is read from the process environment because the
+    DB connection is per-env (one Aurora DB per ENVIRONMENT). The legacy
+    '__dev' suffix is accepted for one release so any cached LibreChat tool
+    calls still parse, but it's ignored — env always comes from the process.
+
+    For ES callers (legacy/parity), the same shape works because the ES
+    backend itself derives env from the environment passed to its constructor,
+    not from the index name suffix.
+    """
+    parts = store_id.split("__")
+    if len(parts) < 2:
+        raise ValueError(f"invalid store_id {store_id!r}; expected 'bot__context'")
+    bot, context = parts[0], parts[1]
+    env = os.environ.get("ENVIRONMENT", DEFAULT_ENVIRONMENT)
+    return bot, context, env
 
 
 logger = get_logger(__name__)
@@ -127,7 +155,7 @@ class QueryClient:
     """Class to handle vector store queries"""
     def __init__(self, store_id: str):
         self.store_id = store_id
-        self.bot_name, self.context_name, self.environment = VectorStoreES.parse_index_name(store_id)
+        self.bot_name, self.context_name, self.environment = parse_store_id(store_id)
         self.config = self._load_config()
         self.vector_store = self._initialize_vector_store(self.config)
 
@@ -148,13 +176,30 @@ class QueryClient:
             )
             return config
 
-    def _initialize_vector_store(self, config) -> VectorStoreES:
-        """Initialize the vector store connection"""
-        return VectorStoreES(
-            config=config,
-            config_dir=Path('.'),
-            es_timeout=30,
-            environment=self.environment,
+    def _initialize_vector_store(self, config):
+        """Initialize the vector store connection.
+
+        Backend selection is a deployment property (set via the
+        BOTNIM_QUERY_BACKEND env var, default 'aurora'). Per-request choice
+        is intentionally not exposed: LibreChat doesn't know about backends
+        and shouldn't.
+        """
+        if QUERY_BACKEND == "aurora":
+            return VectorStoreAurora(
+                config=config,
+                config_dir=Path('.'),
+                environment=self.environment,
+            )
+        elif QUERY_BACKEND == "es":
+            return VectorStoreES(
+                config=config,
+                config_dir=Path('.'),
+                es_timeout=30,
+                environment=self.environment,
+            )
+        raise ValueError(
+            f"unsupported BOTNIM_QUERY_BACKEND={QUERY_BACKEND!r}; "
+            "expected 'aurora' or 'es'"
         )
 
     def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> List[SearchResult]:
@@ -212,7 +257,22 @@ class QueryClient:
             raise
 
     def get_index_mapping(self) -> Dict:
-        """Get the mapping (fields) for the current index"""
+        """Get the schema for the current context.
+
+        ES backend: returns the per-context dynamic mapping.
+        Aurora backend: returns the static `documents` table schema (uniform
+        across contexts; the per-context-mapping concept doesn't apply).
+        """
+        if QUERY_BACKEND == "aurora":
+            return {
+                "id": {"type": "uuid"},
+                "context_id": {"type": "uuid"},
+                "content": {"type": "text"},
+                "metadata": {"type": "jsonb"},
+                "embedding": {"type": "vector(1536)"},
+                "content_hash": {"type": "text"},
+                "tsv": {"type": "tsvector"},
+            }
         try:
             index_name = self.vector_store._index_name_for_context(self.context_name)
             mapping = self.vector_store.es_client.indices.get_mapping(index=index_name)
@@ -519,22 +579,29 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
         return formatted_results or 'No results found.'
 
 def get_available_indexes(environment: str, bot_name: str) -> List[str]:
+    """List the available `bot__context` store ids.
+
+    Backend-aware: Aurora reads from the `contexts` table; ES reads index
+    aliases. Both return the same `bot__context` shape — for ES we strip the
+    legacy `__dev` suffix so callers (CLI, in-app sync trigger) see one
+    canonical naming convention regardless of backend.
     """
-    Get list of available indexes
-    
-    Args:
-        environment (str): Environment to use ('local', 'staging', 'production')
-        bot_name (str): Name of the bot to use  
-        
-    Returns:
-        List[str]: List of available index names
-    """
+    if QUERY_BACKEND == "aurora":
+        from botnim.db.session import get_session
+        from sqlalchemy import text as _text
+        with get_session() as sess:
+            rows = sess.execute(_text(
+                "SELECT bot, name FROM contexts "
+                "WHERE (:bot = '' OR bot = :bot) ORDER BY bot, name"
+            ), {"bot": bot_name or ''}).fetchall()
+        return [f"{r[0]}__{r[1]}" for r in rows]
+
     client = VectorStoreES('', '.', environment=environment)
     search_pattern = f"*"
     if not is_production(environment):
         search_pattern += '__dev'
     indices = client.es_client.indices.get_alias(index=search_pattern)
-    indices =list(indices.keys())
+    indices = list(indices.keys())
     indices = [index for index in indices if '__' in index]
     if bot_name:
         indices = [index for index in indices if index.startswith(bot_name)]
@@ -554,7 +621,10 @@ def get_index_fields(environment: str, bot_name: str, context_name: str) -> Dict
     Returns:
         Dict: Index mapping showing all fields and their types
     """
-    store_id = VectorStoreES.encode_index_name(bot_name, context_name, environment)
+    # New canonical store_id is just `bot__context`; env is implicit in the
+    # connection (see parse_store_id docstring). We no longer route through
+    # VectorStoreES.encode_index_name's `__dev` suffix.
+    store_id = f"{bot_name}__{context_name}"
     client = QueryClient(store_id)
     return client.get_index_mapping()
 
