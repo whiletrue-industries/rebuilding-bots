@@ -21,6 +21,9 @@ No ``client.beta.assistants.*`` calls remain.
 """
 from __future__ import annotations
 
+import urllib.parse
+from pathlib import Path
+
 import yaml
 
 from .bot_config import BotConfig, load_bot_config, publish_bot_config
@@ -28,6 +31,29 @@ from .config import SPECS, get_logger, get_openai_client, is_production
 from .vector_store import VectorStoreES, VectorStoreOpenAI, VectorStoreAurora
 
 logger = get_logger(__name__)
+
+
+def _source_id_for(fetcher: dict | None, source_path: str | None) -> str:
+    """Stable, human-readable label for the originating fetcher of a document.
+
+    Pure function — derived entirely from the spec config, no I/O. See
+    docs/superpowers/specs/2026-04-27-admin-sources-screen-design.md for
+    the per-kind derivation rules.
+    """
+    if fetcher:
+        kind = fetcher.get("kind")
+        if kind == "wikitext":
+            url = fetcher.get("input_url", "")
+            decoded = urllib.parse.unquote(url)
+            last_segment = decoded.rstrip("/").rsplit("/", 1)[-1]
+            return last_segment.split("#")[0]
+        if kind in {"lexicon", "bk_csv"}:
+            return kind
+        if kind == "pdf":
+            return Path(source_path or "").stem
+    if source_path:
+        return Path(source_path).stem
+    return "unknown"
 
 
 def _sync_vector_store(config: dict, config_dir, backend: str, environment: str,
