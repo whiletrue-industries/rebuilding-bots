@@ -606,3 +606,36 @@ def test_upload_files_oversize_content_replaces_old_skip_behavior(aurora_db, mon
         ), {"cid": cid}).scalar()
     assert n >= 2  # multiple chunks
     assert callback_count[0] >= 2  # callback got the row count, not the file count
+
+
+def test_upload_files_writes_source_id_from_metadata(aurora_db, monkeypatch):
+    """A file_stream tuple whose metadata carries source_id should result
+    in documents.source_id being populated."""
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.db.session import get_engine
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "legal_text"}, "legal_text", False)
+
+    streams = [(
+        "doc1.md",
+        io.BytesIO("# חוק_הכנסת\n\nbody text".encode("utf-8")),
+        "text/markdown",
+        {"title": "x", "source_id": "חוק_הכנסת"},
+    )]
+    store.upload_files({"slug": "legal_text"}, "legal_text", cid, streams, callback=None)
+
+    eng = get_engine()
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT source_id FROM documents WHERE context_id = :cid"
+        ), {"cid": cid}).fetchall()
+    assert rows, "expected at least one row inserted"
+    assert all(r[0] == "חוק_הכנסת" for r in rows), f"all rows should have source_id; got {rows!r}"

@@ -287,14 +287,15 @@ class VectorStoreAurora(VectorStoreBase):
 
                         sess.execute(text(
                             "INSERT INTO documents "
-                            "(context_id, content, content_hash, metadata, embedding) "
-                            "VALUES (:cid, :c, :h, CAST(:m AS jsonb), CAST(:e AS vector))"
+                            "(context_id, content, content_hash, metadata, embedding, source_id) "
+                            "VALUES (:cid, :c, :h, CAST(:m AS jsonb), CAST(:e AS vector), :sid)"
                         ), {
                             "cid": cid,
                             "c": chunk_content,
                             "h": chunk_hash,
                             "m": json.dumps(doc_metadata),
                             "e": str(embedding),
+                            "sid": (metadata or {}).get("source_id"),
                         })
                         successful += 1
                     except Exception as exc:
