@@ -355,15 +355,14 @@ class VectorStoreAurora(VectorStoreBase):
         # keeps the search call self-contained and resilient to context
         # rows being added/removed mid-process.
         with get_session() as sess:
-            # ivfflat default `probes = 1` searches only 1 of `lists` partitions,
-            # which makes top-K depend on which partition the query embedding
-            # lands in — different ivfflat builds (e.g. local vs staging
-            # rebuilt at slightly different times) can return materially
-            # different rankings even for the same query+data. Bumping probes
-            # to 10 trades a small latency hit for deterministic, near-exact
-            # top-K. We use SET LOCAL so the change is scoped to this txn
-            # and doesn't leak across the connection pool.
-            sess.execute(text("SET LOCAL ivfflat.probes = 10"))
+            # HNSW `ef_search` controls the dynamic candidate list size; default
+            # is 40, which on small Hebrew corpora repeatedly missed instructional
+            # docs in favor of one-line "ministry: code" entries that share more
+            # surface tokens with the query. 100 trades a small latency hit for
+            # better recall. SET LOCAL keeps it scoped to this txn so it doesn't
+            # leak across the connection pool. (See migration 0007 for the
+            # ivfflat → hnsw swap rationale.)
+            sess.execute(text("SET LOCAL hnsw.ef_search = 100"))
 
             row = sess.execute(text(
                 "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
@@ -530,21 +529,35 @@ def _build_prefix_or_tsquery(query_text: str) -> str:
     # (`& | ! ( ) :`) and ordinary punctuation (`? . , ;`) that would
     # otherwise become part of a token and cause prefix matches to fail.
     cleaned = re.sub(r"[^\w\s]", " ", query_text, flags=re.UNICODE)
-    tokens = [t for t in cleaned.split() if len(t) >= 2 and t.lower() not in _TS_QUERY_DROP]
+    # Token length floor of 3 (was 2): a 2-char prefix matches too many docs
+    # to provide signal. Numeric tokens additionally need length >= 4 — a
+    # 3-digit prefix like "202:*" matches every year 2020–2029 plus any
+    # other "202..." token, which polluted the BM25 ranking and crowded
+    # out instruction-bearing docs in the budget knowledge corpus.
+    def _ok(t: str) -> bool:
+        if t.lower() in _TS_QUERY_DROP:
+            return False
+        if t.isdigit():
+            return len(t) >= 4
+        return len(t) >= 3
+    tokens = [t for t in cleaned.split() if _ok(t)]
     if not tokens:
         return ""
-    # For each token emit two prefix variants:
+    # For each token emit prefix variants:
     #   - the token itself with `:*` (matches the exact form + suffixes)
-    #   - the token with its last char dropped + `:*` (covers Hebrew
-    #     construct/absolute alternation: "ועדת" → "ועד:*" matches
-    #     "ועדה" / "ועדות" / "ועד..."; same trick works for verb roots).
-    # We OR everything. Stems shorter than 3 chars don't get the extra
-    # variant — too noisy (would match every word with a 2-char prefix).
+    #   - for non-numeric tokens with len >= 5, the token minus its last
+    #     character with `:*` (covers Hebrew construct/absolute alternation:
+    #     "ועדת" → "ועד:*" matches "ועדה" / "ועדות"). Numeric tokens never
+    #     get this stem variant — "2026"[:-1] = "202" would match other
+    #     years and is exactly the noise we just filtered out above.
     parts: list[str] = []
     seen: set[str] = set()
     for t in tokens:
-        for stem in (t, t[:-1] if len(t) >= 4 else None):
-            if stem and stem not in seen:
+        variants = [t]
+        if not t.isdigit() and len(t) >= 5:
+            variants.append(t[:-1])
+        for stem in variants:
+            if stem not in seen:
                 seen.add(stem)
                 parts.append(f"{stem}:*")
     return " | ".join(parts)
@@ -555,7 +568,7 @@ def _rrf_fuse(
     bm25_rows: list,
     num_results: int,
     k: int = 60,
-    bm25_weight: float = 2.0,
+    bm25_weight: float = 3.0,
     vector_weight: float = 1.0,
 ) -> dict:
     """Weighted reciprocal-rank-fusion.
@@ -573,8 +586,11 @@ def _rrf_fuse(
       - Vector cosine on `text-embedding-3-small` is noisy for Hebrew with
         no language-specific tuning — many irrelevant docs get high cosine
         just from sharing common words like "הכנסת".
-    The 2× weight is empirically chosen against the deploy/gold-set; it's
-    not a hard guarantee. Set both weights to 1.0 to recover canonical RRF.
+    BM25 weight is 3× as of 2026-04-28 (was 2×): on the budget knowledge
+    corpus the over-fetched vector list (5× num_results) was repeatedly
+    drowning out BM25's correct top-1 even at 2× — bumping to 3× lets the
+    lexical signal win when it's confident. Set both weights to 1.0 to
+    recover canonical RRF.
     """
     scores: dict[str, float] = {}
     docs: dict[str, tuple] = {}

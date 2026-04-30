@@ -220,3 +220,26 @@ def test_0006_downgrade_drops_table(database_url):
             "SELECT to_regclass('public.context_snapshots')"
         )).fetchone()
     assert rows[0] is None, "context_snapshots should be dropped"
+
+
+def test_0007_swaps_ivfflat_for_hnsw(database_url):
+    _alembic(["upgrade", "0007"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        names = {r[0] for r in conn.execute(text(
+            "SELECT indexname FROM pg_indexes WHERE tablename='documents'"
+        )).fetchall()}
+    assert "documents_embedding_hnsw" in names
+    assert "documents_embedding_ivfflat" not in names
+
+
+def test_0007_downgrade_restores_ivfflat(database_url):
+    _alembic(["upgrade", "0007"], database_url)
+    _alembic(["downgrade", "0006"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        names = {r[0] for r in conn.execute(text(
+            "SELECT indexname FROM pg_indexes WHERE tablename='documents'"
+        )).fetchall()}
+    assert "documents_embedding_ivfflat" in names
+    assert "documents_embedding_hnsw" not in names
