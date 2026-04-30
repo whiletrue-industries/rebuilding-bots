@@ -46,6 +46,14 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         from .document_parser.bk_datapackage.process_bk_csv import process_bk_csv_source
         output_csv_path = config_dir / source['source']
         process_bk_csv_source(output_csv_path=output_csv_path, **fetcher)
+    elif fetcher_kind == 'knesset_odata':
+        # Knesset ParliamentInfo OData service (live). Fetches plenum-session
+        # entities + their agenda items joined into one CSV row per
+        # (session, item) pair. See
+        # botnim/document_parser/knesset_odata/process_odata.py for details.
+        from .document_parser.knesset_odata.process_odata import process_knesset_odata_source
+        output_csv_path = config_dir / source['source']
+        process_knesset_odata_source(output_csv_path=output_csv_path, **fetcher)
 
 def fetch_and_process_context(environment, context, config_dir: Path, kind):
     context_name = context['name']

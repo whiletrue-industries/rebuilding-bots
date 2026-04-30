@@ -17,6 +17,7 @@ COPY requirements-pdf-scraping.txt .
 COPY backend/api/requirements.txt requirements-server.txt
 RUN pip install -r requirements-server.txt -r requirements.txt -r requirements-pdf-scraping.txt
 COPY botnim/ ./botnim
+COPY scripts/ ./scripts
 COPY specs/ ./specs
 # Seed copy for EFS bootstrap: when /srv/specs/unified/extraction is mounted
 # from EFS and that mount is empty (first deploy or after a wipe), the startup

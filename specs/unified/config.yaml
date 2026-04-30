@@ -402,6 +402,24 @@ context:
         בודד.
 
         '
+- slug: plenary_schedule
+  name: לוח מליאה (לו"ז המליאה)
+  description: 'Search the Knesset plenary sitting schedule (לוח מליאה / לו"ז המליאה).
+    Use for: upcoming and recent plenary sittings, scheduled bill readings (קריאה
+    ראשונה / שנייה / שלישית), urgent motions for the agenda (הצעה דחופה לסדר
+    היום), no-confidence motions, and any time-of-day / date question about
+    when the plenum is meeting. Each row carries the session date+time and one
+    agenda item; an empty agenda is represented by a single row with no item.'
+  examples: 'מה על סדר היום של המליאה השבוע, מתי הקריאה השנייה של חוק X, אילו
+    הצעות חוק נדונות מחר במליאה'
+  sources:
+  - type: csv
+    source: extraction/plenary_schedule.csv
+    fetcher:
+      kind: knesset_odata
+      base_url: https://knesset.gov.il/Odata/ParliamentInfo.svc
+      days_past: 30
+      days_future: 90
 - slug: government_decisions
   name: החלטות ממשלה (מאגר ההחלטות)
   description: 'Search Israeli cabinet (government) decisions from gov.il. Use for:
