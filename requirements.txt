@@ -21,3 +21,20 @@ tiktoken>=0.7.0,<1.0
 # are actually OOXML (Word 2007+); python-docx parses them natively, no
 # libreoffice needed. See botnim/document_parser/knesset_protocols/.
 python-docx>=1.0.0,<2.0.0
+
+# gov.il scrapes are behind Cloudflare's TLS fingerprinting; standard
+# `requests` / `httpx` get a 403. curl-cffi impersonates Chrome's TLS
+# stack and is the only Python client that reliably bypasses the
+# protection from inside the FargateTask. See
+# botnim/document_parser/gov_il_decisions/api.py for usage.
+curl-cffi>=0.7,<1.0
+# PDF text extraction for the ~1% of government decisions whose body
+# lives in an attachment instead of inline HTML. pymupdf is a hard
+# dependency rather than optional because every fresh sync must be able
+# to open the attachments — degraded text extraction would silently
+# weaken retrieval. See botnim/document_parser/gov_il_decisions/extract.py.
+PyMuPDF>=1.24,<2.0
+# Excel reader for the one-time bootstrap from Tal's pre-categorized
+# Gov_Res_fulldata_*.xlsx. After bootstrap the pipeline never touches
+# Excel again. See botnim/document_parser/gov_il_decisions/bootstrap.py.
+openpyxl>=3.1,<4.0
