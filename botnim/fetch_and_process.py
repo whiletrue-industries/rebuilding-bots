@@ -54,6 +54,15 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         from .document_parser.knesset_odata.process_odata import process_knesset_odata_source
         output_csv_path = config_dir / source['source']
         process_knesset_odata_source(output_csv_path=output_csv_path, **fetcher)
+    elif fetcher_kind == 'knesset_protocols':
+        # Knesset committee + plenum protocol transcripts. Fetches the
+        # OData document index, downloads each .doc (actually OOXML)
+        # from fs.knesset.gov.il, parses with python-docx into per-
+        # speaker-turn rows. See
+        # botnim/document_parser/knesset_protocols/process_protocols.py.
+        from .document_parser.knesset_protocols.process_protocols import process_knesset_protocols_source
+        output_csv_path = config_dir / source['source']
+        process_knesset_protocols_source(output_csv_path=output_csv_path, **fetcher)
 
 def fetch_and_process_context(environment, context, config_dir: Path, kind):
     context_name = context['name']
