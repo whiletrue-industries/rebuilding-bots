@@ -248,8 +248,18 @@ async def collect_context_sources_async(
     if 'sources' in context_:
         for source in context_['sources']:
             raw.extend(_raw_streams_for_context(config_dir, context_name, source, offset=len(raw)))
-    else:
+    elif 'type' in context_ and 'source' in context_:
         raw.extend(_raw_streams_for_context(config_dir, context_name, context_))
+    else:
+        # Context with neither `sources` nor a single inline source — used by
+        # direct-Aurora fetchers (e.g. gov_il_decisions) that bypass the
+        # extraction/<x>.csv pipeline entirely. Sync becomes a no-op for the
+        # data side; the context row is still upserted by
+        # get_or_create_vector_store so /admin/sources still sees it.
+        logger.info(
+            "Context %s has no sources to collect (direct-Aurora fetcher).",
+            context_name,
+        )
 
     # asyncio.gather preserves input order in its output list — this is
     # what keeps SYNC_CONCURRENCY=1 byte-equal to the serial implementation.
