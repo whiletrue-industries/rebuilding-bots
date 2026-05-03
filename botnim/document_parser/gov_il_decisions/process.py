@@ -160,6 +160,21 @@ def process_gov_il_decisions_source(
         page = client.list_decisions(skip=skip, limit=page_size)
         if seen_total is None:
             seen_total = page.get("total", 0)
+            # Cold-scrape guard. The fetcher is designed for delta refreshes
+            # against an already-bootstrapped context. If the context is empty
+            # (operator hasn't run scripts/bootstrap_gov_decisions.py yet) and
+            # upstream is large, we'd silently start a 2.5-hour scrape + ~$30
+            # of LLM calls — almost always a mistake (e.g. a fresh deploy ran
+            # before bootstrap). Refuse and tell the operator what to do. The
+            # threshold (1000) is generous so legitimate dev use against a
+            # small dataset still works.
+            if not seen and seen_total > 1000:
+                raise EmptyUpstreamIndex(
+                    f"Refusing cold scrape: context ({bot_slug}, {context_name}) "
+                    f"is empty and gov.il has {seen_total} upstream decisions. "
+                    f"Run scripts/bootstrap_gov_decisions.py once against this "
+                    f"Aurora to seed the context, then re-run."
+                )
         results = page.get("results") or []
         if not results:
             break

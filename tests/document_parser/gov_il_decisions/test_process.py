@@ -131,6 +131,32 @@ def test_empty_listing_and_empty_context_raises(mocked_writers, mocked_categoriz
         process_gov_il_decisions_source(environment="staging", page_size=50, max_pages=2)
 
 
+def test_cold_scrape_refused_when_context_empty_and_upstream_large(
+    mocked_writers, mocked_categorize, mocked_client_class,
+):
+    """If the context is empty (no bootstrap yet) and upstream has many
+    decisions, refuse to start a multi-hour cold scrape — instruct the
+    operator to bootstrap first.
+    """
+    from botnim.document_parser.gov_il_decisions.exceptions import EmptyUpstreamIndex
+    from botnim.document_parser.gov_il_decisions.process import (
+        process_gov_il_decisions_source,
+    )
+
+    mocked_writers["existing"].return_value = set()
+    mocked_client_class.list_decisions.return_value = {
+        "total": 25800,
+        "results": [_make_listing_item("dec-1")],
+    }
+
+    with pytest.raises(EmptyUpstreamIndex, match="bootstrap_gov_decisions.py"):
+        process_gov_il_decisions_source(environment="staging", page_size=50, max_pages=2)
+
+    # Crucially, the fetcher must NOT have done any work
+    assert mocked_client_class.fetch_content.call_count == 0
+    assert mocked_writers["write"].call_count == 0
+
+
 def test_decision_metadata_shape(mocked_writers, mocked_categorize, mocked_client_class):
     from botnim.document_parser.gov_il_decisions.process import (
         process_gov_il_decisions_source,
