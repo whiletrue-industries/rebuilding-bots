@@ -63,6 +63,17 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         from .document_parser.knesset_protocols.process_protocols import process_knesset_protocols_source
         output_csv_path = config_dir / source['source']
         process_knesset_protocols_source(output_csv_path=output_csv_path, **fetcher)
+    elif fetcher_kind == 'gov_il_decisions':
+        # First-party gov.il scrape that writes DIRECTLY to Aurora,
+        # bypassing the extraction/<x>.csv → botnim sync pipeline.
+        # See botnim/document_parser/gov_il_decisions/process.py for
+        # rationale: 26K decisions + LLM-derived categories don't fit
+        # the CSV-in-repo pattern, and the bootstrap source data must
+        # never live in ECS (operator-only). Run via deploy.sh phase
+        # 8a alongside other contexts; sync runs after and writes
+        # context_snapshots so /admin/sources reflects this context.
+        from .document_parser.gov_il_decisions.process import process_gov_il_decisions_source
+        process_gov_il_decisions_source(environment=environment, **fetcher)
 
 def fetch_and_process_context(environment, context, config_dir: Path, kind):
     context_name = context['name']

@@ -450,14 +450,7 @@ context:
     bills (support/oppose at preliminary reading).'
   examples: החלטת ממשלה על תקציב, מינוי שר, אישור הצעת חוק בקריאה טרומית, החלטה
     בנושא בריאות
-  sources:
-  - type: csv
-    source: extraction/government_decisions.csv
-    fetcher:
-      kind: bk_csv
-      external_source_url: https://next.obudget.org/datapackages/government_decisions
-      csv_filename: data/government_decisions.csv
-      max_rows: 5000
-      filter_column: policy_type
-      filter_values:
-      - החלטות ממשלה
+  fetcher:
+    kind: gov_il_decisions
+    page_size: 50
+    max_pages: 1000
