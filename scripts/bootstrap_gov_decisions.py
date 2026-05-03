@@ -117,6 +117,14 @@ def bootstrap(
     header = next(rows)
     idx = {col: header.index(HEADERS_HE[col]) for col in HEADERS_HE}
 
+    def _cell(row: tuple, col: str):
+        # openpyxl read-only mode trims trailing empty cells, so rows where
+        # the rightmost columns (e.g. attachment_urls) are empty come back
+        # shorter than the header. Treat anything past the row length as
+        # None / empty rather than letting IndexError abort the bootstrap.
+        i = idx[col]
+        return row[i] if i < len(row) else None
+
     cid = get_or_create_context(bot, context)
     seen = existing_page_ids(cid)
     logger.info("starting bootstrap: %d page_ids already in (%s, %s)", len(seen), bot, context)
@@ -131,39 +139,39 @@ def bootstrap(
             continue
         total += 1
 
-        source_url = _str(raw[idx["source_url"]])
+        source_url = _str(_cell(raw, "source_url"))
         base_pid = _page_id_from_url(source_url)
         if not base_pid:
             continue
 
-        action = _str(raw[idx["action_type"]])
-        domain = _str(raw[idx["domain"]])
+        action = _str(_cell(raw, "action_type"))
+        domain = _str(_cell(raw, "domain"))
         if action not in ACTION_TYPES or domain not in DOMAINS:
             skipped_unknown_vocab += 1
             continue
 
-        part = _str(raw[idx["part"]]) or "1/1"
+        part = _str(_cell(raw, "part")) or "1/1"
         page_id = _suffixed_page_id(base_pid, part)
         if page_id in seen:
             skipped_existing += 1
             continue
 
-        title = _str(raw[idx["title"]])
-        text = _str(raw[idx["text"]])
+        title = _str(_cell(raw, "title"))
+        text = _str(_cell(raw, "text"))
         metadata = {
-            "decision_number": _str(raw[idx["decision_number"]]),
-            "government_number": _str(raw[idx["government_number"]]),
-            "government": _str(raw[idx["government"]]),
+            "decision_number": _str(_cell(raw, "decision_number")),
+            "government_number": _str(_cell(raw, "government_number")),
+            "government": _str(_cell(raw, "government")),
             "title": title,
-            "publish_date": _str(raw[idx["publish_date"]]),
-            "effective_date": _str(raw[idx["effective_date"]]),
-            "office": _str(raw[idx["office"]]),
-            "unit": _str(raw[idx["unit"]]),
+            "publish_date": _str(_cell(raw, "publish_date")),
+            "effective_date": _str(_cell(raw, "effective_date")),
+            "office": _str(_cell(raw, "office")),
+            "unit": _str(_cell(raw, "unit")),
             "action_type": action,
             "domain": domain,
-            "has_attachment": bool(raw[idx["has_attachment"]]),
+            "has_attachment": bool(_cell(raw, "has_attachment")),
             "source_url": source_url,
-            "attachment_urls": _parse_attachment_urls(_str(raw[idx["attachment_urls"]])),
+            "attachment_urls": _parse_attachment_urls(_str(_cell(raw, "attachment_urls"))),
             "part": part,
         }
 
