@@ -524,6 +524,40 @@
         "deprecated": false
       }
     },
+    "/botnim/retrieve/unified/knesset_protocols__dev": {
+      "get": {
+        "description": "Search transcripts of Knesset committee discussions and plenary proceedings (פרוטוקולי ועדה / דברי הכנסת). Each result is one speaker turn with metadata (committee, date, agenda item, speaker, party, role). Use for what-was-said queries, MK quotes, expert testimony, chair rulings.",
+        "operationId": "search_unified__knesset_protocols__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {"type": "integer", "minimum": 1, "maximum": 50}
+          }
+        ],
+        "deprecated": false
+      }
+    },
     "/botnim/retrieve/unified/plenary_schedule__dev": {
       "get": {
         "description": "Search the Knesset plenary sitting schedule (לוח מליאה / לו\"ז המליאה). Use for upcoming and recent plenary sittings, scheduled bill readings, urgent motions for the agenda, and any time/date question about when the plenum is meeting. Each result is one (session, agenda-item) row sourced live from the Knesset ParliamentInfo OData service.",

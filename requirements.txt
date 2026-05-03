@@ -17,3 +17,7 @@ psycopg[binary]==3.2.4
 pgvector==0.3.2
 SQLAlchemy==2.0.31
 tiktoken>=0.7.0,<1.0
+# Knesset committee + plenum protocol .doc files served at fs.knesset.gov.il
+# are actually OOXML (Word 2007+); python-docx parses them natively, no
+# libreoffice needed. See botnim/document_parser/knesset_protocols/.
+python-docx>=1.0.0,<2.0.0

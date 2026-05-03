@@ -402,6 +402,28 @@ context:
         בודד.
 
         '
+- slug: knesset_protocols
+  name: פרוטוקולי דיונים בכנסת (ועדות + מליאה)
+  description: 'Search transcripts of Knesset committee discussions and plenary
+    proceedings (פרוטוקולי ועדה / דברי הכנסת). Each result is one speaker turn
+    with metadata (committee or plenum, date, agenda item, speaker name + party,
+    role: chair / speaker / interjection). Use for: what was actually said in a
+    specific debate or hearing, who spoke for or against a bill, MK quotes
+    on a topic, chair rulings, expert testimony before committees, questions
+    asked by MKs in committees. Cite the file_url + session_label + speaker
+    when summarizing.'
+  examples: 'מה אמר ראש הממשלה בדיון על תקציב הביטחון, מה הייתה עמדת היועצת המשפטית
+    בוועדת הכספים על תיקון מס הכנסה, ציטוטים של ח"כ בנושא X, התבטאויות בדיון
+    על הצעת חוק Y'
+  sources:
+  - type: csv
+    source: extraction/knesset_protocols.csv
+    fetcher:
+      kind: knesset_protocols
+      base_url: https://knesset.gov.il/Odata/ParliamentInfo.svc
+      days_history: 30
+      max_protocols: 100
+      rate_limit_seconds: 0.25
 - slug: plenary_schedule
   name: לוח מליאה (לו"ז המליאה)
   description: 'Search the Knesset plenary sitting schedule (לוח מליאה / לו"ז המליאה).
