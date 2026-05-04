@@ -19,6 +19,11 @@ RUN pip install -r requirements-server.txt -r requirements.txt -r requirements-p
 COPY botnim/ ./botnim
 COPY scripts/ ./scripts
 COPY specs/ ./specs
+# alembic.ini lives at repo root and is required to run schema migrations
+# from inside the running task (deploy.sh phase 6.5 invokes
+# `alembic -c alembic.ini upgrade head` via `aws ecs run-task` so a fresh
+# environment self-bootstraps without a developer-laptop step).
+COPY alembic.ini ./
 # Seed copy for EFS bootstrap: when /srv/specs/unified/extraction is mounted
 # from EFS and that mount is empty (first deploy or after a wipe), the startup
 # script copies this seed into the mount so `botnim sync` has content on cold
