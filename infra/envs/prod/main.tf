@@ -36,7 +36,12 @@ module "botnim_api" {
 
   public = {
     health_check_path = "/health"
-    host_headers      = ["botnim.build-up.team"]
+    # Shared hostname: both botnim-api and librechat live on botnim.<zone>.
+    # botnim-api owns the DNS record for this host and gets /botnim/* routing.
+    # librechat co-habits at the same host with /* catch-all and does NOT
+    # create its own DNS record. Using `subdomain` (vs `host_headers`) is what
+    # triggers org-infra's auto-wiring of the service-connect ingress SG.
+    subdomain         = "botnim"
     listener_priority = var.listener_priority
     path_patterns     = ["/botnim/*"]
   }
