@@ -8,6 +8,12 @@ RUN apt-get update \
         tesseract-ocr \
         tesseract-ocr-heb \
         poppler-utils \
+        # awscli: deploy.sh phase 6.5 (alembic upgrade head) needs to read
+        # the cluster master secret on first-run to CREATE EXTENSION vector.
+        # Same is true for any future ops scripts that need AWS APIs from
+        # inside the running task. Avoids re-introducing the "no aws in
+        # container" debt.
+        awscli \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 RUN pip install --upgrade pip
