@@ -42,12 +42,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from botnim.document_parser.gov_il_decisions.aurora_writer import (  # noqa: E402
     existing_page_ids,
     get_or_create_context,
-    write_decision,
+    write_decisions_batched,
 )
 from botnim.document_parser.gov_il_decisions.categorize import (  # noqa: E402
     ACTION_TYPES,
     DOMAINS,
 )
+
+
+# Number of decisions buffered before each batched flush. Each flush
+# embeds all buffered chunks in one OpenAI multi-input call (capped at
+# 2048 inputs per request); 500 decisions averages ~530 chunks, well
+# under the cap and large enough to amortize HTTP latency.
+BUFFER_SIZE = 500
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -109,6 +116,7 @@ def bootstrap(
     environment: str,
     bot: str,
     context: str,
+    buffer_size: int = BUFFER_SIZE,
 ) -> None:
     wb = openpyxl.load_workbook(xlsx_path, read_only=True, data_only=True)
     ws = wb[wb.sheetnames[0]]
@@ -133,6 +141,35 @@ def bootstrap(
     ok = 0
     skipped_existing = 0
     skipped_unknown_vocab = 0
+    buffer: list[dict] = []
+
+    def _flush() -> None:
+        """Embed + write all buffered records in one batched OpenAI call."""
+        nonlocal ok
+        if not buffer:
+            return
+        try:
+            result = write_decisions_batched(buffer, environment=environment)
+            ok += result["decisions"]
+            logger.info(
+                "flushed batch: decisions=%d chunks_planned=%d chunks_written=%d",
+                result["decisions"], result["chunks_planned"], result["chunks_written"],
+            )
+        except Exception as exc:
+            # On batch failure, fall back to per-record writes so a single
+            # bad record doesn't lose the rest of the buffer. Re-running
+            # the script is also safe (ON CONFLICT DO NOTHING).
+            logger.warning("batched flush failed (%s); retrying per-record", exc)
+            for rec in buffer:
+                try:
+                    write_decisions_batched([rec], environment=environment)
+                    ok += 1
+                except Exception as inner:
+                    logger.warning(
+                        "write_decisions_batched failed for %s: %s",
+                        rec.get("page_id"), inner,
+                    )
+        buffer.clear()
 
     for raw in rows:
         if not raw:
@@ -175,25 +212,26 @@ def bootstrap(
             "part": part,
         }
 
-        try:
-            write_decision(
-                cid,
-                page_id=page_id,
-                title=title,
-                text=text,
-                metadata=metadata,
-                environment=environment,
-            )
-            ok += 1
-            seen.add(page_id)
-        except Exception as exc:
-            logger.warning("write_decision failed for %s: %s", page_id, exc)
+        buffer.append({
+            "context_id": cid,
+            "page_id": page_id,
+            "title": title,
+            "text": text,
+            "metadata": metadata,
+        })
+        seen.add(page_id)
+
+        if len(buffer) >= buffer_size:
+            _flush()
 
         if total % 500 == 0:
             logger.info(
                 "bootstrapped %d (ok=%d skipped_existing=%d skipped_unknown_vocab=%d)",
                 total, ok, skipped_existing, skipped_unknown_vocab,
             )
+
+    # Final flush of any partial buffer.
+    _flush()
 
     logger.info(
         "DONE total=%d ok=%d skipped_existing=%d skipped_unknown_vocab=%d",
@@ -215,6 +253,15 @@ def main() -> None:
     )
     parser.add_argument("--bot", default="unified")
     parser.add_argument("--context", default="government_decisions")
+    parser.add_argument(
+        "--buffer-size",
+        type=int,
+        default=BUFFER_SIZE,
+        help=(
+            "Decisions to buffer between batched embed+upsert flushes. "
+            f"Defaults to {BUFFER_SIZE}."
+        ),
+    )
     args = parser.parse_args()
 
     if not args.xlsx.exists():
@@ -226,6 +273,7 @@ def main() -> None:
         environment=args.environment,
         bot=args.bot,
         context=args.context,
+        buffer_size=args.buffer_size,
     )
 
 
