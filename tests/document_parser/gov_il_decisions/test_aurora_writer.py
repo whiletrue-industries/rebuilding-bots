@@ -170,3 +170,221 @@ def test_idempotent_on_rerun(aurora_db, fake_embedder):
             "SELECT count(*) FROM documents WHERE context_id=:cid"
         ), {"cid": cid}).scalar()
     assert total == 1
+
+
+# ---------------------------------------------------------------------------
+# write_decisions_batched — bulk path used by the Excel bootstrap.
+# ---------------------------------------------------------------------------
+
+
+class _FakeBatchOpenAI:
+    """Mimics the subset of openai.OpenAI used by write_decisions_batched.
+
+    Returns deterministic 1536-dim embeddings keyed off the input text's
+    sha256 digest so each call is order-preserving and content-distinct.
+    """
+
+    def __init__(self):
+        self.batch_calls: list[list[str]] = []
+        self.embeddings = self  # let `client.embeddings.create(...)` work
+
+    def create(self, *, input, model):
+        # OpenAI accepts either str or list[str]; the batched path always
+        # passes a list, so assert that and record it for later inspection.
+        assert isinstance(input, list)
+        self.batch_calls.append(list(input))
+
+        class _Datum:
+            def __init__(self, embedding):
+                self.embedding = embedding
+
+        class _Resp:
+            def __init__(self, data):
+                self.data = data
+
+        data = []
+        for txt in input:
+            h = hashlib.sha256(txt.encode("utf-8")).digest()
+            vec = [(b / 255.0) for b in h] * 48  # 32 * 48 = 1536
+            data.append(_Datum(vec))
+        return _Resp(data)
+
+
+@pytest.fixture
+def fake_batch_openai(monkeypatch):
+    fake = _FakeBatchOpenAI()
+    # The implementation constructs `openai.OpenAI(api_key=...)` directly to
+    # access the multi-input embeddings API. Patch the symbol it imports.
+    monkeypatch.setattr(
+        "botnim.document_parser.gov_il_decisions.aurora_writer.OpenAI",
+        lambda api_key=None: fake,
+    )
+    return fake
+
+
+def test_batched_round_trip(aurora_db, fake_batch_openai):
+    from botnim.document_parser.gov_il_decisions.aurora_writer import (
+        get_or_create_context,
+        write_decisions_batched,
+    )
+    from botnim.db.session import get_engine
+
+    cid = get_or_create_context("unified", "government_decisions")
+
+    # Build one short decision and one decision long enough to chunk.
+    long_body_parts = [f"מילה{i}" for i in range(8000)]
+    long_body = " ".join(long_body_parts)
+
+    records = [
+        {
+            "context_id": cid,
+            "page_id": "dec-a",
+            "title": "כותרת א",
+            "text": "גוף קצר א",
+            "metadata": {"action_type": "אחר", "domain": "כללי"},
+        },
+        {
+            "context_id": cid,
+            "page_id": "dec-b",
+            "title": "כותרת ב",
+            "text": "גוף קצר ב",
+            "metadata": {"action_type": "אחר", "domain": "כללי"},
+        },
+        {
+            "context_id": cid,
+            "page_id": "dec-long",
+            "title": "ארוכה",
+            "text": long_body,
+            "metadata": {"action_type": "אחר", "domain": "כללי"},
+        },
+    ]
+    result = write_decisions_batched(records, environment="staging")
+
+    assert result["decisions"] == 3
+    assert result["chunks_planned"] >= 4  # 1 + 1 + (>=2 from the long one)
+    assert result["chunks_written"] == result["chunks_planned"]
+
+    # Verify the long decision produced multiple rows with proper indexing
+    eng = get_engine()
+    with eng.connect() as conn:
+        long_rows = conn.execute(text(
+            "SELECT metadata FROM documents "
+            "WHERE context_id=:cid AND metadata->>'page_id'=:pid"
+        ), {"cid": cid, "pid": "dec-long"}).fetchall()
+    assert len(long_rows) >= 2
+    totals = {r[0]["total_chunks"] for r in long_rows}
+    assert totals == {len(long_rows)}
+    chunk_indexes = sorted(r[0]["chunk_index"] for r in long_rows)
+    assert chunk_indexes == list(range(len(long_rows)))
+
+    # source_id is set
+    with eng.connect() as conn:
+        srcs = {r[0] for r in conn.execute(text(
+            "SELECT DISTINCT source_id FROM documents WHERE context_id=:cid"
+        ), {"cid": cid}).fetchall()}
+    assert srcs == {"gov_il_decisions"}
+
+    # The OpenAI client was called in batched form (one call per
+    # embedding_batch_size group) with the planned chunk count summing
+    # across all calls.
+    total_inputs = sum(len(c) for c in fake_batch_openai.batch_calls)
+    assert total_inputs == result["chunks_planned"]
+
+
+def test_batched_idempotent(aurora_db, fake_batch_openai):
+    from botnim.document_parser.gov_il_decisions.aurora_writer import (
+        get_or_create_context,
+        write_decisions_batched,
+    )
+    from botnim.db.session import get_engine
+
+    cid = get_or_create_context("unified", "government_decisions")
+    records = [
+        {
+            "context_id": cid,
+            "page_id": "dec-x",
+            "title": "x",
+            "text": "body x",
+            "metadata": {"action_type": "אחר", "domain": "כללי"},
+        },
+        {
+            "context_id": cid,
+            "page_id": "dec-y",
+            "title": "y",
+            "text": "body y",
+            "metadata": {"action_type": "אחר", "domain": "כללי"},
+        },
+    ]
+    r1 = write_decisions_batched(records, environment="staging")
+    assert r1["chunks_written"] == 2
+
+    r2 = write_decisions_batched(records, environment="staging")
+    assert r2["chunks_planned"] == 2
+    assert r2["chunks_written"] == 0  # ON CONFLICT DO NOTHING
+
+    eng = get_engine()
+    with eng.connect() as conn:
+        total = conn.execute(text(
+            "SELECT count(*) FROM documents WHERE context_id=:cid"
+        ), {"cid": cid}).scalar()
+    assert total == 2
+
+
+def test_batched_handles_empty_text(aurora_db, fake_batch_openai):
+    from botnim.document_parser.gov_il_decisions.aurora_writer import (
+        get_or_create_context,
+        write_decisions_batched,
+    )
+    from botnim.db.session import get_engine
+
+    cid = get_or_create_context("unified", "government_decisions")
+    result = write_decisions_batched(
+        [{
+            "context_id": cid,
+            "page_id": "dec-empty",
+            "title": "no body",
+            "text": "",
+            "metadata": {"action_type": "אחר", "domain": "כללי"},
+        }],
+        environment="staging",
+    )
+    assert result["decisions"] == 1
+    assert result["chunks_written"] == 1
+
+    eng = get_engine()
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT content, metadata FROM documents WHERE context_id=:cid"
+        ), {"cid": cid}).fetchall()
+    assert len(rows) == 1
+    assert rows[0][0] == ""  # empty content row written
+    assert rows[0][1]["page_id"] == "dec-empty"
+    assert rows[0][1]["total_chunks"] == 1
+    assert rows[0][1]["chunk_index"] == 0
+
+
+def test_batched_respects_embedding_batch_size(aurora_db, fake_batch_openai):
+    """With 5 chunks and batch_size=2, expect ceil(5/2)=3 OpenAI calls."""
+    from botnim.document_parser.gov_il_decisions.aurora_writer import (
+        get_or_create_context,
+        write_decisions_batched,
+    )
+
+    cid = get_or_create_context("unified", "government_decisions")
+    records = [
+        {
+            "context_id": cid,
+            "page_id": f"dec-batch-{i}",
+            "title": f"t{i}",
+            "text": f"body {i}",
+            "metadata": {"action_type": "אחר", "domain": "כללי"},
+        }
+        for i in range(5)
+    ]
+    result = write_decisions_batched(
+        records, environment="staging", embedding_batch_size=2,
+    )
+    assert result["chunks_planned"] == 5
+    assert result["chunks_written"] == 5
+    # 3 batches of sizes [2, 2, 1]
+    assert [len(c) for c in fake_batch_openai.batch_calls] == [2, 2, 1]
