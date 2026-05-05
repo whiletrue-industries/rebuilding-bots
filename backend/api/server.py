@@ -2,6 +2,7 @@ import dataclasses
 import logging
 import os
 import threading
+import requests
 from fastapi import APIRouter, FastAPI, HTTPException, Response, Query, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -142,6 +143,105 @@ async def search_datasets_handler(
             status_code=500,
             content={"error": "search_error", "detail": str(e), "store_id": store_id},
         )
+    if format == 'yaml':
+        return Response(content=results, media_type="application/x-yaml")
+    return Response(content=results, media_type="text/plain")
+
+
+# ---------------------------------------------------------------------------
+# Knesset plenum schedule — JIT live OData proxy
+#
+# The cached `plenary_schedule` context (refreshed by fap on each deploy) is
+# the right tool for semantic queries like "which session covered חוק מימון
+# מפלגות". For TIME-sensitive questions like "מה הישיבה הבאה במליאה" or
+# "מה היה בישיבה לפני" the cached snapshot is too stale by design — fap
+# only runs at deploy time. This endpoint hits Knesset OData live (no
+# caching), filtered to a date range the LLM specifies. The agent should
+# use this for "next/last/upcoming/past" type questions and the cached
+# context for content-driven queries.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/knesset/sessions")
+@app.get("/botnim/knesset/sessions")
+async def knesset_sessions_live(
+    from_date: str = Query(..., alias="from",
+        description="Start of date window (inclusive), ISO 8601 — e.g. 2026-04-01 or 2026-04-01T00:00:00."),
+    to_date: str = Query(..., alias="to",
+        description="End of date window (exclusive), ISO 8601."),
+    include_items: bool = Query(True,
+        description="If true, include each session's agenda items inline. If false, only sessions."),
+    timeout: int = Query(60, ge=10, le=110,
+        description="Upstream OData call timeout in seconds. Capped below the ALB idle (120) so we always have headroom to return a 504 cleanly."),
+):
+    """Live Knesset plenum sessions in [from, to). No caching.
+
+    Pass-through to ``knesset.gov.il/Odata/ParliamentInfo.svc/`` with a
+    date range filter on ``StartDate``. Returns sessions ordered by
+    StartDate ascending plus their agenda items (when include_items=true)
+    inline as `items: [...]`. Hebrew dates are added as
+    ``StartDateHe``/``FinishDateHe`` for easier LLM rendering.
+    """
+    from datetime import datetime
+    from botnim.document_parser.knesset_odata.process_odata import (
+        fetch_plenum_sessions,
+        fetch_session_items,
+        _hebrew_date,
+        _DEFAULT_BASE,
+    )
+
+    def _parse(s: str, label: str) -> datetime:
+        # Accept "YYYY-MM-DD" or full ISO; normalize to naive datetime since
+        # the OData service stores StartDate as naive Israel-local timestamps.
+        s = s.strip()
+        if len(s) == 10:  # date only
+            s = s + "T00:00:00"
+        try:
+            return datetime.fromisoformat(s.replace("Z", ""))
+        except ValueError as e:
+            raise HTTPException(status_code=400,
+                detail=f"invalid {label} '{s}': expected YYYY-MM-DD or full ISO 8601 ({e})")
+
+    start_dt = _parse(from_date, "from")
+    end_dt = _parse(to_date, "to")
+    if not (start_dt < end_dt):
+        raise HTTPException(status_code=400, detail="'from' must be strictly before 'to'")
+    if (end_dt - start_dt).days > 400:
+        raise HTTPException(status_code=400, detail="window too wide; max 400 days")
+
+    try:
+        sessions = fetch_plenum_sessions(_DEFAULT_BASE, start_dt, end_dt, timeout=timeout)
+    except requests.exceptions.Timeout as e:
+        return JSONResponse(status_code=504,
+            content={"error": "upstream_timeout", "detail": str(e)})
+    except requests.exceptions.ConnectionError as e:
+        return JSONResponse(status_code=502,
+            content={"error": "upstream_connection_error", "detail": str(e)})
+
+    if include_items and sessions:
+        ids = [s["PlenumSessionID"] for s in sessions if s.get("PlenumSessionID") is not None]
+        try:
+            items = fetch_session_items(_DEFAULT_BASE, ids, timeout=timeout)
+        except requests.exceptions.Timeout as e:
+            return JSONResponse(status_code=504,
+                content={"error": "upstream_timeout", "detail": str(e)})
+        items_by_session: Dict[int, List[Dict[str, Any]]] = {}
+        for it in items:
+            items_by_session.setdefault(it["PlenumSessionID"], []).append(it)
+        for s in sessions:
+            sid = s.get("PlenumSessionID")
+            s["items"] = items_by_session.get(sid, [])
+
+    for s in sessions:
+        s["StartDateHe"] = _hebrew_date(s.get("StartDate", ""))
+        s["FinishDateHe"] = _hebrew_date(s.get("FinishDate", ""))
+
+    return {
+        "count": len(sessions),
+        "from": from_date,
+        "to": to_date,
+        "sessions": sessions,
+    }
     if format == 'yaml':
         return Response(content=results, media_type="application/x-yaml")
     return Response(content=results, media_type="text/plain")

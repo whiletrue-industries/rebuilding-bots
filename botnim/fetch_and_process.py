@@ -63,6 +63,40 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         from .document_parser.knesset_protocols.process_protocols import process_knesset_protocols_source
         output_csv_path = config_dir / source['source']
         process_knesset_protocols_source(output_csv_path=output_csv_path, **fetcher)
+    elif fetcher_kind == 'knesset_apps_committee':
+        from .document_parser.knesset_apps.committee_decisions_json import (
+            fetch_committee_decisions_index, CommitteeDecisionsConfig,
+        )
+        output_csv_path = config_dir / source['source']
+        fetch_committee_decisions_index(
+            CommitteeDecisionsConfig(output_csv_path=output_csv_path, **fetcher)
+        )
+
+    elif fetcher_kind == 'knesset_apps_ethics':
+        from .document_parser.knesset_apps.ethics_decisions_html import (
+            fetch_ethics_decisions_index, EthicsDecisionsConfig,
+        )
+        output_csv_path = config_dir / source['source']
+        fetch_ethics_decisions_index(
+            EthicsDecisionsConfig(output_csv_path=output_csv_path, **fetcher)
+        )
+
+    elif fetcher_kind == 'knesset_sharepoint_legal_advisor':
+        from .document_parser.knesset_sharepoint.scraper import scrape_legal_advisor_opinions
+        output_csv_path = config_dir / source['source']
+        scrape_legal_advisor_opinions(output_csv_path=output_csv_path, **fetcher)
+
+    elif fetcher_kind == 'knesset_sharepoint_legal_advisor_letters':
+        from .document_parser.knesset_sharepoint.scraper import scrape_legal_advisor_letters
+        output_csv_path = config_dir / source['source']
+        scrape_legal_advisor_letters(output_csv_path=output_csv_path, **fetcher)
+
+    elif fetcher_kind == 'indexed_pdf':
+        from .document_parser.pdfs.process_pdfs import process_pdf_source
+        from .document_parser.pdfs.pdf_extraction_config import SourceConfig
+        output_csv_path = config_dir / source['source']
+        config = SourceConfig(**fetcher, output_csv_path=output_csv_path)
+        process_pdf_source(config)
     elif fetcher_kind == 'gov_il_decisions':
         # First-party gov.il scrape that writes DIRECTLY to Aurora,
         # bypassing the extraction/<x>.csv → botnim sync pipeline.
@@ -94,5 +128,25 @@ def fetch_and_process(environment, bot, context, kind):
                 if context in ['all', c['slug']]:
                     specs.append((config_dir, c))
     print(f"Found {len(specs)} contexts to process")
+    # Per-context error isolation. A single upstream going stale (e.g. an
+    # empty index.csv on the BudgetKey datapackage for one context) used to
+    # abort the whole run via EmptyUpstreamIndex, leaving downstream contexts
+    # un-fetched and a subsequent `botnim sync` failing on FileNotFoundError.
+    # We now log + skip the failing context and let the others proceed; the
+    # per-context CSV stays as-is (the safety guard's whole point), and the
+    # operator gets a clear failure summary at the end.
+    failures: list[tuple[str, str, Exception]] = []
     for config_dir, spec in specs:
-        fetch_and_process_context(environment, spec, config_dir, kind)
+        ctx_name = spec.get('name', spec.get('slug', '?'))
+        try:
+            fetch_and_process_context(environment, spec, config_dir, kind)
+        except Exception as e:
+            print(f"WARNING: context {config_dir.name}/{ctx_name} failed: {type(e).__name__}: {e}")
+            failures.append((config_dir.name, ctx_name, e))
+    if failures:
+        print(f"\nfetch-and-process completed with {len(failures)} context failure(s):")
+        for bot_name, ctx_name, err in failures:
+            print(f"  - {bot_name}/{ctx_name}: {type(err).__name__}: {err}")
+        # Do not raise — let downstream sync proceed with whatever CSVs
+        # successfully refreshed. Sync itself will skip contexts whose
+        # CSVs are missing (already does — see collect_sources.py).

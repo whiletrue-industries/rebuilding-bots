@@ -24,7 +24,12 @@ if not db_url:
         "DATABASE_URL must be set when running alembic. "
         "Example: DATABASE_URL=postgresql://user:pass@host:5432/db alembic upgrade head"
     )
-config.set_main_option("sqlalchemy.url", db_url)
+# configparser uses ``%(key)s`` interpolation by default — URL-encoded
+# password chars like ``%21`` (``!``) trigger ValueError("invalid
+# interpolation syntax"). Escape every literal ``%`` to ``%%`` before
+# handing to set_main_option; SQLAlchemy / psycopg never see the
+# doubled form (configparser un-doubles on read).
+config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
 target_metadata = None  # we use raw SQL ops, not autogeneration
 

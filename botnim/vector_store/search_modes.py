@@ -54,7 +54,7 @@ REGULAR_CONFIG = SearchModeConfig(
     name="REGULAR",
     description="Semantic + full text search across all main fields.",
     min_score=0.5,
-    num_results=7,  # Default for regular/semantic search
+    num_results=15,  # Default for regular/semantic search (bumped from 7 to give RRF fusion enough room to surface boundary-rank docs that vector vs BM25 disagree on)
     use_vector_search=True,
     fields=[
         SearchFieldConfig(

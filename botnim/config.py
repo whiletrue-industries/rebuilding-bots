@@ -27,23 +27,44 @@ def get_logger(name: str) -> logging.Logger:
     #     logger.addHandler(handler)
     return logger
 
-def _resolve_openai_api_key(environment: str = 'staging') -> str:
-    api_key = os.environ.get(f'OPENAI_API_KEY_{environment.upper()}')
-    if not api_key:
-        api_key = os.environ.get('OPENAI_API_KEY_STAGING')
-    if not api_key:
-        api_key = os.environ.get('OPENAI_API_KEY')
-    if not api_key:
-        raise ValueError(f'Missing OPENAI_API_KEY_{environment.upper()} or OPENAI_API_KEY environment variable')
-    return api_key
+def _resolve_openai_api_key(environment: str | None = None) -> str:
+    """Resolve OPENAI_API_KEY for the given environment.
+
+    Lookup order:
+      1. ``OPENAI_API_KEY_{ENV}`` for the requested environment (when given).
+      2. The unprefixed ``OPENAI_API_KEY`` (works on any task that wires the
+         secret directly under that name).
+      3. Any ``OPENAI_API_KEY_{PRODUCTION,STAGING,LOCAL}`` the host happens to
+         have. This last-resort fallback keeps callers without explicit env
+         context (e.g. ``dynamic_extraction.get_openai_client()``) functional
+         on whichever ECS task they happen to run on, instead of hardcoding
+         a staging-only fallback that fails on prod.
+    """
+    candidates: list[str] = []
+    if environment:
+        candidates.append(f'OPENAI_API_KEY_{environment.upper()}')
+    candidates.append('OPENAI_API_KEY')
+    for env_name in ('PRODUCTION', 'STAGING', 'LOCAL'):
+        var = f'OPENAI_API_KEY_{env_name}'
+        if var not in candidates:
+            candidates.append(var)
+    for var in candidates:
+        api_key = os.environ.get(var)
+        if api_key:
+            return api_key
+    raise ValueError(
+        'Missing OpenAI API key — none of '
+        + ', '.join(candidates)
+        + ' is set in the environment'
+    )
 
 
-def get_openai_client(environment: str = 'staging') -> OpenAI:
-    """Get OpenAI client for the given environment"""
+def get_openai_client(environment: str | None = None) -> OpenAI:
+    """Get OpenAI client for the given environment."""
     return OpenAI(api_key=_resolve_openai_api_key(environment))
 
 
-def get_async_openai_client(environment: str = 'staging') -> AsyncOpenAI:
+def get_async_openai_client(environment: str | None = None) -> AsyncOpenAI:
     """Get async OpenAI client for the given environment.
 
     Used by the concurrent sync pipeline (see botnim/_concurrency.py) so

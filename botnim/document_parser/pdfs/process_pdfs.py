@@ -33,43 +33,82 @@ def _existing_upstream_revision(output_csv: Path) -> str | None:
 def process_pdf_source(config: SourceConfig):
     openai_client = get_openai_client()
 
-    external_source = config.external_source_url
     output_csv = Path(config.output_csv_path)
 
-    # Revision short-circuit: if the upstream datapackage revision matches what
-    # we already have, skip the rest. The per-row (url, revision) cache would
-    # catch this too, but this is cheaper (one HTTP round trip, no OpenAI calls
-    # at all).
-    upstream_revision: str | None = None
-    try:
-        dp_resp = requests.get(f'{external_source}/datapackage.json')
-        dp_resp.raise_for_status()
-        upstream_revision = json.loads(dp_resp.text).get('revision')
-    except Exception as e:
-        logger.warning(f'Could not fetch datapackage.json for {external_source}: {e}')
+    # NEW: local-index branch — index.csv already on disk (Stage 1 wrote it).
+    # The two-stage source pattern: a separate fetcher (e.g. knesset_apps,
+    # knesset_sharepoint) writes a BK-shape index.csv to disk; here we just
+    # consume it. row['url'] is the absolute PDF URL, so we don't need to
+    # build it from external_source/filename.
+    if config.local_index_csv_path is not None:
+        from ..knesset_apps.common import EmptyUpstreamIndex as KnessetEmptyUpstreamIndex
+        index_path = Path(config.local_index_csv_path)
+        if not index_path.exists():
+            raise KnessetEmptyUpstreamIndex(
+                f"local index {index_path} does not exist — Stage 1 has not "
+                f"run yet; refusing to overwrite {output_csv}"
+            )
+        with open(index_path, "r", encoding="utf-8") as f:
+            input_records = list(csv.DictReader(f))
+        if len(input_records) == 0:
+            if output_csv.exists():
+                raise KnessetEmptyUpstreamIndex(
+                    f"local index {index_path} is empty — refusing to "
+                    f"overwrite {output_csv}"
+                )
+            # First-run on a fresh setup with empty index — write empty out, exit.
+            output_csv.parent.mkdir(parents=True, exist_ok=True)
+            tmp_output = output_csv.with_suffix(output_csv.suffix + '.tmp')
+            try:
+                tmp_output.write_text("url,revision,upstream_revision\n", encoding="utf-8")
+                os.replace(tmp_output, output_csv)
+            except Exception:
+                try:
+                    tmp_output.unlink()
+                except FileNotFoundError:
+                    pass
+                raise
+            return
+        upstream_revision: str | None = ""
+        external_source = None  # NOT used for pdf URL in this branch
+    else:
+        # EXISTING: BK external source branch.
+        external_source = config.external_source_url
 
-    stored_revision = _existing_upstream_revision(output_csv)
-    if (
-        upstream_revision is not None
-        and stored_revision is not None
-        and upstream_revision == stored_revision
-    ):
-        logger.info(
-            f'{external_source}: upstream revision {upstream_revision} unchanged; '
-            f'leaving {output_csv} as-is'
-        )
-        return
+        # Revision short-circuit: if the upstream datapackage revision matches what
+        # we already have, skip the rest. The per-row (url, revision) cache would
+        # catch this too, but this is cheaper (one HTTP round trip, no OpenAI calls
+        # at all).
+        upstream_revision = None
+        try:
+            dp_resp = requests.get(f'{external_source}/datapackage.json')
+            dp_resp.raise_for_status()
+            upstream_revision = json.loads(dp_resp.text).get('revision')
+        except Exception as e:
+            logger.warning(f'Could not fetch datapackage.json for {external_source}: {e}')
 
-    input_csv = requests.get(f'{external_source}/index.csv').text
-    input_csv = StringIO(input_csv)
-    input_csv = csv.DictReader(input_csv)
-    input_records = list(input_csv)
+        stored_revision = _existing_upstream_revision(output_csv)
+        if (
+            upstream_revision is not None
+            and stored_revision is not None
+            and upstream_revision == stored_revision
+        ):
+            logger.info(
+                f'{external_source}: upstream revision {upstream_revision} unchanged; '
+                f'leaving {output_csv} as-is'
+            )
+            return
 
-    if len(input_records) == 0:
-        raise EmptyUpstreamIndex(
-            f"{external_source}: upstream index.csv is empty — refusing to "
-            f"overwrite {output_csv}"
-        )
+        input_csv = requests.get(f'{external_source}/index.csv').text
+        input_csv = StringIO(input_csv)
+        input_csv = csv.DictReader(input_csv)
+        input_records = list(input_csv)
+
+        if len(input_records) == 0:
+            raise EmptyUpstreamIndex(
+                f"{external_source}: upstream index.csv is empty — refusing to "
+                f"overwrite {output_csv}"
+            )
 
     existing_urls = dict()
     if output_csv.exists():
@@ -81,7 +120,10 @@ def process_pdf_source(config: SourceConfig):
     out = []
     for row in input_records:
         url = row['url']
-        pdf_url = f'{external_source}/{row["filename"]}'
+        if external_source is not None:
+            pdf_url = f'{external_source}/{row["filename"]}'
+        else:
+            pdf_url = row['url']
         if (url, REVISION) in existing_urls:
             out.append(existing_urls[(url, REVISION)])
             logger.info(f'Skipping existing URL: {url}')
