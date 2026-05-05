@@ -143,6 +143,9 @@ async def search_datasets_handler(
             status_code=500,
             content={"error": "search_error", "detail": str(e), "store_id": store_id},
         )
+    if format == 'yaml':
+        return Response(content=results, media_type="application/x-yaml")
+    return Response(content=results, media_type="text/plain")
 
 
 # ---------------------------------------------------------------------------
