@@ -362,7 +362,7 @@ class VectorStoreAurora(VectorStoreBase):
             # better recall. SET LOCAL keeps it scoped to this txn so it doesn't
             # leak across the connection pool. (See migration 0007 for the
             # ivfflat → hnsw swap rationale.)
-            sess.execute(text("SET LOCAL hnsw.ef_search = 100"))
+            sess.execute(text("SET LOCAL hnsw.ef_search = 500"))
 
             row = sess.execute(text(
                 "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
