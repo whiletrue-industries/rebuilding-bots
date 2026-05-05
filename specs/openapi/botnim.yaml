@@ -558,9 +558,39 @@
         "deprecated": false
       }
     },
+    "/botnim/knesset/sessions": {
+      "get": {
+        "description": "Live Knesset plenary sessions in a date window — JIT call to knesset.gov.il OData (no caching). Use this for time-sensitive questions: 'מה הישיבה הבאה במליאה', 'מה היה בישיבה לפני', 'איזה ישיבות מתוכננות בשבועיים הקרובים'. For content-driven semantic queries ('which session covered חוק מימון מפלגות'), use search_unified__plenary_schedule__dev instead. Returns sessions ordered by StartDate ascending; when include_items=true (default) each session has its agenda items inline as `items: [...]`. Hebrew dates are added as StartDateHe/FinishDateHe.",
+        "operationId": "knesset_sessions_live",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start of date window (inclusive), ISO 8601: YYYY-MM-DD or full ISO. Window must be ≤ 400 days.",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End of date window (exclusive), ISO 8601.",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "include_items",
+            "in": "query",
+            "description": "Include each session's agenda items inline. Default true.",
+            "required": false,
+            "schema": {"type": "boolean", "default": true}
+          }
+        ],
+        "deprecated": false
+      }
+    },
     "/botnim/retrieve/unified/plenary_schedule__dev": {
       "get": {
-        "description": "Search the Knesset plenary sitting schedule (לוח מליאה / לו\"ז המליאה). Use for upcoming and recent plenary sittings, scheduled bill readings, urgent motions for the agenda, and any time/date question about when the plenum is meeting. Each result is one (session, agenda-item) row sourced live from the Knesset ParliamentInfo OData service.",
+        "description": "Search the Knesset plenary sitting schedule (לוח מליאה / לו\"ז המליאה). Use for content-driven semantic queries on plenary sessions ('which session covered חוק מימון מפלגות'). For time-sensitive lookups ('next session', 'last session', date-window questions), prefer the live knesset_sessions_live operation. Each result is one (session, agenda-item) row sourced from the Knesset ParliamentInfo OData service via fap-time refresh.",
         "operationId": "search_unified__plenary_schedule__dev",
         "parameters": [
           {

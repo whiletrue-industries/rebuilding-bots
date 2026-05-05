@@ -48,7 +48,7 @@ logger = get_logger(__name__)
 
 
 _DEFAULT_BASE = "https://knesset.gov.il/Odata/ParliamentInfo.svc"
-_DEFAULT_DAYS_PAST = 30
+_DEFAULT_DAYS_PAST = 365
 _DEFAULT_DAYS_FUTURE = 90
 _PAGE_SIZE = 250  # OData service caps page size; 250 keeps round trips low.
 
