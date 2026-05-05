@@ -83,10 +83,15 @@ context:
   examples: חוות דעת על ניגוד עניינים, פרשנות משפטית, הנחיה פורמלית
   sources:
   - type: csv
+    source: extraction/legal_advisor_opinions/index.csv
+    fetcher:
+      kind: knesset_sharepoint_legal_advisor
+      page_url: https://main.knesset.gov.il/about/departments/pages/leg/ldopinions.aspx
+  - type: csv
     source: extraction/knesset_legal_advisor.csv
     fetcher:
-      kind: pdf
-      external_source_url: https://next.obudget.org/datapackages/knesset/knesset_legal_advisor
+      kind: indexed_pdf
+      local_index_csv_path: extraction/legal_advisor_opinions/index.csv
       fields:
       - name: מספר_מסמך
         description: מספר המסמך או מזהה ייחודי
@@ -174,10 +179,15 @@ context:
   examples: מכתב בעניין פנייה, תשובה על שאלה, בירור משפטי
   sources:
   - type: csv
+    source: extraction/legal_advisor_letters/index.csv
+    fetcher:
+      kind: knesset_sharepoint_legal_advisor_letters
+      page_url: https://main.knesset.gov.il/about/departments/pages/leg/ldguidelines.aspx
+  - type: csv
     source: extraction/knesset_legal_advisor_letters.csv
     fetcher:
-      kind: pdf
-      external_source_url: https://next.obudget.org/datapackages/knesset/knesset_legal_advisor_letters
+      kind: indexed_pdf
+      local_index_csv_path: extraction/legal_advisor_letters/index.csv
       fields:
       - name: מספר_מסמך
         description: מספר המסמך או מזהה ייחודי
@@ -265,10 +275,17 @@ context:
   examples: החלטת ועדת הכנסת על נוהל, החלטה פרוצדורלית, הסדר עבודה
   sources:
   - type: csv
+    source: extraction/committee_decisions/index.csv
+    fetcher:
+      kind: knesset_apps_committee
+      committee_id: 2211
+      from_date: "2022-11-15"
+      knesset_ids: "25"
+  - type: csv
     source: extraction/knesset_committee_decisions.csv
     fetcher:
-      kind: pdf
-      external_source_url: https://next.obudget.org/datapackages/knesset/knesset_committee_decisions
+      kind: indexed_pdf
+      local_index_csv_path: extraction/committee_decisions/index.csv
       fields:
       - name: שם_החלטה
         description: שם ההחלטה או הנושא המרכזי
@@ -333,10 +350,17 @@ context:
   examples: תרומה לחבר כנסת, ניגוד עניינים, הפרת כללי אתיקה, סנקציות
   sources:
   - type: csv
+    source: extraction/ethics_decisions/index.csv
+    fetcher:
+      kind: knesset_apps_ethics
+      page_name: "EthicsDecisions25"
+      committee_id: 2217
+      knesset_num: 25
+  - type: csv
     source: extraction/ethics_committee_decisions.csv
     fetcher:
-      kind: pdf
-      external_source_url: https://next.obudget.org/datapackages/knesset/ethics_committee_decisions
+      kind: indexed_pdf
+      local_index_csv_path: extraction/ethics_decisions/index.csv
       fields:
       - name: שם_החלטה
         description: שם ההחלטה או ההודעה
