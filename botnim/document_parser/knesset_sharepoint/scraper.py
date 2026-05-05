@@ -360,3 +360,50 @@ def ethics_committee_decisions_config(output_csv_path: Path) -> ScrapeConfig:
         sub_index_extractor=_ethics_sub_index_extractor,
         row_extractor=_ethics_row_extractor,
     )
+
+
+# ---------------------------------------------------------------------------
+# Operator-facing wrappers used by ``fetch_and_process_source`` dispatch.
+# Each wrapper builds a ``ScrapeConfig`` from the kwargs supplied via
+# ``config.yaml`` and forwards to ``scrape_pdf_index``. Extra kwargs
+# (e.g. ``headless``, ``timeout_ms`` if a future config passes them)
+# are tolerated and forwarded only when ``ScrapeConfig`` accepts them;
+# truly unknown kwargs are discarded so the dispatcher need not know
+# about every per-fetcher field.
+# ---------------------------------------------------------------------------
+
+# ScrapeConfig fields that a config.yaml entry may legitimately override
+# beyond page_url/output_csv_path. Anything else in **_extra is dropped.
+_SCRAPE_CONFIG_PASSTHROUGH_FIELDS = {"timeout_ms", "extra_browser_args"}
+
+
+def _select_passthrough(extra: dict) -> dict:
+    return {k: v for k, v in extra.items() if k in _SCRAPE_CONFIG_PASSTHROUGH_FIELDS}
+
+
+def scrape_legal_advisor_opinions(*, output_csv_path, page_url, **_extra):
+    """fap dispatch wrapper for the legal-advisor opinions page.
+
+    Builds a ``ScrapeConfig`` with the ``a.LDDocLink`` selector used by
+    ``legal_advisor_opinions_config`` and forwards to ``scrape_pdf_index``.
+    Extra kwargs are silently ignored unless they map to a known
+    ``ScrapeConfig`` field (``timeout_ms``, ``extra_browser_args``).
+    """
+    config = ScrapeConfig(
+        page_url=page_url,
+        anchor_selector="a.LDDocLink",
+        output_csv_path=Path(output_csv_path),
+        **_select_passthrough(_extra),
+    )
+    return scrape_pdf_index(config)
+
+
+def scrape_legal_advisor_letters(*, output_csv_path, page_url, **_extra):
+    """fap dispatch wrapper for the legal-advisor letters page."""
+    config = ScrapeConfig(
+        page_url=page_url,
+        anchor_selector="a.LDDocLink",
+        output_csv_path=Path(output_csv_path),
+        **_select_passthrough(_extra),
+    )
+    return scrape_pdf_index(config)
