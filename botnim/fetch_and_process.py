@@ -94,5 +94,25 @@ def fetch_and_process(environment, bot, context, kind):
                 if context in ['all', c['slug']]:
                     specs.append((config_dir, c))
     print(f"Found {len(specs)} contexts to process")
+    # Per-context error isolation. A single upstream going stale (e.g. an
+    # empty index.csv on the BudgetKey datapackage for one context) used to
+    # abort the whole run via EmptyUpstreamIndex, leaving downstream contexts
+    # un-fetched and a subsequent `botnim sync` failing on FileNotFoundError.
+    # We now log + skip the failing context and let the others proceed; the
+    # per-context CSV stays as-is (the safety guard's whole point), and the
+    # operator gets a clear failure summary at the end.
+    failures: list[tuple[str, str, Exception]] = []
     for config_dir, spec in specs:
-        fetch_and_process_context(environment, spec, config_dir, kind)
+        ctx_name = spec.get('name', spec.get('slug', '?'))
+        try:
+            fetch_and_process_context(environment, spec, config_dir, kind)
+        except Exception as e:
+            print(f"WARNING: context {config_dir.name}/{ctx_name} failed: {type(e).__name__}: {e}")
+            failures.append((config_dir.name, ctx_name, e))
+    if failures:
+        print(f"\nfetch-and-process completed with {len(failures)} context failure(s):")
+        for bot_name, ctx_name, err in failures:
+            print(f"  - {bot_name}/{ctx_name}: {type(err).__name__}: {err}")
+        # Do not raise — let downstream sync proceed with whatever CSVs
+        # successfully refreshed. Sync itself will skip contexts whose
+        # CSVs are missing (already does — see collect_sources.py).
