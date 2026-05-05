@@ -83,7 +83,19 @@ def fetch_and_process_context(environment, context, config_dir: Path, kind):
     else:
         fetch_and_process_source(environment, config_dir, context_name, context, kind)
 
-def fetch_and_process(environment, bot, context, kind):
+def fetch_and_process(environment, bot, context, kind, *, progress_cb=None):
+    """Fetch + process every (bot, context) pair matching the filters.
+
+    progress_cb: optional callable invoked as ``progress_cb(event, **payload)``
+    where ``event`` is one of:
+      - "begin_run"     payload={"total_contexts": int}
+      - "begin_context" payload={"bot": str, "context": str}
+      - "end_context"   payload={"bot": str, "context": str, "ok": bool,
+                                  "error": Exception | None}
+    Used by the /admin/refresh background thread to feed an in-memory
+    RefreshTracker; left optional so the CLI / direct callers don't need
+    to know about it.
+    """
     specs = []
     config_files = [(d, d / 'config.yaml') for d in SPECS.iterdir() if d.is_dir() and (d / 'config.yaml').exists() and bot in ['all', d.name]]
     for config_dir, conf in config_files:
@@ -94,6 +106,11 @@ def fetch_and_process(environment, bot, context, kind):
                 if context in ['all', c['slug']]:
                     specs.append((config_dir, c))
     print(f"Found {len(specs)} contexts to process")
+    if progress_cb is not None:
+        try:
+            progress_cb("begin_run", total_contexts=len(specs))
+        except Exception:
+            pass  # Progress reporting must never break the actual run.
     # Per-context error isolation. A single upstream going stale (e.g. an
     # empty index.csv on the BudgetKey datapackage for one context) used to
     # abort the whole run via EmptyUpstreamIndex, leaving downstream contexts
@@ -104,11 +121,25 @@ def fetch_and_process(environment, bot, context, kind):
     failures: list[tuple[str, str, Exception]] = []
     for config_dir, spec in specs:
         ctx_name = spec.get('name', spec.get('slug', '?'))
+        bot_name = config_dir.name
+        if progress_cb is not None:
+            try:
+                progress_cb("begin_context", bot=bot_name, context=ctx_name)
+            except Exception:
+                pass
+        ctx_err: Exception | None = None
         try:
             fetch_and_process_context(environment, spec, config_dir, kind)
         except Exception as e:
-            print(f"WARNING: context {config_dir.name}/{ctx_name} failed: {type(e).__name__}: {e}")
-            failures.append((config_dir.name, ctx_name, e))
+            print(f"WARNING: context {bot_name}/{ctx_name} failed: {type(e).__name__}: {e}")
+            failures.append((bot_name, ctx_name, e))
+            ctx_err = e
+        if progress_cb is not None:
+            try:
+                progress_cb("end_context", bot=bot_name, context=ctx_name,
+                            ok=ctx_err is None, error=ctx_err)
+            except Exception:
+                pass
     if failures:
         print(f"\nfetch-and-process completed with {len(failures)} context failure(s):")
         for bot_name, ctx_name, err in failures:

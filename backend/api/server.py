@@ -19,6 +19,7 @@ from botnim.bot_config import load_bot_config
 from botnim.config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT
 from botnim.fetch_and_process import fetch_and_process
 from botnim.sync import sync_agents
+from botnim.refresh_tracker import TRACKER as REFRESH_TRACKER
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +259,26 @@ async def knesset_sessions_live(
 # ---------------------------------------------------------------------------
 
 
+def _refresh_progress_cb(event: str, **payload) -> None:
+    """Bridge fetch_and_process events into the REFRESH_TRACKER singleton.
+
+    Defensive — must never raise (the run thread keeps going regardless).
+    """
+    try:
+        if event == "begin_run":
+            REFRESH_TRACKER.begin_run(total_contexts=int(payload.get("total_contexts", 0)))
+        elif event == "begin_context":
+            REFRESH_TRACKER.begin_context(payload["bot"], payload["context"])
+        elif event == "end_context":
+            REFRESH_TRACKER.end_context(
+                payload["bot"], payload["context"],
+                ok=bool(payload.get("ok", False)),
+                error=payload.get("error"),
+            )
+    except Exception as e:
+        logger.warning(f"refresh tracker progress_cb failed for event={event}: {e}")
+
+
 def _run_refresh_job() -> None:
     env = os.environ.get("ENVIRONMENT", DEFAULT_ENVIRONMENT)
     logger.info(f"REFRESH_START: env={env}")
@@ -265,7 +286,7 @@ def _run_refresh_job() -> None:
     # newly-added fetcher type (bk_csv for government_decisions, future
     # additions) gets picked up without a code change here. Static fetchers
     # (lexicon, wikitext) re-run cheaply when nothing changed upstream.
-    fetch_and_process(env, "all", "all", "all")
+    fetch_and_process(env, "all", "all", "all", progress_cb=_refresh_progress_cb)
     # backend defaults to 'aurora' (sync.py:80) post-2026-04 migration.
     sync_agents(env, "all")
     logger.info("REFRESH_OK")
@@ -274,8 +295,10 @@ def _run_refresh_job() -> None:
 def _run_refresh_job_background() -> None:
     try:
         _run_refresh_job()
+        REFRESH_TRACKER.finish_run(ok=True)
     except Exception as e:
         logger.error(f"REFRESH_FAILED: {type(e).__name__}: {e}", exc_info=True)
+        REFRESH_TRACKER.finish_run(ok=False, error=e)
 
 
 @app.post("/admin/refresh", status_code=202)
@@ -286,11 +309,28 @@ async def refresh(
     """Kick off a full knesset-PDF refresh in the background.
 
     Returns 202 Accepted immediately. The actual refresh runs in a thread;
-    check CloudWatch logs for REFRESH_START / REFRESH_OK / REFRESH_FAILED.
+    check CloudWatch logs for REFRESH_START / REFRESH_OK / REFRESH_FAILED,
+    or poll GET /admin/refresh/status for an in-band progress snapshot.
     """
     thread = threading.Thread(target=_run_refresh_job_background, daemon=True)
     thread.start()
     return {"status": "accepted"}
+
+
+@app.get("/admin/refresh/status")
+@app.get("/botnim/admin/refresh/status")
+async def refresh_status(
+    _auth: None = Depends(require_refresh_api_key),
+) -> Dict[str, Any]:
+    """Snapshot of the most recent (or in-flight) refresh run.
+
+    Read-only; safe to poll from a UI. Returns the tracker's process-local
+    state — see botnim/refresh_tracker.py for the schema. Not durable
+    across api task restarts; that's intentional (the daily Lambda re-runs
+    refresh anyway, and a ground-truth view of past runs lives in
+    /admin/sources via context_snapshots).
+    """
+    return REFRESH_TRACKER.snapshot()
 
 
 router = APIRouter(

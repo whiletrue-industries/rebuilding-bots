@@ -27,7 +27,7 @@ for mod in [
     "botnim.vector_store.vector_store_es", "botnim.vector_store.search_modes",
     "botnim.query",
     "botnim.bot_config", "botnim.config",
-    "botnim.fetch_and_process", "botnim.sync",
+    "botnim.fetch_and_process", "botnim.sync", "botnim.refresh_tracker",
 ]:
     sys.modules[mod] = MagicMock()
 
