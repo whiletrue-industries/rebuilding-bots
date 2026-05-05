@@ -58,7 +58,16 @@ def process_pdf_source(config: SourceConfig):
                 )
             # First-run on a fresh setup with empty index — write empty out, exit.
             output_csv.parent.mkdir(parents=True, exist_ok=True)
-            output_csv.write_text("url,revision,upstream_revision\n", encoding="utf-8")
+            tmp_output = output_csv.with_suffix(output_csv.suffix + '.tmp')
+            try:
+                tmp_output.write_text("url,revision,upstream_revision\n", encoding="utf-8")
+                os.replace(tmp_output, output_csv)
+            except Exception:
+                try:
+                    tmp_output.unlink()
+                except FileNotFoundError:
+                    pass
+                raise
             return
         upstream_revision: str | None = ""
         external_source = None  # NOT used for pdf URL in this branch

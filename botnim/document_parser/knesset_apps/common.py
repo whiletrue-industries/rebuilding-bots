@@ -8,10 +8,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from botnim.document_parser.pdfs.exceptions import (
+    EmptyUpstreamIndex as _PdfsEmptyUpstreamIndex,
+)
 
-class EmptyUpstreamIndex(Exception):
-    """Raised when the upstream API returned zero rows but the existing
-    CSV is populated — refusing to overwrite real data with nothing."""
+
+class EmptyUpstreamIndex(_PdfsEmptyUpstreamIndex):
+    """Stage 1 fetcher's empty-index guard. Inherits from pdfs.exceptions
+    variant so that downstream ``except`` clauses on either symbol catch both
+    raise sites — preserves the per-context error isolation contract."""
+    pass
 
 
 @dataclass
