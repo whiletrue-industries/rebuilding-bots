@@ -63,6 +63,40 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         from .document_parser.knesset_protocols.process_protocols import process_knesset_protocols_source
         output_csv_path = config_dir / source['source']
         process_knesset_protocols_source(output_csv_path=output_csv_path, **fetcher)
+    elif fetcher_kind == 'knesset_apps_committee':
+        from .document_parser.knesset_apps.committee_decisions_json import (
+            fetch_committee_decisions_index, CommitteeDecisionsConfig,
+        )
+        output_csv_path = config_dir / source['source']
+        fetch_committee_decisions_index(
+            CommitteeDecisionsConfig(output_csv_path=output_csv_path, **fetcher)
+        )
+
+    elif fetcher_kind == 'knesset_apps_ethics':
+        from .document_parser.knesset_apps.ethics_decisions_html import (
+            fetch_ethics_decisions_index, EthicsDecisionsConfig,
+        )
+        output_csv_path = config_dir / source['source']
+        fetch_ethics_decisions_index(
+            EthicsDecisionsConfig(output_csv_path=output_csv_path, **fetcher)
+        )
+
+    elif fetcher_kind == 'knesset_sharepoint_legal_advisor':
+        from .document_parser.knesset_sharepoint.scraper import scrape_legal_advisor_opinions
+        output_csv_path = config_dir / source['source']
+        scrape_legal_advisor_opinions(output_csv_path=output_csv_path, **fetcher)
+
+    elif fetcher_kind == 'knesset_sharepoint_legal_advisor_letters':
+        from .document_parser.knesset_sharepoint.scraper import scrape_legal_advisor_letters
+        output_csv_path = config_dir / source['source']
+        scrape_legal_advisor_letters(output_csv_path=output_csv_path, **fetcher)
+
+    elif fetcher_kind == 'indexed_pdf':
+        from .document_parser.pdfs.process_pdfs import process_pdf_source
+        from .document_parser.pdfs.pdf_extraction_config import SourceConfig
+        output_csv_path = config_dir / source['source']
+        config = SourceConfig(**fetcher, output_csv_path=output_csv_path)
+        process_pdf_source(config)
     elif fetcher_kind == 'gov_il_decisions':
         # First-party gov.il scrape that writes DIRECTLY to Aurora,
         # bypassing the extraction/<x>.csv → botnim sync pipeline.
