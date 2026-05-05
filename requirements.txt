@@ -38,3 +38,14 @@ PyMuPDF>=1.24,<2.0
 # Gov_Res_fulldata_*.xlsx. After bootstrap the pipeline never touches
 # Excel again. See botnim/document_parser/gov_il_decisions/bootstrap.py.
 openpyxl>=3.1,<4.0
+# Headless Chromium driver + stealth patches for the knesset_sharepoint
+# scraper. main.knesset.gov.il is gated by the Reblaze WAF (winsocks JS
+# challenge) and plain requests/curl_cffi get a 585-byte stub instead of
+# content. Real headless Chrome alone is also detected — we need
+# playwright-stealth's navigator.webdriver patches to pass. See
+# botnim/document_parser/knesset_sharepoint/scraper.py.
+playwright>=1.45,<2
+# Note: scraper uses the 2.x `Stealth` class API (`Stealth().use_sync(...)`),
+# not the 1.x `stealth_sync()` function. 1.x also imports the removed
+# `pkg_resources` module on modern setuptools and crashes at import time.
+playwright-stealth>=2.0,<3

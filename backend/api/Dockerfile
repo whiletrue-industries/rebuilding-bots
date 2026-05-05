@@ -44,6 +44,10 @@ COPY backend/api/resolve_firebase_user.py .
 COPY backend/api/api_server.sh .
 COPY firebase-credentials.json ./firebase-credentials.json
 RUN pip install -e .
+# Playwright Chromium + system libs for the knesset_sharepoint scraper
+# (Reblaze-walled SharePoint pages on main.knesset.gov.il). --with-deps
+# pulls libnss3, libxkbcommon0, libatk-bridge2.0-0, etc.
+RUN playwright install --with-deps chromium
 ENV PYTHONUNBUFFERED=1
 ENTRYPOINT ["/bin/bash", "-c"]
 CMD ["./api_server.sh"]
