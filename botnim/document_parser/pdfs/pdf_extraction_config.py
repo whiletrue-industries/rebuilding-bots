@@ -6,7 +6,7 @@ field definitions, and extraction instructions.
 
 from pathlib import Path
 from typing import List, Dict, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 import yaml
 
 class FieldConfig(BaseModel):
@@ -28,20 +28,47 @@ class FieldConfig(BaseModel):
 class SourceConfig(BaseModel):
     """
     Configuration for a PDF source with extraction rules.
-    
+
     A source represents a collection of PDF files that share the same
     structure and extraction rules (e.g., ethics committee decisions).
-    
+
+    Exactly one of ``external_source_url`` or ``local_index_csv_path``
+    must be set. The former points at a BudgetKey datapackage directory
+    (legacy Stage-1+2 in one shot); the latter points at a pre-built
+    ``index.csv`` written by a separate Stage-1 fetcher (two-stage source
+    pattern).
+
     Attributes:
         fields: List of fields to extract from documents
         extraction_instructions: Instructions for the LLM extraction process
-        external_source_url: URL to Open Budget source directory
+        external_source_url: URL to Open Budget source directory (BK datapackage)
+        local_index_csv_path: Local path (relative to config_dir) to a
+            pre-built index.csv. Mutually exclusive with external_source_url.
         output_csv_path: Path to the output CSV file
     """
     fields: List[FieldConfig] = Field(..., description="Fields to extract from documents")
     extraction_instructions: Optional[str] = Field(None, description="LLM extraction instructions")
-    external_source_url: str = Field(..., description="URL to Open Budget source directory")
+    external_source_url: Optional[str] = Field(
+        None, description="URL to Open Budget source directory (BK datapackage)"
+    )
+    local_index_csv_path: Optional[str] = Field(
+        None,
+        description=(
+            "Local path (relative to config_dir) to a pre-built index.csv. "
+            "Mutually exclusive with external_source_url."
+        ),
+    )
     output_csv_path: Path = Field(..., description="Path to the output CSV file")
+
+    @model_validator(mode='after')
+    def _exactly_one_source(self):
+        a = self.external_source_url is not None
+        b = self.local_index_csv_path is not None
+        if a == b:  # both True or both False
+            raise ValueError(
+                "exactly one of external_source_url or local_index_csv_path must be set"
+            )
+        return self
 
 # class PDFExtractionConfig(BaseModel):
 #     """
