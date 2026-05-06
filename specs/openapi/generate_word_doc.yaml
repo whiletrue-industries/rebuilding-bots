@@ -52,10 +52,19 @@ components:
           maximum: 3
         body_md:
           type: string
+          minLength: 1
           maxLength: 200000
           description: |
+            REQUIRED non-empty markdown content for this section.
             Markdown subset: paragraphs, ## / ### subheadings, - / 1. lists,
             **bold**, *italic*, [text](url) links. Hebrew text fully supported.
+
+            DO NOT pass empty or whitespace-only strings — server returns 422.
+            For tabular source data, convert to a bullet list or descriptive
+            paragraphs, e.g.:
+              "- 2023: 77,776,056,000 ₪
+               - 2024: 84,071,785,000 ₪"
+            Tables, images, and code are NOT supported in this version.
     WordDocRequest:
       type: object
       required: [title, sections]
