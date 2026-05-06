@@ -179,7 +179,7 @@ def fetch_and_process_(bot, context, kind, environment):
 @click.argument('output_base_dir')
 @click.option('--content-type', default='סעיף')
 @click.option('--environment', default='staging')
-@click.option('--model', default='gpt-4.1')
+@click.option('--model', default='gpt-4.1-mini')
 @click.option('--max-tokens', type=int, default=None)
 @click.option('--generate-markdown', is_flag=True)
 def process_wikitext(input_url, output_base_dir, content_type, environment, model, max_tokens, generate_markdown):
