@@ -13,13 +13,13 @@
   "paths": {
     "/api/tables/{dataset}/info": {
       "get": {
-        "description": "Get information regarding a specific dataset, including its columns and db schema",
+        "description": "Get information regarding a specific BudgetKey dataset (national budget tables: budget_items_data, budget_changes, budget_books_dynamic_data). Returns only the schema/column descriptions — DOES NOT return cabinet decision text or metadata. **NOT a substitute for the Aurora `government_decisions` retrieval tool**, which is the canonical source for Israeli cabinet-decision content. Use this only for budget/spending tables.",
         "operationId": "DatasetInfo",
         "parameters": [
           {
             "name": "dataset",
             "in": "path",
-            "description": "id of the dataset to get information for",
+            "description": "id of the dataset to get information for. Valid values: budget_items_data, budget_changes, budget_books_dynamic_data. (NOTE: a `government_decisions` dataset exists in BudgetKey but it covers BUDGET-LINE allocations tied to cabinet decisions, NOT the decision text — use the Aurora `government_decisions` retrieval tool for decision content.)",
             "required": true,
             "schema": {
               "type": "string"
@@ -31,7 +31,7 @@
     },
     "/api/tables/{dataset}/search": {
       "get": {
-        "description": "Full text search on a specific dataset",
+        "description": "Full text search on a specific BudgetKey dataset (budget tables only). NOT for cabinet decision content — for 'החלטות ממשלה' / cabinet decisions use the Aurora `government_decisions` retrieval tool instead.",
         "operationId": "DatasetFullTextSearch",
         "parameters": [
           {
@@ -58,7 +58,7 @@
     },
     "/api/tables/{dataset}/query": {
       "get": {
-        "description": "Perform SQL on a specific dataset's database",
+        "description": "Perform SQL on a specific BudgetKey dataset's database (budget tables only). NOT for cabinet decisions — for 'החלטות ממשלה' / cabinet decisions use the Aurora `government_decisions` retrieval tool, which has full-text + LLM-derived categories not present in the BudgetKey budget tables.",
         "operationId": "DatasetDBQuery",
         "parameters": [     
           {
