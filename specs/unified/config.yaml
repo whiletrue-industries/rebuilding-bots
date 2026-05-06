@@ -86,7 +86,7 @@ context:
     source: extraction/legal_advisor_opinions/index.csv
     fetcher:
       kind: knesset_sharepoint_legal_advisor
-      page_url: https://main.knesset.gov.il/about/departments/pages/leg/ldopinions.aspx
+      page_url: https://main.knesset.gov.il/about/departments/pages/leg/ldguidelines.aspx
   - type: csv
     source: extraction/knesset_legal_advisor.csv
     fetcher:
@@ -182,7 +182,7 @@ context:
     source: extraction/legal_advisor_letters/index.csv
     fetcher:
       kind: knesset_sharepoint_legal_advisor_letters
-      page_url: https://main.knesset.gov.il/about/departments/pages/leg/ldguidelines.aspx
+      page_url: https://main.knesset.gov.il/about/departments/pages/leg/ldguidelines2.aspx
   - type: csv
     source: extraction/knesset_legal_advisor_letters.csv
     fetcher:
