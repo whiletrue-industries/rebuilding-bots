@@ -104,7 +104,18 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         from .document_parser.pdfs.process_pdfs import process_pdf_source
         from .document_parser.pdfs.pdf_extraction_config import SourceConfig
         output_csv_path = config_dir / source['source']
-        config = SourceConfig(**fetcher, output_csv_path=output_csv_path)
+        # local_index_csv_path is documented as relative-to-config_dir (see
+        # pdf_extraction_config.py). Resolve it here so process_pdf_source
+        # (which only sees the absolute SourceConfig) can find the index Stage
+        # 1 wrote — the container cwd is /app, not config_dir.
+        fetcher_kw = dict(fetcher)
+        raw_idx = fetcher_kw.get('local_index_csv_path')
+        if raw_idx:
+            idx = Path(raw_idx)
+            if not idx.is_absolute():
+                idx = config_dir / idx
+            fetcher_kw['local_index_csv_path'] = str(idx)
+        config = SourceConfig(**fetcher_kw, output_csv_path=output_csv_path)
         process_pdf_source(config)
     elif fetcher_kind == 'gov_il_decisions':
         # First-party gov.il scrape that writes DIRECTLY to Aurora,
