@@ -29,7 +29,7 @@ def test_document_processing():
         output_base_dir=output_dir,
         content_type="סעיף",
         environment=Environment.STAGING,
-        model="gpt-4.1",
+        model="gpt-4.1-mini",
         max_tokens=32000,
         dry_run=True,  # Use dry run for testing
         overwrite_existing=True,

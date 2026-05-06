@@ -33,7 +33,7 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
             output_base_dir=output_base_dir,
             content_type='סעיף',
             environment=Environment(environment),  # Convert string to enum
-            model='gpt-4.1',
+            model='gpt-4.1-mini',
             max_tokens=None
         )
         runner = WikitextProcessor(config)

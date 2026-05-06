@@ -15,7 +15,7 @@ from jsonschema import ValidationError as JSONSchemaValidationError
 
 logger = get_logger(__name__)
 
-def extract_fields_from_text(text: str, config: SourceConfig, client, model: str = "gpt-4.1") -> Dict:
+def extract_fields_from_text(text: str, config: SourceConfig, client, model: str = "gpt-4.1-mini") -> Dict:
     """
     Extract structured fields from text using LLM with enhanced JSON schema validation.
     

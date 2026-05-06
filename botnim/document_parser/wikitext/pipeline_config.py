@@ -61,7 +61,7 @@ class WikitextProcessorConfig:
     environment: Environment = Environment.STAGING
     
     # OpenAI parameters
-    model: str = "gpt-4.1"  # Use mini model with larger context window
+    model: str = "gpt-4.1-mini"  # 5x cheaper, same 1M context, same json_object support
     max_tokens: Optional[int] = None  # Optional; if None, use model default
             
     # Derived paths
