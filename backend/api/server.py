@@ -19,6 +19,9 @@ from botnim.bot_config import load_bot_config
 from botnim.config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT
 from botnim.fetch_and_process import fetch_and_process
 from botnim.sync import sync_agents
+from botnim.word_doc.models import WordDocRequest, WordDocResponse
+from botnim.word_doc.render import render_word_doc, sanitize_filename
+from botnim.word_doc.storage import upload_word_doc
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +149,48 @@ async def search_datasets_handler(
     if format == 'yaml':
         return Response(content=results, media_type="application/x-yaml")
     return Response(content=results, media_type="text/plain")
+
+
+# ---------------------------------------------------------------------------
+# Word-doc generation tool
+#
+# POST /tools/generate_word_doc — takes a structured {title, sections} body,
+# renders a Hebrew RTL .docx via python-docx, uploads to the env-scoped S3
+# bucket (set via WORD_DOCS_BUCKET), and returns a 7-day presigned URL the
+# unified bot embeds in its chat reply. The bucket is provisioned by a
+# separate terragrunt sub-stack with a 7-day lifecycle; if WORD_DOCS_BUCKET
+# is unset the endpoint replies 503 (feature disabled), so partial deploys
+# (image rolled out before the bucket exists) degrade cleanly.
+# ---------------------------------------------------------------------------
+
+
+@app.post("/tools/generate_word_doc", response_model=WordDocResponse)
+@app.post("/botnim/tools/generate_word_doc", response_model=WordDocResponse)
+def generate_word_doc(req: WordDocRequest) -> WordDocResponse:
+    bucket = os.getenv("WORD_DOCS_BUCKET", "")
+    if not bucket:
+        raise HTTPException(
+            status_code=503,
+            detail="WORD_DOCS_BUCKET not configured; word-doc generation disabled",
+        )
+    try:
+        body = render_word_doc(req)
+    except Exception as e:
+        logger.exception("word_doc render failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"render failed: {type(e).__name__}",
+        )
+
+    filename = sanitize_filename(req.title)
+    try:
+        return upload_word_doc(bucket=bucket, body=body, filename=filename)
+    except Exception as e:
+        logger.exception("word_doc S3 upload failed")
+        raise HTTPException(
+            status_code=502,
+            detail=f"upload failed: {type(e).__name__}",
+        )
 
 
 # ---------------------------------------------------------------------------
