@@ -60,6 +60,9 @@ module "botnim_api" {
 
   environment_variables = {
     ENVIRONMENT = "production"
+    # S3 bucket for /tools/generate_word_doc uploads. Bucket lifecycle
+    # auto-purges objects after 7 days; presigned URLs are shorter-lived.
+    WORD_DOCS_BUCKET = aws_s3_bucket.word_docs.id
   }
 
   secret_arns = concat(
@@ -140,9 +143,20 @@ module "botnim_api" {
 
   efs_security_group_ids = [module.es_efs.mount_target_security_group_id]
 
-  # Grant S3 write access for on-demand Elasticsearch snapshots.
-  # TODO(post-soak): remove after Window C closes (~T+30d) — ES backups bucket
-  # and associated IAM policy can be decommissioned once the Aurora migration
-  # soak period ends and we confirm no rollback to ES.
-  task_role_policy_json = data.aws_iam_policy_document.es_backups_write.json
+  # Combined inline policy attached to the api task role. Currently grants:
+  #  - S3 read/write on the ES snapshots bucket (TODO(post-soak): remove after
+  #    Window C closes — see backups.tf)
+  #  - s3:PutObject on the word-docs bucket (see word_docs.tf) so
+  #    /tools/generate_word_doc can upload rendered .docx artifacts.
+  task_role_policy_json = data.aws_iam_policy_document.task_role.json
+}
+
+# Compose the per-feature IAM docs into the single JSON the upstream module
+# accepts via task_role_policy_json. Keeps each feature's statements colocated
+# with the resource it protects.
+data "aws_iam_policy_document" "task_role" {
+  source_policy_documents = [
+    data.aws_iam_policy_document.es_backups_write.json,
+    data.aws_iam_policy_document.word_docs_write.json,
+  ]
 }

@@ -22,3 +22,8 @@ output "es_backups_bucket" {
   description = "S3 bucket for Elasticsearch snapshots"
   value       = aws_s3_bucket.es_backups.id
 }
+
+output "word_docs_bucket" {
+  description = "S3 bucket for short-lived Word doc downloads (/tools/generate_word_doc uploads)"
+  value       = aws_s3_bucket.word_docs.id
+}
