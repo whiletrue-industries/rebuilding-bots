@@ -70,6 +70,10 @@ data "aws_iam_policy_document" "word_docs_write" {
     sid       = "WordDocsPutObject"
     effect    = "Allow"
     actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.word_docs.arn}/*"]
+    # Static ARN derived from bucket name (not resource attr) so the
+    # composed task_role_policy_json is plan-time-knowable; otherwise the
+    # ecs-service module's `count = task_role_policy_json != "" ? 1 : 0`
+    # fails with "value depends on resource attributes" at first plan.
+    resources = ["arn:aws:s3:::botnim-word-docs-${var.environment}/*"]
   }
 }
