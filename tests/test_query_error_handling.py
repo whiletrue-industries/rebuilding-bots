@@ -49,6 +49,46 @@ refresh_auth_mod = types.ModuleType("refresh_auth")
 refresh_auth_mod.require_refresh_api_key = lambda: None
 sys.modules["refresh_auth"] = refresh_auth_mod
 
+# botnim.word_doc.* — server.py uses WordDocResponse as FastAPI response_model,
+# which requires a real pydantic model class (not a MagicMock). Provide
+# minimal real BaseModel subclasses so the FastAPI route registration succeeds;
+# render/storage are never invoked in these routing tests, so MagicMock-style
+# attributes are fine.
+from pydantic import BaseModel
+from typing import List
+
+
+class _StubWordDocSection(BaseModel):
+    heading: str
+    level: int = 1
+    body_md: str = ""
+
+
+class _StubWordDocRequest(BaseModel):
+    title: str
+    sections: List[_StubWordDocSection]
+
+
+class _StubWordDocResponse(BaseModel):
+    url: str
+    filename: str
+    expires_at: str
+
+
+word_doc_pkg = types.ModuleType("botnim.word_doc")
+word_doc_models = types.ModuleType("botnim.word_doc.models")
+word_doc_models.WordDocRequest = _StubWordDocRequest
+word_doc_models.WordDocResponse = _StubWordDocResponse
+word_doc_render = types.ModuleType("botnim.word_doc.render")
+word_doc_render.render_word_doc = MagicMock(return_value=b"")
+word_doc_render.sanitize_filename = lambda s: "stub.docx"
+word_doc_storage = types.ModuleType("botnim.word_doc.storage")
+word_doc_storage.upload_word_doc = MagicMock()
+sys.modules["botnim.word_doc"] = word_doc_pkg
+sys.modules["botnim.word_doc.models"] = word_doc_models
+sys.modules["botnim.word_doc.render"] = word_doc_render
+sys.modules["botnim.word_doc.storage"] = word_doc_storage
+
 # Now set up the search modes mock properly
 mock_search_modes = sys.modules["botnim.vector_store.search_modes"]
 mock_search_modes.SEARCH_MODES = {}
