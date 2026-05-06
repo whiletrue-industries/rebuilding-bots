@@ -12,6 +12,7 @@ from botnim.document_parser.lexicon import lexicon
 
 _INDEX_HTML_V1 = """
 <html><body>
+<input type="hidden" name="__VIEWSTATE" value="aaa-session-v1-token-bbb" />
 <table><tr>
 <td class="lexColumns"><a href="/About/Lexicon/Pages/edelshtein.aspx">אדלשטיין, יולי</a></td>
 <td class="lexColumns"><a href="/About/Lexicon/Pages/opposition.aspx">אופוזיציה</a></td>
@@ -19,7 +20,33 @@ _INDEX_HTML_V1 = """
 </body></html>
 """
 
-_INDEX_HTML_V2 = _INDEX_HTML_V1 + "<!-- v2 -->"  # any byte change → different sha256
+# V2 has a NEW entry — hrefs differ → re-scrape expected.
+_INDEX_HTML_V2 = """
+<html><body>
+<input type="hidden" name="__VIEWSTATE" value="ccc-session-v2-token-ddd" />
+<table><tr>
+<td class="lexColumns"><a href="/About/Lexicon/Pages/edelshtein.aspx">אדלשטיין, יולי</a></td>
+<td class="lexColumns"><a href="/About/Lexicon/Pages/opposition.aspx">אופוזיציה</a></td>
+<td class="lexColumns"><a href="/About/Lexicon/Pages/herzog.aspx">הרצוג</a></td>
+</tr></table>
+</body></html>
+"""
+
+# V1_DRIFT has the SAME hrefs but different ViewState + whitespace —
+# regression test for the prod bug where ASP.NET ViewState drift made
+# raw-HTML hashing useless. Dehydrated href-list hash MUST match V1.
+_INDEX_HTML_V1_DRIFT = """
+<html><body>
+<input type="hidden" name="__VIEWSTATE" value="zzz-different-session-token" />
+<table>
+   <tr>
+<td class="lexColumns">  <a href="/About/Lexicon/Pages/edelshtein.aspx">אדלשטיין, יולי</a>  </td>
+<td class="lexColumns"><a href="/About/Lexicon/Pages/opposition.aspx">אופוזיציה</a></td>
+   </tr>
+</table>
+<!-- timestamp: 2026-05-06T10:23:11Z -->
+</body></html>
+"""
 
 _ENTRY_HTML = """
 <html><body><div class="LexiconContent">תוכן דף ביוגרפיה לדוגמא.</div></body></html>
@@ -31,6 +58,16 @@ def _resp(text: str, status: int = 200):
     r.status_code = status
     r.text = text
     return r
+
+
+def _expected_hash(html: str) -> str:
+    """Mirror lexicon._fetch_index's dehydrated hash for assertions."""
+    import hashlib
+    from pyquery import PyQuery as pq
+    doc = pq(html)
+    hrefs = sorted({(pq(a).attr('href') or '').strip() for a in doc(lexicon.LINK_CLASS)})
+    hrefs = [h for h in hrefs if h]
+    return hashlib.sha256('\n'.join(hrefs).encode('utf-8')).hexdigest()
 
 
 @patch.object(lexicon, "time")  # silence the 5s sleep
@@ -50,11 +87,8 @@ def test_first_run_writes_csv_and_sentinel(mock_requests, _mock_time, tmp_path: 
 
     assert out.exists()
     assert sentinel.exists()
-    # Sentinel matches sha256 of v1 index html
-    import hashlib
-    assert sentinel.read_text().strip() == hashlib.sha256(
-        _INDEX_HTML_V1.encode("utf-8")
-    ).hexdigest()
+    # Sentinel matches the dehydrated href-list hash (NOT raw HTML).
+    assert sentinel.read_text().strip() == _expected_hash(_INDEX_HTML_V1)
     # CSV has header + 2 entry rows
     with open(out, encoding="utf-8") as f:
         rows = list(csv.reader(f))
@@ -71,11 +105,7 @@ def test_unchanged_index_short_circuits(mock_requests, _mock_time, tmp_path: Pat
 
     # Pre-populate sentinel + CSV from a prior run.
     out.write_text("מידע\nold row\n", encoding="utf-8")
-    import hashlib
-    sentinel.write_text(
-        hashlib.sha256(_INDEX_HTML_V1.encode("utf-8")).hexdigest(),
-        encoding="utf-8",
-    )
+    sentinel.write_text(_expected_hash(_INDEX_HTML_V1), encoding="utf-8")
 
     # Only the index GET should fire — no per-entry GETs.
     mock_requests.get.side_effect = [_resp(_INDEX_HTML_V1)]
@@ -96,15 +126,13 @@ def test_changed_index_re_scrapes(mock_requests, _mock_time, tmp_path: Path):
     sentinel = tmp_path / "lexicon.csv.index.sha256"
 
     out.write_text("מידע\nold row\n", encoding="utf-8")
-    import hashlib
-    sentinel.write_text(
-        hashlib.sha256(_INDEX_HTML_V1.encode("utf-8")).hexdigest(),
-        encoding="utf-8",
-    )
+    sentinel.write_text(_expected_hash(_INDEX_HTML_V1), encoding="utf-8")
 
-    # Server now returns v2 (different bytes).
+    # Server now returns V2 — has 3 entries (added Herzog) so the
+    # dehydrated href-list hash differs.
     mock_requests.get.side_effect = [
         _resp(_INDEX_HTML_V2),
+        _resp(_ENTRY_HTML),
         _resp(_ENTRY_HTML),
         _resp(_ENTRY_HTML),
     ]
@@ -115,12 +143,10 @@ def test_changed_index_re_scrapes(mock_requests, _mock_time, tmp_path: Path):
     with open(out, encoding="utf-8") as f:
         rows = list(csv.reader(f))
     assert rows[0] == ["מידע"]
-    assert len(rows) == 3  # header + 2 fresh
+    assert len(rows) == 4  # header + 3 fresh entries
     assert all("old row" not in r[0] for r in rows[1:])
-    # Sentinel updated to v2 hash.
-    assert sentinel.read_text().strip() == hashlib.sha256(
-        _INDEX_HTML_V2.encode("utf-8")
-    ).hexdigest()
+    # Sentinel updated to V2's dehydrated hash.
+    assert sentinel.read_text().strip() == _expected_hash(_INDEX_HTML_V2)
 
 
 @patch.object(lexicon, "time")
@@ -130,11 +156,7 @@ def test_missing_csv_re_scrapes_even_if_sentinel_present(mock_requests, _mock_ti
     out = tmp_path / "lexicon.csv"
     sentinel = tmp_path / "lexicon.csv.index.sha256"
 
-    import hashlib
-    sentinel.write_text(
-        hashlib.sha256(_INDEX_HTML_V1.encode("utf-8")).hexdigest(),
-        encoding="utf-8",
-    )
+    sentinel.write_text(_expected_hash(_INDEX_HTML_V1), encoding="utf-8")
     # No CSV.
 
     mock_requests.get.side_effect = [
@@ -147,6 +169,41 @@ def test_missing_csv_re_scrapes_even_if_sentinel_present(mock_requests, _mock_ti
     assert out.exists()
     # Three GETs: index + 2 entries.
     assert mock_requests.get.call_count == 3
+
+
+@patch.object(lexicon, "time")
+@patch.object(lexicon, "requests")
+def test_viewstate_drift_does_not_force_rescrape(mock_requests, _mock_time, tmp_path: Path):
+    """Regression for prod bug: ASP.NET emits per-request ViewState/timestamp
+    bytes, so two consecutive raw-HTML hashes never match. The dehydrated
+    href-list hash MUST be stable across that drift — same hrefs → same hash
+    → short-circuit fires."""
+    out = tmp_path / "lexicon.csv"
+    sentinel = tmp_path / "lexicon.csv.index.sha256"
+
+    out.write_text("מידע\nold row\n", encoding="utf-8")
+    sentinel.write_text(_expected_hash(_INDEX_HTML_V1), encoding="utf-8")
+
+    # Server returns V1_DRIFT — same hrefs as V1 but different ViewState +
+    # whitespace + timestamp. Raw-HTML hash would differ; dehydrated hash
+    # must NOT.
+    mock_requests.get.side_effect = [_resp(_INDEX_HTML_V1_DRIFT)]
+
+    lexicon.scrape_lexicon(out)
+
+    # CSV untouched (short-circuit fired despite the drift).
+    assert out.read_text(encoding="utf-8") == "מידע\nold row\n"
+    # Only the index GET — no per-entry GETs.
+    assert mock_requests.get.call_count == 1
+    # Sentinel unchanged (stayed at V1's hash).
+    assert sentinel.read_text().strip() == _expected_hash(_INDEX_HTML_V1)
+    # Sanity: V1's dehydrated hash equals V1_DRIFT's despite raw HTML differing.
+    assert _expected_hash(_INDEX_HTML_V1) == _expected_hash(_INDEX_HTML_V1_DRIFT)
+    import hashlib
+    assert (
+        hashlib.sha256(_INDEX_HTML_V1.encode("utf-8")).hexdigest()
+        != hashlib.sha256(_INDEX_HTML_V1_DRIFT.encode("utf-8")).hexdigest()
+    )
 
 
 @patch.object(lexicon, "time")

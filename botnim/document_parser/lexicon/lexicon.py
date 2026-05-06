@@ -47,12 +47,24 @@ SENTINEL_SUFFIX = '.index.sha256'
 
 
 def _fetch_index() -> tuple[str, str]:
-    """Fetch the lexicon index page. Returns (html, sha256_hex)."""
+    """Fetch the lexicon index page. Returns (html, content_sha256_hex).
+
+    The hash is computed over a *dehydrated* form — sorted unique entry
+    hrefs joined by newlines — NOT the raw HTML. Knesset's ASP.NET emits
+    per-request ``__VIEWSTATE`` and other session-coupled tokens, so two
+    consecutive raw-HTML hashes never match even when the entry list is
+    unchanged. Hashing the link list catches added/removed/renamed
+    entries (which is what we care about) and survives ViewState drift.
+    """
     response = requests.get(URL, headers=headers)
     if response.status_code != 200:
         print(response.text)
         raise Exception(f"Failed to load page: {response.status_code}")
-    digest = hashlib.sha256(response.text.encode('utf-8')).hexdigest()
+    doc = pq(response.text)
+    hrefs = sorted({(pq(a).attr('href') or '').strip() for a in doc(LINK_CLASS)})
+    hrefs = [h for h in hrefs if h]
+    fingerprint = '\n'.join(hrefs)
+    digest = hashlib.sha256(fingerprint.encode('utf-8')).hexdigest()
     return response.text, digest
 
 
