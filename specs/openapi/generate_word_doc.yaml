@@ -1,0 +1,84 @@
+openapi: 3.1.0
+info:
+  title: Botnim Word-Doc Generator
+  description: |
+    Generates a downloadable .docx file from structured chat content.
+    Returns a 7-day presigned S3 URL the agent embeds in its chat reply.
+  version: 1.0.0
+servers:
+  # NOTE: matches the convention in botnim.yaml — the staging URL is the
+  # baked-in default. seed-botnim-agent.js rewrites servers[0].url at
+  # deploy time when SEED_BOTNIM_API_BASE is set (currently only for
+  # name === 'botnim'; extend the allow-list in seed-botnim-agent.js
+  # before promoting this spec to prod). The /botnim/ path prefix is
+  # required so the LibreChat→ALB→botnim_api routing strips correctly.
+  - url: https://botnim.staging.build-up.team
+    description: Botnim API (staging; rewritten per env at sync time)
+paths:
+  /botnim/tools/generate_word_doc:
+    post:
+      operationId: generate_word_doc
+      summary: Generate a Hebrew RTL .docx and return a download URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WordDocRequest"
+      responses:
+        "200":
+          description: Generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WordDocResponse"
+        "422":
+          description: Malformed body
+        "503":
+          description: Feature disabled (bucket unconfigured)
+components:
+  schemas:
+    WordDocSection:
+      type: object
+      required: [heading, level, body_md]
+      properties:
+        heading:
+          type: string
+          minLength: 1
+          maxLength: 300
+        level:
+          type: integer
+          minimum: 1
+          maximum: 3
+        body_md:
+          type: string
+          maxLength: 200000
+          description: |
+            Markdown subset: paragraphs, ## / ### subheadings, - / 1. lists,
+            **bold**, *italic*, [text](url) links. Hebrew text fully supported.
+    WordDocRequest:
+      type: object
+      required: [title, sections]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        sections:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/WordDocSection"
+    WordDocResponse:
+      type: object
+      required: [url, filename, expires_at]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Presigned download URL valid for 7 days
+        filename:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
