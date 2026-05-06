@@ -182,12 +182,17 @@ class VectorStoreAurora(VectorStoreBase):
 
     # ---- abstract method overrides -----------------------------------------
 
-    def get_or_create_vector_store(self, context, context_name, replace_context):
+    def get_or_create_vector_store(self, context, context_name, replace_context, force_rebuild=False):
         """Return the context_id (uuid str) for (bot, context_name).
 
         - Inserts a row into contexts if it doesn't exist.
-        - If replace_context is True, deletes all rows in documents that
-          reference this context (CASCADE handles the join).
+        - If force_rebuild is True, deletes all rows in documents that
+          reference this context (CASCADE handles the join). Default
+          behavior keeps existing rows so upload_files's content-hash skip
+          can reuse them — that's the delta-sync path.
+
+        replace_context is preserved in the signature for caller-API
+        compatibility but no longer drives the DELETE; force_rebuild does.
         """
         bot = self.config["slug"]
         with get_session() as sess:
@@ -198,11 +203,12 @@ class VectorStoreAurora(VectorStoreBase):
             ), {"bot": bot, "name": context_name}).fetchone()
             cid = str(row[0])
 
-            if replace_context:
+            if force_rebuild:
                 sess.execute(text(
                     "DELETE FROM documents WHERE context_id = :cid"
                 ), {"cid": cid})
-                logger.info("Cleared documents for context %s/%s (id=%s)", bot, context_name, cid)
+                logger.info("Cleared documents for context %s/%s (id=%s) — force_rebuild",
+                            bot, context_name, cid)
         return cid
 
     def upload_files(self, context, context_name, vector_store, file_streams, callback):

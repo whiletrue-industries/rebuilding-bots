@@ -88,7 +88,7 @@ def _write_snapshots(bot_slug: str) -> None:
 
 
 def _sync_vector_store(config: dict, config_dir, backend: str, environment: str,
-                       replace_context, reindex: bool) -> None:
+                       replace_context, reindex: bool, force_rebuild: bool = False) -> None:
     """Run the backend-specific vector-store update for a bot's contexts.
 
     The returned tools/tool_resources from :meth:`vector_store_update` are
@@ -112,6 +112,7 @@ def _sync_vector_store(config: dict, config_dir, backend: str, environment: str,
         config['context'],
         replace_context=replace_context,
         reindex=reindex,
+        force_rebuild=force_rebuild,
     )
 
 
@@ -135,7 +136,8 @@ def publish_bot(bot_slug: str, environment: str) -> BotConfig:
 
 
 def sync_agents(environment: str, bots: str, backend: str = 'aurora',
-                replace_context=False, reindex: bool = False) -> None:
+                replace_context='all', reindex: bool = False,
+                force_rebuild: bool = False) -> None:
     """Sync one or more bots: ES indices + published config.
 
     Parameters
@@ -149,9 +151,15 @@ def sync_agents(environment: str, bots: str, backend: str = 'aurora',
         escape hatch, kept for one-release deprecation window), or
         ``"openai"``.
     replace_context:
-        Forwarded to the vector store's update logic.
+        Selects which contexts to process this run. Default ``'all'`` =
+        delta-sync every context. Pass a context slug for one. Pass
+        ``'none'`` to skip the data layer entirely.
     reindex:
         Forwarded to the vector store's update logic; forces a full rebuild.
+    force_rebuild:
+        DELETE all rows for the selected context(s) before re-embedding.
+        Use only when upstream extraction logic changed in a way that
+        invalidates previous content-hashes.
     """
     for config_fn in SPECS.glob('*/config.yaml'):
         config_dir = config_fn.parent
@@ -168,6 +176,7 @@ def sync_agents(environment: str, bots: str, backend: str = 'aurora',
         _sync_vector_store(
             raw, config_dir, backend, environment,
             replace_context=replace_context, reindex=reindex,
+            force_rebuild=force_rebuild,
         )
 
         # 2. Publish the canonical Responses-API bot config.
