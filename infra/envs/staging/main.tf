@@ -68,6 +68,7 @@ module "botnim_api" {
 
   secret_arns = concat(
     [data.aws_ssm_parameter.database_credentials_secret_arn.value],
+    [aws_secretsmanager_secret.word_docs_signer.arn],
   )
 
   secret_environment_variables = merge(
@@ -83,6 +84,11 @@ module "botnim_api" {
       DB_NAME     = "${data.aws_ssm_parameter.database_credentials_secret_arn.value}:dbname::"
       DB_USER     = "${data.aws_ssm_parameter.database_credentials_secret_arn.value}:username::"
       DB_PASSWORD = "${data.aws_ssm_parameter.database_credentials_secret_arn.value}:password::"
+    },
+    {
+      # Long-lived IAM user creds for signing presigned URLs. See word_docs.tf.
+      WORD_DOCS_SIGNING_AWS_ACCESS_KEY_ID     = "${aws_secretsmanager_secret.word_docs_signer.arn}:aws_access_key_id::"
+      WORD_DOCS_SIGNING_AWS_SECRET_ACCESS_KEY = "${aws_secretsmanager_secret.word_docs_signer.arn}:aws_secret_access_key::"
     },
   )
 

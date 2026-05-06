@@ -81,3 +81,46 @@ data "aws_iam_policy_document" "word_docs_write" {
     resources = ["arn:aws:s3:::botnim-word-docs-${var.environment}/*"]
   }
 }
+
+# Long-lived IAM user for signing presigned download URLs. See prod/word_docs.tf
+# for full rationale (STS-token-bloat breaks LibreChat's >2KB URL renderer).
+resource "aws_iam_user" "word_docs_signer" {
+  name = "botnim-word-docs-signer-${var.environment}"
+  path = "/botnim/"
+  tags = {
+    Project = "botnim"
+    Env     = var.environment
+    Purpose = "presigned-url-signing"
+  }
+}
+
+resource "aws_iam_user_policy" "word_docs_signer" {
+  name   = "GetObjectOnBucket"
+  user   = aws_iam_user.word_docs_signer.name
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "GetWordDocs"
+      Effect   = "Allow"
+      Action   = ["s3:GetObject"]
+      Resource = "arn:aws:s3:::botnim-word-docs-${var.environment}/*"
+    }]
+  })
+}
+
+resource "aws_iam_access_key" "word_docs_signer" {
+  user = aws_iam_user.word_docs_signer.name
+}
+
+resource "aws_secretsmanager_secret" "word_docs_signer" {
+  name        = "botnim-api/${var.environment}/word-docs-signer-creds"
+  description = "Long-lived IAM user creds used to sign presigned word-doc download URLs"
+}
+
+resource "aws_secretsmanager_secret_version" "word_docs_signer" {
+  secret_id = aws_secretsmanager_secret.word_docs_signer.id
+  secret_string = jsonencode({
+    aws_access_key_id     = aws_iam_access_key.word_docs_signer.id
+    aws_secret_access_key = aws_iam_access_key.word_docs_signer.secret
+  })
+}
