@@ -98,8 +98,8 @@ def test_get_or_create_replace_context_clears_documents(aurora_db):
         ), {"cid": cid})
         conn.commit()
 
-    # replace_context=True should preserve the context row but clear its docs
-    cid2 = store.get_or_create_vector_store({"slug": "x"}, "x", replace_context=True)
+    # force_rebuild=True should preserve the context row but clear its docs
+    cid2 = store.get_or_create_vector_store({"slug": "x"}, "x", replace_context=False, force_rebuild=True)
     assert cid2 == cid
     with eng.connect() as conn:
         n = conn.execute(text(
