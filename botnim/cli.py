@@ -29,13 +29,20 @@ def cli():
 @cli.command(name='sync')
 @click.argument('environment', type=click.Choice(VALID_ENVIRONMENTS))
 @click.argument('bots', type=click.Choice(AVAILABLE_BOTS + ['all']))
-@click.option('--replace-context', type=str, help='Replace existing context with a specific context name or use "all" to replace all contexts')
-@click.option('--backend', type=click.Choice(['aurora', 'es', 'openai']), default='aurora', help='Vector store backend (default: aurora; use --backend es for legacy rollback)')
+@click.option('--replace-context', type=str, default='all',
+              help="Which contexts to process. 'all' (default) = delta-sync every "
+                   "context. Pass a slug for one. Pass 'none' to skip the data layer.")
+@click.option('--backend', type=click.Choice(['aurora', 'es', 'openai']), default='aurora',
+              help='Vector store backend (default: aurora; use --backend es for legacy rollback)')
 @click.option('--reindex', is_flag=True, default=False, help='Force reindexing to update mapping changes')
-def sync(environment, bots, replace_context, backend, reindex):
+@click.option('--force-rebuild', is_flag=True, default=False,
+              help="Wipe and re-embed every selected context (replaces delta-sync's "
+                   "content-hash skip). Use for upstream schema changes.")
+def sync(environment, bots, replace_context, backend, reindex, force_rebuild):
     """Sync bot configs and vector indices for ``bots`` in ``environment``."""
     click.echo(f"Syncing {bots} to {environment}")
-    sync_agents(environment, bots, backend=backend, replace_context=replace_context, reindex=reindex)
+    sync_agents(environment, bots, backend=backend, replace_context=replace_context,
+                reindex=reindex, force_rebuild=force_rebuild)
 
 # Run benchmarks command, receives three arguments: production/staging, a bot from AVAILABLE_BOTS (or 'all') and whether to run benchmarks on the production environment to work locally (true/false)
 @cli.command(name='benchmarks')

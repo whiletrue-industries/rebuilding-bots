@@ -8,13 +8,25 @@ class VectorStoreOpenAI(VectorStoreBase):
         self.openai_client = openai_client
         self.init = False
 
-    def get_or_create_vector_store(self, context, context_name, replace_context):
+    def get_or_create_vector_store(self, context, context_name, replace_context, force_rebuild=False):
+        """Get or create the OpenAI Vector Store for this bot.
+
+        OpenAI Vector Stores have no per-row content-hash skip (unlike Aurora),
+        so any sync that processes a context is effectively a full rebuild.
+        ``replace_context`` is preserved for caller-API compatibility and is
+        OR'd with ``force_rebuild`` to gate the destructive delete.
+
+        With the new sync default ``replace_context='all'`` (post-delta-sync),
+        every sync wipes and re-uploads the OpenAI Vector Store. The previous
+        no-op-by-default behavior now requires explicit ``--replace-context none``.
+        This backend is legacy (see CLAUDE.md); Aurora is the canonical path.
+        """
         ret = None
         vs_name = self.env_name(self.config['name'])
         vector_store = self.openai_client.beta.vector_stores.list()
         for vs in vector_store:
             if vs.name == vs_name:
-                if replace_context and not self.init:
+                if (replace_context or force_rebuild) and not self.init:
                     self.openai_client.beta.vector_stores.delete(vs.id)
                 else:
                     ret = vs

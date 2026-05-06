@@ -279,15 +279,18 @@ class VectorStoreES(VectorStoreBase):
         
         return results
 
-    def get_or_create_vector_store(self, context, context_name, replace_context):
+    def get_or_create_vector_store(self, context, context_name, replace_context, force_rebuild=False):
         """Get or create a vector store for the given context.
+        replace_context is preserved for caller-API compatibility; force_rebuild
+        controls the destructive index-delete (delta-sync default keeps the
+        index alive and relies on per-row content-hash skip in upload_files).
         """
-        
+
         index_name = self._index_name_for_context(context_name)
-        
-        # Delete existing index if replace_context is True
-        if replace_context and self.es_client.indices.exists(index=index_name):
-            logger.info(f"Replacing existing index: {index_name}")
+
+        # Delete existing index if force_rebuild is True
+        if force_rebuild and self.es_client.indices.exists(index=index_name):
+            logger.info(f"Force-rebuilding existing index: {index_name}")
             self.es_client.indices.delete(index=index_name)
         
         # Create new index if it doesn't exist
