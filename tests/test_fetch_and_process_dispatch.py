@@ -66,3 +66,75 @@ def test_dispatch_indexed_pdf(tmp_path: Path):
         from botnim.fetch_and_process import fetch_and_process_source
         fetch_and_process_source("local", tmp_path, "ctx", src, "all")
         mock_inner.assert_called_once()
+
+
+def test_indexed_pdf_resolves_relative_local_index_against_config_dir(tmp_path: Path):
+    """yaml gives `local_index_csv_path: extraction/<slug>/index.csv` (relative).
+    The dispatcher must join it onto config_dir before constructing SourceConfig
+    — otherwise process_pdf_source resolves against cwd (in prod: /app, NOT
+    /srv/specs/<bot>) and raises EmptyUpstreamIndex even when Stage 1 wrote
+    the index. Regression test for the prod bug seen on 2026-05-06.
+    """
+    src = {
+        "source": "extraction/x.csv",
+        "fetcher": {
+            "kind": "indexed_pdf",
+            "local_index_csv_path": "extraction/x/index.csv",
+            "fields": [{"name": "טקסט_מלא", "description": "x", "example": "y", "hint": "z"}],
+        },
+    }
+    with patch(
+        "botnim.document_parser.pdfs.process_pdfs.process_pdf_source"
+    ) as mock_inner:
+        from botnim.fetch_and_process import fetch_and_process_source
+        fetch_and_process_source("local", tmp_path, "ctx", src, "all")
+        mock_inner.assert_called_once()
+        cfg = mock_inner.call_args.args[0]
+        assert Path(cfg.local_index_csv_path).is_absolute()
+        assert Path(cfg.local_index_csv_path) == tmp_path / "extraction/x/index.csv"
+
+
+def test_indexed_pdf_keeps_absolute_local_index_unchanged(tmp_path: Path):
+    """If yaml supplies an absolute path, leave it alone (escape hatch)."""
+    abs_idx = tmp_path / "elsewhere" / "idx.csv"
+    src = {
+        "source": "extraction/x.csv",
+        "fetcher": {
+            "kind": "indexed_pdf",
+            "local_index_csv_path": str(abs_idx),
+            "fields": [{"name": "טקסט_מלא", "description": "x", "example": "y", "hint": "z"}],
+        },
+    }
+    with patch(
+        "botnim.document_parser.pdfs.process_pdfs.process_pdf_source"
+    ) as mock_inner:
+        from botnim.fetch_and_process import fetch_and_process_source
+        fetch_and_process_source("local", tmp_path, "ctx", src, "all")
+        cfg = mock_inner.call_args.args[0]
+        assert Path(cfg.local_index_csv_path) == abs_idx
+
+
+def test_indexed_pdf_end_to_end_empty_index(tmp_path: Path):
+    """End-to-end: dispatcher → process_pdf_source. Stage 1 wrote an empty
+    index (header-only) at the relative-to-config_dir path. The
+    EmptyUpstreamIndex/no-output path inside process_pdf_source proves the
+    dispatcher resolved the path correctly: if it didn't, we'd raise
+    EmptyUpstreamIndex with 'does not exist' instead of writing an empty
+    output. No OpenAI call required.
+    """
+    idx = tmp_path / "extraction" / "x" / "index.csv"
+    idx.parent.mkdir(parents=True, exist_ok=True)
+    idx.write_text("url,filename,date,knesset_num,title\n", encoding="utf-8")
+    src = {
+        "source": "extraction/x.csv",
+        "fetcher": {
+            "kind": "indexed_pdf",
+            "local_index_csv_path": "extraction/x/index.csv",
+            "fields": [{"name": "טקסט_מלא", "description": "x", "example": "y", "hint": "z"}],
+        },
+    }
+    from botnim.fetch_and_process import fetch_and_process_source
+    fetch_and_process_source("local", tmp_path, "ctx", src, "all")
+    # 0-row index + no pre-existing output → the empty-out branch wrote
+    # extraction/x.csv with just the header.
+    assert (tmp_path / "extraction" / "x.csv").exists()
