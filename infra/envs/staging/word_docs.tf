@@ -67,9 +67,13 @@ resource "aws_s3_bucket_lifecycle_configuration" "word_docs" {
 # own scope.
 data "aws_iam_policy_document" "word_docs_write" {
   statement {
-    sid       = "WordDocsPutObject"
-    effect    = "Allow"
-    actions   = ["s3:PutObject"]
+    sid    = "WordDocsPutAndGet"
+    effect = "Allow"
+    # GetObject is required because SigV4 presigned URLs are signed with
+    # this task role's credentials; S3 evaluates GetObject against the
+    # SIGNER's role, not the downloader. Without GetObject the download
+    # link returns 403 AccessDenied even with a valid presigned URL.
+    actions = ["s3:PutObject", "s3:GetObject"]
     # Static ARN derived from bucket name (not resource attr) so the
     # composed task_role_policy_json is plan-time-knowable; otherwise the
     # ecs-service module's `count = task_role_policy_json != "" ? 1 : 0`
