@@ -15,6 +15,15 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
     fetcher_kind = fetcher.pop('kind')
     if kind not in ['all', fetcher_kind]:
         return
+    # Lexicon scraping is intentionally excluded from the routine
+    # `kind=all` refresh path — its 5s/entry sleep adds ~50min per fap
+    # and the upstream rarely changes. Run it on demand via
+    # `botnim fetch-and-process ... lexicon` (or the daily Lambda when
+    # we wire a separate cadence). This keeps the routine sync time
+    # bounded by the migrated-context LLM extraction work.
+    if fetcher_kind == 'lexicon' and kind == 'all':
+        print(f"  skipping lexicon under kind=all (run with kind=lexicon to refresh)")
+        return
     if fetcher_kind == 'wikitext':
         from .document_parser.wikitext.pipeline_config import Environment, WikitextProcessorConfig
         from .document_parser.wikitext.process_document import WikitextProcessor
