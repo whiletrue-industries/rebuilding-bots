@@ -77,6 +77,10 @@ class SyncConcurrency:
         # because sqlite handles concurrent readers fine; only the write
         # path needs serialization to avoid "database is locked" errors.
         self.cache_lock = asyncio.Lock()
+        # Set by the first task that converts a 429 to RpdExhausted; once
+        # set, sibling tasks short-circuit instead of burning their slots
+        # on calls guaranteed to fail until UTC midnight.
+        self.rpd_tripped: asyncio.Event = asyncio.Event()
 
     async def run_bounded(
         self,
@@ -85,8 +89,19 @@ class SyncConcurrency:
         **kwargs: Any,
     ) -> Any:
         """Run ``fn(*args, **kwargs)`` under the semaphore."""
+        if self.rpd_tripped.is_set():
+            # Spec: avoid burning remaining tasks on guaranteed-to-fail calls.
+            from .dynamic_extraction import RpdExhausted
+            raise RpdExhausted("rpd_tripped flag set by an earlier task")
         async with self.semaphore:
-            return await fn(*args, **kwargs)
+            try:
+                return await fn(*args, **kwargs)
+            except Exception:
+                # If THIS call hit RPD, the caller (e.g.
+                # _get_metadata_for_content_async in the next task) sets
+                # ``rpd_tripped`` so siblings short-circuit. The exception
+                # bubbles either way.
+                raise
 
 
 T = TypeVar("T")
@@ -120,6 +135,17 @@ def async_retry_openai(
                         or "rate limit" in msg
                         or "ratelimiterror" in type(exc).__name__.lower()
                     )
+                    if is_rate_limit:
+                        # Local import: avoid circular at module load (the
+                        # dynamic_extraction module imports async_retry_openai
+                        # from this module).
+                        from .dynamic_extraction import _is_rpd_error, RpdExhausted
+                        if _is_rpd_error(exc):
+                            # Daily limit doesn't reset until midnight UTC;
+                            # retrying within this run is pointless. Convert
+                            # to RpdExhausted so the caller can short-circuit
+                            # gracefully and persist partial progress.
+                            raise RpdExhausted(str(exc)) from exc
                     is_transient = (
                         is_rate_limit
                         or "timeout" in msg
