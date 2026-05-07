@@ -8,6 +8,33 @@ from ._concurrency import async_retry_openai
 logger = get_logger(__name__)
 
 
+EXTRACTION_VERSION = "v1-gpt-4o-mini"  # bump on prompt/model/schema change
+
+
+class RpdExhausted(Exception):
+    """OpenAI returned a 429 indicating the requests-per-day quota is exhausted.
+
+    Raised by the retry decorator on detection (instead of retrying), so the
+    sync caller can short-circuit the rest of the gather and persist
+    whatever partial progress was made before this run hit the daily wall.
+    """
+
+
+def _is_rpd_error(exc: BaseException) -> bool:
+    """Return True iff the error message indicates RPD (not RPM).
+
+    Distinguishes "requests per day" (daily quota — won't reset within run)
+    from "requests per minute" (rate limit — retryable). The substring
+    ``"requests per minute"`` must NOT trip this check.
+    """
+    msg = str(exc).lower()
+    return (
+        "requests per day" in msg
+        or "rpd" in msg.split()
+        or "daily limit" in msg
+    )
+
+
 _DEFAULT_TEMPLATE = """{
     "DocumentTitle": "",
     "Summary": "",
@@ -147,9 +174,10 @@ def extract_structured_content(
         return {"error": str(e)}
 
 
-@async_retry_openai()
-async def _async_chat_completion(client, system_message: str):
-    """Raw call, isolated so the retry decorator wraps exactly one network op."""
+async def _async_chat_completion_inner(client, system_message: str):
+    """Raw OpenAI round-trip — isolated so test code can patch this layer
+    without losing the retry decorator (which wraps ``_async_chat_completion``).
+    """
     return await client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "system", "content": system_message}],
@@ -158,6 +186,21 @@ async def _async_chat_completion(client, system_message: str):
         stream=False,
         response_format={"type": "json_object"},
     )
+
+
+@async_retry_openai()
+async def _async_chat_completion(client, system_message: str):
+    """Decorated wrapper around ``_async_chat_completion_inner``.
+
+    The decorator handles 429 retries (RPM) and converts RPD-shaped 429s
+    into ``RpdExhausted`` for the sync orchestration layer.
+
+    Tests that need to inject network-level errors should patch
+    ``_async_chat_completion_inner``; patching this symbol replaces the
+    decorated wrapper itself and bypasses the retry/RPD logic the rest
+    of the pipeline depends on.
+    """
+    return await _async_chat_completion_inner(client, system_message)
 
 
 async def extract_structured_content_async(
@@ -172,17 +215,21 @@ async def extract_structured_content_async(
     The caller is expected to have acquired the concurrency semaphore
     before calling this (see SyncConcurrency.run_bounded). 429s and other
     transient errors are handled by the ``async_retry_openai`` decorator
-    on ``_async_chat_completion``; other exceptions propagate so the
-    caller can record them on the individual document without poisoning
-    the batch.
+    on ``_async_chat_completion``; ``RpdExhausted`` (raised by the decorator
+    when the daily quota is hit) propagates so the orchestrator can trip
+    its short-circuit flag. Other exceptions are recorded as a per-document
+    error dict so a single bad input doesn't poison the batch.
     """
+    if client is None:
+        client = get_async_openai_client()
+    logger.info("Extracting structured content (async) for document type: %s", document_type)
+    system_message = _build_system_message(text, template, document_type)
     try:
-        if client is None:
-            client = get_async_openai_client()
-        logger.info("Extracting structured content (async) for document type: %s", document_type)
-        system_message = _build_system_message(text, template, document_type)
         response = await _async_chat_completion(client, system_message)
-        return _parse_response_content(response.choices[0].message.content)
+    except RpdExhausted:
+        # Daily quota — orchestrator must see this to short-circuit siblings.
+        raise
     except Exception as e:
         logger.error("Error in extract_structured_content_async: %s", e)
         return {"error": str(e)}
+    return _parse_response_content(response.choices[0].message.content)

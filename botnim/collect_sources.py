@@ -89,21 +89,48 @@ async def _get_metadata_for_content_async(
     file_path: str,
     document_type: str,
     concurrency: SyncConcurrency,
+    *,
+    bot: str | None = None,
+    context_name: str | None = None,
+    extraction_cache=None,
     client=None,
 ) -> dict:
     """Concurrent extraction.
 
     Order of operations is load-bearing:
-      1. Cache lookup WITHOUT holding the semaphore. Cache hits skip the
-         pool entirely so they don't crowd out genuine OpenAI work (DoD).
-      2. Semaphore-bounded OpenAI call.
-      3. Cache write under the async lock so the sqlite KVFile never sees
-         concurrent writers.
+      1. L1 cache lookup (per-process KVFile). Cache hits skip the pool
+         entirely so they don't crowd out genuine OpenAI work (DoD).
+      2. L2 cache lookup (Aurora extraction_cache). Hits warm L1 and skip
+         the pool too.
+      3. Semaphore-bounded OpenAI call. RpdExhausted trips the shared
+         flag (so siblings short-circuit) before re-raising.
+      4. L2 + L1 cache write — L2 best-effort (failures log + continue),
+         L1 always written under the async lock.
     """
-    cached = _cached_metadata_for_content(content)
-    if cached is not None:
-        return cached
+    from .dynamic_extraction import (
+        EXTRACTION_VERSION, RpdExhausted, extract_structured_content_async,
+    )
 
+    content_hash = hashlib.sha256(content.strip().encode("utf-8")).hexdigest()
+
+    # L1: per-process KVFile (legacy fast path).
+    cached_local = _cached_metadata_for_content(content)
+    if cached_local is not None:
+        return cached_local
+
+    # L2: Aurora cache.
+    if extraction_cache is not None:
+        try:
+            cached_aurora = extraction_cache.get(content_hash, EXTRACTION_VERSION)
+        except Exception as e:
+            logger.warning("extraction_cache.get failed for %s: %s", file_path, e)
+            cached_aurora = None
+        if cached_aurora is not None:
+            async with concurrency.cache_lock:
+                cache.set(_cache_key(content), {"content": content, "metadata": cached_aurora})
+            return cached_aurora
+
+    # Miss. Bounded LLM call.
     try:
         extracted_data = await concurrency.run_bounded(
             extract_structured_content_async,
@@ -112,9 +139,26 @@ async def _get_metadata_for_content_async(
             client=client,
         )
         metadata = _build_metadata_record(content, file_path, document_type, extracted_data, None)
+    except RpdExhausted:
+        # Set the trip flag so other in-flight tasks short-circuit.
+        concurrency.rpd_tripped.set()
+        raise
     except Exception as e:
         logger.error(f"Error extracting structured content from {file_path}: {e}")
         metadata = _build_metadata_record(content, file_path, document_type, None, e)
+        # Don't cache errors; next run retries.
+        return metadata
+
+    # Persist to L2 (Aurora). Failures here log + continue (L1 still gets it).
+    if extraction_cache is not None and bot and context_name:
+        try:
+            extraction_cache.put(
+                content_hash, EXTRACTION_VERSION,
+                payload=metadata, bot=bot, context=context_name,
+                document_type=document_type,
+            )
+        except Exception as e:
+            logger.warning("extraction_cache.put failed for %s: %s", file_path, e)
 
     async with concurrency.cache_lock:
         cache.set(_cache_key(content), {'content': content, 'metadata': metadata})
@@ -138,9 +182,17 @@ async def _process_file_stream_async(
     source_id: str,
     concurrency: SyncConcurrency,
     client,
+    *,
+    bot: str | None = None,
+    context_name: str | None = None,
+    extraction_cache=None,
 ):
     fname, text, ctype = _prepare_file_content(filename, content, content_type)
-    metadata = await _get_metadata_for_content_async(text, fname, ctype, concurrency, client=client)
+    metadata = await _get_metadata_for_content_async(
+        text, fname, ctype, concurrency,
+        bot=bot, context_name=context_name, extraction_cache=extraction_cache,
+        client=client,
+    )
     metadata = dict(metadata or {})
     metadata['source_id'] = source_id
     return (fname, io.BytesIO(text.encode('utf-8')), ctype, metadata)
@@ -232,6 +284,9 @@ async def collect_context_sources_async(
     context_,
     config_dir: Path,
     concurrency: SyncConcurrency,
+    *,
+    bot: str | None = None,
+    extraction_cache=None,
     client=None,
 ):
     """Async variant of ``collect_context_sources``.
@@ -239,7 +294,15 @@ async def collect_context_sources_async(
     Extraction for the N source files happens concurrently under the
     bounded semaphore. Cache hits skip the semaphore entirely so a warm
     sync never blocks on API slots.
+
+    When ``extraction_cache`` is provided, the Aurora-backed L2 cache is
+    consulted before each LLM call and populated on miss. RPD short-
+    circuits via ``RpdExhausted`` — exhausted siblings are dropped, but
+    successful + cached extractions are still returned so the run can
+    embed partial progress.
     """
+    from .dynamic_extraction import RpdExhausted
+
     global cache
     cache = KVFile(location=str(Path(__file__).parent.parent / 'cache' / 'metadata'))
 
@@ -264,23 +327,41 @@ async def collect_context_sources_async(
     # asyncio.gather preserves input order in its output list — this is
     # what keeps SYNC_CONCURRENCY=1 byte-equal to the serial implementation.
     tasks = [
-        _process_file_stream_async(fn, content, ct, sid, concurrency, client)
+        _process_file_stream_async(
+            fn, content, ct, sid, concurrency, client,
+            bot=bot, context_name=context_name, extraction_cache=extraction_cache,
+        )
         for fn, content, ct, sid in raw
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
+
     file_streams: list = []
+    rpd_count = 0
     for r, (fn, _, _, _) in zip(results, raw):
+        if isinstance(r, RpdExhausted):
+            rpd_count += 1
+            continue
         if isinstance(r, BaseException):
             # Error isolation: one failed document must not poison the batch.
             logger.error(f"Extraction failed for {fn}: {r}")
             continue
         file_streams.append(r)
 
+    if rpd_count > 0:
+        logger.warning(
+            "EXTRACTION RPD HIT: %d/%d files left un-extracted in context %s. "
+            "%d files were extracted (cache+fresh) and will be embedded this run. "
+            "RESUME: re-run `botnim sync <env> <bot>` after the daily limit "
+            "resets (midnight UTC). Cached extractions persist in Aurora; the "
+            "next run will only call gpt-4o-mini for the remaining %d files.",
+            rpd_count, len(tasks), context_name, len(file_streams), rpd_count,
+        )
+
     cache.close()
     return file_streams
 
 
-def collect_context_sources(context_, config_dir: Path):
+def collect_context_sources(context_, config_dir: Path, *, bot=None, extraction_cache=None):
     """Synchronous entry point — now fans out to the async pipeline under a
     bounded ``SYNC_CONCURRENCY`` pool.
 
@@ -288,9 +369,16 @@ def collect_context_sources(context_, config_dir: Path):
     ``VectorStoreBase.vector_store_update`` and ad-hoc scripts) don't need
     to change. With SYNC_CONCURRENCY=1 the async path is fully serial and
     produces byte-equal output.
+
+    The new ``bot`` / ``extraction_cache`` kwargs default to ``None`` so
+    legacy callers stay on the cache-free path; only the post-2026-04-26
+    aurora sync wires them through.
     """
     concurrency = SyncConcurrency()
-    return run_async(collect_context_sources_async(context_, config_dir, concurrency))
+    return run_async(collect_context_sources_async(
+        context_, config_dir, concurrency,
+        bot=bot, extraction_cache=extraction_cache,
+    ))
 
 def collect_all_sources(context_list, config_dir):
     all_sources = []

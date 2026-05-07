@@ -1,5 +1,9 @@
 from abc import ABC, abstractmethod
+
 from ..collect_sources import collect_context_sources
+from ..config import get_logger
+
+logger = get_logger(__name__)
 
 
 class VectorStoreBase(ABC):
@@ -10,6 +14,16 @@ class VectorStoreBase(ABC):
         self.production = production
         self.tool_resources = None
         self.tools = []
+        # Subclasses with Aurora connectivity (Aurora / ES backends) override
+        # this in their own __init__. The OpenAI backend leaves it as None,
+        # which short-circuits the extraction_cache wiring below.
+        self.environment: str | None = None
+
+    def _supports_extraction_cache(self) -> bool:
+        """True iff this backend has Aurora connectivity (and therefore the
+        extraction_cache table). False for the openai backend which talks
+        only to OpenAI APIs."""
+        return False
 
     def env_name(self, name):
         if not self.production:
@@ -24,6 +38,18 @@ class VectorStoreBase(ABC):
     def vector_store_update(self, context, replace_context, reindex=False, force_rebuild=False):
         self.tool_resources = None
         self.tools = []
+
+        # Construct one extraction_cache per run; aurora-backed backends only.
+        # The OpenAI backend (no DATABASE_URL, no Aurora connectivity) keeps
+        # extraction_cache=None and falls back to the cache-free path inside
+        # collect_context_sources.
+        extraction_cache = None
+        if self.environment and self._supports_extraction_cache():
+            from ..extraction_cache import ExtractionCache
+            extraction_cache = ExtractionCache(environment=self.environment)
+
+        bot_slug = self.config.get('slug')
+
         for context_ in context:
             context_name = context_['slug']
             # `replace_context` selects WHICH contexts to process this run:
@@ -46,6 +72,24 @@ class VectorStoreBase(ABC):
                 should_process = bool(reindex)
             should_force_rebuild = force_rebuild and should_process
 
+            # Force-rebuild path: purge extraction_cache rows for this
+            # (bot, context, current extractor_version) so the next
+            # collect_context_sources call re-extracts them rather than
+            # serving stale cached payloads.
+            if should_force_rebuild and extraction_cache is not None and bot_slug:
+                from ..dynamic_extraction import EXTRACTION_VERSION
+                try:
+                    extraction_cache.purge(
+                        bot=bot_slug,
+                        context=context_name,
+                        extractor_version=EXTRACTION_VERSION,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "extraction_cache.purge failed for %s/%s: %s",
+                        bot_slug, context_name, exc,
+                    )
+
             vector_store = self.get_or_create_vector_store(
                 context_, context_name, should_process, force_rebuild=should_force_rebuild,
             )
@@ -55,7 +99,10 @@ class VectorStoreBase(ABC):
                     print(f'Processing context (force_rebuild={should_force_rebuild}, reindex={reindex}): {context_name}')
                 else:
                     print(f'Processing context (delta): {context_name}')
-                file_streams = collect_context_sources(context_, self.config_dir)
+                file_streams = collect_context_sources(
+                    context_, self.config_dir,
+                    bot=bot_slug, extraction_cache=extraction_cache,
+                )
                 file_streams = [((fname if self.production else '_' + fname), f, t, m) for fname, f, t, m in file_streams]
                 file_names = [fname for fname, _, _, _ in file_streams]
 
