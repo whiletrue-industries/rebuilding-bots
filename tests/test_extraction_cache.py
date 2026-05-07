@@ -6,6 +6,10 @@ integration with collect_sources is covered later in this plan.
 from __future__ import annotations
 
 import hashlib
+import os
+import subprocess
+from pathlib import Path
+
 import pytest
 from sqlalchemy import text
 
@@ -13,9 +17,30 @@ from botnim.extraction_cache import ExtractionCache
 from botnim.db.session import get_session
 
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _alembic_upgrade(database_url: str) -> None:
+    env = os.environ.copy()
+    env["DATABASE_URL"] = database_url
+    subprocess.run(
+        ["alembic", "--config", "alembic.ini", "upgrade", "head"],
+        cwd=REPO_ROOT, env=env, check=True, capture_output=True,
+    )
+
+
 @pytest.fixture
-def cache():
-    """An ExtractionCache talking to the test postgres."""
+def cache(database_url, monkeypatch):
+    """An ExtractionCache talking to a fresh per-test postgres DB.
+
+    Mirrors the aurora_db pattern from tests/vector_store/test_aurora_delta.py:
+    apply alembic head, expose DATABASE_URL to the cached engine, and reset
+    the module-level engine so get_session() rebinds to this test's DB.
+    """
+    _alembic_upgrade(database_url)
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    from botnim.db import session as s
+    s._engine = None
     return ExtractionCache(environment="test")
 
 
