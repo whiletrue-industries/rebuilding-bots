@@ -81,7 +81,11 @@ DEFAULT_BATCH_SIZE = 50
 
 # Constants
 VALID_ENVIRONMENTS = ['production', 'staging', 'local']
-DEFAULT_ENVIRONMENT = 'staging'
+# Use the running container's ENVIRONMENT env var so prod ECS serves prod
+# config to callers that omit ?environment=. Falls back to 'staging' for
+# local dev. The result is still validated against VALID_ENVIRONMENTS by
+# callers, so a typo in the env var becomes a 400 instead of a silent miss.
+DEFAULT_ENVIRONMENT = os.environ.get('ENVIRONMENT', 'staging')
 
 def is_production(environment: str) -> bool:
     """
