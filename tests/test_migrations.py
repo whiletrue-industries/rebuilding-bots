@@ -243,3 +243,186 @@ def test_0007_downgrade_restores_ivfflat(database_url):
         )).fetchall()}
     assert "documents_embedding_ivfflat" in names
     assert "documents_embedding_hnsw" not in names
+
+
+# ---------------------------------------------------------------------------
+# 0009 — agent_tool_overrides table + agent_prompt_snapshots view
+# (UPE Task 2 — see docs/superpowers/specs/2026-05-07-unified-prompt-editor-design.md §5.1)
+# ---------------------------------------------------------------------------
+
+
+def test_0009_creates_agent_tool_overrides_table(database_url):
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT tablename FROM pg_tables "
+            "WHERE schemaname='public' AND tablename='agent_tool_overrides'"
+        )).fetchall()
+    assert len(rows) == 1
+
+
+def test_0009_agent_tool_overrides_has_required_columns(database_url):
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name='agent_tool_overrides' ORDER BY column_name"
+        )).fetchall()
+    names = {r[0] for r in rows}
+    assert names == {
+        "id", "agent_type", "tool_name", "description", "active", "is_draft",
+        "parent_version_id", "change_note", "created_by", "created_at",
+        "published_at",
+    }
+
+
+def test_0009_partial_unique_active_index_exists_with_predicate(database_url):
+    """The partial unique index must include ``WHERE active = true`` so that
+    multiple historical (active=false) rows for the same (agent_type, tool_name)
+    are allowed, but two simultaneously-active rows are forbidden."""
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        row = conn.execute(text(
+            "SELECT indexdef FROM pg_indexes "
+            "WHERE indexname='agent_tool_overrides_active_uniq'"
+        )).fetchone()
+    assert row is not None, "agent_tool_overrides_active_uniq index missing"
+    indexdef = row[0]
+    assert "UNIQUE" in indexdef.upper(), f"index not unique: {indexdef}"
+    assert "active" in indexdef.lower() and "true" in indexdef.lower(), (
+        f"index predicate missing 'WHERE active = true': {indexdef}"
+    )
+
+
+def test_0009_active_uniqueness_is_enforced_per_agent_tool(database_url):
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.begin() as conn:
+        # Multiple historical rows (active=false) — fine.
+        conn.execute(text("""
+            INSERT INTO agent_tool_overrides (agent_type, tool_name, description, active)
+            VALUES ('unified', 'search_unified__legal_text', 'first', false),
+                   ('unified', 'search_unified__legal_text', 'second', false)
+        """))
+        # Exactly one active row — fine.
+        conn.execute(text("""
+            INSERT INTO agent_tool_overrides (agent_type, tool_name, description, active)
+            VALUES ('unified', 'search_unified__legal_text', 'currently active', true)
+        """))
+    # A second active row for the same (agent_type, tool_name) must fail.
+    with eng.begin() as conn:
+        with pytest.raises(Exception) as excinfo:
+            conn.execute(text("""
+                INSERT INTO agent_tool_overrides (agent_type, tool_name, description, active)
+                VALUES ('unified', 'search_unified__legal_text', 'duplicate active', true)
+            """))
+        assert (
+            "duplicate key" in str(excinfo.value).lower()
+            or "unique" in str(excinfo.value).lower()
+        )
+
+
+def test_0009_lookup_index_exists(database_url):
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        row = conn.execute(text(
+            "SELECT 1 FROM pg_indexes "
+            "WHERE indexname='agent_tool_overrides_lookup'"
+        )).fetchone()
+    assert row is not None
+
+
+def test_0009_creates_agent_prompt_snapshots_view(database_url):
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        row = conn.execute(text(
+            "SELECT viewname FROM pg_views "
+            "WHERE schemaname='public' AND viewname='agent_prompt_snapshots'"
+        )).fetchone()
+    assert row is not None, "agent_prompt_snapshots view missing"
+
+
+def test_0009_view_groups_published_sections_by_minute(database_url):
+    """Two ``agent_prompts`` rows published at the same minute must collapse
+    into a single snapshot row whose ``section_version_ids`` array contains
+    both ids ordered by ``ordinal``. A third row published a minute later
+    must surface as a separate snapshot."""
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.begin() as conn:
+        # Two sections published at the same minute (different seconds is fine —
+        # date_trunc('minute', ...) collapses them).
+        conn.execute(text("""
+            INSERT INTO agent_prompts (
+                agent_type, section_key, ordinal, body, active, is_draft,
+                published_at, created_by
+            ) VALUES
+                ('unified', 'intro',   0, 'intro body',   true, false,
+                 timestamptz '2026-05-07 12:00:01+00', 'alice'),
+                ('unified', 'methods', 1, 'methods body', true, false,
+                 timestamptz '2026-05-07 12:00:30+00', 'alice'),
+                -- A row published a different minute → separate snapshot.
+                ('unified', 'closing', 2, 'closing body', true, false,
+                 timestamptz '2026-05-07 12:01:05+00', 'bob'),
+                -- An unpublished draft must NOT surface.
+                ('unified', 'draft_only', 3, 'draft body', false, true,
+                 NULL, 'alice')
+        """))
+
+        rows = conn.execute(text(
+            "SELECT agent_type, snapshot_minute, section_keys, published_by "
+            "FROM agent_prompt_snapshots "
+            "ORDER BY snapshot_minute"
+        )).fetchall()
+
+    assert len(rows) == 2, f"expected 2 snapshot rows, got {len(rows)}: {rows}"
+
+    first = rows[0]
+    assert first.agent_type == "unified"
+    # Two sections grouped at minute 12:00.
+    assert list(first.section_keys) == ["intro", "methods"], (
+        f"section ordering wrong: {first.section_keys}"
+    )
+    assert first.published_by == "alice"
+
+    second = rows[1]
+    assert second.agent_type == "unified"
+    assert list(second.section_keys) == ["closing"]
+    assert second.published_by == "bob"
+
+
+def test_0009_downgrade_drops_view_and_table(database_url):
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    _alembic(["downgrade", "0008_extraction_cache"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        view = conn.execute(text(
+            "SELECT to_regclass('public.agent_prompt_snapshots')"
+        )).fetchone()
+        table = conn.execute(text(
+            "SELECT to_regclass('public.agent_tool_overrides')"
+        )).fetchone()
+    assert view[0] is None, "agent_prompt_snapshots view should be dropped"
+    assert table[0] is None, "agent_tool_overrides table should be dropped"
+
+
+def test_0009_round_trips(database_url):
+    """upgrade head → downgrade -1 → upgrade head must be a clean round-trip."""
+    _alembic(["upgrade", "head"], database_url)
+    _alembic(["downgrade", "-1"], database_url)
+    _alembic(["upgrade", "head"], database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        table = conn.execute(text(
+            "SELECT to_regclass('public.agent_tool_overrides')"
+        )).fetchone()
+        view = conn.execute(text(
+            "SELECT to_regclass('public.agent_prompt_snapshots')"
+        )).fetchone()
+    assert table[0] is not None
+    assert view[0] is not None
