@@ -77,6 +77,13 @@ class VectorStoreES(VectorStoreBase):
             logger.error(f"Failed to connect to Elasticsearch: {str(e)}")
             raise ConnectionError(f"Could not connect to Elasticsearch: {str(e)}")
 
+    def _supports_extraction_cache(self) -> bool:
+        """The ES backend stores vectors in Elasticsearch but extraction_cache
+        is bot-data, not vector-store-specific — it lives in the same Aurora
+        cluster as DATABASE_URL points at, which is reachable from the same
+        deploys that run ES sync."""
+        return True
+
     def _index_name_for_context(self, context_name: str) -> str:
         """Standardize index name construction"""
         return self.encode_index_name(

@@ -180,6 +180,11 @@ class VectorStoreAurora(VectorStoreBase):
         get_engine()
         logger.info("VectorStoreAurora initialized for environment=%s", env_name)
 
+    def _supports_extraction_cache(self) -> bool:
+        """Aurora backend talks directly to the same DB that hosts the
+        extraction_cache table — always supported."""
+        return True
+
     # ---- abstract method overrides -----------------------------------------
 
     def get_or_create_vector_store(self, context, context_name, replace_context, force_rebuild=False):
