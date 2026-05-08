@@ -26,24 +26,8 @@ Bumping `EXTRACTION_VERSION` (in `botnim/dynamic_extraction.py`) is the right mo
 
 There is no `--no-extraction-cache` CLI flag in v1; the two escape hatches above cover the realistic operator workflows.
 
-## Tool description overrides (post-2026-05-07 unified prompt editor)
+## Tool description overrides
 
-Tool descriptions for context-search tools (auto-generated from `specs/<bot>/config.yaml`'s `name:` field) and OpenAPI tools (loaded from `specs/openapi/<tool>.yaml`'s `description:` field) can be overridden per-bot via the Aurora `agent_tool_overrides` table. Overrides are loaded by `bot_config.load_bot_config()` on every sync via `botnim/db/tool_overrides.py:get_active_tool_overrides(bot_slug)`, so a republish of the OpenAI Assistant picks up the latest active override without any spec-file edit.
+Removed in 2026-05-08 — the `agent_tool_overrides` table created by alembic `0009_unified_prompt_editor` is now inert. Tool descriptions resolve from `specs/<bot>/config.yaml` (`name:` for context-search tools) and `specs/openapi/<tool>.yaml` (`description:` for OpenAPI tools); the only way to change them is to edit those files and republish. The table itself is left in place to keep `0009` reversible until a future migration drops it.
 
-**Inspect:**
-
-```sql
-SELECT tool_name, description, active, is_draft, created_at
-FROM agent_tool_overrides
-WHERE agent_type = 'unified'
-ORDER BY created_at DESC LIMIT 20;
-```
-
-**Clear an override:**
-
-- UI path (preferred): `/d/agent-prompts/<bot>` → ToolOverridesTable → row → "Clear override". Demotes the active row (preserves history; the previous active becomes inactive). Restorable via the version modal.
-- SQL path (emergency only): `UPDATE agent_tool_overrides SET active = false WHERE agent_type = '<bot>' AND tool_name = '<TOOL>' AND active = true;`. The next call to `load_bot_config` will fall back to the canonical default from `config.yaml` / `specs/openapi/`.
-
-**Cache key:** at most one row per `(agent_type, tool_name)` is active. Drafts are gated by `is_draft = true, active = false` and never reach `load_bot_config`; they only feed the DRAFT mirror agent.
-
-**Migration:** alembic `0009_unified_prompt_editor` (creates `agent_tool_overrides` and the `agent_prompt_snapshots` view over the section history). Applied via `parlibot/deploy.sh` phase 6.5 — no manual `alembic upgrade` needed in the steady-state flow.
+The `agent_prompt_snapshots` view from `0009` is still in active use for prompt-section rollback in the unified prompt editor.
