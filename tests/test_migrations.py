@@ -426,3 +426,133 @@ def test_0009_round_trips(database_url):
         )).fetchone()
     assert table[0] is not None
     assert view[0] is not None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 0010 — collapse multi-section prompts into single body row
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _seed_multi_section(conn):
+    """Seed 3 active sections + 1 inactive history row + 1 draft."""
+    conn.execute(text("""
+        INSERT INTO agent_prompts (
+            agent_type, section_key, ordinal, body, active, is_draft, published_at, created_by
+        ) VALUES
+            ('unified', 'preamble', 0, 'PRE',  true,  false, now(), 'seed'),
+            ('unified', 'rules',    1, 'RUL',  true,  false, now(), 'seed'),
+            ('unified', 'closing',  2, 'CLO',  true,  false, now(), 'seed'),
+            ('unified', 'preamble', 0, 'OLD',  false, false, now(), 'seed'),
+            ('unified', 'wip',      9, 'WIP',  false, true,  NULL,  'seed')
+    """))
+
+
+def test_0010_collapses_active_sections_into_single_body_row(database_url):
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.begin() as conn:
+        _seed_multi_section(conn)
+
+    _alembic(["upgrade", "0010_collapse_unified_prompt"], database_url)
+
+    with eng.connect() as conn:
+        active = conn.execute(text(
+            "SELECT section_key, body FROM agent_prompts "
+            "WHERE agent_type='unified' AND active=true"
+        )).fetchall()
+    assert len(active) == 1, f"expected exactly one active row, got {len(active)}: {active}"
+    assert active[0].section_key == "body"
+    assert active[0].body == "PRE\n\n---\n\nRUL\n\n---\n\nCLO"
+
+
+def test_0010_preserves_history_rows(database_url):
+    """Old non-active rows + drafts must remain (history)."""
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.begin() as conn:
+        _seed_multi_section(conn)
+
+    _alembic(["upgrade", "0010_collapse_unified_prompt"], database_url)
+
+    with eng.connect() as conn:
+        total = conn.execute(text(
+            "SELECT count(*) FROM agent_prompts WHERE agent_type='unified'"
+        )).scalar()
+    # 5 seeded + 1 new "body" row = 6 (inactive seeds preserved, draft preserved)
+    assert total == 6, f"expected 6 total rows after collapse, got {total}"
+
+
+def test_0010_idempotent(database_url):
+    """Running 0010 twice must not produce duplicate body rows."""
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.begin() as conn:
+        _seed_multi_section(conn)
+
+    _alembic(["upgrade", "0010_collapse_unified_prompt"], database_url)
+    _alembic(["upgrade", "0010_collapse_unified_prompt"], database_url)
+
+    with eng.connect() as conn:
+        active = conn.execute(text(
+            "SELECT count(*) FROM agent_prompts "
+            "WHERE agent_type='unified' AND active=true"
+        )).scalar()
+    assert active == 1
+
+
+def test_0010_no_op_when_already_collapsed(database_url):
+    """An agent already in single-row form must be left untouched."""
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO agent_prompts (
+                agent_type, section_key, ordinal, body, active, is_draft, published_at, created_by
+            ) VALUES ('takanon', 'body', 0, 'ALREADY-ONE', true, false, now(), 'seed')
+        """))
+
+    _alembic(["upgrade", "0010_collapse_unified_prompt"], database_url)
+
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT body FROM agent_prompts WHERE agent_type='takanon' AND active=true"
+        )).fetchall()
+    assert len(rows) == 1
+    assert rows[0].body == "ALREADY-ONE"
+
+
+def test_0010_collapsed_body_contains_every_section_body(database_url):
+    """Defensive: even with weird ordinals + many sections, the new body
+    row must contain every original active body in ordinal order. Guards
+    against a refactor that accidentally reads the deactivation before
+    the aggregation."""
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO agent_prompts (
+                agent_type, section_key, ordinal, body, active, is_draft, published_at, created_by
+            ) VALUES
+                ('unified', 's_a', 5,  'aaa', true,  false, now(), 'seed'),
+                ('unified', 's_b', 1,  'bbb', true,  false, now(), 'seed'),
+                ('unified', 's_c', 9,  'ccc', true,  false, now(), 'seed'),
+                ('unified', 's_d', 0,  'ddd', true,  false, now(), 'seed')
+        """))
+
+    _alembic(["upgrade", "0010_collapse_unified_prompt"], database_url)
+
+    with eng.connect() as conn:
+        body = conn.execute(text(
+            "SELECT body FROM agent_prompts "
+            "WHERE agent_type='unified' AND active=true AND section_key='body'"
+        )).scalar()
+
+    # Order: ddd(ord 0), bbb(ord 1), aaa(ord 5), ccc(ord 9).
+    assert body == "ddd\n\n---\n\nbbb\n\n---\n\naaa\n\n---\n\nccc", (
+        f"collapsed body should contain every section body in ordinal order, got: {body!r}"
+    )
+    # Triple-check no body fragment is missing.
+    for fragment in ("aaa", "bbb", "ccc", "ddd"):
+        assert fragment in body, f"missing fragment {fragment!r} in collapsed body"
+    # Triple-check we did not accidentally end up with an empty body.
+    assert body, "collapsed body must not be empty"
