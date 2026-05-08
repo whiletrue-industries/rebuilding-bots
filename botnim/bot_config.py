@@ -89,18 +89,31 @@ class BotConfig:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2, sort_keys=True)
 
 
-def openapi_to_tools(openapi_spec: dict[str, Any]) -> list[dict[str, Any]]:
+def openapi_to_tools(openapi_spec: dict[str, Any],
+                     overrides: dict[str, str] | None = None) -> list[dict[str, Any]]:
     """Convert an OpenAPI v3 spec into Responses-API flat tool definitions.
 
     This replaces the pre-migration helper in ``sync.py`` which emitted the
     nested Assistants-API shape. The output can be passed directly to
     ``responses.create(tools=...)``.
+
+    Parameters
+    ----------
+    openapi_spec:
+        Parsed OpenAPI v3 dict.
+    overrides:
+        Optional ``{operationId: description}`` mapping. When the
+        ``operationId`` of a generated tool matches a key, the canonical
+        ``description`` is replaced with the override value. ``None`` /
+        empty dict preserves the legacy behavior (description from spec).
     """
     tools: list[dict[str, Any]] = []
     for path in openapi_spec.get('paths', {}).values():
         for method in path.values():
             operation_id = method['operationId']
             operation_desc = method.get('description', '')
+            if overrides and operation_id in overrides:
+                operation_desc = overrides[operation_id]
             parameters = method.get('parameters', [])
             properties = {
                 param['name']: {
@@ -137,26 +150,38 @@ def _encode_index_name(bot_slug: str, context_slug: str, environment: str) -> st
 
 
 def _search_tool_for_context(bot_slug: str, context_slug: str, environment: str,
-                             context_cfg: dict[str, Any]) -> dict[str, Any]:
+                             context_cfg: dict[str, Any],
+                             overrides: dict[str, str] | None = None) -> dict[str, Any]:
     """Build a Responses-API flat ``search_<bot>__<context>[__dev]`` tool.
 
     Mirrors :meth:`botnim.vector_store.vector_store_es.VectorStoreES.update_tools`
     but emits the flat shape. The returned dict is safe to append to
     :attr:`BotConfig.tools`.
+
+    Parameters
+    ----------
+    overrides:
+        Optional ``{tool_name: description}`` mapping. When the
+        constructed tool ``name`` (``search_<index>``) appears as a key,
+        the auto-generated description is replaced with the override
+        value. ``None`` / empty dict preserves the legacy behavior.
     """
     # Import lazily to keep the top-level module importable when the heavy ES /
     # dataflows stack is not installed (e.g. in LibreChat runtime).
     from .vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 
     index_name = _encode_index_name(bot_slug, context_slug, environment)
+    name = f'search_{index_name}'
     description = context_cfg.get('description') or context_cfg.get('name', context_slug)
     examples = context_cfg.get('examples')
     if examples:
         description = f"{description}. Examples: {examples}"
+    if overrides and name in overrides:
+        description = overrides[name]
 
     return {
         'type': 'function',
-        'name': f'search_{index_name}',
+        'name': name,
         'description': description,
         'parameters': {
             'type': 'object',
@@ -261,6 +286,14 @@ def load_bot_config(bot_slug: str, environment: str,
     if not is_production(environment):
         name = f'{name} - פיתוח'
 
+    # Load admin-edited per-tool description overrides once. Empty dict
+    # when the table has no active rows for this bot (or Aurora is
+    # unreachable, e.g. in unit-test runs that skip the DB) — in which
+    # case every tool below resolves to its canonical description from
+    # config.yaml / OpenAPI YAML.
+    from .db.tool_overrides import get_active_tool_overrides
+    overrides = get_active_tool_overrides(bot_slug)
+
     tools: list[dict[str, Any]] = []
 
     # Context search tools (ES-backed).
@@ -270,6 +303,7 @@ def load_bot_config(bot_slug: str, environment: str,
             context_slug=context_cfg['slug'],
             environment=environment,
             context_cfg=context_cfg,
+            overrides=overrides,
         ))
 
     # Built-in / OpenAPI tools.
@@ -284,7 +318,7 @@ def load_bot_config(bot_slug: str, environment: str,
             raise FileNotFoundError(f'OpenAPI spec not found: {openapi_path}')
         with openapi_path.open() as f:
             spec = yaml.safe_load(f)
-        tools.extend(openapi_to_tools(spec))
+        tools.extend(openapi_to_tools(spec, overrides=overrides))
 
     return BotConfig(
         slug=bot_slug,
