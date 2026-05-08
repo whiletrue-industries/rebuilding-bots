@@ -33,14 +33,15 @@ concretizing the read in Python first removes the cognitive load of
 reasoning about that and protects against future refactors that might
 split the work across statements.
 
-Drafts (``is_draft=true``) are not collapsed. Open drafts pre-migration
-are mechanically incompatible with the post-migration single-row schema
-(they have arbitrary section_keys); the editor will silently start fresh
-on the first post-migration draft save. This is acceptable for v1 — the
-UPE has been in prod for under 24h.
+All non-body rows are deleted, including in-flight drafts (``is_draft=true``)
+and inactive history. Drafts pre-migration have arbitrary section_keys
+that don't fit the post-migration single-row schema, and history is
+intentionally collapsed away ("snapshots become whole-prompt snapshots"
+— spec decision). Admin will need to re-enter any in-flight draft after
+the migration runs; loud, recoverable, acceptable for v1.
 
 Idempotent: a no-op if the agent already has exactly one active row with
-section_key='body'.
+section_key='body' and no other rows.
 """
 from __future__ import annotations
 
@@ -85,10 +86,10 @@ _SELECT_SQL = """
 """
 
 
-_DEACTIVATE_SQL = """
-    UPDATE agent_prompts
-    SET active = false
-    WHERE agent_type = :agent_type AND active = true
+_DELETE_OLD_SQL = """
+    DELETE FROM agent_prompts
+    WHERE agent_type = :agent_type
+      AND section_key != 'body'
 """
 
 
@@ -110,43 +111,39 @@ def upgrade() -> None:
     rows = bind.execute(text(_SELECT_SQL)).fetchall()
     if not rows:
         return
-    # Phase 2 — for each agent, deactivate then insert. The read in phase 1
-    # has already returned the joined body, so the deactivation here cannot
-    # corrupt the source data we're about to insert.
+    # Phase 2 — for each agent, DELETE every row whose section_key is not
+    # 'body' (active rows AND drafts AND inactive history), then INSERT the
+    # new collapsed body row.
+    #
+    # Why DELETE instead of UPDATE active=false? The LibreChat-side
+    # `aurora.listSections` query uses
+    #     SELECT DISTINCT ON (section_key) *
+    #     FROM agent_prompts WHERE agent_type=$1
+    #     ORDER BY section_key, active DESC, created_at DESC
+    # which falls back to inactive/draft rows when no active row exists for
+    # a given section_key. After a soft-deactivate every old section_key
+    # still has rows, so listSections returns N+1 rows (1 body + N
+    # fall-back per old key) and the assemble() invariant ('exactly one
+    # section') trips. DELETE removes the section_keys entirely so the
+    # DISTINCT ON has nothing to fall back to.
+    #
+    # History trade-off: per-section history is lost. This is the spec
+    # decision recorded in the brainstorm — "Per-section history is lost
+    # (snapshots become whole-prompt snapshots). Cleanest end state."
     for row in rows:
         params = {"agent_type": row.agent_type, "body": row.body}
-        bind.execute(text(_DEACTIVATE_SQL), {"agent_type": row.agent_type})
+        bind.execute(text(_DELETE_OLD_SQL), {"agent_type": row.agent_type})
         bind.execute(text(_INSERT_SQL), params)
 
 
 def downgrade() -> None:
-    # The downgrade cannot reconstruct the original section bodies — the
-    # collapse is one-way at the data level. Restore the previous active
-    # state by demoting the collapsed body and reactivating the most
-    # recent pre-collapse rows for each agent.
-    op.execute("""
-        WITH collapsed AS (
-            SELECT id, agent_type
-            FROM agent_prompts
-            WHERE active = true
-              AND section_key = 'body'
-              AND change_note = 'collapsed by alembic 0010'
-        ),
-        previously_active AS (
-            SELECT DISTINCT ON (p.agent_type, p.section_key) p.id
-            FROM agent_prompts p
-            JOIN collapsed c USING (agent_type)
-            WHERE p.id != c.id
-              AND p.section_key != 'body'
-            ORDER BY p.agent_type, p.section_key, p.created_at DESC
-        ),
-        deactivate_collapsed AS (
-            UPDATE agent_prompts
-            SET active = false
-            WHERE id IN (SELECT id FROM collapsed)
-            RETURNING 1
-        )
-        UPDATE agent_prompts
-        SET active = true
-        WHERE id IN (SELECT id FROM previously_active);
-    """)
+    # The DELETE in upgrade() drops every non-body row, so the original
+    # multi-section data — including inactive history and pending drafts —
+    # is gone irrecoverably. There is no SQL we can run to reconstruct it.
+    # Fail loudly rather than silently leave the DB in a half-state.
+    raise RuntimeError(
+        "0010_collapse_unified_prompt: downgrade is not supported. "
+        "The upgrade DELETEs every section row whose key is not 'body'. "
+        "Restore from a logical backup taken before the upgrade ran "
+        "(pre-collapse `agent_prompts` rows for the affected agents)."
+    )

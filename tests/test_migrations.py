@@ -465,8 +465,12 @@ def test_0010_collapses_active_sections_into_single_body_row(database_url):
     assert active[0].body == "PRE\n\n---\n\nRUL\n\n---\n\nCLO"
 
 
-def test_0010_preserves_history_rows(database_url):
-    """Old non-active rows + drafts must remain (history)."""
+def test_0010_deletes_all_non_body_rows(database_url):
+    """Every non-body row (including inactive history and drafts) must be
+    deleted. Without this, LibreChat's `aurora.listSections` DISTINCT ON
+    falls back to inactive/draft rows when no active row exists for a
+    section_key, which trips the `assemble: at most one section` invariant
+    in `getJoined` and 503s the editor."""
     _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
     eng = create_engine(database_url)
     with eng.begin() as conn:
@@ -478,8 +482,12 @@ def test_0010_preserves_history_rows(database_url):
         total = conn.execute(text(
             "SELECT count(*) FROM agent_prompts WHERE agent_type='unified'"
         )).scalar()
-    # 5 seeded + 1 new "body" row = 6 (inactive seeds preserved, draft preserved)
-    assert total == 6, f"expected 6 total rows after collapse, got {total}"
+        non_body = conn.execute(text(
+            "SELECT count(*) FROM agent_prompts "
+            "WHERE agent_type='unified' AND section_key != 'body'"
+        )).scalar()
+    assert total == 1, f"expected exactly one row (the body) after collapse, got {total}"
+    assert non_body == 0, f"expected zero non-body rows after collapse, got {non_body}"
 
 
 def test_0010_idempotent(database_url):
@@ -556,3 +564,56 @@ def test_0010_collapsed_body_contains_every_section_body(database_url):
         assert fragment in body, f"missing fragment {fragment!r} in collapsed body"
     # Triple-check we did not accidentally end up with an empty body.
     assert body, "collapsed body must not be empty"
+
+
+def test_0010_listsections_distinct_on_returns_exactly_one_row(database_url):
+    """Direct regression for the prod fire on 2026-05-08: after upgrade,
+    the SAME query LibreChat's aurora.js:listSections runs (DISTINCT ON
+    section_key, falling back through active DESC, created_at DESC) must
+    return exactly ONE row. If this assertion fails, the editor will 503
+    again because assemble() rejects multi-section input post-collapse."""
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.begin() as conn:
+        _seed_multi_section(conn)
+
+    _alembic(["upgrade", "0010_collapse_unified_prompt"], database_url)
+
+    with eng.connect() as conn:
+        rows = conn.execute(text(
+            "WITH latest AS ("
+            " SELECT DISTINCT ON (section_key) * "
+            " FROM agent_prompts WHERE agent_type='unified' "
+            " ORDER BY section_key, active DESC, created_at DESC"
+            ") SELECT count(*) FROM latest"
+        )).scalar()
+    assert rows == 1, (
+        f"listSections-shape query returned {rows} rows; assemble() will 503. "
+        "Migration must DELETE non-body rows so DISTINCT ON has nothing "
+        "to fall back to."
+    )
+
+
+def test_0010_downgrade_raises_with_clear_message(database_url):
+    """The DELETE in upgrade is destructive and irreversible at the data
+    level. Downgrade must not silently leave the DB in a partial state —
+    it must fail loudly so the operator restores from backup."""
+    import pytest as _pytest
+
+    _alembic(["upgrade", "0009_unified_prompt_editor"], database_url)
+    eng = create_engine(database_url)
+    with eng.begin() as conn:
+        _seed_multi_section(conn)
+    _alembic(["upgrade", "0010_collapse_unified_prompt"], database_url)
+
+    proc = subprocess.run(
+        ["alembic", "--config", "alembic.ini", "downgrade", "0009_unified_prompt_editor"],
+        cwd=REPO_ROOT,
+        env={**os.environ, "DATABASE_URL": database_url},
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0, "downgrade must fail (destructive op)"
+    assert "downgrade is not supported" in (proc.stderr + proc.stdout), (
+        f"downgrade must explain why; stdout={proc.stdout!r} stderr={proc.stderr!r}"
+    )
