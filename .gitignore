@@ -19,3 +19,8 @@ specs/.published/
 
 # Local-only superpowers worktree area for isolated feature branches.
 .worktrees/
+
+# Staged copy of parlibot/deploy/ files for docker build context (populated
+# by parlibot/deploy.sh phase 3 immediately before docker build; must not be
+# committed into the rebuilding-bots repo).
+/deploy/
