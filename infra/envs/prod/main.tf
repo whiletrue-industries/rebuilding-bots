@@ -75,7 +75,8 @@ module "botnim_api" {
       OPENAI_API_KEY_PRODUCTION = aws_secretsmanager_secret.openai_api_key.arn
       # Consumed by backend/api/refresh_auth.py to authenticate the Lambda's
       # calls to /admin/refresh. Value is set out-of-band via Secrets Manager.
-      BOTNIM_ADMIN_API_KEY = aws_secretsmanager_secret.refresh_admin_api_key.arn
+      BOTNIM_ADMIN_API_KEY        = aws_secretsmanager_secret.refresh_admin_api_key.arn
+      BOTNIM_SANITY_ADMIN_API_KEY = aws_secretsmanager_secret.sanity_admin_api_key.arn
     },
     {
       DB_HOST     = "${data.aws_ssm_parameter.database_credentials_secret_arn.value}:host::"
