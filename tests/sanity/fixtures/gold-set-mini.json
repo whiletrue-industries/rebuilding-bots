@@ -1,0 +1,16 @@
+[
+  {
+    "row": 0,
+    "question": "מה כתוב ב§78?",
+    "expected_behavior": "Cites §78 of the Knesset bylaws.",
+    "must_not_contain": ["איזה סוג מידע אתם מחפשים"],
+    "observed": {"notes": "Should answer directly."}
+  },
+  {
+    "row": 1,
+    "question": "מה ההבדל בין ועדת חקירה ממלכתית לפרלמנטרית?",
+    "expected_behavior": "Distinguishes the two and points to חוק ועדות חקירה.",
+    "must_not_contain": [],
+    "observed": {"notes": ""}
+  }
+]
