@@ -1,0 +1,5 @@
+{
+  "score": 0.85,
+  "verdict": "PASS",
+  "reason": "Covers expected_behavior; cites the right law section; minor token gap is non-load-bearing."
+}
