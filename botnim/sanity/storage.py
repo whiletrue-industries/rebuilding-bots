@@ -52,42 +52,6 @@ def _connect(db_url: str) -> psycopg.Connection:
     return psycopg.connect(db_url)
 
 
-def _ensure_schema(conn: psycopg.Connection) -> None:
-    """Create the sanity_runs table if it doesn't exist (idempotent).
-
-    Called by every public function so tests with a fresh per-test DB
-    always have the table available without a separate migration step.
-    """
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS sanity_runs (
-            id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            env         TEXT NOT NULL,
-            started_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-            finished_at TIMESTAMPTZ,
-            status      TEXT NOT NULL DEFAULT 'running',
-            url_old     TEXT NOT NULL,
-            url_new     TEXT NOT NULL,
-            total_rows  INT,
-            ab_new_wins INT,
-            ab_old_wins INT,
-            ab_ties     INT,
-            rubric_pass  INT,
-            rubric_fail  INT,
-            rubric_xfail INT,
-            rubric_infra INT,
-            pass_rate    NUMERIC(6,4),
-            alert_severity TEXT,
-            alert_reasons  JSONB,
-            capture_json   JSONB,
-            judged_json    JSONB,
-            html           TEXT,
-            error          TEXT
-        )
-        """
-    )
-
-
 def create_run(
     db_url: str,
     *,
@@ -96,7 +60,6 @@ def create_run(
     url_new: str,
 ) -> str:
     with _connect(db_url) as conn:
-        _ensure_schema(conn)
         row = conn.execute(
             """
             INSERT INTO sanity_runs (env, status, url_old, url_new)
@@ -122,7 +85,6 @@ def finalize_run(
         {"rule": r.rule, "detail": r.detail} for r in alerts.reasons
     ]
     with _connect(db_url) as conn:
-        _ensure_schema(conn)
         conn.execute(
             """
             UPDATE sanity_runs SET
@@ -155,7 +117,6 @@ def finalize_run(
 
 def fail_run(db_url: str, run_id: str, *, error: str) -> None:
     with _connect(db_url) as conn:
-        _ensure_schema(conn)
         conn.execute(
             """
             UPDATE sanity_runs SET status='failed', finished_at=now(), error=%s
@@ -167,7 +128,6 @@ def fail_run(db_url: str, run_id: str, *, error: str) -> None:
 
 def get_run(db_url: str, run_id: str) -> StoredRun:
     with _connect(db_url) as conn:
-        _ensure_schema(conn)
         with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
             cur.execute(
                 "SELECT * FROM sanity_runs WHERE id=%s::uuid",
@@ -181,7 +141,6 @@ def get_run(db_url: str, run_id: str) -> StoredRun:
 
 def list_recent(db_url: str, *, env: str, limit: int = 100) -> list[StoredRun]:
     with _connect(db_url) as conn:
-        _ensure_schema(conn)
         with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
             cur.execute(
                 """
@@ -198,7 +157,6 @@ def list_recent(db_url: str, *, env: str, limit: int = 100) -> list[StoredRun]:
 
 def get_run_html(db_url: str, run_id: str) -> tuple[str, datetime]:
     with _connect(db_url) as conn:
-        _ensure_schema(conn)
         row = conn.execute(
             "SELECT html, started_at FROM sanity_runs WHERE id=%s::uuid",
             (run_id,),
@@ -219,7 +177,6 @@ def list_history_for_alerts(
     """
     cutoff = datetime.now(tz=timezone.utc) - timedelta(days=days)
     with _connect(db_url) as conn:
-        _ensure_schema(conn)
         with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
             cur.execute(
                 """
