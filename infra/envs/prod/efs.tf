@@ -1,20 +1,24 @@
 ################################################################################
 # Shared EFS filesystem for botnim-api
 #
-# Two POSIX-isolated access points on one filesystem:
-#  - cache:           /srv/cache in the primary api container — sqlite KV caches
-#                     (metadata extraction + embeddings) warmed across task restarts
-#                     so the first botnim sync after a deploy is the only expensive one.
-#                     SAFE ONLY WHILE desired_count = 1; see main.tf for the reason.
+# Currently one POSIX-isolated access point in active use:
 #  - specs-extraction: /srv/specs/unified/extraction in the primary container.
 #                     Daily refresh job writes fresh CSVs here. On first deploy
 #                     (empty EFS) api_server.sh seeds from the image-baked copy
 #                     at /srv/specs-seed. Backed up via the same aws_backup_plan
 #                     as the other APs (whole-filesystem snapshot).
 #
+# The `cache` access point used to back /srv/cache (sqlite KV caches for the
+# legacy ES backend). Unmounted on 2026-05-09 — under the Aurora backend the
+# embedding/metadata caches live in the `documents` table (delta-sync
+# content_hash) and the `extraction_cache` table. The AP is kept here as a
+# no-op so the next terragrunt apply doesn't churn EFS access points; a
+# follow-up PR can drop it once we're confident no stale code paths attempt
+# to mount /cache.
+#
 # Note: the es-data access point has been removed as part of the Aurora migration
 # (the ES sidecar no longer runs). The EFS filesystem itself is retained for the
-# cache + specs-extraction APs.
+# specs-extraction AP.
 # TODO(post-soak): remove after Window C closes (~T+30d) — evaluate whether
 # the EFS filesystem itself can be decommissioned once the soak period ends.
 ################################################################################

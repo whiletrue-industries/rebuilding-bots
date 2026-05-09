@@ -17,13 +17,20 @@ variable "image_tag" {
 }
 
 variable "desired_count" {
-  description = "Desired ECS task count. Set to 0 for first bootstrap apply, then 1 for real operation. Must stay at 1 — the task has a stateful Elasticsearch sidecar with an EFS volume that cannot be safely shared across tasks."
+  description = <<-EOT
+    Desired ECS task count. Set to 0 for first bootstrap apply, then 2 (or
+    higher) for real operation. The pre-2026-05-09 single-task constraint
+    (sqlite-over-NFS cache at /srv/cache) is gone — the cache moved to Aurora
+    and the /srv/cache mount was removed. Daily refresh + sanity background
+    jobs are now guarded by a postgres advisory lock, so multiple tasks
+    coordinate cleanly.
+  EOT
   type        = number
   default     = 0
 
   validation {
-    condition     = var.desired_count >= 0 && var.desired_count <= 1
-    error_message = "desired_count must be 0 or 1. Horizontal scaling is not supported for this task due to the Elasticsearch sidecar."
+    condition     = var.desired_count >= 0 && var.desired_count <= 4
+    error_message = "desired_count must be between 0 and 4. The shared ALB target group has plenty of headroom; raise the cap here only if needed."
   }
 }
 

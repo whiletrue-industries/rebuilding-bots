@@ -34,6 +34,32 @@ CHUNK_MAX_TOKENS = 6000
 CHUNK_OVERLAP_TOKENS = 300
 EMBEDDING_TOKEN_LIMIT = 8192  # OpenAI text-embedding-3-* hard ceiling
 
+# Default `hnsw.ef_search` for vector ANN queries. Override via the env var
+# BOTNIM_HNSW_EF_SEARCH (positive integer). Coerced to a sane range so a
+# typo in the env doesn't break production search.
+_HNSW_EF_SEARCH_DEFAULT = 100
+_HNSW_EF_SEARCH_MIN = 10
+_HNSW_EF_SEARCH_MAX = 1000
+
+
+def _hnsw_ef_search() -> int:
+    raw = os.environ.get("BOTNIM_HNSW_EF_SEARCH")
+    if not raw:
+        return _HNSW_EF_SEARCH_DEFAULT
+    try:
+        n = int(raw)
+    except ValueError:
+        logger.warning("BOTNIM_HNSW_EF_SEARCH=%r is not an int; falling back to %d", raw, _HNSW_EF_SEARCH_DEFAULT)
+        return _HNSW_EF_SEARCH_DEFAULT
+    if n < _HNSW_EF_SEARCH_MIN or n > _HNSW_EF_SEARCH_MAX:
+        logger.warning(
+            "BOTNIM_HNSW_EF_SEARCH=%d outside [%d,%d]; clamping",
+            n, _HNSW_EF_SEARCH_MIN, _HNSW_EF_SEARCH_MAX,
+        )
+        n = max(_HNSW_EF_SEARCH_MIN, min(_HNSW_EF_SEARCH_MAX, n))
+    return n
+
+
 _tokenizer = None
 
 
@@ -366,14 +392,21 @@ class VectorStoreAurora(VectorStoreBase):
         # keeps the search call self-contained and resilient to context
         # rows being added/removed mid-process.
         with get_session() as sess:
-            # HNSW `ef_search` controls the dynamic candidate list size; default
-            # is 40, which on small Hebrew corpora repeatedly missed instructional
-            # docs in favor of one-line "ministry: code" entries that share more
-            # surface tokens with the query. 100 trades a small latency hit for
-            # better recall. SET LOCAL keeps it scoped to this txn so it doesn't
+            # HNSW `ef_search` controls the dynamic candidate list size; pgvector
+            # default is 40, which on small Hebrew corpora repeatedly missed
+            # instructional docs in favor of one-line "ministry: code" entries
+            # that share more surface tokens with the query. We default to 100
+            # — a measured trade-off between recall and per-query latency —
+            # tunable via BOTNIM_HNSW_EF_SEARCH for tail-latency tuning. The
+            # historical value of 500 was over-fitted to a small offline
+            # benchmark and contributed to the 2026-05-09 prod 504s when the
+            # shared Aurora cluster was at capacity.
+            #
+            # SET LOCAL keeps the override scoped to this txn so it doesn't
             # leak across the connection pool. (See migration 0007 for the
             # ivfflat → hnsw swap rationale.)
-            sess.execute(text("SET LOCAL hnsw.ef_search = 500"))
+            ef = _hnsw_ef_search()
+            sess.execute(text(f"SET LOCAL hnsw.ef_search = {ef}"))
 
             row = sess.execute(text(
                 "SELECT id FROM contexts WHERE bot=:bot AND name=:name"

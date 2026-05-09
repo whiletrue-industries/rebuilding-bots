@@ -1,3 +1,4 @@
+import asyncio
 import dataclasses
 import logging
 import os
@@ -105,6 +106,15 @@ async def get_bot_config(
     return cfg.to_dict()
 
 
+# Per-request deadline for /retrieve. Sized to land safely below the
+# Service-Connect Envoy sidecar's per-request timeout (60s after the
+# 2026-05-09 raise) AND the ALB idle timeout (120s) — so when Aurora is
+# saturated the API returns a structured 504 the LLM can recover from
+# (e.g. retry with search_mode=METADATA_BROWSE), instead of bubbling up
+# a synthetic gateway-timeout from the proxy that loses all context.
+RETRIEVE_TIMEOUT_SECONDS = float(os.getenv("BOTNIM_RETRIEVE_TIMEOUT_SECONDS", "12"))
+
+
 @app.get("/retrieve/{bot}/{context}")
 @app.get("/botnim/retrieve/{bot}/{context}")
 async def search_datasets_handler(
@@ -122,12 +132,22 @@ async def search_datasets_handler(
     if num_results is None:
         num_results = mode_config.num_results
     try:
-        results = run_query(
-            store_id=store_id,
-            query_text=query,
-            num_results=num_results,
-            format=format,
-            search_mode=mode_config
+        # run_query is sync (sqlalchemy + openai client). Run in a worker
+        # thread so we can enforce a deadline via asyncio.wait_for instead
+        # of leaving the event loop blocked. asyncio.TimeoutError is an
+        # alias for TimeoutError on Python 3.11+, so a single except branch
+        # below covers both the deadline-exceeded case (our wait_for) and
+        # any inner TimeoutError raised by run_query itself.
+        results = await asyncio.wait_for(
+            asyncio.to_thread(
+                run_query,
+                store_id=store_id,
+                query_text=query,
+                num_results=num_results,
+                format=format,
+                search_mode=mode_config,
+            ),
+            timeout=RETRIEVE_TIMEOUT_SECONDS,
         )
     except ConnectionError as e:
         logger.error(f"Upstream connection error in search: {e}")
@@ -136,10 +156,24 @@ async def search_datasets_handler(
             content={"error": "upstream_connection_error", "detail": str(e), "store_id": store_id},
         )
     except TimeoutError as e:
-        logger.error(f"Timeout in search: {e}")
+        # Catches both:
+        #  - asyncio.TimeoutError raised by our wait_for (str(e) is empty
+        #    in CPython, so we synthesize a useful message)
+        #  - inner TimeoutError raised by run_query / lower layers (carries
+        #    its own detail string we forward as-is)
+        # On Python 3.11+ asyncio.TimeoutError is an alias for TimeoutError,
+        # so a single except branch is the simplest and correct option.
+        detail = str(e) or (
+            f"deadline exceeded after {RETRIEVE_TIMEOUT_SECONDS:.1f}s; "
+            "retry, or try search_mode=METADATA_BROWSE for a SQL-only path"
+        )
+        logger.warning(
+            "RETRIEVE_TIMEOUT store_id=%s detail=%s query=%r",
+            store_id, detail, query[:80],
+        )
         return JSONResponse(
             status_code=504,
-            content={"error": "search_timeout", "detail": str(e), "store_id": store_id},
+            content={"error": "search_timeout", "detail": detail, "store_id": store_id},
         )
     except Exception as e:
         logger.error(f"Search failed: {e}", exc_info=True)
@@ -301,7 +335,53 @@ async def knesset_sessions_live(
 # background thread so the HTTP response returns quickly. Failures are
 # surfaced via ERROR-level "REFRESH_FAILED: ..." log lines that a CloudWatch
 # Logs metric filter watches — see infra/envs/<env>/refresh.tf.
+#
+# With desired_count > 1 (post-2026-05-09) the Lambda call may land on any
+# task and a Lambda retry can hit a different one mid-run. We guard the
+# background body with a postgres advisory lock so only one task at a time
+# actually runs the pipeline; the others log REFRESH_SKIPPED and exit.
 # ---------------------------------------------------------------------------
+
+
+# Stable bigint key for the daily-refresh advisory lock. CRC32 of a stable
+# label gives us a deterministic 32-bit value (always fits in postgres bigint)
+# that is very unlikely to collide with anything else on the cluster. No other
+# code paths use pg advisory locks today; if that changes, document the
+# keyspace inline so future labels can avoid collisions.
+import zlib as _zlib  # local alias — already not imported elsewhere in this module
+_REFRESH_LOCK_KEY = _zlib.crc32(b"botnim:refresh:daily")
+_SANITY_LOCK_KEY = _zlib.crc32(b"botnim:sanity:scheduled")
+
+
+def _try_run_with_advisory_lock(key: int, label: str, fn) -> None:
+    """Run ``fn()`` while holding a session-level pg advisory lock.
+
+    If the lock is already held, log ``{label}_SKIPPED`` and return without
+    invoking ``fn``. Used to coordinate the daily refresh background job
+    across multiple botnim-api Fargate tasks.
+
+    Lock is released explicitly via ``pg_advisory_unlock`` and again
+    implicitly when the connection closes.
+    """
+    from sqlalchemy import text as _text
+    from botnim.db.session import get_engine
+    engine = get_engine()
+    conn = engine.connect()
+    try:
+        acquired = conn.execute(_text("SELECT pg_try_advisory_lock(:k)"), {"k": key}).scalar()
+        if not acquired:
+            logger.info("%s_SKIPPED: another task holds advisory lock %#x", label, key)
+            return
+        try:
+            fn()
+        finally:
+            try:
+                conn.execute(_text("SELECT pg_advisory_unlock(:k)"), {"k": key})
+                conn.commit()
+            except Exception:
+                logger.warning("%s: pg_advisory_unlock failed; lock will release on session close", label, exc_info=True)
+    finally:
+        conn.close()
 
 
 def _run_refresh_job() -> None:
@@ -318,10 +398,19 @@ def _run_refresh_job() -> None:
 
 
 def _run_refresh_job_background() -> None:
+    def _body() -> None:
+        try:
+            _run_refresh_job()
+        except Exception as e:
+            logger.error(f"REFRESH_FAILED: {type(e).__name__}: {e}", exc_info=True)
+
     try:
-        _run_refresh_job()
+        _try_run_with_advisory_lock(_REFRESH_LOCK_KEY, "REFRESH", _body)
     except Exception as e:
-        logger.error(f"REFRESH_FAILED: {type(e).__name__}: {e}", exc_info=True)
+        # Lock-acquisition failures must not silently drop the run — if the
+        # DB is unreachable, REFRESH_FAILED is the right outcome (rather than
+        # REFRESH_SKIPPED, which implies "another task is on it").
+        logger.error(f"REFRESH_FAILED: lock acquisition failed: {type(e).__name__}: {e}", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -336,14 +425,24 @@ def _run_refresh_job_background() -> None:
 
 
 def _run_sanity_job_background() -> None:
-    env = os.environ.get("ENVIRONMENT", DEFAULT_ENVIRONMENT)
-    logger.info(f"SANITY_START: env={env}")
+    def _body() -> None:
+        env = os.environ.get("ENVIRONMENT", DEFAULT_ENVIRONMENT)
+        logger.info(f"SANITY_START: env={env}")
+        try:
+            from botnim.sanity.runner import run_sanity
+            run_id = run_sanity(env=env, db_url=os.environ["DATABASE_URL"])
+            logger.info(f"SANITY_OK: run_id={run_id}")
+        except Exception as e:
+            logger.error(f"SANITY_FAILED: {type(e).__name__}: {e}", exc_info=True)
+
+    # Same desired_count > 1 rationale as REFRESH — only one task at a time
+    # should run a sanity capture, otherwise two parallel runs would write
+    # overlapping rows into the sanity_runs table and double-burn the
+    # judge-side LLM budget.
     try:
-        from botnim.sanity.runner import run_sanity
-        run_id = run_sanity(env=env, db_url=os.environ["DATABASE_URL"])
-        logger.info(f"SANITY_OK: run_id={run_id}")
+        _try_run_with_advisory_lock(_SANITY_LOCK_KEY, "SANITY", _body)
     except Exception as e:
-        logger.error(f"SANITY_FAILED: {type(e).__name__}: {e}", exc_info=True)
+        logger.error(f"SANITY_FAILED: lock acquisition failed: {type(e).__name__}: {e}", exc_info=True)
 
 
 @app.post("/admin/sanity", status_code=202)

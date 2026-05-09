@@ -1,13 +1,10 @@
 #!/bin/bash
 set -eu
 
-# ─────────────────────────────────────────────────────────────────────────
-# Cache subdirs. /srv/cache is an EFS mount in staging/prod (see
-# infra/envs/*/main.tf), which shadows the subdirs the Dockerfile
-# pre-creates. Re-create them here so KVFile can open its sqlite files.
-# This is a no-op locally where /srv/cache is just a container-local dir.
-# ─────────────────────────────────────────────────────────────────────────
-mkdir -p /srv/cache/metadata /srv/cache/embedding
+# /srv/cache (sqlite KV caches for the legacy ES backend) was unmounted on
+# 2026-05-09 — under the Aurora backend, dedup lives in Aurora. The subdir
+# mkdir that used to live here is gone. If you need ES-mode locally, recreate
+# the dirs manually before invoking botnim sync --backend es.
 
 # ─────────────────────────────────────────────────────────────────────────
 # EFS seed: /srv/specs/unified/extraction is an EFS access point in

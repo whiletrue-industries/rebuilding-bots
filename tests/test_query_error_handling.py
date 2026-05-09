@@ -28,6 +28,7 @@ for mod in [
     "botnim.query",
     "botnim.bot_config", "botnim.config",
     "botnim.fetch_and_process", "botnim.sync",
+    "botnim.db", "botnim.db.session",
 ]:
     sys.modules[mod] = MagicMock()
 
@@ -42,12 +43,15 @@ resolve_mod = types.ModuleType("resolve_firebase_user")
 resolve_mod.FireBaseUser = Annotated[dict, lambda: None]  # simple annotation
 sys.modules["resolve_firebase_user"] = resolve_mod
 
-# refresh_auth is also a top-level module imported by server.py from its own
-# directory at runtime. Mock its public surface so the import resolves; we
-# only test request-routing here, not auth.
+# refresh_auth + sanity_auth are top-level modules imported by server.py from
+# its own directory at runtime. Mock their public surface so the import
+# resolves; we only test request-routing here, not auth.
 refresh_auth_mod = types.ModuleType("refresh_auth")
 refresh_auth_mod.require_refresh_api_key = lambda: None
 sys.modules["refresh_auth"] = refresh_auth_mod
+sanity_auth_mod = types.ModuleType("sanity_auth")
+sanity_auth_mod.require_sanity_api_key = lambda: None
+sys.modules["sanity_auth"] = sanity_auth_mod
 
 # botnim.word_doc.* — server.py uses WordDocResponse as FastAPI response_model,
 # which requires a real pydantic model class (not a MagicMock). Provide
@@ -154,6 +158,23 @@ class TestSearchErrorHandling:
         assert body["error"] == "search_timeout"
         assert "timed out" in body["detail"]
 
+    def test_deadline_exceeded_uses_synthesized_detail(self):
+        """An empty-message TimeoutError (e.g. raised by asyncio.wait_for on
+        deadline) must fall back to a synthesized detail that names the
+        deadline + the METADATA_BROWSE escape hatch — otherwise the LLM has
+        no signal to recover from."""
+        # asyncio.TimeoutError is an alias for TimeoutError on 3.11+, so the
+        # empty-message constructor models exactly what wait_for raises.
+        with patch("backend.api.server.run_query", side_effect=TimeoutError()):
+            response = client.get("/retrieve/unified/common_knowledge?query=test")
+
+        assert response.status_code == 504
+        body = response.json()
+        assert body["error"] == "search_timeout"
+        assert "deadline exceeded" in body["detail"]
+        assert "METADATA_BROWSE" in body["detail"]
+        assert body["store_id"] == "unified__common_knowledge"
+
     def test_error_response_is_structured_json(self):
         """Error responses must be structured JSON with error, detail, store_id."""
         with patch("backend.api.server.run_query",
@@ -175,3 +196,68 @@ class TestSearchErrorHandling:
         assert response.status_code != 200
         # Should NOT contain the old-style plain text error
         assert not response.text.startswith("Error performing search:")
+
+
+class TestAdvisoryLock:
+    """The daily-refresh background job must coordinate across multiple
+    Fargate tasks via a postgres advisory lock — exactly one task runs the
+    pipeline per Lambda invocation."""
+
+    def _build_engine_with_lock(self, lock_acquired: bool):
+        """Build a fake SQLAlchemy engine whose pg_try_advisory_lock returns
+        the supplied bool. Returns (engine_mock, conn_mock) so tests can
+        inspect the calls made on the connection."""
+        conn = MagicMock()
+        # pg_try_advisory_lock → bool, pg_advisory_unlock → None.
+        # We assume callers run them in this order; conn.execute(...).scalar()
+        # always returns the lock_acquired flag (only the first call uses
+        # scalar() so this is fine).
+        conn.execute.return_value.scalar.return_value = lock_acquired
+        engine = MagicMock()
+        engine.connect.return_value = conn
+        return engine, conn
+
+    def test_runs_body_when_lock_acquired(self, caplog):
+        from backend.api import server as server_module
+        engine, conn = self._build_engine_with_lock(True)
+
+        # Patch the get_engine function on the mocked db.session module so
+        # the helper's deferred `from botnim.db.session import get_engine`
+        # picks up our fake.
+        with patch.object(sys.modules["botnim.db.session"], "get_engine", return_value=engine):
+            calls = []
+            server_module._try_run_with_advisory_lock(0xDEADBEEF, "TEST", lambda: calls.append("ran"))
+
+        assert calls == ["ran"], "body fn must run when lock is acquired"
+        # Connection must be closed at the end.
+        conn.close.assert_called_once()
+
+    def test_skips_body_when_lock_held_by_other(self, caplog):
+        from backend.api import server as server_module
+        engine, conn = self._build_engine_with_lock(False)
+
+        with caplog.at_level(logging.INFO):
+            with patch.object(sys.modules["botnim.db.session"], "get_engine", return_value=engine):
+                calls = []
+                server_module._try_run_with_advisory_lock(0xDEADBEEF, "TEST", lambda: calls.append("ran"))
+
+        assert calls == [], "body fn must NOT run when another task holds the lock"
+        assert "TEST_SKIPPED" in caplog.text, "must log SKIPPED so operators can see why this task did nothing"
+        conn.close.assert_called_once()
+
+    def test_releases_lock_even_if_body_raises(self):
+        from backend.api import server as server_module
+        engine, conn = self._build_engine_with_lock(True)
+
+        def boom():
+            raise RuntimeError("body crashed")
+
+        with patch.object(sys.modules["botnim.db.session"], "get_engine", return_value=engine):
+            with pytest.raises(RuntimeError, match="body crashed"):
+                server_module._try_run_with_advisory_lock(0xDEADBEEF, "TEST", boom)
+
+        # Verify pg_advisory_unlock was called and conn was closed even on raise.
+        unlock_calls = [c for c in conn.execute.call_args_list
+                        if any("pg_advisory_unlock" in str(a) for a in c.args)]
+        assert unlock_calls, "must call pg_advisory_unlock even when body raises"
+        conn.close.assert_called_once()

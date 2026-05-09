@@ -17,13 +17,16 @@ variable "image_tag" {
 }
 
 variable "desired_count" {
-  description = "Desired ECS task count. Set to 0 for first bootstrap apply, then 1 for real operation. Must stay at 1 — the task has a stateful Elasticsearch sidecar with an EFS volume that cannot be safely shared across tasks."
+  description = <<-EOT
+    Desired ECS task count. See infra/envs/prod/variables.tf for the rationale
+    on why >1 is now safe (post-2026-05-09 cache + lock changes).
+  EOT
   type        = number
   default     = 0
 
   validation {
-    condition     = var.desired_count >= 0 && var.desired_count <= 1
-    error_message = "desired_count must be 0 or 1. Horizontal scaling is not supported for this task due to the Elasticsearch sidecar."
+    condition     = var.desired_count >= 0 && var.desired_count <= 4
+    error_message = "desired_count must be between 0 and 4."
   }
 }
 

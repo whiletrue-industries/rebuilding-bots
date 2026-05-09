@@ -54,7 +54,18 @@ module "botnim_api" {
   # Defaults: discovery_name = app_name = "botnim-api", client_alias_port =
   # container_port = 8000, app_protocol = "http". In-cluster URL:
   #   http://botnim-api:8000
-  internal_server = {}
+  #
+  # The SC Envoy sidecar fronts ALL inbound traffic on port 8000 (ALB →
+  # ENI:8000 is iptables-redirected to Envoy → localhost). Envoy's default
+  # per-request timeout is 15s — too tight for vector ANN + LLM-tool calls
+  # under shared-Aurora load (we hit this on 2026-05-09 producing 504s with
+  # target_processing_time clustered exactly at 15s). Raise to 60s, well
+  # below the ALB idle timeout of 120s, so saturated DB queries return a
+  # real response instead of a synthetic gateway timeout.
+  internal_server = {
+    per_request_timeout_seconds = 60
+    idle_timeout_seconds        = 120
+  }
 
   enable_aurora_access = true
 
@@ -95,32 +106,10 @@ module "botnim_api" {
   )
 
   efs_volumes = [
-    # Persistent cache for botnim sync. Two sqlite KV stores live under
-    # /srv/cache: `metadata` (dynamic_extraction schema results) and
-    # `embedding` (OpenAI embedding vectors), both keyed on source content
-    # hash. Warming this across task restarts turns a ~30-min cold sync into
-    # a ~1-min warm sync — every doc that hasn't changed skips both OpenAI
-    # round trips. api_server.sh creates the subdirs at runtime since the
-    # mount shadows whatever the Dockerfile pre-created.
-    #
-    # SINGLE-WRITER CONSTRAINT: the cache is sqlite-over-NFS. That is safe
-    # with exactly one writer and silently corrupts with concurrent writers
-    # because NFS does not honor POSIX advisory locks the way a local FS
-    # does. This is only OK while desired_count = 1 and no autoscaling.
-    # If we ever need >1 task, this mount must be removed (or the caches
-    # must move to a concurrency-safe store like DynamoDB/ElastiCache).
-    {
-      name               = "cache"
-      file_system_id     = module.es_efs.file_system_id
-      access_point_id    = module.es_efs.access_point_ids["cache"]
-      transit_encryption = "ENABLED"
-      iam_authorization  = "DISABLED"
-      root_directory     = "/"
-    },
     # Daily refresh job writes fresh extraction CSVs to this AP via the
-    # /admin/refresh endpoint's background thread. Single-writer (api task
-    # only) — same sqlite-over-NFS rationale as /srv/cache applies, though
-    # this AP stores plain CSVs with no locking concerns.
+    # /admin/refresh endpoint's background thread. Concurrent writes are
+    # guarded by a postgres advisory lock (`backend/api/server.py`
+    # `_REFRESH_LOCK_KEY`) so this is safe across desired_count > 1.
     {
       name               = "specs-extraction"
       file_system_id     = module.es_efs.file_system_id
@@ -131,18 +120,17 @@ module "botnim_api" {
     },
   ]
 
-  # Mount EFS volumes in the primary container:
-  #  - /srv/cache: the persistent sqlite KV caches described above.
+  # Mount EFS volumes in the primary container.
+  #  - /srv/cache (sqlite KV caches): REMOVED on 2026-05-09. Used to back the
+  #    legacy ES-backend embedding/metadata caches; under the Aurora backend
+  #    those caches live in `documents.content_hash` (delta sync) and the
+  #    `extraction_cache` table. Removing the mount lifts the single-writer
+  #    constraint that previously pinned us to desired_count=1.
   #  - /srv/specs/unified/extraction: the daily refresh job's output CSVs,
   #    persisted across task restarts so a new deploy doesn't lose fresh
   #    scrape results. Seeded from the image on first boot via
   #    seed_extraction_if_empty in api_server.sh.
   primary_container_mount_points = [
-    {
-      container_path = "/srv/cache"
-      source_volume  = "cache"
-      read_only      = false
-    },
     {
       container_path = "/srv/specs/unified/extraction"
       source_volume  = "specs-extraction"
