@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from resolve_firebase_user import FireBaseUser
 from refresh_auth import require_refresh_api_key
+from sanity_auth import require_sanity_api_key
 from botnim.query import run_query
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 from botnim.bot_config import load_bot_config
@@ -321,6 +322,43 @@ def _run_refresh_job_background() -> None:
         _run_refresh_job()
     except Exception as e:
         logger.error(f"REFRESH_FAILED: {type(e).__name__}: {e}", exc_info=True)
+
+
+# ---------------------------------------------------------------------------
+# Admin sanity endpoint
+#
+# Called by the `botnim-sanity-invoker-<env>` Lambda on EventBridge schedule
+# (twice daily). Spawns a daemon thread that runs the full capture → judge →
+# render → finalize pipeline. Status surfaces in CloudWatch logs as
+# SANITY_START / SANITY_OK / SANITY_FAILED / SANITY_REGRESSION (filtered
+# into the same SNS topic as refresh failures).
+# ---------------------------------------------------------------------------
+
+
+def _run_sanity_job_background() -> None:
+    env = os.environ.get("ENVIRONMENT", DEFAULT_ENVIRONMENT)
+    logger.info(f"SANITY_START: env={env}")
+    try:
+        from botnim.sanity.runner import run_sanity
+        run_id = run_sanity(env=env, db_url=os.environ["DATABASE_URL"])
+        logger.info(f"SANITY_OK: run_id={run_id}")
+    except Exception as e:
+        logger.error(f"SANITY_FAILED: {type(e).__name__}: {e}", exc_info=True)
+
+
+@app.post("/admin/sanity", status_code=202)
+@app.post("/botnim/admin/sanity", status_code=202)
+async def trigger_sanity(
+    _auth: None = Depends(require_sanity_api_key),
+) -> Dict[str, str]:
+    """Kick off a sanity DoD run in the background.
+
+    Returns 202 Accepted immediately. Check CloudWatch logs for
+    SANITY_START / SANITY_OK / SANITY_FAILED / SANITY_REGRESSION.
+    """
+    thread = threading.Thread(target=_run_sanity_job_background, daemon=True)
+    thread.start()
+    return {"status": "accepted"}
 
 
 @app.post("/admin/refresh", status_code=202)
