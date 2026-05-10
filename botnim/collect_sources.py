@@ -27,6 +27,25 @@ from ._concurrency import SyncConcurrency, get_sync_concurrency, run_async
 logger = get_logger(__name__)
 cache: KVFile = None
 
+
+def _open_metadata_cache() -> KVFile:
+    """Open the per-process L1 extraction-result cache.
+
+    Lives at ``<repo_root>/cache/metadata.sqlite``. The parent dir
+    ``<repo_root>/cache/`` is committed in the repo for dev/CI but is
+    NOT copied into the prod docker image (no ``COPY cache/`` in
+    ``backend/api/Dockerfile``), so a fresh ECS task has no
+    ``/srv/cache/``. Without this mkdir, ``KVFile(...)`` →
+    ``sqlite3.connect(...)`` raises ``OperationalError: unable to open
+    database file`` and the sync aborts mid-run — and if the
+    ``--force-rebuild`` wipe already ran, the context is left empty in
+    Aurora until a successful re-sync.
+    """
+    location = Path(__file__).parent.parent / 'cache' / 'metadata'
+    location.parent.mkdir(parents=True, exist_ok=True)
+    return KVFile(location=str(location))
+
+
 def _cache_key(content: str) -> str:
     return hashlib.sha256(content.strip().encode('utf-8')).hexdigest()[:16]
 
@@ -304,7 +323,7 @@ async def collect_context_sources_async(
     from .dynamic_extraction import RpdExhausted
 
     global cache
-    cache = KVFile(location=str(Path(__file__).parent.parent / 'cache' / 'metadata'))
+    cache = _open_metadata_cache()
 
     context_name = context_['name']
     raw: list[tuple[str, object, str, str]] = []

@@ -23,6 +23,20 @@ from .search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 
 logger = get_logger(__name__)
 
+
+def _open_embedding_cache() -> KVFile:
+    """Open the per-process L1 embedding cache.
+
+    Lives at ``<repo_root>/cache/embedding.sqlite``. Same caveat as
+    ``collect_sources._open_metadata_cache``: ``<repo_root>/cache/`` is
+    not in the prod docker image, so the parent dir must be created
+    before opening the kvfile or sqlite3 raises ``OperationalError``.
+    """
+    location = Path(__file__).parent.parent.parent / 'cache' / 'embedding'
+    location.parent.mkdir(parents=True, exist_ok=True)
+    return KVFile(location=str(location))
+
+
 class VectorStoreES(VectorStoreBase):
     """
     Vector store for Elasticsearch
@@ -475,7 +489,7 @@ class VectorStoreES(VectorStoreBase):
         callback,
         concurrency: SyncConcurrency,
     ):
-        embedding_cache = KVFile(location=str(Path(__file__).parent.parent.parent / 'cache' / 'embedding'))
+        embedding_cache = _open_embedding_cache()
         async_client = get_async_openai_client(self.environment)
 
         # Phase 1: prepare ES documents (embeddings in parallel).
