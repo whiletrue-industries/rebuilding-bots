@@ -56,6 +56,12 @@ REGULAR_CONFIG = SearchModeConfig(
     min_score=0.5,
     num_results=15,  # Default for regular/semantic search (bumped from 7 to give RRF fusion enough room to surface boundary-rank docs that vector vs BM25 disagree on)
     use_vector_search=True,
+    # BM25 dropped 2026-05-10: PG `simple` tsv has no Hebrew analyzer, the
+    # prefix-OR workaround in _build_prefix_or_tsquery doesn't bridge
+    # construct-state morphology, and the resulting noisy BM25 list dilutes
+    # the (correct) vector ranking under RRF. See the local A/B in
+    # /tmp/strategy-sweep.py + the row-0 cosine vs RRF probe on 2026-05-10.
+    use_lexical_search=False,
     fields=[
         SearchFieldConfig(
             name="content",
@@ -162,6 +168,7 @@ METADATA_BROWSE_CONFIG = SearchModeConfig(
     min_score=0.6,  # Higher threshold for better precision
     num_results=25,  # More results for browsing
     use_vector_search=True,  # Use semantic search for relevance
+    use_lexical_search=False,  # Same Hebrew-tsv rationale as REGULAR — see search_config.py.
     fields=[
         SearchFieldConfig(
             name="content",

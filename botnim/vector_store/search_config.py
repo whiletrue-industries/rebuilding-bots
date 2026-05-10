@@ -27,3 +27,11 @@ class SearchModeConfig:
     min_score: float = 0.5
     num_results: int = 7  # Default number of results for this mode
     use_vector_search: bool = True
+    # Lexical (BM25 / tsvector) branch toggle. ON by default for back-compat
+    # with all the ES-era modes. The Aurora pipeline uses Postgres `simple`
+    # tsv config (no Hebrew stemmer/analyzer ships with PG), so BM25 here
+    # is essentially noise on Hebrew construct-state morphology and dilutes
+    # the vector signal under RRF. REGULAR + METADATA_BROWSE flip this to
+    # False; SECTION_NUMBER / RELATED_RESOURCE keep it True because they
+    # are exact-clause-number lookups where lexical IS the right tool.
+    use_lexical_search: bool = True

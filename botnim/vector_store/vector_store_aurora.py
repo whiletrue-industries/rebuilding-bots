@@ -24,39 +24,77 @@ from .vector_store_base import VectorStoreBase
 logger = get_logger(__name__)
 
 
-# Targets for content chunking when a source doc exceeds the embedding model's
-# token limit. text-embedding-3-{small,large} both cap at 8192. We chunk at
-# 6000 with 300 overlap to leave headroom for tokenizer drift between tiktoken's
-# estimate and OpenAI's actual tokenizer (the two are very close for cl100k_base
-# but not bit-identical), and to keep retrieval-quality high (chunks ≤ ~6k tokens
-# represent a single concept tightly; longer chunks average too much).
-CHUNK_MAX_TOKENS = 6000
-CHUNK_OVERLAP_TOKENS = 300
-EMBEDDING_TOKEN_LIMIT = 8192  # OpenAI text-embedding-3-* hard ceiling
-
-# Default `hnsw.ef_search` for vector ANN queries. Override via the env var
-# BOTNIM_HNSW_EF_SEARCH (positive integer). Coerced to a sane range so a
-# typo in the env doesn't break production search.
+# Code-level defaults for retrieval-shape knobs. Per-context overrides live
+# in `specs/<bot>/config.yaml` next to each context entry — see
+# `_CHUNKING_CONFIG_KEYS` and `_HNSW_EF_SEARCH_KEY` below for the exact YAML
+# fields. We don't expose env-var overrides for these any more — they're
+# corpus-shape decisions, so they belong in the data-definition file alongside
+# `sources:` / `max_num_results:`, not in deployment env vars.
+#
+# Defaults:
+#   chunk_max_tokens     = 600   (small chunks → tighter embedding centroids,
+#                                 dramatically better recall on Hebrew long docs;
+#                                 see retrieval-strategy A/B 2026-05-10).
+#   chunk_overlap_tokens = 80    (~13% of chunk size, standard RAG ratio.)
+#   hnsw_ef_search       = 100   (pgvector default 40 missed instructional docs
+#                                 in favour of one-line metadata-style entries
+#                                 that share more surface tokens with queries.
+#                                 100 trades a small latency hit for recall.
+#                                 The historical 500 was over-fitted to a
+#                                 small offline benchmark and contributed to
+#                                 the 2026-05-09 prod 504s.)
+#
+# `government_decisions` overrides chunk_max_tokens/overlap to 6000/300 in
+# config.yaml because re-chunking 27k+ rows to 600 tokens balloons to ~250k
+# chunks and meaningfully changes tail latency.
+_CHUNK_MAX_TOKENS_DEFAULT = 600
+_CHUNK_OVERLAP_TOKENS_DEFAULT = 80
 _HNSW_EF_SEARCH_DEFAULT = 100
 _HNSW_EF_SEARCH_MIN = 10
 _HNSW_EF_SEARCH_MAX = 1000
 
+# Back-compat aliases for callers that import the old names.
+CHUNK_MAX_TOKENS = _CHUNK_MAX_TOKENS_DEFAULT
+CHUNK_OVERLAP_TOKENS = _CHUNK_OVERLAP_TOKENS_DEFAULT
+EMBEDDING_TOKEN_LIMIT = 8192  # OpenAI text-embedding-3-* hard ceiling
 
-def _hnsw_ef_search() -> int:
-    raw = os.environ.get("BOTNIM_HNSW_EF_SEARCH")
-    if not raw:
-        return _HNSW_EF_SEARCH_DEFAULT
+
+def _resolve_int_setting(
+    context: dict | None,
+    key: str,
+    default: int,
+    *,
+    minimum: int = 1,
+    maximum: int | None = None,
+) -> int:
+    """Read an integer setting from a per-context config dict, with fallback
+    to the code-level default. Logs a warning + clamps if the YAML value is
+    out of range so a typo doesn't quietly break production search.
+
+    `context` is one entry from `config['context']` (the parsed YAML), or
+    None when the caller doesn't have that handy (during e.g. embedding
+    fan-out for a doc that hasn't been associated with a context yet).
+    """
+    if not context:
+        return default
+    raw = context.get(key)
+    if raw is None:
+        return default
     try:
         n = int(raw)
-    except ValueError:
-        logger.warning("BOTNIM_HNSW_EF_SEARCH=%r is not an int; falling back to %d", raw, _HNSW_EF_SEARCH_DEFAULT)
-        return _HNSW_EF_SEARCH_DEFAULT
-    if n < _HNSW_EF_SEARCH_MIN or n > _HNSW_EF_SEARCH_MAX:
+    except (TypeError, ValueError):
         logger.warning(
-            "BOTNIM_HNSW_EF_SEARCH=%d outside [%d,%d]; clamping",
-            n, _HNSW_EF_SEARCH_MIN, _HNSW_EF_SEARCH_MAX,
+            "context %r has non-int %s=%r; falling back to %d",
+            context.get('slug'), key, raw, default,
         )
-        n = max(_HNSW_EF_SEARCH_MIN, min(_HNSW_EF_SEARCH_MAX, n))
+        return default
+    if n < minimum or (maximum is not None and n > maximum):
+        bound_max = maximum if maximum is not None else 'inf'
+        logger.warning(
+            "context %r has %s=%d outside [%d, %s]; clamping",
+            context.get('slug'), key, n, minimum, bound_max,
+        )
+        n = max(minimum, n if maximum is None else min(maximum, n))
     return n
 
 
@@ -271,6 +309,22 @@ class VectorStoreAurora(VectorStoreBase):
         skipped = 0
         files_seen = 0
 
+        # Per-context chunking — see _CHUNK_*_DEFAULT for rationale.
+        # `context` here is the parsed YAML entry for this slug, so it carries
+        # the optional `chunk_max_tokens` / `chunk_overlap_tokens` overrides.
+        chunk_max = _resolve_int_setting(
+            context, 'chunk_max_tokens', _CHUNK_MAX_TOKENS_DEFAULT,
+            minimum=64, maximum=EMBEDDING_TOKEN_LIMIT,
+        )
+        chunk_overlap = _resolve_int_setting(
+            context, 'chunk_overlap_tokens', _CHUNK_OVERLAP_TOKENS_DEFAULT,
+            minimum=0, maximum=chunk_max // 2,
+        )
+        logger.info(
+            "Chunking %s/%s with max_tokens=%d, overlap=%d",
+            self.config.get('slug', '?'), context_name, chunk_max, chunk_overlap,
+        )
+
         with get_session() as sess:
             for fname, content_file, file_type, metadata in file_streams:
                 if not fname.endswith(".md"):
@@ -285,7 +339,7 @@ class VectorStoreAurora(VectorStoreBase):
                     skipped += 1
                     continue
 
-                chunks = _chunk_for_embedding(raw_content)
+                chunks = _chunk_for_embedding(raw_content, max_tokens=chunk_max, overlap_tokens=chunk_overlap)
                 total_chunks = len(chunks)
                 if total_chunks > 1:
                     logger.info(
@@ -393,27 +447,38 @@ class VectorStoreAurora(VectorStoreBase):
         # leak into results. vector_store_es.py:165 had this; the Aurora port
         # dropped it, which silently turned SECTION_NUMBER into REGULAR.
         use_vector = bool(getattr(search_mode, "use_vector_search", True))
+        # Same gate for the lexical (BM25 / tsvector) branch. PG `simple` tsv
+        # config has no Hebrew analyzer; the prefix-OR fallback can't bridge
+        # construct-state morphology (`ועדה` / `ועדת` / `ועדות`); the noisy
+        # BM25 list dilutes the (correct) vector ranking under RRF. REGULAR
+        # and METADATA_BROWSE flip this to False (vector-only). SECTION_NUMBER
+        # / RELATED_RESOURCE keep it True because exact section-number lookup
+        # IS lexical. See A/B evidence on 2026-05-10 (row 0 of the goldset:
+        # raw cosine top-3 = expected docs, RRF top-3 = irrelevant chunks).
+        use_lexical = bool(getattr(search_mode, "use_lexical_search", True))
 
         # Resolve context_id from (bot, name) — small extra round-trip but
         # keeps the search call self-contained and resilient to context
         # rows being added/removed mid-process.
         with get_session() as sess:
-            # HNSW `ef_search` controls the dynamic candidate list size; pgvector
-            # default is 40, which on small Hebrew corpora repeatedly missed
-            # instructional docs in favor of one-line "ministry: code" entries
-            # that share more surface tokens with the query. We default to 100
-            # — a measured trade-off between recall and per-query latency —
-            # tunable via BOTNIM_HNSW_EF_SEARCH for tail-latency tuning. The
-            # historical value of 500 was over-fitted to a small offline
-            # benchmark and contributed to the 2026-05-09 prod 504s when the
-            # shared Aurora cluster was at capacity.
-            #
-            # SET LOCAL keeps the override scoped to this txn so it doesn't
-            # leak across the connection pool. (See migration 0007 for the
-            # ivfflat → hnsw swap rationale.) Only set when we'll actually use
-            # the vector branch — saves a no-op SET on BM25-only modes.
+            # HNSW `ef_search` per-context — see _HNSW_EF_SEARCH_DEFAULT for
+            # rationale. Default 100 trades a small latency hit for recall on
+            # small Hebrew corpora; overridable per context in
+            # `specs/<bot>/config.yaml`. SET LOCAL keeps the override scoped
+            # to this txn so it doesn't leak across the connection pool.
+            # (See migration 0007 for the ivfflat → hnsw swap rationale.)
+            # Only set when we'll actually use the vector branch — saves a
+            # no-op SET on BM25-only modes.
             if use_vector:
-                ef = _hnsw_ef_search()
+                ctx_cfg = next(
+                    (c for c in self.config.get('context', [])
+                     if c.get('slug') == context_name),
+                    None,
+                )
+                ef = _resolve_int_setting(
+                    ctx_cfg, 'hnsw_ef_search', _HNSW_EF_SEARCH_DEFAULT,
+                    minimum=_HNSW_EF_SEARCH_MIN, maximum=_HNSW_EF_SEARCH_MAX,
+                )
                 sess.execute(text(f"SET LOCAL hnsw.ef_search = {ef}"))
 
             row = sess.execute(text(
@@ -457,7 +522,7 @@ class VectorStoreAurora(VectorStoreBase):
             # multi-field tsv (migration 0004) and ts_rank_cd, the BM25 side
             # surfaces docs whose DocumentTitle / metadata mentions the topic
             # even when the exact construct form isn't in the body.
-            ts_query_str = _build_prefix_or_tsquery(query_text)
+            ts_query_str = _build_prefix_or_tsquery(query_text) if use_lexical else ''
             if ts_query_str:
                 bm25_rows = sess.execute(text(
                     f"""
@@ -471,7 +536,7 @@ class VectorStoreAurora(VectorStoreBase):
                     """
                 ), {"cid": cid, "q": ts_query_str, "limit": fetch, **md_params}).fetchall()
             else:
-                # Empty query (all tokens too short / stopwords); skip BM25.
+                # Lexical disabled, OR empty query (all tokens too short / stopwords); skip BM25.
                 bm25_rows = []
 
         return _rrf_fuse(vector_rows, bm25_rows, num_results)
