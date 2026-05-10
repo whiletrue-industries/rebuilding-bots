@@ -35,7 +35,7 @@ class StoredRun:
     ab_new_wins: Optional[int]
     ab_old_wins: Optional[int]
     ab_ties: Optional[int]
-    rubric_pass: Optional[int]
+    rubric_pass: Optional[int]   # legacy rolled-up PASS column (PASS_T1 + PASS_T2)
     rubric_fail: Optional[int]
     rubric_xfail: Optional[int]
     rubric_infra: Optional[int]
@@ -101,8 +101,13 @@ def finalize_run(
             WHERE id=%s::uuid
             """,
             (
+                # Legacy `rubric_pass` column rolls up PASS_T1 + PASS_T2 — the
+                # per-row distinction stays in judged_json. Frontend + future
+                # alembic migration can split into rubric_pass_t1 / _t2 cols.
                 summary.total_rows, summary.ab_new_wins, summary.ab_old_wins,
-                summary.ab_ties, summary.rubric_pass, summary.rubric_fail,
+                summary.ab_ties,
+                summary.rubric_pass_t1 + summary.rubric_pass_t2,
+                summary.rubric_fail,
                 summary.rubric_xfail, summary.rubric_infra,
                 summary.pass_rate,
                 alerts.severity,
@@ -196,7 +201,11 @@ def list_history_for_alerts(
                 ab_new_wins=r["ab_new_wins"],
                 ab_old_wins=r["ab_old_wins"],
                 ab_ties=r["ab_ties"],
-                rubric_pass=r["rubric_pass"],
+                # Historic rows stored in the legacy rubric_pass column don't
+                # distinguish T1 vs T2 — bucket them all into pass_t1 for the
+                # alert engine. New rows write the same rolled-up value.
+                rubric_pass_t1=r["rubric_pass"] or 0,
+                rubric_pass_t2=0,
                 rubric_fail=r["rubric_fail"],
                 rubric_xfail=r["rubric_xfail"],
                 rubric_infra=r["rubric_infra"],

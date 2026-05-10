@@ -51,6 +51,8 @@ def verdict_badge(verdict: str | None) -> str:
         "OLD": "win-old",
         "TIE": "tie",
         "PASS": "pass",
+        "PASS_T1": "pass",
+        "PASS_T2": "xfail",   # green-ish but warning — needed a followup
         "FAIL": "fail",
         "XFAIL": "xfail",
         "INFRA": "infra",
@@ -59,6 +61,8 @@ def verdict_badge(verdict: str | None) -> str:
         "NEW": "NEW wins",
         "OLD": "OLD wins",
         "TIE": "tie",
+        "PASS_T1": "PASS (1-turn)",
+        "PASS_T2": "PASS (after follow-up)",
     }.get(v, v)
     return f'<span class="badge {klass}">{html.escape(label)}</span>'
 
@@ -79,25 +83,55 @@ def score_badge(score) -> str:
     return f'<span class="score {klass}">{s:.2f}</span>'
 
 
-def render_answer_block(ans: dict | None) -> str:
-    if not ans:
-        return '<div class="answer empty">no answer captured</div>'
-    text = (ans.get("text") or "").strip()
-    if not text and not ans.get("ok"):
-        err = ans.get("error") or "no answer"
-        return f'<div class="answer empty">⚠ {html.escape(err)}</div>'
-    duration = fmt_duration(ans.get("duration_ms"))
-    err = ans.get("error")
+def _one_turn(turn: dict | None, label: str) -> str:
+    if not turn:
+        return ""
+    text = (turn.get("text") or "").strip()
+    if not text and not turn.get("ok"):
+        err = turn.get("error") or "no answer"
+        return (
+            f'<div class="turn-block">'
+            f'<div class="turn-label">{html.escape(label)}</div>'
+            f'<div class="answer empty">⚠ {html.escape(err)}</div>'
+            f"</div>"
+        )
+    duration = fmt_duration(turn.get("duration_ms"))
+    err = turn.get("error")
     err_html = (
         f'<div class="answer-meta error">⚠ {html.escape(err)} (partial answer below)</div>'
         if err
         else ""
     )
     return (
-        f'<div class="answer-meta">{html.escape(duration)}</div>'
+        f'<div class="turn-block">'
+        f'<div class="turn-label">{html.escape(label)} <span class="turn-meta">{html.escape(duration)}</span></div>'
         f"{err_html}"
         f'<div class="answer-text">{html.escape(text)}</div>'
+        f"</div>"
     )
+
+
+def render_answer_block(ans: dict | None) -> str:
+    if not ans:
+        return '<div class="answer empty">no answer captured</div>'
+
+    # New shape: turn1 / turn2. Old shape: text/duration/ok at top level.
+    turn1 = ans.get("turn1")
+    turn2 = ans.get("turn2")
+
+    if turn1 is None and turn2 is None:
+        # Legacy single-turn record — wrap as turn1.
+        turn1 = {
+            "ok": ans.get("ok"),
+            "error": ans.get("error"),
+            "text": ans.get("text"),
+            "duration_ms": ans.get("duration_ms"),
+        }
+
+    blocks = [_one_turn(turn1, "turn 1")]
+    if turn2:
+        blocks.append(_one_turn(turn2, "turn 2 (follow-up)"))
+    return "\n".join(b for b in blocks if b)
 
 
 CSS = """
@@ -267,6 +301,18 @@ main {
   max-height: 360px;
   overflow-y: auto;
 }
+.turn-block { display: flex; flex-direction: column; gap: 6px; }
+.turn-block + .turn-block { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.turn-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.turn-meta { color: var(--text-dim); font-family: ui-monospace, monospace; text-transform: none; letter-spacing: 0; }
 .answer-meta {
   font-size: 11px;
   color: var(--text-dim);
@@ -367,24 +413,19 @@ footer code { color: var(--accent); }
 
 
 def render(captures: list[dict], judged: dict[str, dict], title: str = "Sanity DoD", source_path: Path | None = None) -> str:
-    """Render the side-by-side report HTML.
-
-    Args:
-        captures:    capture-stage JSON (list of row records with answer_old/answer_new).
-        judged:      judge-stage JSON keyed by row index string.
-        title:       page title.
-        source_path: optional path label shown in the page header.
-    Returns:
-        Self-contained HTML as a string. No external assets.
-    """
     # ── summary ──────────────────────────────────────────────────────────
     n = len(captures)
     new_wins = sum(1 for c in captures if (judged.get(str(c.get("row")), {}).get("ab_verdict") or "").upper() == "NEW")
     old_wins = sum(1 for c in captures if (judged.get(str(c.get("row")), {}).get("ab_verdict") or "").upper() == "OLD")
     ties     = sum(1 for c in captures if (judged.get(str(c.get("row")), {}).get("ab_verdict") or "").upper() == "TIE")
-    rub_pass  = sum(1 for c in captures if (judged.get(str(c.get("row")), {}).get("rubric_verdict") or "").upper() == "PASS")
-    rub_fail  = sum(1 for c in captures if (judged.get(str(c.get("row")), {}).get("rubric_verdict") or "").upper() == "FAIL")
-    rub_xfail = sum(1 for c in captures if (judged.get(str(c.get("row")), {}).get("rubric_verdict") or "").upper() == "XFAIL")
+    def _v(c, k):
+        return (judged.get(str(c.get("row")), {}).get(k) or "").upper()
+
+    rub_pass_t1 = sum(1 for c in captures if _v(c, "rubric_verdict") in ("PASS", "PASS_T1"))
+    rub_pass_t2 = sum(1 for c in captures if _v(c, "rubric_verdict") == "PASS_T2")
+    rub_fail    = sum(1 for c in captures if _v(c, "rubric_verdict") == "FAIL")
+    rub_xfail   = sum(1 for c in captures if _v(c, "rubric_verdict") == "XFAIL")
+    rub_infra   = sum(1 for c in captures if _v(c, "rubric_verdict") == "INFRA")
 
     cards = []
     for cap in captures:
@@ -411,6 +452,19 @@ def render(captures: list[dict], judged: dict[str, dict], title: str = "Sanity D
         ) if notes else ""
 
         expected_behavior = cap.get("expected_behavior") or ""
+        followup_prompt = cap.get("followup_prompt")
+        expected_after_followup = cap.get("expected_after_followup")
+        followup_block = ""
+        if followup_prompt:
+            followup_block += (
+                f'<div class="ek">follow-up prompt</div>'
+                f'<div class="ev rtl">{html.escape(followup_prompt)}</div>'
+            )
+        if expected_after_followup:
+            followup_block += (
+                f'<div class="ek">expected after follow-up</div>'
+                f'<div class="ev">{html.escape(expected_after_followup)}</div>'
+            )
 
         cards.append(
             f"""
@@ -447,8 +501,9 @@ def render(captures: list[dict], judged: dict[str, dict], title: str = "Sanity D
     </div>
   </div>
   <div class="expected">
-    <div class="ek">expected behaviour</div>
+    <div class="ek">expected (1-turn ideal)</div>
     <div class="ev">{html.escape(expected_behavior)}</div>
+    {followup_block}
     {notes_block}
   </div>
 </section>
@@ -458,13 +513,15 @@ def render(captures: list[dict], judged: dict[str, dict], title: str = "Sanity D
     summary_tiles = "\n".join(
         f'<div class="summary-tile"><div class="label">{lbl}</div><div class="value">{val}</div></div>'
         for lbl, val in [
-            ("questions",     n),
-            ("NEW wins",      new_wins),
-            ("OLD wins",      old_wins),
-            ("ties",          ties),
-            ("rubric PASS",   rub_pass),
-            ("rubric FAIL",   rub_fail),
-            ("rubric XFAIL",  rub_xfail),
+            ("questions",        n),
+            ("NEW wins",         new_wins),
+            ("OLD wins",         old_wins),
+            ("ties",             ties),
+            ("PASS (1-turn)",    rub_pass_t1),
+            ("PASS (follow-up)", rub_pass_t2),
+            ("FAIL",             rub_fail),
+            ("XFAIL",            rub_xfail),
+            ("INFRA",            rub_infra),
         ]
     )
 
@@ -482,7 +539,7 @@ def render(captures: list[dict], judged: dict[str, dict], title: str = "Sanity D
     <div class="subtitle">Side-by-side gold-set capture · LLM-as-judge verdicts</div>
     <div class="meta">
       <span class="k">generated</span><span class="v">{html.escape(time.strftime("%Y-%m-%d %H:%M:%S %Z"))}</span>
-      <span class="k">capture</span><span class="v">{html.escape(str(source_path) if source_path is not None else "")}</span>
+      <span class="k">capture</span><span class="v">{html.escape(str(source_path)) if source_path else "&lt;in-memory&gt;"}</span>
       <span class="k">questions</span><span class="v">{n}</span>
     </div>
   </header>
@@ -523,7 +580,7 @@ def main() -> int:
         else:
             judged = {str(k): v for k, v in raw.items()}
 
-    args.out.write_text(render(captures, judged, title=args.title, source_path=args.capture))
+    args.out.write_text(render(captures, judged, args.title, args.capture))
     print(str(args.out))
     return 0
 
