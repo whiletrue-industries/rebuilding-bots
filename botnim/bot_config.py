@@ -244,15 +244,17 @@ def load_bot_config(bot_slug: str, environment: str,
     with config_path.open() as f:
         cfg = yaml.safe_load(f)
 
-    # Prefer the Aurora-stored prompt (post-Aurora-migration design).
-    # When agent_prompts has active rows for this bot, assemble them into
-    # the system prompt; otherwise fall back to the file at cfg['instructions']
-    # (which after the migration is just the banner pointer, but useful
-    # in local-dev / first-run environments where Aurora is empty).
+    # Prompts are now Aurora-canonical (post-2026-05-10). The on-disk
+    # `agent.md` + `prompt_sections/*.md` files were deleted; the unified
+    # prompt editor at /admin/prompts is the source of truth, and a fresh
+    # env is bootstrapped by the editor (or an explicit one-shot SQL
+    # insert) before the bot can answer.
     instructions = _load_instructions_from_aurora(bot_slug)
     if not instructions:
-        instructions_path = bot_dir / cfg['instructions']
-        instructions = instructions_path.read_text()
+        raise RuntimeError(
+            f"No active agent_prompts row for bot={bot_slug!r}. "
+            "Seed the prompt via /admin/prompts before invoking the bot."
+        )
     # Match pre-migration behavior: in production, strip any __dev markers the
     # prompt author used to annotate dev-only guidance.
     if is_production(environment):
