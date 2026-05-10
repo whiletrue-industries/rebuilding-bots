@@ -170,6 +170,71 @@ def test_fetch_paginates_via_to_date_cursor(tmp_path: Path):
     assert second_call_body["ToDate"] == "2024-01-15T09:59:59"
 
 
+def test_fetch_collects_all_urls_when_meeting_spans_pages(tmp_path: Path):
+    """Regression: ItemId is a *meeting* id, not a decision id. One meeting
+    can have multiple decisions (distinct DocumentPath URLs) — verified
+    live: ItemId 2242119 has 4 distinct URLs. Combined with the API's
+    date-level ToDate truncation (verified live: ToDate=YYYY-MM-DDThh:mm:ss
+    returns same-DAY items regardless of time), the same meeting can
+    appear on multiple pages with *different* docs each time.
+
+    Old bug: the loop filtered rows by ``ItemId not in seen_item_ids``
+    BEFORE inspecting URLs, so any decision document of an already-seen
+    meeting was silently dropped. Live impact (committee 2211, knesset 25,
+    from_date=2022-11-15): server has 89 distinct PDF URLs, fetcher
+    collected 85 — 4 lost to this bug.
+    """
+    out = tmp_path / "x.csv"
+    cfg = CommitteeDecisionsConfig(output_csv_path=out)
+
+    # Page 1: meeting M (ItemId=200) has 1 of its 3 decisions on this page,
+    # plus 2 newer items at meeting M_NEW (ItemId=100, 2 decisions).
+    page1 = [
+        {"ItemId": 100, "DecisionDate": "2024-06-15T10:00:00",
+         "DocumentTitle": "X1", "DocumentPath": "https://fs/m1.pdf",
+         "FileFormat": "pdf"},
+        {"ItemId": 100, "DecisionDate": "2024-06-15T10:00:00",
+         "DocumentTitle": "X2", "DocumentPath": "https://fs/m2.pdf",
+         "FileFormat": "pdf"},
+        {"ItemId": 200, "DecisionDate": "2024-05-20T12:15:00",
+         "DocumentTitle": "Y1", "DocumentPath": "https://fs/o1.pdf",
+         "FileFormat": "pdf"},
+    ]
+    # Cursor advances to 2024-05-20T12:14:59. The API treats ToDate as
+    # date-level (verified live), so it returns 2024-05-20 items again,
+    # this time surfacing meeting 200's *other* 2 decisions, plus an
+    # older filler at meeting 300.
+    page2 = [
+        {"ItemId": 200, "DecisionDate": "2024-05-20T12:15:00",
+         "DocumentTitle": "Y2", "DocumentPath": "https://fs/o2.pdf",
+         "FileFormat": "pdf"},
+        {"ItemId": 200, "DecisionDate": "2024-05-20T12:15:00",
+         "DocumentTitle": "Y3", "DocumentPath": "https://fs/o3.pdf",
+         "FileFormat": "pdf"},
+        {"ItemId": 300, "DecisionDate": "2024-04-01T10:00:00",
+         "DocumentTitle": "Z", "DocumentPath": "https://fs/z.pdf",
+         "FileFormat": "pdf"},
+    ]
+    http = MagicMock(side_effect=[
+        _resp({"TotalItems": 6, "Items": page1}),
+        _resp({"TotalItems": 4, "Items": page2}),
+        _resp({"Items": []}),  # exhausted
+    ])
+    rows = fetch_committee_decisions_index(cfg, http_post=http)
+
+    # All 6 distinct URLs must be collected, including o2/o3 that share
+    # an already-seen ItemId with o1.
+    assert {r.url for r in rows} == {
+        "https://fs/m1.pdf",
+        "https://fs/m2.pdf",
+        "https://fs/o1.pdf",
+        "https://fs/o2.pdf",
+        "https://fs/o3.pdf",
+        "https://fs/z.pdf",
+    }
+    assert len(rows) == 6
+
+
 def test_fetch_stops_when_no_new_items(tmp_path: Path):
     out = tmp_path / "x.csv"
     cfg = CommitteeDecisionsConfig(output_csv_path=out)
