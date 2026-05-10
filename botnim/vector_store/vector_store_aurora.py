@@ -387,6 +387,12 @@ class VectorStoreAurora(VectorStoreBase):
         """
         bot = self.config["slug"]
         fetch = num_results * 5  # over-fetch then RRF-trim
+        # Honor the legacy ES SECTION_NUMBER / RELATED_RESOURCE contract: when
+        # the mode declares `use_vector_search=False`, skip the pgvector branch
+        # entirely so vectorally-similar-but-lexically-irrelevant docs don't
+        # leak into results. vector_store_es.py:165 had this; the Aurora port
+        # dropped it, which silently turned SECTION_NUMBER into REGULAR.
+        use_vector = bool(getattr(search_mode, "use_vector_search", True))
 
         # Resolve context_id from (bot, name) — small extra round-trip but
         # keeps the search call self-contained and resilient to context
@@ -404,9 +410,11 @@ class VectorStoreAurora(VectorStoreBase):
             #
             # SET LOCAL keeps the override scoped to this txn so it doesn't
             # leak across the connection pool. (See migration 0007 for the
-            # ivfflat → hnsw swap rationale.)
-            ef = _hnsw_ef_search()
-            sess.execute(text(f"SET LOCAL hnsw.ef_search = {ef}"))
+            # ivfflat → hnsw swap rationale.) Only set when we'll actually use
+            # the vector branch — saves a no-op SET on BM25-only modes.
+            if use_vector:
+                ef = _hnsw_ef_search()
+                sess.execute(text(f"SET LOCAL hnsw.ef_search = {ef}"))
 
             row = sess.execute(text(
                 "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
@@ -422,15 +430,18 @@ class VectorStoreAurora(VectorStoreBase):
                 md_filter_sql = " AND metadata @> CAST(:mfilter AS jsonb)"
                 md_params["mfilter"] = json.dumps(metadata_filter)
 
-            vector_rows = sess.execute(text(
-                f"""
-                SELECT id, content, metadata, 1 - (embedding <=> CAST(:emb AS vector)) AS score
-                FROM documents
-                WHERE context_id = :cid{md_filter_sql}
-                ORDER BY embedding <=> CAST(:emb AS vector)
-                LIMIT :limit
-                """
-            ), {"cid": cid, "emb": str(embedding), "limit": fetch, **md_params}).fetchall()
+            if use_vector:
+                vector_rows = sess.execute(text(
+                    f"""
+                    SELECT id, content, metadata, 1 - (embedding <=> CAST(:emb AS vector)) AS score
+                    FROM documents
+                    WHERE context_id = :cid{md_filter_sql}
+                    ORDER BY embedding <=> CAST(:emb AS vector)
+                    LIMIT :limit
+                    """
+                ), {"cid": cid, "emb": str(embedding), "limit": fetch, **md_params}).fetchall()
+            else:
+                vector_rows = []
 
             # BM25 query construction. We can't use plainto_tsquery directly
             # because it ANDs every term and treats words as exact matches —

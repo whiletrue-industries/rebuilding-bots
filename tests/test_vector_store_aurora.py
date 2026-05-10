@@ -338,6 +338,64 @@ def test_search_combines_vector_and_text_via_rrf(aurora_db, database_url, monkey
     assert set(titles) == {"text-strong", "vector-strong"}
 
 
+def test_search_skips_vector_branch_when_use_vector_search_false(
+    aurora_db, database_url, monkeypatch
+):
+    """SECTION_NUMBER (and any mode with use_vector_search=False) must run
+    BM25-only — the pgvector branch should not contribute candidates.
+
+    Regression for the lost ES SECTION_NUMBER behavior: pre-Aurora, the ES
+    backend honored search_mode.use_vector_search at vector_store_es.py:165
+    and only ran a text query when it was False. The Aurora port in
+    vector_store_aurora.py:381 forgot the flag and ran hybrid RRF
+    unconditionally, so vectorally-similar-but-lexically-irrelevant docs
+    leaked into SECTION_NUMBER results.
+    """
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import SECTION_NUMBER_CONFIG
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    query_embedding = [1.0] * 1536
+    # Doc T: textual hit on the query token "alpha", weak vector match.
+    text_hit_embedding = [-1.0] * 1536
+    # Doc V: perfect vector hit, but content has zero overlap with the query
+    # tokens — zero BM25 contribution. This is the doc that today leaks
+    # into SECTION_NUMBER results via the unconditional vector branch.
+    _seed_documents(database_url, cid, [
+        ("alpha is a thing",   text_hit_embedding, {"DocumentTitle": "alpha"}),
+        ("totally unrelated",  query_embedding,    {"DocumentTitle": "bravo"}),
+    ])
+
+    results = store.search(
+        context_name="x",
+        query_text="alpha",
+        search_mode=SECTION_NUMBER_CONFIG,
+        embedding=query_embedding,
+        num_results=3,
+    )
+
+    titles = [hit["_source"]["metadata"]["DocumentTitle"]
+              for hit in results["hits"]["hits"]]
+    # The BM25-hit doc must be present.
+    assert "alpha" in titles, (
+        f"BM25 hit for query 'alpha' must surface; got titles={titles}"
+    )
+    # The vector-only doc must NOT leak into SECTION_NUMBER results.
+    assert "bravo" not in titles, (
+        "vector-only candidate leaked into SECTION_NUMBER results — "
+        f"use_vector_search=False is being ignored. titles={titles}"
+    )
+
+
 def test_search_respects_metadata_filter(aurora_db, database_url, monkeypatch):
     """The Aurora backend's search must filter by metadata jsonb when
     the search_mode requests it (mirroring ES's behavior)."""
