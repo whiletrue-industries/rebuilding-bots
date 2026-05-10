@@ -49,3 +49,12 @@ playwright>=1.45,<2
 # not the 1.x `stealth_sync()` function. 1.x also imports the removed
 # `pkg_resources` module on modern setuptools and crashes at import time.
 playwright-stealth>=2.0,<3
+
+# Phoenix OTel instrumentation — minimum viable tracing (phase B DoD)
+# openinference-instrumentation-{sqlalchemy,fastapi} do not exist on PyPI;
+# use the standard opentelemetry-instrumentation-* equivalents instead.
+# arize-phoenix-otel pins opentelemetry-sdk transitively; let it resolve.
+arize-phoenix-otel==0.7.1
+openinference-instrumentation-openai==0.1.18
+opentelemetry-instrumentation-sqlalchemy
+opentelemetry-instrumentation-fastapi

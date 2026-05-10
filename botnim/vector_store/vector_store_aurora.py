@@ -712,30 +712,50 @@ def _rrf_fuse(
     lexical signal win when it's confident. Set both weights to 1.0 to
     recover canonical RRF.
     """
-    scores: dict[str, float] = {}
-    docs: dict[str, tuple] = {}
+    try:
+        from opentelemetry import trace as otel_trace
+        tracer = otel_trace.get_tracer(__name__)
+    except ImportError:
+        tracer = None
 
-    for rank, row in enumerate(vector_rows):
-        doc_id = str(row[0])
-        scores[doc_id] = scores.get(doc_id, 0.0) + vector_weight / (k + rank + 1)
-        docs[doc_id] = row
+    def _do(_span):
+        if _span is not None:
+            _span.set_attribute("rrf.vector_candidates", len(vector_rows))
+            _span.set_attribute("rrf.bm25_candidates", len(bm25_rows))
+            _span.set_attribute("rrf.num_results", num_results)
 
-    for rank, row in enumerate(bm25_rows):
-        doc_id = str(row[0])
-        scores[doc_id] = scores.get(doc_id, 0.0) + bm25_weight / (k + rank + 1)
-        docs.setdefault(doc_id, row)
+        scores: dict[str, float] = {}
+        docs: dict[str, tuple] = {}
 
-    ordered = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:num_results]
+        for rank, row in enumerate(vector_rows):
+            doc_id = str(row[0])
+            scores[doc_id] = scores.get(doc_id, 0.0) + vector_weight / (k + rank + 1)
+            docs[doc_id] = row
 
-    hits = []
-    for doc_id, fused_score in ordered:
-        row = docs[doc_id]
-        hits.append({
-            "_id": doc_id,
-            "_score": fused_score,
-            "_source": {
-                "content": row[1],
-                "metadata": row[2] if isinstance(row[2], dict) else json.loads(row[2]),
-            },
-        })
-    return {"hits": {"hits": hits}}
+        for rank, row in enumerate(bm25_rows):
+            doc_id = str(row[0])
+            scores[doc_id] = scores.get(doc_id, 0.0) + bm25_weight / (k + rank + 1)
+            docs.setdefault(doc_id, row)
+
+        ordered = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:num_results]
+
+        hits = []
+        for doc_id, fused_score in ordered:
+            row = docs[doc_id]
+            hits.append({
+                "_id": doc_id,
+                "_score": fused_score,
+                "_source": {
+                    "content": row[1],
+                    "metadata": row[2] if isinstance(row[2], dict) else json.loads(row[2]),
+                },
+            })
+        return {"hits": {"hits": hits}}
+
+    if tracer is None:
+        return _do(None)
+    with tracer.start_as_current_span("rrf.fuse") as span:
+        result = _do(span)
+        try: span.set_attribute("rrf.returned", len(result["hits"]["hits"]))
+        except Exception: pass
+        return result

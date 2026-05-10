@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(openapi_url=None, redirect_slashes=False)
 
+from botnim.observability.tracing import init_tracing
+from botnim.observability.middleware import install_trace_middleware
+init_tracing(app)
+install_trace_middleware(app)
+
 # Enable CORS:
 app.add_middleware(
     CORSMiddleware,
