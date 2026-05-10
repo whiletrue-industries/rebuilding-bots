@@ -184,7 +184,6 @@ def fetch_committee_decisions_index(
     }
     knesset_num = _knesset_num_from_ids(config.knesset_ids)
     seen_urls: set[str] = set()
-    seen_item_ids: set = set()
     rows: list[DocRow] = []
     cursor_to_date: Optional[str] = _to_api_datetime(config.to_date)
     last_total: Optional[int] = None
@@ -215,18 +214,20 @@ def fetch_committee_decisions_index(
         if not items:
             break
 
-        new_items = [it for it in items if it.get("ItemId") not in seen_item_ids]
-        for it in new_items:
-            seen_item_ids.add(it.get("ItemId"))
-        new_rows = _items_to_rows(new_items, knesset_num)
-        for r in new_rows:
-            if r.url in seen_urls:
-                continue
+        # Dedupe at the URL level, NOT ItemId. ``ItemId`` is a meeting
+        # id and one meeting can have multiple decision documents (each
+        # with a distinct DocumentPath). Combined with the API's date-
+        # level ToDate truncation, the same meeting can surface across
+        # pages with different docs each time — so an ItemId-keyed
+        # filter would silently drop documents on the second page.
+        page_rows = _items_to_rows(items, knesset_num)
+        new_rows_this_page = [r for r in page_rows if r.url not in seen_urls]
+        for r in new_rows_this_page:
             seen_urls.add(r.url)
             rows.append(r)
 
-        if not new_items:
-            # All items in this page were already seen — exhausted.
+        if not new_rows_this_page:
+            # All PDF URLs in this page were already collected — exhausted.
             break
         # Advance cursor to one second before the oldest DecisionDate
         # we saw, so the next call returns strictly older rows.
