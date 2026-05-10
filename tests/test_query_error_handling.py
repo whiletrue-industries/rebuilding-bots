@@ -29,8 +29,15 @@ for mod in [
     "botnim.bot_config", "botnim.config",
     "botnim.fetch_and_process", "botnim.sync",
     "botnim.db", "botnim.db.session",
+    "botnim.observability", "botnim.observability.tracing",
+    "botnim.observability.middleware",
 ]:
     sys.modules[mod] = MagicMock()
+
+# server.py invokes these at startup; make them no-op callables so the
+# FastAPI import doesn't blow up when the module-level calls run.
+sys.modules["botnim.observability.tracing"].init_tracing = MagicMock(return_value=None)
+sys.modules["botnim.observability.middleware"].install_trace_middleware = MagicMock(return_value=None)
 
 # server.py uses a few names from botnim.config as plain values (not callables);
 # make them concrete so module-load-time references behave.
