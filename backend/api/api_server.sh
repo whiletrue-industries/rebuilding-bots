@@ -1,10 +1,14 @@
 #!/bin/bash
 set -eu
 
-# /srv/cache (sqlite KV caches for the legacy ES backend) was unmounted on
-# 2026-05-09 — under the Aurora backend, dedup lives in Aurora. The subdir
-# mkdir that used to live here is gone. If you need ES-mode locally, recreate
-# the dirs manually before invoking botnim sync --backend es.
+# /srv/cache: the entrypoint no longer pre-creates this directory. The
+# 2026-05-09 cleanup removed the mkdir under the (incorrect) belief that
+# Aurora replaced both kvfile caches; in fact ``collect_sources.py`` still
+# initializes a per-process L1 metadata kvfile under ``<repo_root>/cache/``
+# regardless of backend. The init helpers in ``collect_sources.py`` and
+# ``vector_store/vector_store_es.py`` now mkdir the parent themselves
+# (``_open_metadata_cache`` / ``_open_embedding_cache``), so the dir is
+# created on first use — no entrypoint setup required.
 
 # ─────────────────────────────────────────────────────────────────────────
 # EFS seed: /srv/specs/unified/extraction is an EFS access point in
