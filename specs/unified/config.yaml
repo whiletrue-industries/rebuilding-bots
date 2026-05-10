@@ -6,6 +6,7 @@ tools:
 - code-interpreter
 - budgetkey
 - generate_word_doc
+- botnim
 context:
 - slug: common_budget_knowledge
   name: ידע רלוונטי על התקציב
