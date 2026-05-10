@@ -83,6 +83,31 @@ def run_sanity(*, env: str, db_url: str) -> str:
         raise
 
 
+def _answer_dict(ans) -> dict:
+    return {
+        "text": ans.text,
+        "ok": ans.ok,
+        "duration_ms": ans.duration_ms,
+        "error": ans.error,
+    }
+
+
+def _side_dict(side) -> dict:
+    """Serialise a SideCapture into the JSONB-friendly shape that matches
+    the JS spec's record format (turn1 / turn2, plus back-compat shims)."""
+    d = {
+        "turn1": _answer_dict(side.turn1),
+        "turn2": _answer_dict(side.turn2) if side.turn2 else None,
+        # Back-compat shims for older renderers / tooling expecting top-level
+        # text / ok / error / duration_ms.
+        "text": side.turn1.text,
+        "ok": side.turn1.ok,
+        "duration_ms": side.turn1.duration_ms,
+        "error": side.turn1.error,
+    }
+    return d
+
+
 def _row_to_capture_dict(row) -> dict:
     return {
         "row": row.row,
@@ -90,25 +115,17 @@ def _row_to_capture_dict(row) -> dict:
         "expected_behavior": row.expected_behavior,
         "must_not_contain": row.must_not_contain,
         "observed_notes": row.observed_notes,
-        "answer_old": {
-            "text": row.answer_old.text,
-            "ok": row.answer_old.ok,
-            "duration_ms": row.answer_old.duration_ms,
-            "error": row.answer_old.error,
-        },
-        "answer_new": {
-            "text": row.answer_new.text,
-            "ok": row.answer_new.ok,
-            "duration_ms": row.answer_new.duration_ms,
-            "error": row.answer_new.error,
-        },
+        "followup_prompt": row.followup_prompt,
+        "expected_after_followup": row.expected_after_followup,
+        "answer_old": _side_dict(row.answer_old),
+        "answer_new": _side_dict(row.answer_new),
     }
 
 
 def _summarize(capture: CaptureResult, judged: dict[str, dict]) -> RunSummary:
     total = len(capture.rows)
     ab_new = ab_old = ab_tie = 0
-    rb_pass = rb_fail = rb_xfail = rb_infra = 0
+    rb_pass_t1 = rb_pass_t2 = rb_fail = rb_xfail = rb_infra = 0
     for row in capture.rows:
         verdict = judged.get(str(row.row), {})
         ab = verdict.get("ab_verdict")
@@ -119,19 +136,23 @@ def _summarize(capture: CaptureResult, judged: dict[str, dict]) -> RunSummary:
         else:
             ab_tie += 1
         rv = verdict.get("rubric_verdict")
-        if rv == "PASS":
-            rb_pass += 1
+        if rv == "PASS_T1" or rv == "PASS":  # legacy PASS treated as PASS_T1
+            rb_pass_t1 += 1
+        elif rv == "PASS_T2":
+            rb_pass_t2 += 1
         elif rv == "FAIL":
             rb_fail += 1
         elif rv == "XFAIL":
             rb_xfail += 1
         elif rv == "INFRA":
             rb_infra += 1
-    pass_rate = (rb_pass / (rb_pass + rb_fail)) if (rb_pass + rb_fail) > 0 else None
+    passed = rb_pass_t1 + rb_pass_t2
+    denom = passed + rb_fail
+    pass_rate = (passed / denom) if denom > 0 else None
     return RunSummary(
         total_rows=total,
         ab_new_wins=ab_new, ab_old_wins=ab_old, ab_ties=ab_tie,
-        rubric_pass=rb_pass, rubric_fail=rb_fail,
-        rubric_xfail=rb_xfail, rubric_infra=rb_infra,
+        rubric_pass_t1=rb_pass_t1, rubric_pass_t2=rb_pass_t2,
+        rubric_fail=rb_fail, rubric_xfail=rb_xfail, rubric_infra=rb_infra,
         pass_rate=pass_rate,
     )
