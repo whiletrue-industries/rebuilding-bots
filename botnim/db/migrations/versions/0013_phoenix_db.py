@@ -69,6 +69,13 @@ def upgrade() -> None:
             "EXCEPTION WHEN duplicate_object THEN NULL; END $$"
         )
 
+        # On Aurora, even rds_superuser cannot CREATE DATABASE … OWNER <role>
+        # unless the executing role is a member of that role (the engine
+        # rejects with `must be able to SET ROLE "<role>"`). Grant membership
+        # to whoever is running this migration so the OWNER clause works.
+        # Idempotent: GRANT membership is no-op if already granted.
+        op.execute("GRANT phoenix_app TO CURRENT_USER")
+
         # CREATE DATABASE cannot run inside a DO block, so guard with a
         # driver-level check outside the autocommit_block (which is already
         # committed above).  We re-use the same connection.
