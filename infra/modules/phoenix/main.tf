@@ -109,10 +109,17 @@ resource "aws_iam_role_policy_attachment" "task_exec_managed" {
 
 data "aws_iam_policy_document" "task_exec_secrets" {
   statement {
-    sid       = "GetPhoenixDbSecret"
-    effect    = "Allow"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [var.phoenix_db_secret_arn]
+    sid     = "GetPhoenixDbSecret"
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    # Secrets Manager appends a 6-char random suffix to every secret it
+    # creates (e.g. "botnim/staging/phoenix-db-url-qcgWIN"), so callers
+    # that reference the bare-name ARN miss with AccessDenied. Allow both
+    # forms: the exact bare ARN AND the suffix-wildcard variant.
+    resources = [
+      var.phoenix_db_secret_arn,
+      "${var.phoenix_db_secret_arn}-*",
+    ]
   }
 }
 
