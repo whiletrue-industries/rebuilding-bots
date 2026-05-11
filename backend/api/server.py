@@ -140,6 +140,8 @@ def _inject_distribution(results, distribution: list[dict], fmt: str):
         fmt: the ``format`` query param the caller passed (defaults to
             ``yaml`` upstream).
     """
+    # TODO: 'dict' branch is currently dead on the wire — handler returns text/plain.
+    # Wire up JSONResponse in the handler if dict format over HTTP is ever needed.
     if fmt == 'dict':
         return {"government_distribution": distribution, "results": results}
     if fmt == 'yaml':
@@ -248,7 +250,7 @@ async def search_datasets_handler(
     # the same wait_for deadline as run_query — the probe is cheap and a
     # rare slow query here shouldn't 504 the whole retrieve.
     decision_number = (parsed_filter or {}).get("decision_number")
-    if decision_number and "government_decisions" in context:
+    if decision_number and context.startswith("government_decisions"):
         try:
             distribution = await asyncio.to_thread(
                 government_distribution_sidecar,
