@@ -545,7 +545,7 @@ class VectorStoreAurora(VectorStoreBase):
         """One entry per distinct government_number with the given decision_number.
         Returns [] when <2 governments match — callers skip injection in that case.
         """
-        bot = self.config["slug"]
+        bot = self.config.get("slug")
         with get_session() as sess:
             row = sess.execute(text(
                 "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
@@ -554,18 +554,19 @@ class VectorStoreAurora(VectorStoreBase):
                 logger.warning("government_distribution: context (%s, %s) not found", bot, context_name)
                 return []
             cid = str(row[0])
-            rows = sess.execute(text("""
+            rows = sess.execute(text(r"""
                 SELECT
-                    metadata->>'government_number'  AS government_number,
-                    metadata->>'government'         AS government,
-                    COUNT(*)                        AS doc_count,
-                    MAX(metadata->>'publish_date')  AS latest_date
+                    metadata->>'government_number'          AS government_number,
+                    metadata->>'government'                 AS government,
+                    COUNT(*)                                AS doc_count,
+                    MAX((metadata->>'publish_date')::date)  AS latest_publish_date
                 FROM documents
                 WHERE context_id = :cid
                   AND metadata @> CAST(:mfilter AS jsonb)
                   AND metadata->>'government_number' IS NOT NULL
                 GROUP BY metadata->>'government_number', metadata->>'government'
-                ORDER BY (metadata->>'government_number')::int
+                ORDER BY CASE WHEN metadata->>'government_number' ~ '^\d+$'
+                              THEN (metadata->>'government_number')::int END NULLS LAST
             """), {"cid": cid, "mfilter": json.dumps({"decision_number": decision_number})}).fetchall()
         if len(rows) < 2:
             return []

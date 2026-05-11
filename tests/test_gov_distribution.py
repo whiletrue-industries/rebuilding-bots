@@ -24,6 +24,8 @@ def _mock_session(fetchone_result, fetchall_result):
     mock_sess = MagicMock()
     mock_sess.__enter__ = MagicMock(return_value=mock_conn)
     mock_sess.__exit__ = MagicMock(return_value=False)
+    # Expose the inner conn so tests can inspect call args
+    mock_sess._mock_conn = mock_conn
     return mock_sess
 
 
@@ -34,14 +36,29 @@ class TestGovernmentDistribution:
             ("36", "ממשלת בנט, 2021-2022", 12, "2022-06-13"),
             ("37", "ממשלת נתניהו, 2022-", 8, "2023-11-19"),
         ]
+        mock_sess = _mock_session(("ctx-id",), fake_rows)
         with patch("botnim.vector_store.vector_store_aurora.get_session",
-                   return_value=_mock_session(("ctx-id",), fake_rows)):
+                   return_value=mock_sess):
             result = store.government_distribution("government_decisions", "550")
 
         assert len(result) == 2
         assert result[0]["government_number"] == "36"
         assert result[0]["doc_count"] == 12
         assert result[1]["government_number"] == "37"
+
+        # Verify mfilter was passed as JSON string, not a raw dict
+        mock_conn = mock_sess._mock_conn
+        call_args = mock_conn.execute.call_args_list[1]
+        params = call_args[0][1]
+        assert params["mfilter"] == json.dumps({"decision_number": "550"})
+
+    def test_returns_empty_when_group_by_yields_zero_rows(self):
+        """Context exists but the GROUP BY returns 0 rows (no matching decision_number)."""
+        store = _make_store()
+        with patch("botnim.vector_store.vector_store_aurora.get_session",
+                   return_value=_mock_session(("ctx-id",), [])):
+            result = store.government_distribution("government_decisions", "nonexistent")
+        assert result == []
 
     def test_returns_empty_when_single_government(self):
         store = _make_store()
