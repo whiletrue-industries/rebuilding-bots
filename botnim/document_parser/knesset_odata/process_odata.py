@@ -83,8 +83,18 @@ def _fetch_paged(url: str, *, base_params: dict, timeout: int = 60) -> Iterable[
             rows = payload.get("d", {}).get("results", [])
         for r in rows:
             yield r
-        # OData v4 uses ``@odata.nextLink``; v2 in JSON-light uses the same key.
-        next_url = payload.get("@odata.nextLink")
+        # OData v2 in JSON-light uses ``odata.nextLink`` (no @); OData v4
+        # uses ``@odata.nextLink``. The Knesset service is v2, so check the
+        # unprefixed key first. Without this, the first page is the only
+        # page we ever see — and the year-wide window silently drops ~50
+        # sessions starting around the 100-row OData page cap.
+        raw_next = payload.get("odata.nextLink") or payload.get("@odata.nextLink")
+        # The Knesset service returns the next-link as a RELATIVE path
+        # ("KNS_PlenumSession?$filter=…&$skiptoken=…"), not an absolute URL.
+        # Resolve it against the request URL so requests.get gets a fully
+        # qualified URL. urljoin is a no-op when raw_next is already absolute.
+        from urllib.parse import urljoin
+        next_url = urljoin(url, raw_next) if raw_next else None
 
 
 def _normalize_dt(value: Optional[str]) -> str:

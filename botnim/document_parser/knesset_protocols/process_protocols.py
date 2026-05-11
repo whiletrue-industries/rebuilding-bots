@@ -82,7 +82,21 @@ def _odata_str_eq(field: str, values: tuple[str, ...]) -> str:
 
 
 def _fetch_paged(url: str, *, base_params: dict, timeout: int = 60) -> Iterable[dict]:
-    """Iterate OData v2 results, following ``@odata.nextLink``."""
+    """Iterate OData v2 results, following the next-page link.
+
+    The Knesset OData service is v2 in JSON-light mode. Two non-obvious
+    things to get right (both were latent bugs until plenary_schedule was
+    backfilled past a single page on 2026-05-11):
+
+    1. v2 uses ``odata.nextLink`` (no @). v4 uses ``@odata.nextLink``.
+       Check the unprefixed key first; fall back to @ for forward
+       compatibility if anyone ever points this at a v4 service.
+    2. The next-link is a RELATIVE path ("KNS_DocumentCommitteeSession?
+       $filter=…&$skiptoken=…"), not an absolute URL. ``urljoin`` against
+       the request URL produces a fully qualified URL; it's a no-op when
+       the value is already absolute.
+    """
+    from urllib.parse import urljoin
     params = dict(base_params)
     next_url: Optional[str] = url
     while next_url:
@@ -99,7 +113,8 @@ def _fetch_paged(url: str, *, base_params: dict, timeout: int = 60) -> Iterable[
             rows = payload.get("d", {}).get("results", [])
         for r in rows:
             yield r
-        next_url = payload.get("@odata.nextLink")
+        raw_next = payload.get("odata.nextLink") or payload.get("@odata.nextLink")
+        next_url = urljoin(url, raw_next) if raw_next else None
 
 
 def _list_committee_docs(base_url: str, since: datetime, max_docs: int,
