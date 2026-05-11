@@ -559,7 +559,12 @@ class VectorStoreAurora(VectorStoreBase):
                     metadata->>'government_number'          AS government_number,
                     metadata->>'government'                 AS government,
                     COUNT(*)                                AS doc_count,
-                    MAX(to_date(metadata->>'publish_date', 'DD.MM.YYYY')) AS latest_publish_date
+                    MAX(CASE
+                        WHEN metadata->>'publish_date' ~ E'^\\d{2}\\.\\d{2}\\.\\d{4}$'
+                            THEN to_date(metadata->>'publish_date', 'DD.MM.YYYY')
+                        WHEN metadata->>'publish_date' ~ E'^\\d{4}-\\d{2}-\\d{2}'
+                            THEN (metadata->>'publish_date')::date
+                        END)                                    AS latest_publish_date
                 FROM documents
                 WHERE context_id = :cid
                   AND metadata @> CAST(:mfilter AS jsonb)
