@@ -1,9 +1,40 @@
 """Unit tests for VectorStoreAurora.government_distribution()."""
+import sys
 import json
 from unittest.mock import MagicMock, patch
 import pytest
+import botnim.query as _real_botnim_query
 from botnim.query import government_distribution_sidecar
 from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+
+
+@pytest.fixture(autouse=True)
+def _restore_real_botnim_query():
+    """Ensure sys.modules['botnim.query'] is the real module for each test.
+
+    tests/backend/test_metadata_filter_endpoint.py and
+    tests/backend/test_gov_distribution_endpoint.py both replace
+    sys.modules['botnim.query'] with a MagicMock at module-import
+    time (and never restore it). Because pytest collection order is
+    not guaranteed and any later sibling test that imports either of
+    those endpoint files first will poison sys.modules globally,
+    `patch("botnim.query.QueryClient", ...)` in this file then
+    silently patches an attribute on the MagicMock instead of the
+    real module — letting the production code call the real
+    QueryClient and trip over OPENAI_API_KEY at runtime.
+
+    Restoring the real module before each test in this file makes
+    these tests order-independent.
+    """
+    saved = sys.modules.get("botnim.query")
+    sys.modules["botnim.query"] = _real_botnim_query
+    try:
+        yield
+    finally:
+        if saved is None:
+            sys.modules.pop("botnim.query", None)
+        else:
+            sys.modules["botnim.query"] = saved
 
 
 def _make_store():
