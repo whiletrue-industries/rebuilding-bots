@@ -1,5 +1,6 @@
 import asyncio
 import dataclasses
+import json
 import logging
 import os
 import threading
@@ -128,9 +129,17 @@ async def search_datasets_handler(
     query: str,
     num_results: Optional[int] = None,
     search_mode: Optional[str] = None,
-    format: Optional[str] = Query('yaml', description="Format of the results: 'text-short', 'text', 'dict', or 'yaml'")
+    format: Optional[str] = Query('yaml', description="Format of the results: 'text-short', 'text', 'dict', or 'yaml'"),
+    metadata_filter: Optional[str] = Query(None, description='JSON object for JSONB containment filter, e.g. {"decision_number":"550"}'),
 ) -> str:
     store_id = f"{bot}__{context}"
+    try:
+        parsed_filter = json.loads(metadata_filter) if metadata_filter else None
+    except json.JSONDecodeError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "invalid_metadata_filter", "detail": str(exc), "store_id": store_id},
+        )
     # Resolve search mode config
     mode_config = SEARCH_MODES.get(search_mode, DEFAULT_SEARCH_MODE) if search_mode else DEFAULT_SEARCH_MODE
     # Use num_results from mode if not provided
@@ -151,6 +160,7 @@ async def search_datasets_handler(
                 num_results=num_results,
                 format=format,
                 search_mode=mode_config,
+                metadata_filter=parsed_filter,
             ),
             timeout=RETRIEVE_TIMEOUT_SECONDS,
         )
