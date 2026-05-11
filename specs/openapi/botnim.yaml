@@ -663,6 +663,15 @@
               "minimum": 1,
               "maximum": 50
             }
+          },
+          {
+            "name": "metadata_filter",
+            "in": "query",
+            "description": "JSON object for JSONB exact-match filter on document metadata. For number-based government decision lookups pass {\"decision_number\": \"<NUMBER>\"} to bypass semantic drift and retrieve the exact decision. Example: {\"decision_number\": \"550\"}",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "deprecated": false
