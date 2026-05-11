@@ -304,8 +304,18 @@ resource "aws_ecs_service" "phoenix" {
   enable_execute_command = true
 
   network_configuration {
-    subnets          = var.subnet_ids
-    security_groups  = [aws_security_group.phoenix.id]
+    subnets = var.subnet_ids
+    # Two SGs on the task ENI:
+    #   1. phoenix-<env>: owns ingress 6006 from internal-service-clients SG
+    #      (the upstream side of Service Connect — see aws_security_group_rule
+    #      "phoenix_ingress_from_clients" above).
+    #   2. internal-service-clients SG: makes phoenix a recognized client of
+    #      cluster-internal services (Aurora, future siblings). Aurora's SG
+    #      grants ingress only to members of this SG, so without it phoenix's
+    #      psycopg connect to the writer endpoint times out and the container
+    #      exits 1 with PhoenixMigrationError. Mirrors what org-infra's
+    #      modules/app does when enable_aurora_access=true.
+    security_groups  = [aws_security_group.phoenix.id, var.internal_service_clients_sg_id]
     assign_public_ip = false
   }
 
