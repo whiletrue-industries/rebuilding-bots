@@ -148,7 +148,11 @@ inputs = {
 
   # Explicit pin — prevents ad-hoc `terragrunt apply` calls from silently
   # tracking future module-default bumps. Update during intentional upgrades.
-  image_tag = "version-7.0.0"
+  # NOTE: variable is `phoenix_image_tag`, not the more natural `image_tag`.
+  # deploy.sh exports TF_VAR_image_tag (the git short-SHA used for botnim-api
+  # / librechat ECR images) repo-wide; the bare name collided and Terragrunt
+  # silently rendered `arizephoenix/phoenix:<git-sha>` → CannotPullContainerError.
+  phoenix_image_tag = "version-7.0.0"
 
   # Defense-in-depth: Phoenix must never be on the public internet.
   # The module already defaults this to false and enforces it via a validation

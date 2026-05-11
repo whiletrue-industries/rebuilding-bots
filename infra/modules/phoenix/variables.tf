@@ -44,9 +44,14 @@ variable "task_memory" {
   description = "Fargate task memory MiB"
 }
 
-variable "image_tag" {
+variable "phoenix_image_tag" {
   type        = string
   default     = "version-7.0.0"
+  # Renamed from `image_tag` so it cannot be shadowed by deploy.sh's
+  # repo-wide `export TF_VAR_image_tag=$IMAGE_TAG` (the git short-SHA
+  # used for botnim-api / librechat ECR images). When the names collided,
+  # terragrunt silently rendered `arizephoenix/phoenix:<git-sha>` and the
+  # Phoenix task failed with CannotPullContainerError every deploy.
   description = "arizephoenix/phoenix Docker tag — pin to a known-good version"
 }
 

@@ -222,7 +222,7 @@ resource "aws_ecs_task_definition" "phoenix" {
   container_definitions = jsonencode([
     {
       name  = "phoenix"
-      image = "arizephoenix/phoenix:${var.image_tag}"
+      image = "arizephoenix/phoenix:${var.phoenix_image_tag}"
 
       portMappings = [
         {
