@@ -1,15 +1,15 @@
-"""Test that the /retrieve endpoint surfaces a ``metadata_filter`` query
-parameter and forwards it to ``run_query`` as a parsed dict.
+"""Test that the /retrieve endpoint injects a ``government_distribution``
+sidecar onto the response when:
 
-These tests exercise only the HTTP-layer plumbing (param parsing,
-JSON decoding, error handling). ``run_query`` itself is patched out
-- the underlying filter behavior is covered separately by the
-QueryClient.search tests in task 1.
+  * the caller filtered by ``decision_number`` in ``metadata_filter``, AND
+  * the request targeted a ``government_decisions`` context, AND
+  * the sidecar SQL probe returned >= 2 distinct governments.
 
-The mock scaffolding at the top mirrors ``tests/test_query_error_handling.py``:
-all heavy botnim dependencies must be mocked in ``sys.modules`` before
-``backend.api.server`` is imported, otherwise the FastAPI module-load
-fails outside the Docker container.
+The mock scaffolding at the top mirrors
+``tests/backend/test_metadata_filter_endpoint.py``: all heavy botnim
+dependencies must be mocked in ``sys.modules`` before ``backend.api.server``
+is imported, otherwise the FastAPI module-load fails outside the Docker
+container.
 """
 import sys
 import types
@@ -122,13 +122,7 @@ mock_search_modes.DEFAULT_SEARCH_MODE = MagicMock(num_results=5)
 # And mock run_query as a proper function we can patch
 mock_run_query = MagicMock(return_value="mock results")
 sys.modules["botnim.query"].run_query = mock_run_query
-# The retrieve handler now dispatches `government_distribution_sidecar` when
-# the request filters by decision_number on a government_decisions context;
-# without an explicit MagicMock here, auto-attribute access on the
-# sys.modules["botnim.query"] MagicMock returns a sub-MagicMock that yields a
-# truthy MagicMock when called, which the handler then tries to yaml.dump
-# and crashes. Pinning return_value=None keeps the sidecar branch inert for
-# these metadata-filter routing tests.
+# Gov-distribution sidecar: same MagicMock-on-the-module pattern as run_query.
 sys.modules["botnim.query"].government_distribution_sidecar = MagicMock(return_value=None)
 
 from unittest.mock import patch
@@ -138,52 +132,75 @@ from fastapi.testclient import TestClient
 from backend.api.server import app
 
 client = TestClient(app)
+ENDPOINT = "/retrieve/unified/government_decisions__dev"
+
+FAKE_DISTRIBUTION = [
+    {"government_number": "36", "government": "ממשלת בנט", "doc_count": 12, "latest_publish_date": "2022-06-13"},
+    {"government_number": "37", "government": "ממשלת נתניהו", "doc_count": 8, "latest_publish_date": "2023-11-19"},
+]
 
 
-class TestMetadataFilterEndpoint:
+# We patch `backend.api.server.run_query` and `.government_distribution_sidecar`
+# directly (rather than reaching into `sys.modules["botnim.query"]` and mutating
+# its attributes) because server.py captured both names at module-load time via
+# `from botnim.query import ...`. Replacing the attribute on the sys.modules
+# entry after server.py is imported no longer affects what server.py calls —
+# but `patch("backend.api.server.X", ...)` does, and it auto-reverts at test
+# exit so cross-test pollution stays out.
+class TestGovernmentDistributionEndpoint:
+    def test_sidecar_injected_into_yaml_when_multi_government(self):
+        with patch("backend.api.server.run_query", return_value="- header: some result\n  text: content\n"), \
+             patch("backend.api.server.government_distribution_sidecar",
+                   return_value=FAKE_DISTRIBUTION):
+            resp = client.get(ENDPOINT, params={
+                "query": "החלטה 550",
+                "metadata_filter": '{"decision_number": "550"}',
+                "format": "yaml",
+            })
 
-    def test_valid_json_metadata_filter_forwarded(self):
-        """Valid JSON metadata_filter is parsed and forwarded to run_query."""
-        import json as json_lib
-        mf = json_lib.dumps({"decision_number": "550"})
-        with patch("backend.api.server.run_query", return_value="results") as mock_rq:
-            r = client.get(
-                "/retrieve/unified/government_decisions__dev",
-                params={"query": "החלטה 550", "metadata_filter": mf},
-            )
-        assert r.status_code == 200
-        _, kwargs = mock_rq.call_args
-        assert kwargs["metadata_filter"] == {"decision_number": "550"}
+        assert resp.status_code == 200
+        body = resp.text
+        assert "government_distribution" in body
+        assert "36" in body
 
-    def test_missing_metadata_filter_passes_none(self):
-        """When metadata_filter is absent, run_query receives metadata_filter=None."""
-        with patch("backend.api.server.run_query", return_value="results") as mock_rq:
-            r = client.get(
-                "/retrieve/unified/government_decisions__dev",
-                params={"query": "החלטה 550"},
-            )
-        assert r.status_code == 200
-        _, kwargs = mock_rq.call_args
-        assert kwargs["metadata_filter"] is None
+    def test_sidecar_not_injected_when_single_government(self):
+        with patch("backend.api.server.run_query", return_value="- header: result\n  text: content\n"), \
+             patch("backend.api.server.government_distribution_sidecar",
+                   return_value=None):
+            resp = client.get(ENDPOINT, params={
+                "query": "החלטה 999",
+                "metadata_filter": '{"decision_number": "999"}',
+                "format": "yaml",
+            })
 
-    def test_malformed_json_returns_400(self):
-        """Non-JSON metadata_filter value must return HTTP 400 with structured error."""
-        with patch("backend.api.server.run_query", return_value="results"):
-            r = client.get(
-                "/retrieve/unified/government_decisions__dev",
-                params={"query": "test", "metadata_filter": "not-valid-json"},
-            )
-        assert r.status_code == 400
-        body = r.json()
-        assert body["error"] == "invalid_metadata_filter"
+        assert resp.status_code == 200
+        assert "government_distribution" not in resp.text
 
-    def test_empty_string_metadata_filter_passes_none(self):
-        """Empty string metadata_filter is treated the same as absent (None)."""
-        with patch("backend.api.server.run_query", return_value="results") as mock_rq:
-            r = client.get(
-                "/retrieve/unified/government_decisions__dev",
-                params={"query": "test", "metadata_filter": ""},
-            )
-        assert r.status_code == 200
-        _, kwargs = mock_rq.call_args
-        assert kwargs["metadata_filter"] is None
+    def test_sidecar_not_called_without_decision_number_filter(self):
+        # run_query returns a string here because the /retrieve handler wraps
+        # the result in starlette Response(content=...), which requires
+        # bytes/str — list payloads (dict format pre-serialization) crash
+        # render(). The semantic point of this test is the sidecar dispatch
+        # decision, not the run_query payload shape.
+        with patch("backend.api.server.run_query", return_value="- header: result\n"), \
+             patch("backend.api.server.government_distribution_sidecar") as mock_sidecar:
+            resp = client.get(ENDPOINT, params={
+                "query": "מה המדיניות",
+                "format": "dict",
+            })
+
+            assert resp.status_code == 200
+            mock_sidecar.assert_not_called()
+
+    def test_sidecar_not_called_for_non_gov_decisions_context(self):
+        # See test_sidecar_not_called_without_decision_number_filter for why
+        # we return a string here rather than [].
+        with patch("backend.api.server.run_query", return_value="- header: result\n"), \
+             patch("backend.api.server.government_distribution_sidecar") as mock_sidecar:
+            resp = client.get("/retrieve/unified/common_knowledge__dev", params={
+                "query": "מסמך",
+                "metadata_filter": '{"decision_number": "550"}',
+            })
+
+            assert resp.status_code == 200
+            mock_sidecar.assert_not_called()

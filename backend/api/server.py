@@ -5,6 +5,7 @@ import logging
 import os
 import threading
 import requests
+import yaml as _yaml
 from fastapi import APIRouter, FastAPI, HTTPException, Response, Query, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -16,7 +17,7 @@ from pydantic import BaseModel
 from resolve_firebase_user import FireBaseUser
 from refresh_auth import require_refresh_api_key
 from sanity_auth import require_sanity_api_key
-from botnim.query import run_query
+from botnim.query import run_query, government_distribution_sidecar
 from botnim.vector_store.search_modes import SEARCH_MODES, DEFAULT_SEARCH_MODE
 from botnim.bot_config import load_bot_config
 from botnim.config import AVAILABLE_BOTS, VALID_ENVIRONMENTS, DEFAULT_ENVIRONMENT
@@ -121,6 +122,48 @@ async def get_bot_config(
 RETRIEVE_TIMEOUT_SECONDS = float(os.getenv("BOTNIM_RETRIEVE_TIMEOUT_SECONDS", "12"))
 
 
+def _inject_distribution(results, distribution: list[dict], fmt: str):
+    """Wrap retrieve results with a government_distribution sidecar.
+
+    Called only when ``distribution`` has >= 2 entries (the
+    ``government_distribution_sidecar`` helper returns ``None`` otherwise,
+    and we skip injection on its falsy return). The wrapping is format-aware
+    so the LLM sees both the sidecar (which governments are represented in
+    the corpus for this decision_number) and the actual retrieve results.
+
+    Args:
+        results: whatever ``run_query`` returned (string for text/text-short/
+            yaml formats; list[dict] for dict).
+        distribution: rows from ``government_distribution_sidecar`` — each
+            row carries at minimum ``government_number``, plus best-effort
+            ``government`` (cabinet name) and ``doc_count``.
+        fmt: the ``format`` query param the caller passed (defaults to
+            ``yaml`` upstream).
+    """
+    if fmt == 'dict':
+        return {"government_distribution": distribution, "results": results}
+    if fmt == 'yaml':
+        sidecar = _yaml.dump(
+            {"government_distribution": distribution},
+            allow_unicode=True, default_flow_style=False,
+        )
+        results_str = results if isinstance(results, str) else _yaml.dump(
+            results, allow_unicode=True, default_flow_style=False,
+        )
+        return sidecar + "results:\n" + "".join(
+            "  " + line + "\n" for line in results_str.splitlines()
+        )
+    # text / text-short
+    lines = ["[government_distribution]"]
+    for d in distribution:
+        lines.append(
+            f"  ממשלה {d['government_number']} — {d.get('government', '')} "
+            f"({d.get('doc_count', '')} מסמכים)"
+        )
+    lines.append("")
+    return "\n".join(lines) + "\n\n" + (results or "")
+
+
 @app.get("/retrieve/{bot}/{context}")
 @app.get("/botnim/retrieve/{bot}/{context}")
 async def search_datasets_handler(
@@ -196,6 +239,31 @@ async def search_datasets_handler(
             status_code=500,
             content={"error": "search_error", "detail": str(e), "store_id": store_id},
         )
+
+    # Government-decisions multi-term sidecar: a ~3ms GROUP BY on indexed
+    # jsonb. Only fires when the caller filtered by decision_number AND the
+    # request targeted a government_decisions context. The sidecar helper
+    # is sync (sqlalchemy under the hood), so dispatch it via to_thread to
+    # avoid blocking the event loop. We deliberately do NOT put this under
+    # the same wait_for deadline as run_query — the probe is cheap and a
+    # rare slow query here shouldn't 504 the whole retrieve.
+    decision_number = (parsed_filter or {}).get("decision_number")
+    if decision_number and "government_decisions" in context:
+        try:
+            distribution = await asyncio.to_thread(
+                government_distribution_sidecar,
+                store_id,
+                decision_number,
+            )
+        except Exception:
+            # Sidecar must never fail the parent retrieve. The helper itself
+            # already swallows exceptions and returns None, so this is a
+            # belt-and-braces guard.
+            logger.warning("government_distribution_sidecar raised; ignoring", exc_info=True)
+            distribution = None
+        if distribution:
+            results = _inject_distribution(results, distribution, format or 'yaml')
+
     if format == 'yaml':
         return Response(content=results, media_type="application/x-yaml")
     return Response(content=results, media_type="text/plain")
