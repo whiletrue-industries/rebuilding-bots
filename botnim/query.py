@@ -316,6 +316,33 @@ def run_query(*, store_id: str, query_text: str, num_results: int=DEFAULT_NUM_RE
         logger.info(f"Formatted results: {formatted_results}")
     return formatted_results
 
+
+def government_distribution_sidecar(
+    store_id: str,
+    decision_number: str,
+) -> list[dict] | None:
+    """Return government distribution for a decision number, or None.
+
+    Returns None when: the backend is ES (not Aurora), or fewer than 2
+    distinct government_number values match. Callers inject the result
+    into the retrieve response only when this returns a non-None list.
+
+    Args:
+        store_id: e.g. "unified__government_decisions__dev"
+        decision_number: the bare decision number string, e.g. "550"
+    """
+    client = QueryClient(store_id)
+    if not isinstance(client.vector_store, VectorStoreAurora):
+        logger.debug(
+            "government_distribution_sidecar: backend is not Aurora, skipping"
+        )
+        return None
+    dist = client.vector_store.government_distribution(
+        client.context_name, decision_number
+    )
+    return dist if dist else None
+
+
 def _build_core_browse_item(result: SearchResult) -> Dict[str, Any]:
     """Build the core fields for a browse item"""
     metadata = result.metadata or {}

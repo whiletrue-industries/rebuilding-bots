@@ -89,3 +89,55 @@ class TestGovernmentDistribution:
         assert set(entry.keys()) == {"government_number", "government", "doc_count", "latest_publish_date"}
         assert entry["government_number"] == "28"
         assert entry["latest_publish_date"] == "2000-05-10"
+
+
+from botnim.query import government_distribution_sidecar
+
+
+class TestGovernmentDistributionSidecar:
+    def test_calls_through_to_aurora(self):
+        fake_dist = [
+            {"government_number": "36", "government": "ממשלת בנט", "doc_count": 12, "latest_publish_date": "2022-06-13"},
+            {"government_number": "37", "government": "ממשלת נתניהו", "doc_count": 8, "latest_publish_date": "2023-11-19"},
+        ]
+        with patch("botnim.query.QueryClient") as MockClient:
+            instance = MockClient.return_value
+            instance.vector_store = MagicMock(spec=VectorStoreAurora)
+            instance.vector_store.government_distribution.return_value = fake_dist
+            instance.context_name = "government_decisions"
+
+            result = government_distribution_sidecar(
+                "unified__government_decisions__dev", "550"
+            )
+
+        instance.vector_store.government_distribution.assert_called_once_with(
+            "government_decisions", "550"
+        )
+        assert len(result) == 2
+        assert result[0]["government_number"] == "36"
+
+    def test_returns_none_for_non_aurora_backend(self):
+        with patch("botnim.query.QueryClient") as MockClient:
+            instance = MockClient.return_value
+            instance.vector_store = MagicMock()
+            instance.vector_store.__class__ = object  # not VectorStoreAurora
+            instance.context_name = "government_decisions"
+
+            result = government_distribution_sidecar(
+                "unified__government_decisions__dev", "550"
+            )
+
+        assert result is None
+
+    def test_returns_none_when_single_government(self):
+        with patch("botnim.query.QueryClient") as MockClient:
+            instance = MockClient.return_value
+            instance.vector_store = MagicMock(spec=VectorStoreAurora)
+            instance.vector_store.government_distribution.return_value = []
+            instance.context_name = "government_decisions"
+
+            result = government_distribution_sidecar(
+                "unified__government_decisions__dev", "999"
+            )
+
+        assert result is None
