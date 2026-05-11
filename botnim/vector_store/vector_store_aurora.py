@@ -541,6 +541,37 @@ class VectorStoreAurora(VectorStoreBase):
 
         return _rrf_fuse(vector_rows, bm25_rows, num_results)
 
+    def government_distribution(self, context_name: str, decision_number: str) -> list[dict]:
+        """One entry per distinct government_number with the given decision_number.
+        Returns [] when <2 governments match — callers skip injection in that case.
+        """
+        bot = self.config["slug"]
+        with get_session() as sess:
+            row = sess.execute(text(
+                "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
+            ), {"bot": bot, "name": context_name}).fetchone()
+            if not row:
+                logger.warning("government_distribution: context (%s, %s) not found", bot, context_name)
+                return []
+            cid = str(row[0])
+            rows = sess.execute(text("""
+                SELECT
+                    metadata->>'government_number'  AS government_number,
+                    metadata->>'government'         AS government,
+                    COUNT(*)                        AS doc_count,
+                    MAX(metadata->>'publish_date')  AS latest_date
+                FROM documents
+                WHERE context_id = :cid
+                  AND metadata @> CAST(:mfilter AS jsonb)
+                  AND metadata->>'government_number' IS NOT NULL
+                GROUP BY metadata->>'government_number', metadata->>'government'
+                ORDER BY (metadata->>'government_number')::int
+            """), {"cid": cid, "mfilter": json.dumps({"decision_number": decision_number})}).fetchall()
+        if len(rows) < 2:
+            return []
+        return [{"government_number": r[0], "government": r[1],
+                 "doc_count": r[2], "latest_publish_date": r[3]} for r in rows]
+
     def update_tools(self, context_, vector_store):
         """Emit an OpenAI function-tool definition for this context.
         Uses the context_name (not the uuid) as the tool-name suffix so
