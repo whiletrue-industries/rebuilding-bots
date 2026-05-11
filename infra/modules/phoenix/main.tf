@@ -301,6 +301,14 @@ resource "aws_ecs_service" "phoenix" {
 
       client_alias {
         port = 6006
+        # Explicit bare alias so sibling tasks in the same Service Connect
+        # namespace can reach Phoenix as `phoenix:6006`. Without dns_name,
+        # ECS publishes only the namespace-qualified FQDN
+        # (`phoenix.<namespace>.local`); bare-name DNS lookups from the
+        # LibreChat / botnim-api tasks then fail and the trace-fetch route
+        # returns 502 ("phoenix unreachable: fetch failed"). Mirrors the
+        # bare alias org-infra's modules/app sets for botnim-api.
+        dns_name = "phoenix"
       }
     }
   }
