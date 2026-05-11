@@ -447,7 +447,7 @@ context:
       kind: knesset_protocols
       base_url: https://knesset.gov.il/Odata/ParliamentInfo.svc
       days_history: 30
-      max_protocols: 100
+      max_protocols: 1000
       rate_limit_seconds: 0.25
 - slug: plenary_schedule
   name: לוח מליאה (לו"ז המליאה)
@@ -465,7 +465,7 @@ context:
     fetcher:
       kind: knesset_odata
       base_url: https://knesset.gov.il/Odata/ParliamentInfo.svc
-      days_past: 30
+      days_past: 365
       days_future: 90
 - slug: government_decisions
   name: החלטות ממשלה (מאגר ההחלטות)
