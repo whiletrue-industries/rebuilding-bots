@@ -13,6 +13,15 @@ data "aws_ssm_parameter" "database_credentials_secret_arn" {
   name = "/buildup/projects/botnim/staging/database_credentials_secret_arn"
 }
 
+# phoenix-db-url is created out-of-band (one-time provisioning, mirrors
+# OPENAI_API_KEY_<ENV>). We reference it by name so terraform issues the
+# secretsmanager:GetSecretValue grant on the botnim-api task role; alembic
+# 0014 reads the secret value via boto3 to align Aurora's phoenix_app
+# password with what the secret says.
+data "aws_secretsmanager_secret" "phoenix_db_url" {
+  name = "botnim/${var.environment}/phoenix-db-url"
+}
+
 module "botnim_api" {
   source = "git::https://github.com/Build-Up-IL/org-infra.git//modules/app?ref=feat/ecs-efs-and-sidecars-v2"
 
@@ -70,12 +79,25 @@ module "botnim_api" {
       # S3 bucket for /tools/generate_word_doc uploads. Bucket lifecycle
       # auto-purges objects after 7 days; presigned URLs are shorter-lived.
       WORD_DOCS_BUCKET = aws_s3_bucket.word_docs.id
+      # Phoenix LLM-tracing collector (in-cluster Service Connect DNS).
+      # When unset, botnim/observability/tracing.py is a no-op. The phoenix
+      # ECS service is provisioned by infra/live/staging/phoenix/. Botnim-api
+      # exports OTel spans (FastAPI, OpenAI, SQLAlchemy, custom rrf.fuse)
+      # to this endpoint; protocol=http/protobuf required (Phoenix rejects
+      # JSON OTLP with HTTP 415).
+      PHOENIX_COLLECTOR_ENDPOINT = "http://phoenix:6006/v1/traces"
     },
   )
 
   secret_arns = concat(
     [data.aws_ssm_parameter.database_credentials_secret_arn.value],
     [aws_secretsmanager_secret.word_docs_signer.arn],
+    # phoenix-db-url: read by alembic 0014 to ALTER ROLE phoenix_app PASSWORD
+    # to match (IaC-side rotation). The api itself never reads this secret —
+    # the grant exists so the migration task (which inherits this task role)
+    # can call secretsmanager:GetSecretValue. Created out-of-band as a
+    # one-time provisioning step (mirrors OPENAI_API_KEY_<ENV>).
+    [data.aws_secretsmanager_secret.phoenix_db_url.arn],
   )
 
   secret_environment_variables = merge(
