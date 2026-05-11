@@ -55,6 +55,11 @@ variable "phoenix_image_tag" {
   description = "arizephoenix/phoenix Docker tag — pin to a known-good version"
 }
 
+variable "internal_service_clients_sg_id" {
+  type        = string
+  description = "SG ID of the cluster-wide internal-service-clients SG that botnim-api / librechat tasks attach to. Consumed by an aws_security_group_rule that allows TCP 6006 ingress on phoenix from that SG so Service Connect calls succeed (the SC sidecar forwards directly to the upstream ENI, which AWS still enforces SG ingress on). Sourced from /buildup/shared/<env>/contract → internal_services.client_security_group_id; defined in ../buildup-org-infra."
+}
+
 variable "secrets_kms_key_arn" {
   type        = string
   default     = ""

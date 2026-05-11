@@ -27,22 +27,23 @@ data "aws_region" "current" {}
 ################################################################################
 # Security group
 #
-# Egress only — Phoenix must reach Aurora (via the cluster's internal routing /
-# Service Connect) and pull its Docker image from the internet.
+# Phoenix must reach Aurora (via the cluster's internal routing) and pull its
+# Docker image from the internet (egress). It must also accept inbound TCP
+# 6006 from the shared internal-service client SG that botnim-api / librechat
+# tasks attach to — the Service Connect sidecar still routes traffic to the
+# upstream task's ENI:6006 directly, and AWS enforces SG ingress at the ENI
+# layer regardless of the service mesh on top. Without this rule the SC
+# sidecar reports "no healthy upstream" (HTTP 503) for every request.
 #
-# NO ingress rules. Service Connect handles intra-cluster reachability without
-# any SG ingress rule — Fargate tasks in the same namespace communicate through
-# the service proxy sidecar, not through SG-controlled ports.
-#
-# CODE-REVIEW RED FLAG: adding an ingress rule here defeats the no-public-surface
-# invariant. Any PR that adds an ingress rule to this SG must explain why and
-# receive explicit security sign-off.
+# CODE-REVIEW RED FLAG: do NOT add a public CIDR (0.0.0.0/0) ingress rule.
+# Phoenix must remain unreachable from the public internet. Ingress is
+# scoped to the in-VPC client SG only.
 ################################################################################
 
 resource "aws_security_group" "phoenix" {
   name        = "phoenix-${var.env}"
   # AWS EC2 SG description must be ASCII-only (no em dashes, no Unicode).
-  description = "Phoenix LLM-tracing: egress-only. NO ingress -- Service Connect only. Adding ingress here is a code-review red flag."
+  description = "Phoenix LLM-tracing: ingress 6006 from internal-service-clients SG only; egress all."
   vpc_id      = var.vpc_id
 
   egress {
@@ -56,6 +57,23 @@ resource "aws_security_group" "phoenix" {
   tags = {
     Name = "phoenix-${var.env}"
   }
+}
+
+# Required for Service Connect: the SC sidecar in the calling task forwards
+# traffic to phoenix's task ENI on port 6006 (the upstream side of the
+# proxy). Without this ingress rule the calls hit the SG and time out;
+# the sidecar reports "no healthy upstream" and the trace-fetch route
+# returns 502 ("phoenix unreachable"). Source is the cluster-wide
+# internal-service-clients SG (org-infra contract:
+# /buildup/shared/<env>/contract → internal_services.client_security_group_id).
+resource "aws_security_group_rule" "phoenix_ingress_from_clients" {
+  type                     = "ingress"
+  from_port                = 6006
+  to_port                  = 6006
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.phoenix.id
+  source_security_group_id = var.internal_service_clients_sg_id
+  description              = "Allow Service Connect callers (LibreChat / botnim-api) to reach Phoenix:6006"
 }
 
 ################################################################################

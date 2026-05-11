@@ -139,6 +139,13 @@ inputs = {
   # task exec role gets kms:Decrypt scoped to this key via ViaService condition.
   secrets_kms_key_arn = local.contract.ecs.kms_key_arn
 
+  # SG that botnim-api + librechat tasks attach to as Service Connect clients.
+  # The phoenix module opens TCP 6006 ingress from this SG so SC sidecar calls
+  # actually reach phoenix's task ENI (without it: SC reports "no healthy
+  # upstream" → trace-fetch route returns 502). Owned by org-infra (see
+  # ../buildup-org-infra), exposed via /buildup/shared/staging/contract.
+  internal_service_clients_sg_id = local.contract.internal_services.client_security_group_id
+
   # Phoenix DB secret — set by Task A2 operator gate.
   phoenix_db_secret_arn = local.phoenix_db_secret_arn
 
