@@ -61,6 +61,20 @@ def _write_snapshots(bot_slug: str) -> None:
     to context_snapshots, as a single transaction. Called at the end of a
     successful sync_agents run; failures mid-sync skip this step so a
     half-failed sync doesn't pollute the drift history.
+
+    doc_count counts DISTINCT source documents, NOT chunks. Mirrors the
+    LibreChat /admin/sources logic introduced in commit dec13ba76: prefer
+    `metadata->>'source_doc'` (set by the rebuilding-bots collect_sources
+    pipeline for fan-out contexts where one upstream doc fans into many
+    embedding chunks — knesset_protocols speaker turns, plenary_schedule
+    (session, item) pairs); fall back to `metadata->>'title'` for
+    per-row CSV contexts (legal_text, government_decisions, ethics_*,
+    where each row IS a source doc and chunks are 1:1 with title).
+    Without this, the previous `count(*)` over rows over-counted by
+    10-300x on fan-out contexts and inflated per-row contexts whenever
+    a source doc was split into multiple embedding chunks. Sync-time
+    and UI-time numbers must use the same expression so the values an
+    operator sees on /admin/sources match the values written here.
     """
     from .db.session import get_session  # local import — keep sync.py import-cheap
     from sqlalchemy import text as _text
@@ -69,18 +83,22 @@ def _write_snapshots(bot_slug: str) -> None:
         sess.execute(_text(
             """
             INSERT INTO context_snapshots (bot, context, source_id, doc_count)
-            SELECT c.bot, c.name, COALESCE(d.source_id, '(unknown)'), count(*)
+            SELECT c.bot, c.name, COALESCE(d.source_id, '(unknown)'),
+                   COUNT(DISTINCT COALESCE(d.metadata->>'source_doc', d.metadata->>'title'))
             FROM contexts c JOIN documents d ON d.context_id = c.id
             WHERE c.bot = :bot
+              AND (d.metadata ? 'source_doc' OR d.metadata ? 'title')
             GROUP BY c.bot, c.name, COALESCE(d.source_id, '(unknown)')
             """
         ), {"bot": bot_slug})
         sess.execute(_text(
             """
             INSERT INTO context_snapshots (bot, context, source_id, doc_count)
-            SELECT c.bot, c.name, '*', count(*)
+            SELECT c.bot, c.name, '*',
+                   COUNT(DISTINCT COALESCE(d.metadata->>'source_doc', d.metadata->>'title'))
             FROM contexts c JOIN documents d ON d.context_id = c.id
             WHERE c.bot = :bot
+              AND (d.metadata ? 'source_doc' OR d.metadata ? 'title')
             GROUP BY c.bot, c.name
             """
         ), {"bot": bot_slug})
