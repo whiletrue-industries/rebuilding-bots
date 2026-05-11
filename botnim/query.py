@@ -202,16 +202,19 @@ class QueryClient:
             "expected 'aurora' or 'es'"
         )
 
-    def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> List[SearchResult]:
+    def search(self, query_text: str, num_results: int=None, explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE, metadata_filter: dict | None = None) -> List[SearchResult]:
         """
         Search the vector store with the given text
-        
+
         Args:
             query_text (str): The text to search for
             num_results (int, optional): Number of results to return, or None to use context default
             explain (bool): Whether to include scoring explanation in results
             search_mode (SearchModeConfig): Search mode configuration (required for custom modes)
-        
+            metadata_filter (dict | None): Optional JSONB containment filter applied
+                to `documents.metadata` (Aurora backend). When None, no metadata
+                filtering is performed.
+
         Returns:
             List[SearchResult]: List of search results with enhanced explanations
         """
@@ -234,7 +237,8 @@ class QueryClient:
                 self.context_name,
                 query_text, search_mode, embedding,
                 num_results=num_results,
-                explain=explain
+                explain=explain,
+                metadata_filter=metadata_filter,
             )
             
             # Format results with enhanced explanations
@@ -281,10 +285,10 @@ class QueryClient:
             logger.error(f"Failed to get index mapping: {str(e)}")
             raise
 
-def run_query(*, store_id: str, query_text: str, num_results: int=DEFAULT_NUM_RESULTS, format: str='dict', explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE) -> Union[List[Dict], str]:
+def run_query(*, store_id: str, query_text: str, num_results: int=DEFAULT_NUM_RESULTS, format: str='dict', explain: bool=False, search_mode: SearchModeConfig = DEFAULT_SEARCH_MODE, metadata_filter: dict | None = None) -> Union[List[Dict], str]:
     """
     Run a query against the vector store
-    
+
     Args:
         store_id (str): The ID of the vector store
         query_text (str): The text to search for
@@ -292,14 +296,16 @@ def run_query(*, store_id: str, query_text: str, num_results: int=DEFAULT_NUM_RE
         format (str): Format of the results ('dict', 'text', 'text-short', 'yaml')
         explain (bool): Whether to include scoring explanation in results
         search_mode (SearchModeConfig): Search mode configuration (required for custom modes)
-        
+        metadata_filter (dict | None): Optional JSONB containment filter
+            forwarded to the underlying vector store search.
+
     Returns:
         Union[List[Dict], str]: Search results in the requested format
     """
     logger.info(f"Running vector search with query: {query_text}, store_id: {store_id}, num_results: {num_results}, format: {format}, search_mode: {search_mode.name if search_mode else None}")
 
     client = QueryClient(store_id)
-    results = client.search(query_text=query_text, num_results=num_results, explain=explain, search_mode=search_mode)
+    results = client.search(query_text=query_text, num_results=num_results, explain=explain, search_mode=search_mode, metadata_filter=metadata_filter)
 
     # Log the results
     logger.info(f"Search results: {results}")
