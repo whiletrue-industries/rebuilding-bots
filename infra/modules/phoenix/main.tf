@@ -41,7 +41,8 @@ data "aws_region" "current" {}
 
 resource "aws_security_group" "phoenix" {
   name        = "phoenix-${var.env}"
-  description = "Phoenix LLM-tracing: egress-only. NO ingress — Service Connect only. Adding ingress here is a code-review red flag."
+  # AWS EC2 SG description must be ASCII-only (no em dashes, no Unicode).
+  description = "Phoenix LLM-tracing: egress-only. NO ingress -- Service Connect only. Adding ingress here is a code-review red flag."
   vpc_id      = var.vpc_id
 
   egress {
