@@ -229,7 +229,7 @@ class VectorStoreES(VectorStoreBase):
             logger.error(f"Failed to verify vectors for document {document_id}: {str(e)}")
             return []
 
-    def search(self, context_name: str, query_text: str, search_mode: SearchModeConfig, embedding: List[float], num_results: int = 7, explain: bool = False) -> Dict[str, Any]:
+    def search(self, context_name: str, query_text: str, search_mode: SearchModeConfig, embedding: List[float], num_results: int = 7, explain: bool = False, metadata_filter: dict | None = None) -> Dict[str, Any]:
         """
         Search the vector store with the given text and embedding
         
