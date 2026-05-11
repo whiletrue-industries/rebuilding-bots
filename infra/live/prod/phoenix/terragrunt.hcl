@@ -137,6 +137,11 @@ inputs = {
   # ../buildup-org-infra), exposed via /buildup/shared/prod/contract.
   internal_service_clients_sg_id = local.contract.internal_services.client_security_group_id
 
+  # Shared Aurora cluster's SG. Phoenix module appends a rule on this SG
+  # allowing phoenix's task SG on 5432 (Aurora's ingress allowlist is per
+  # task SG, not internal-service-clients-sg-based).
+  aurora_security_group_id = local.contract.aurora.security_group_id
+
   # Phoenix DB secret — set by Task A2 operator gate.
   phoenix_db_secret_arn = local.phoenix_db_secret_arn
 

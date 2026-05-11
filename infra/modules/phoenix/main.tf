@@ -76,6 +76,29 @@ resource "aws_security_group_rule" "phoenix_ingress_from_clients" {
   description              = "Allow Service Connect callers (LibreChat / botnim-api) to reach Phoenix:6006"
 }
 
+# Open Aurora's SG to phoenix on 5432. Org-infra's modules/app does this
+# automatically for `enable_aurora_access = true` callers (e.g. botnim-api,
+# whose task SG is on Aurora's ingress allowlist). Our hand-rolled phoenix
+# module isn't on that path, so we add the rule directly here.
+#
+# An earlier attempt assumed Aurora trusts the cluster-wide
+# internal-service-clients SG — it does not. Aurora's allowlist is a
+# specific set of task SGs; phoenix needs its OWN entry.
+#
+# Cross-state safety: this resource lives in the phoenix terraform state
+# but writes a rule onto a SG owned by org-infra. It's additive (a discrete
+# aws_security_group_rule resource, not an inline `ingress` block), so it
+# does not conflict with org-infra's other managed rules on the same SG.
+resource "aws_security_group_rule" "aurora_accept_phoenix" {
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = var.aurora_security_group_id
+  source_security_group_id = aws_security_group.phoenix.id
+  description              = "Phoenix -> Aurora (LLM trace store, phoenix DB + role)"
+}
+
 ################################################################################
 # CloudWatch log group
 ################################################################################
