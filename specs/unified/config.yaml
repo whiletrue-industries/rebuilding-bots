@@ -475,12 +475,11 @@ context:
     bills (support/oppose at preliminary reading).'
   examples: החלטת ממשלה על תקציב, מינוי שר, אישור הצעת חוק בקריאה טרומית, החלטה
     בנושא בריאות
-  # Keep the legacy 6KB chunking for this corpus only — re-chunking 27k+ rows
-  # to 600 tokens would balloon to ~250k chunks and meaningfully change tail
-  # latency on every retrieve. All other contexts inherit the new code-level
-  # default of 600 / 80 from vector_store_aurora.py:_CHUNK_MAX_TOKENS_DEFAULT.
-  chunk_max_tokens: 6000
-  chunk_overlap_tokens: 300
+  # NOTE: write_decision() in aurora_writer.py calls _chunk_for_embedding()
+  # with no max_tokens arg, so this value is currently unused — actual chunks
+  # are 600 tokens (the code-level default). Set to 600 here to match reality.
+  chunk_max_tokens: 600
+  chunk_overlap_tokens: 80
   fetcher:
     kind: gov_il_decisions
     page_size: 50
