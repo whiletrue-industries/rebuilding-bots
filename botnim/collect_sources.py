@@ -1,6 +1,7 @@
 import asyncio
 import io
 import csv
+import re
 from pathlib import Path
 from typing import Union
 import hashlib
@@ -66,8 +67,37 @@ def _cached_metadata_for_content(content: str) -> dict | None:
     return None
 
 
+# CSV-row contexts whose fap step fans one source document out into many
+# rows (knesset_protocols → speaker turns, plenary_schedule → (session,
+# item) pairs) flatten the row into the per-chunk markdown content as
+# ``key:\nvalue\n\n`` blocks. Lift the *source-doc* identifier out of that
+# content into a dedicated metadata field so `/admin/sources` can count
+# distinct source documents (`100 protocols`) instead of distinct chunks
+# (`27K speaker turns`). The key list is ordered by specificity — `file_url`
+# is the most stable per-source identifier when available, falling back to
+# OData entity IDs for contexts that have no upstream URL. Returns None for
+# contexts where no candidate key appears (most legal/lexicon corpora — each
+# row IS the source doc; `title` is already the right count there).
+_SOURCE_DOC_CANDIDATE_KEYS = ("file_url", "url", "document_id", "session_id")
+_SOURCE_DOC_LINE_RE = re.compile(
+    r"(?m)^(" + "|".join(_SOURCE_DOC_CANDIDATE_KEYS) + r"):\n([^\n]+)"
+)
+
+
+def _extract_source_doc(content: str) -> str | None:
+    """Return the first non-empty candidate-key value from CSV-flattened content."""
+    for m in _SOURCE_DOC_LINE_RE.finditer(content):
+        v = m.group(2).strip()
+        if v:
+            return v
+    return None
+
+
 def _build_metadata_record(content: str, file_path: str, document_type: str, extracted_data: dict | None, error: Exception | None) -> dict:
     metadata = {'title': file_path, 'status': 'processed'}
+    source_doc = _extract_source_doc(content)
+    if source_doc:
+        metadata['source_doc'] = source_doc
     if error is not None:
         metadata['status'] = 'extraction_error'
         metadata['error'] = str(error)
