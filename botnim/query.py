@@ -323,24 +323,32 @@ def government_distribution_sidecar(
 ) -> list[dict] | None:
     """Return government distribution for a decision number, or None.
 
-    Returns None when: the backend is ES (not Aurora), or fewer than 2
-    distinct government_number values match. Callers inject the result
-    into the retrieve response only when this returns a non-None list.
+    Returns None when: the backend is ES (not Aurora), fewer than 2
+    distinct government_number values match, or any error occurs.
+    Callers inject the result into the retrieve response only when
+    this returns a non-None list.
 
     Args:
-        store_id: e.g. "unified__government_decisions__dev"
+        store_id: e.g. "unified__government_decisions"
         decision_number: the bare decision number string, e.g. "550"
     """
-    client = QueryClient(store_id)
-    if not isinstance(client.vector_store, VectorStoreAurora):
-        logger.debug(
-            "government_distribution_sidecar: backend is not Aurora, skipping"
+    try:
+        client = QueryClient(store_id)
+        if not isinstance(client.vector_store, VectorStoreAurora):
+            logger.debug(
+                "government_distribution_sidecar: backend is not Aurora, skipping"
+            )
+            return None
+        dist = client.vector_store.government_distribution(
+            client.context_name, decision_number
+        )
+        return dist if dist else None
+    except Exception:
+        logger.warning(
+            "government_distribution_sidecar failed; returning None",
+            exc_info=True,
         )
         return None
-    dist = client.vector_store.government_distribution(
-        client.context_name, decision_number
-    )
-    return dist if dist else None
 
 
 def _build_core_browse_item(result: SearchResult) -> Dict[str, Any]:

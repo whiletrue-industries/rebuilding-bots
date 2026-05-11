@@ -2,6 +2,7 @@
 import json
 from unittest.mock import MagicMock, patch
 import pytest
+from botnim.query import government_distribution_sidecar
 from botnim.vector_store.vector_store_aurora import VectorStoreAurora
 
 
@@ -91,9 +92,6 @@ class TestGovernmentDistribution:
         assert entry["latest_publish_date"] == "2000-05-10"
 
 
-from botnim.query import government_distribution_sidecar
-
-
 class TestGovernmentDistributionSidecar:
     def test_calls_through_to_aurora(self):
         fake_dist = [
@@ -110,6 +108,7 @@ class TestGovernmentDistributionSidecar:
                 "unified__government_decisions__dev", "550"
             )
 
+        MockClient.assert_called_once_with("unified__government_decisions__dev")
         instance.vector_store.government_distribution.assert_called_once_with(
             "government_decisions", "550"
         )
@@ -129,7 +128,7 @@ class TestGovernmentDistributionSidecar:
 
         assert result is None
 
-    def test_returns_none_when_single_government(self):
+    def test_returns_none_when_aurora_returns_empty(self):
         with patch("botnim.query.QueryClient") as MockClient:
             instance = MockClient.return_value
             instance.vector_store = MagicMock(spec=VectorStoreAurora)
@@ -138,6 +137,19 @@ class TestGovernmentDistributionSidecar:
 
             result = government_distribution_sidecar(
                 "unified__government_decisions__dev", "999"
+            )
+
+        assert result is None
+
+    def test_returns_none_on_db_error(self):
+        with patch("botnim.query.QueryClient") as MockClient:
+            instance = MockClient.return_value
+            instance.vector_store = MagicMock(spec=VectorStoreAurora)
+            instance.vector_store.government_distribution.side_effect = Exception("DB connection refused")
+            instance.context_name = "government_decisions"
+
+            result = government_distribution_sidecar(
+                "unified__government_decisions", "550"
             )
 
         assert result is None
