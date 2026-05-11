@@ -14,12 +14,34 @@ data "aws_ssm_parameter" "database_credentials_secret_arn" {
 }
 
 # phoenix-db-url is created out-of-band (one-time provisioning, mirrors
-# OPENAI_API_KEY_<ENV>). We reference it by name so terraform issues the
-# secretsmanager:GetSecretValue grant on the botnim-api task role; alembic
-# 0014 reads the secret value via boto3 to align Aurora's phoenix_app
-# password with what the secret says.
+# OPENAI_API_KEY_<ENV>). Listed in `secret_arns` below so the ECS exec role
+# can fetch it at task start (not currently used by the running container);
+# the running container uses the TASK role. Alembic 0014 calls boto3
+# get_secret_value() at migration time, which evaluates against the task
+# role — that grant is added via the dedicated IAM policy document below
+# (composed into task_role_policy_json).
 data "aws_secretsmanager_secret" "phoenix_db_url" {
   name = "botnim/${var.environment}/phoenix-db-url"
+}
+
+# Inline policy doc granting alembic 0014 (running inside the api container,
+# under the task role) read access to the phoenix-db-url secret. The
+# wildcard suffix accepts the random 6-char Secrets Manager appends to all
+# new secret ARNs (boto3 GetSecretValue translates the friendly name to the
+# concrete ARN; if our policy lists only the bare name it fails with
+# AccessDenied — discovered the hard way: tasks crashed with
+# `password authentication failed for user "phoenix_app"` because 0014
+# silently no-op'd, so the role's password drifted from the secret).
+data "aws_iam_policy_document" "phoenix_secret_read" {
+  statement {
+    sid     = "AlembicReadPhoenixDbUrl"
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      data.aws_secretsmanager_secret.phoenix_db_url.arn,
+      "${data.aws_secretsmanager_secret.phoenix_db_url.arn}-*",
+    ]
+  }
 }
 
 module "botnim_api" {
@@ -164,6 +186,7 @@ data "aws_iam_policy_document" "task_role" {
   source_policy_documents = [
     data.aws_iam_policy_document.es_backups_write.json,
     data.aws_iam_policy_document.word_docs_write.json,
+    data.aws_iam_policy_document.phoenix_secret_read.json,
   ]
 }
 
