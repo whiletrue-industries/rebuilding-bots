@@ -1,8 +1,12 @@
 """phoenix_app password rotation from Secrets Manager
 
-Revision ID: 0014_phoenix_app_password_from_secret
+Revision ID: 0014_phoenix_pw_from_secret
 Revises: 0013_phoenix_db
 Create Date: 2026-05-11
+
+(ID kept under 32 chars — alembic_version.version_num is VARCHAR(32).
+The earlier draft used a 37-char ID and tripped string-data-right-
+truncation when alembic tried to write the version row.)
 
 Reads the connection string from Secrets Manager
 (botnim/<env>/phoenix-db-url) and runs ALTER ROLE phoenix_app PASSWORD
@@ -45,7 +49,7 @@ import urllib.parse
 
 from alembic import op
 
-revision = "0014_phoenix_app_password_from_secret"
+revision = "0014_phoenix_pw_from_secret"
 down_revision = "0013_phoenix_db"
 branch_labels = None
 depends_on = None
