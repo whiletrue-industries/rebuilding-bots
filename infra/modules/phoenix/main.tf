@@ -96,7 +96,7 @@ resource "aws_security_group_rule" "aurora_accept_phoenix" {
   protocol                 = "tcp"
   security_group_id        = var.aurora_security_group_id
   source_security_group_id = aws_security_group.phoenix.id
-  description              = "Phoenix -> Aurora (LLM trace store, phoenix DB + role)"
+  description              = "Phoenix to Aurora (LLM trace store, phoenix DB + role)"
 }
 
 ################################################################################
