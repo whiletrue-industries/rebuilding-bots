@@ -36,6 +36,10 @@ context:
       input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%A4%D7%A8%D7%A9%D7%A0%D7%95%D7%AA
 - slug: legal_text
   name: Knesset Bylaws (תקנון הכנסת) and related laws
+  # Title-rich Hebrew document corpus — BM25 reliably outranks vector cosine
+  # for verbatim section / law name queries. See the per-context override
+  # rationale in botnim/vector_store/vector_store_aurora.py:search().
+  use_lexical_search: true
   sources:
   - type: split
     source: extraction/חוק_הכנסת_structure_content.json
@@ -82,6 +86,10 @@ context:
   description: 'Search formal legal opinions by Knesset legal advisor. Use for: legal
     interpretations, formal legal guidance, precedents, legal analysis.'
   examples: חוות דעת על ניגוד עניינים, פרשנות משפטית, הנחיה פורמלית
+  # Title-rich Hebrew document corpus — BM25 ranks verbatim-title queries
+  # correctly where text-embedding-3-small cosine fails. Opt back into the
+  # lexical RRF branch; mode default (false) does not apply here.
+  use_lexical_search: true
   sources:
   - type: csv
     source: extraction/legal_advisor_opinions/index.csv
@@ -178,6 +186,8 @@ context:
   description: 'Search correspondence with the knesset legal advisor. Use for: informal
     inquiries, correspondence, questions and answers, clarifications.'
   examples: מכתב בעניין פנייה, תשובה על שאלה, בירור משפטי
+  # Title-rich Hebrew document corpus — opt into BM25 alongside vector.
+  use_lexical_search: true
   sources:
   - type: csv
     source: extraction/legal_advisor_letters/index.csv
@@ -274,6 +284,8 @@ context:
   description: 'Search the knesset committee decisions. Use for: the knesset committee
     resolutions, procedural decisions, administrative committee matters.'
   examples: החלטת ועדת הכנסת על נוהל, החלטה פרוצדורלית, הסדר עבודה
+  # Title-rich Hebrew document corpus — opt into BM25 alongside vector.
+  use_lexical_search: true
   sources:
   - type: csv
     source: extraction/committee_decisions/index.csv
@@ -349,6 +361,8 @@ context:
     עניינים), ethical violations, sanctions, complaints against MKs, outside employment
     restrictions, financial disclosure requirements.'
   examples: תרומה לחבר כנסת, ניגוד עניינים, הפרת כללי אתיקה, סנקציות
+  # Title-rich Hebrew document corpus — opt into BM25 alongside vector.
+  use_lexical_search: true
   sources:
   - type: csv
     source: extraction/ethics_decisions/index.csv
@@ -475,6 +489,10 @@ context:
     bills (support/oppose at preliminary reading).'
   examples: החלטת ממשלה על תקציב, מינוי שר, אישור הצעת חוק בקריאה טרומית, החלטה
     בנושא בריאות
+  # Title-rich Hebrew document corpus — text-embedding-3-small ranks verbatim-
+  # title queries at rank #13,904 of 29,795 (probed 2026-05-12), while BM25
+  # surfaces the same target at #1. Opt back into the lexical RRF branch.
+  use_lexical_search: true
   # NOTE: write_decision() in aurora_writer.py calls _chunk_for_embedding()
   # with no max_tokens arg, so this value is currently unused — actual chunks
   # are 600 tokens (the code-level default). Set to 600 here to match reality.

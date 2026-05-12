@@ -543,15 +543,32 @@ class VectorStoreAurora(VectorStoreBase):
         # leak into results. vector_store_es.py:165 had this; the Aurora port
         # dropped it, which silently turned SECTION_NUMBER into REGULAR.
         use_vector = bool(getattr(search_mode, "use_vector_search", True))
-        # Same gate for the lexical (BM25 / tsvector) branch. PG `simple` tsv
-        # config has no Hebrew analyzer; the prefix-OR fallback can't bridge
-        # construct-state morphology (`ועדה` / `ועדת` / `ועדות`); the noisy
-        # BM25 list dilutes the (correct) vector ranking under RRF. REGULAR
-        # and METADATA_BROWSE flip this to False (vector-only). SECTION_NUMBER
-        # / RELATED_RESOURCE keep it True because exact section-number lookup
-        # IS lexical. See A/B evidence on 2026-05-10 (row 0 of the goldset:
-        # raw cosine top-3 = expected docs, RRF top-3 = irrelevant chunks).
-        use_lexical = bool(getattr(search_mode, "use_lexical_search", True))
+        # Lexical (BM25 / tsvector) branch. Default lives on the search mode —
+        # REGULAR + METADATA_BROWSE ship with it OFF because the small,
+        # conversational `common_*_knowledge` corpora are noisy under BM25
+        # (PG `simple` tsv has no Hebrew analyzer; prefix-OR expansion
+        # surfaces too many low-quality hits and dilutes vector ranking
+        # under RRF — see A/B on 2026-05-10).
+        #
+        # Per-context override: long-document corpora where the title is
+        # the strongest signal (`government_decisions`, `legal_advisor_*`,
+        # `committee_decisions`, `ethics_decisions`, `legal_text`) are the
+        # opposite case — `text-embedding-3-small` cosine ranks verbatim-
+        # title queries deep in the corpus (rank #13,904 of 29,795 for the
+        # 2025-10-26 "פיתוח ושיקום תשתיות ביישובים מוחלשים" probe), while
+        # BM25 surfaces the same target at rank #1. Those contexts opt back
+        # in via `use_lexical_search: true` in `specs/<bot>/config.yaml`.
+        # An explicit context value (true OR false) always beats the mode default.
+        ctx_cfg = next(
+            (c for c in self.config.get('context', [])
+             if c.get('slug') == context_name),
+            None,
+        )
+        ctx_lex = ctx_cfg.get('use_lexical_search') if ctx_cfg else None
+        if ctx_lex is None:
+            use_lexical = bool(getattr(search_mode, "use_lexical_search", True))
+        else:
+            use_lexical = bool(ctx_lex)
 
         # Resolve context_id from (bot, name) — small extra round-trip but
         # keeps the search call self-contained and resilient to context
@@ -566,11 +583,6 @@ class VectorStoreAurora(VectorStoreBase):
             # Only set when we'll actually use the vector branch — saves a
             # no-op SET on BM25-only modes.
             if use_vector:
-                ctx_cfg = next(
-                    (c for c in self.config.get('context', [])
-                     if c.get('slug') == context_name),
-                    None,
-                )
                 ef = _resolve_int_setting(
                     ctx_cfg, 'hnsw_ef_search', _HNSW_EF_SEARCH_DEFAULT,
                     minimum=_HNSW_EF_SEARCH_MIN, maximum=_HNSW_EF_SEARCH_MAX,
