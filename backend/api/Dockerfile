@@ -24,9 +24,6 @@ COPY backend/api/requirements.txt requirements-server.txt
 RUN pip install -r requirements-server.txt -r requirements.txt -r requirements-pdf-scraping.txt
 COPY botnim/ ./botnim
 COPY scripts/ ./scripts
-# parlibot/deploy/gold-set.json — staged into rebuilding-bots/deploy/ by
-# parlibot's deploy.sh phase 3 just before docker build (see deploy.sh).
-COPY deploy/gold-set.json /srv/deploy/gold-set.json
 COPY specs/ ./specs
 # alembic.ini lives at repo root and is required to run schema migrations
 # from inside the running task (deploy.sh phase 6.5 invokes
