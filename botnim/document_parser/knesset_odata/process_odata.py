@@ -278,6 +278,7 @@ def process_knesset_odata_source(
         "session_finish_iso",
         "session_human_date", # DD/MM/YYYY HH:MM (Hebrew-locale-friendly)
         "is_special_meeting",
+        "source_url",
         "item_ordinal",
         "item_type",
         "item_name",
@@ -303,6 +304,10 @@ def process_knesset_odata_source(
             "session_finish_iso": f_iso,
             "session_human_date": _hebrew_date(s_iso),
             "is_special_meeting": "כן" if s.get("IsSpecialMeeting") else "לא",
+            "source_url": (
+                f"https://www.knesset.gov.il/plenum/heb/sessionDet.aspx"
+                f"?SessionID={s['PlenumSessionID']}"
+            ),
         }
         sid = s["PlenumSessionID"]
         rows_for_session = items_by_session.get(sid, [])

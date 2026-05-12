@@ -148,6 +148,16 @@ def test_happy_path_writes_joined_csv(mock_requests, tmp_path: Path, fixed_now):
     assert len(hashes) == 1
     assert hashes.pop()  # non-empty
 
+    # Every row carries a Knesset source URL derived from session_id.
+    for r in rows:
+        expected_url = (
+            f"https://www.knesset.gov.il/plenum/heb/sessionDet.aspx"
+            f"?SessionID={r['session_id']}"
+        )
+        assert r["source_url"] == expected_url, (
+            f"row for session {r['session_id']} has wrong source_url: {r['source_url']!r}"
+        )
+
 
 @patch.object(process_odata, "requests")
 def test_empty_upstream_raises(mock_requests, tmp_path: Path, fixed_now):
