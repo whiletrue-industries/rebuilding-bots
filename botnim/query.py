@@ -249,7 +249,7 @@ class QueryClient:
                     id=hit['_id'],
                     content=_scrub_fabricated_urls(hit['_source']['content']).strip().split('\n')[0],
                     full_content=_scrub_fabricated_urls(hit['_source']['content']) if search_mode.name not in ("METADATA_BROWSE", "RECENCY_BROWSE") else None,
-                    metadata=hit['_source'].get('metadata', None),
+                    metadata=_scrub_fabricated_urls_in_metadata(hit['_source'].get('metadata', None)),
                     _explanation=hit.get('_explanation', None) if explain else None,
                     context_name=self.context_name
                 )
@@ -696,6 +696,43 @@ def _scrub_fabricated_urls(content: str) -> str:
     if not content:
         return content
     return _FABRICATED_SOURCE_URL_INLINE_RE.sub("", content)
+
+
+def _scrub_fabricated_urls_in_metadata(metadata: Dict | None) -> Dict | None:
+    """Filter fabricated PDF URLs out of array-valued metadata fields
+    (chiefly `ReferenceLinks`, which feeds RECENCY_BROWSE /
+    METADATA_BROWSE renderers and is also exposed when REGULAR-mode
+    callers iterate metadata directly).
+
+    PR #149 handled the chunk-body case, but RECENCY_BROWSE never sees
+    the body — its formatter walks `metadata.ReferenceLinks` directly
+    and dumps each URL into the yaml output. Without this filter the
+    bot would still cite the fabricated knesset.gov.il/...decision_*
+    URLs on every recency / browse query.
+
+    Returns a shallow-copied dict with cleaned ReferenceLinks; leaves
+    the original metadata untouched (cheap copy, called per hit).
+    Also handles the legacy nested `extracted_data` shape."""
+    if not metadata:
+        return metadata
+    out = dict(metadata)
+    refs = out.get('ReferenceLinks')
+    if isinstance(refs, list):
+        out['ReferenceLinks'] = [
+            u for u in refs
+            if not (isinstance(u, str) and _FABRICATED_SOURCE_URL_RE.match(u))
+        ]
+    ed = out.get('extracted_data')
+    if isinstance(ed, dict):
+        ed_out = dict(ed)
+        refs = ed_out.get('ReferenceLinks')
+        if isinstance(refs, list):
+            ed_out['ReferenceLinks'] = [
+                u for u in refs
+                if not (isinstance(u, str) and _FABRICATED_SOURCE_URL_RE.match(u))
+            ]
+        out['extracted_data'] = ed_out
+    return out
 
 
 def _surface_metadata(metadata: Dict) -> Dict[str, Any]:
