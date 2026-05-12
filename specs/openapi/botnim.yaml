@@ -366,13 +366,13 @@
     },
     "/botnim/retrieve/unified/legal_advisor_opinions__dev": {
       "get": {
-        "description": "Search formal legal opinions by Knesset legal advisor in the unified knowledge base",
+        "description": "Search formal legal opinions by Knesset legal advisor. THREE modes — choose by intent: (a) 'מה ההנחיות/חוות הדעת האחרונות', 'הכי עדכניות', 'הכי חדשות', 'מה התפרסם לאחרונה' → use search_mode=RECENCY_BROWSE: returns the calendar-newest documents in pure date-desc order (no similarity ranking, immune to query-phrasing bias). (b) 'אילו חוות דעת יש על X', 'תן לי רשימה של…', browse/enumerate intent on a TOPIC → search_mode=METADATA_BROWSE: similarity-ranked summaries (25 docs). (c) substantive content question requiring full text → leave search_mode=REGULAR (default). For (a) and (b), present 3–5 items with title, date, one-line subject, and קישור_למקור; do not re-sort RECENCY_BROWSE results — they are already newest-first.",
         "operationId": "search_unified__legal_advisor_opinions__dev",
         "parameters": [
           {
             "name": "query",
             "in": "query",
-            "description": "Free text search query",
+            "description": "Free text search query. RECENCY_BROWSE ignores this — pass any short string (e.g. 'הנחיות'). REGULAR and METADATA_BROWSE both use it for ranking.",
             "required": true,
             "schema": {
               "type": "string"
@@ -381,11 +381,11 @@
           {
             "name": "search_mode",
             "in": "query",
-            "description": "Search mode for different types of queries",
+            "description": "REGULAR (default, 7 full-text chunks) for substantive content questions. METADATA_BROWSE (25 similarity-ranked metadata summaries) for topical browse/enumerate. RECENCY_BROWSE (10 calendar-newest documents, no similarity) — REQUIRED when the user asks for 'latest/most-recent/newest' without a strong topical filter, because METADATA_BROWSE's similarity ranking can miss the calendar-newest docs.",
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "enum": ["RECENCY_BROWSE", "METADATA_BROWSE", "REGULAR"],
               "default": "REGULAR"
             }
           },
@@ -406,13 +406,13 @@
     },
     "/botnim/retrieve/unified/legal_advisor_letters__dev": {
       "get": {
-        "description": "Search correspondence with the Knesset legal advisor in the unified knowledge base",
+        "description": "Search correspondence with the Knesset legal advisor. THREE modes — choose by intent: (a) 'מה ההנחיות/המכתבים האחרונים', 'הכי עדכני', 'הכי חדשים', 'מה התפרסם לאחרונה' → use search_mode=RECENCY_BROWSE: returns the calendar-newest documents in pure date-desc order (no similarity ranking, immune to query-phrasing bias). (b) 'אילו מכתבים יש על X', 'תן לי רשימה של…', browse/enumerate intent on a TOPIC → search_mode=METADATA_BROWSE: similarity-ranked summaries (25 docs). (c) substantive content question requiring full text → leave search_mode=REGULAR (default). For (a) and (b), present 3–5 items with title, date, one-line subject, and קישור_למקור; do not re-sort RECENCY_BROWSE results — they are already newest-first.",
         "operationId": "search_unified__legal_advisor_letters__dev",
         "parameters": [
           {
             "name": "query",
             "in": "query",
-            "description": "Free text search query",
+            "description": "Free text search query. RECENCY_BROWSE ignores this — pass any short string (e.g. 'מכתב'). REGULAR and METADATA_BROWSE both use it for ranking.",
             "required": true,
             "schema": {
               "type": "string"
@@ -421,11 +421,11 @@
           {
             "name": "search_mode",
             "in": "query",
-            "description": "Search mode for different types of queries",
+            "description": "REGULAR (default, 7 full-text chunks) for substantive content questions. METADATA_BROWSE (25 similarity-ranked metadata summaries) for topical browse/enumerate. RECENCY_BROWSE (10 calendar-newest documents, no similarity) — REQUIRED when the user asks for 'latest/most-recent/newest' without a strong topical filter, because METADATA_BROWSE's similarity ranking can miss the calendar-newest docs.",
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "enum": ["RECENCY_BROWSE", "METADATA_BROWSE", "REGULAR"],
               "default": "REGULAR"
             }
           },
@@ -446,13 +446,13 @@
     },
     "/botnim/retrieve/unified/committee_decisions__dev": {
       "get": {
-        "description": "Search Knesset committee decisions in the unified knowledge base",
+        "description": "Search Knesset committee decisions. THREE modes — choose by intent: (a) 'אילו החלטות התקבלו לאחרונה', 'מה ההחלטות האחרונות', 'הכי חדשות' → search_mode=RECENCY_BROWSE: calendar-newest decisions in pure date-desc order (no similarity ranking). (b) 'אילו החלטות יש על X', 'רשימת החלטות בנושא…', topical browse → search_mode=METADATA_BROWSE (25 similarity-ranked summaries). (c) substantive content question → leave REGULAR (default). Present 3–5 items with title, date, one-line subject, and קישור_למקור; do not re-sort RECENCY_BROWSE results.",
         "operationId": "search_unified__committee_decisions__dev",
         "parameters": [
           {
             "name": "query",
             "in": "query",
-            "description": "Free text search query",
+            "description": "Free text search query. RECENCY_BROWSE ignores this — pass any short string (e.g. 'החלטה').",
             "required": true,
             "schema": {
               "type": "string"
@@ -461,11 +461,11 @@
           {
             "name": "search_mode",
             "in": "query",
-            "description": "Search mode for different types of queries",
+            "description": "REGULAR (default, 7 full-text chunks) for substantive content questions. METADATA_BROWSE (25 similarity-ranked metadata summaries) for topical browse/enumerate. RECENCY_BROWSE (10 calendar-newest documents, no similarity) — REQUIRED for 'latest/most-recent/newest' queries with no strong topical filter.",
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "enum": ["RECENCY_BROWSE", "METADATA_BROWSE", "REGULAR"],
               "default": "REGULAR"
             }
           },
@@ -486,13 +486,13 @@
     },
     "/botnim/retrieve/unified/ethics_decisions__dev": {
       "get": {
-        "description": "Search ethics committee decisions in the unified knowledge base",
+        "description": "Search ethics committee decisions. THREE modes — choose by intent: (a) 'אילו החלטות אתיקה לאחרונה', 'הכי חדשות' → search_mode=RECENCY_BROWSE: calendar-newest rulings in pure date-desc order. (b) 'אילו החלטות אתיקה יש על X', topical browse → search_mode=METADATA_BROWSE. (c) substantive content question → leave REGULAR (default). Present 3–5 items with title, date, one-line subject, and קישור_למקור; do not re-sort RECENCY_BROWSE results.",
         "operationId": "search_unified__ethics_decisions__dev",
         "parameters": [
           {
             "name": "query",
             "in": "query",
-            "description": "Free text search query",
+            "description": "Free text search query. RECENCY_BROWSE ignores this — pass any short string (e.g. 'אתיקה').",
             "required": true,
             "schema": {
               "type": "string"
@@ -501,11 +501,11 @@
           {
             "name": "search_mode",
             "in": "query",
-            "description": "Search mode for different types of queries",
+            "description": "REGULAR (default, 7 full-text chunks) for substantive content questions. METADATA_BROWSE (25 similarity-ranked metadata summaries) for topical browse. RECENCY_BROWSE (10 calendar-newest documents, no similarity) — REQUIRED for 'latest/most-recent/newest' queries with no strong topical filter.",
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["METADATA_BROWSE", "REGULAR"],
+              "enum": ["RECENCY_BROWSE", "METADATA_BROWSE", "REGULAR"],
               "default": "REGULAR"
             }
           },
@@ -630,7 +630,7 @@
     },
     "/botnim/retrieve/unified/government_decisions__dev": {
       "get": {
-        "description": "Search Israeli cabinet (government) decisions from gov.il / Ma'agar HaHachlatot. Use for cabinet resolutions, government decisions on legislation, ministerial appointments, decisions on Knesset bills (support/oppose at preliminary reading), and policy decisions. Each result includes a procedure_number_str (the official decision number) and url_id for citation.",
+        "description": "Search Israeli cabinet (government) decisions from gov.il / Ma'agar HaHachlatot. Use for cabinet resolutions, government decisions on legislation, ministerial appointments, decisions on Knesset bills (support/oppose at preliminary reading), and policy decisions. Each result includes a procedure_number_str (the official decision number) and source_url for citation — always use source_url verbatim from the result, never construct or guess a URL. NOTE: Decision numbers recycle across coalition terms; decision 550 exists in 7 different governments. When a user asks about a decision by number without specifying a government term, use metadata_filter with only decision_number to retrieve all matching decisions, then present each distinct one (grouped by government term, date, and title) and ask which term the user wants to explore. Only filter by government_number if the user explicitly specifies a term.",
         "operationId": "search_unified__government_decisions__dev",
         "parameters": [
           {
@@ -667,7 +667,7 @@
           {
             "name": "metadata_filter",
             "in": "query",
-            "description": "JSON object for JSONB exact-match filter on document metadata. For number-based government decision lookups pass {\"decision_number\": \"<NUMBER>\"} to bypass semantic drift and retrieve the exact decision. Example: {\"decision_number\": \"550\"}",
+            "description": "JSON object for JSONB exact-match filter on document metadata. IMPORTANT: Government decision numbers recycle across coalition terms — decision 550 exists in governments 28, 29, 30, 32, 35, 36, 37. Supported filter fields: 'decision_number' (string, e.g. \"550\") and 'government_number' (string, e.g. \"37\"). To search across ALL government terms for a given number (when the user has not specified a term), pass only decision_number: {\"decision_number\": \"550\"}. To narrow to a specific government term, combine both fields: {\"decision_number\": \"550\", \"government_number\": \"37\"}. Government numbers in dataset: 28 (ברק, 1999), 29–30 (שרון, 2001–2003), 31 (שרון+אולמרט, 2006), 32 (נתניהו, 2009), 33 (נתניהו, 2013), 34 (נתניהו, 2015), 35 (נתניהו, 2020), 36 (בנט, 2021), 37 (נתניהו, 2022+).",
             "required": false,
             "schema": {
               "type": "string"

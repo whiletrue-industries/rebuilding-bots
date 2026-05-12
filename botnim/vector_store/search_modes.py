@@ -197,11 +197,32 @@ METADATA_BROWSE_CONFIG = SearchModeConfig(
     ]
 )
 
+# RECENCY_BROWSE — pure date-desc browse. No vector or lexical scoring.
+# The Aurora backend short-circuits to a date-ordered query when this mode is
+# selected (see vector_store_aurora.VectorStoreAurora._recency_search).
+# Output shape is identical to METADATA_BROWSE so the formatter at
+# botnim.query._format_browse_mode_results handles both.
+#
+# Why this exists: when the user asks "what are the LATEST X", METADATA_BROWSE
+# still returns top-N by hybrid similarity, which can miss the calendar-newest
+# document if the query has weak topical signal. RECENCY_BROWSE returns the
+# actual newest-by-date documents in the context.
+RECENCY_BROWSE_CONFIG = SearchModeConfig(
+    name="RECENCY_BROWSE",
+    description="Browse the calendar-newest documents in a context. No similarity ranking — pure ORDER BY publication_date DESC. Use when the user asks for 'latest', 'most recent', 'newest' documents and there is no specific topical filter.",
+    min_score=0.0,
+    num_results=10,
+    use_vector_search=False,
+    use_lexical_search=False,
+    fields=[],
+)
+
 # Immutable registry of all search modes
 SEARCH_MODES = MappingProxyType({
     "SECTION_NUMBER": SECTION_NUMBER_CONFIG,
     "REGULAR": REGULAR_CONFIG,
     "METADATA_BROWSE": METADATA_BROWSE_CONFIG,
+    "RECENCY_BROWSE": RECENCY_BROWSE_CONFIG,
     # Add more modes here as needed
 })
 

@@ -425,6 +425,94 @@ class VectorStoreAurora(VectorStoreBase):
             ), {"cid": cid, "names": list(file_names)})
             return result.rowcount
 
+    def _recency_search(
+        self,
+        context_name: str,
+        num_results: int,
+        metadata_filter: dict | None,
+    ) -> dict:
+        """Pure date-desc browse — returns the calendar-newest distinct
+        documents in the context. Bypasses pgvector + tsvector entirely.
+
+        Date field is resolved against a small list of known names because
+        contexts disagree on which key holds the document date:
+          - legal_advisor_letters / opinions: metadata->>'PublicationDate'
+          - committee_decisions / ethics_decisions: metadata->>'תאריך'
+          - older extraction schema: metadata->'extracted_data'->>'<same>'
+
+        Dedup: each upstream document can be split into N chunks (chunk_index
+        0..N-1, sharing `filename` / `source_id`). The query returns one row
+        per dedup key (lowest chunk_index — usually 0 — picked deterministically
+        via ROW_NUMBER). Without this the LLM saw 5 copies of the same letter.
+
+        Filter: only documents whose date matches the ISO `YYYY-MM-DD` shape
+        are eligible. Docs with a null or unparseable date are skipped (they
+        can't be ranked by recency anyway). If the user wants those, REGULAR
+        or METADATA_BROWSE is the right tool.
+        """
+        bot = self.config["slug"]
+        with get_session() as sess:
+            row = sess.execute(text(
+                "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
+            ), {"bot": bot, "name": context_name}).fetchone()
+            if not row:
+                logger.warning(
+                    "recency_search: context (%s, %s) not found", bot, context_name
+                )
+                return {"hits": {"hits": []}}
+            cid = str(row[0])
+
+            md_filter_sql = ""
+            md_params = {}
+            if metadata_filter:
+                md_filter_sql = " AND metadata @> CAST(:mfilter AS jsonb)"
+                md_params["mfilter"] = json.dumps(metadata_filter)
+
+            rows = sess.execute(text(f"""
+                WITH dated AS (
+                  SELECT
+                    id, content, metadata,
+                    COALESCE(
+                      NULLIF(metadata->>'תאריך', ''),
+                      NULLIF(metadata->>'תאריך_מכתב', ''),
+                      NULLIF(metadata->>'PublicationDate', ''),
+                      NULLIF(metadata->'extracted_data'->>'תאריך', ''),
+                      NULLIF(metadata->'extracted_data'->>'תאריך_מכתב', ''),
+                      NULLIF(metadata->'extracted_data'->>'PublicationDate', '')
+                    ) AS doc_date,
+                    COALESCE(
+                      NULLIF(metadata->>'filename', ''),
+                      NULLIF(metadata->>'source_id', ''),
+                      id::text
+                    ) AS dedup_key
+                  FROM documents
+                  WHERE context_id = :cid{md_filter_sql}
+                ),
+                ranked AS (
+                  SELECT
+                    id, content, metadata, doc_date,
+                    ROW_NUMBER() OVER (
+                      PARTITION BY dedup_key
+                      ORDER BY COALESCE((metadata->>'chunk_index')::int, 0) ASC, id ASC
+                    ) AS rn
+                  FROM dated
+                  WHERE doc_date IS NOT NULL
+                    AND doc_date ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}'
+                )
+                SELECT id, content, metadata
+                FROM ranked
+                WHERE rn = 1
+                ORDER BY doc_date DESC, id DESC
+                LIMIT :limit
+            """), {"cid": cid, "limit": num_results, **md_params}).fetchall()
+
+        hits = [{
+            "_id": str(r[0]),
+            "_score": 1.0,
+            "_source": {"content": r[1], "metadata": r[2]},
+        } for r in rows]
+        return {"hits": {"hits": hits}}
+
     def search(
         self,
         context_name: str,
@@ -443,6 +531,11 @@ class VectorStoreAurora(VectorStoreBase):
         Returns: {"hits": {"hits": [{"_id", "_score", "_source": {...}}, ...]}}
         """
         bot = self.config["slug"]
+        # RECENCY_BROWSE bypasses similarity scoring entirely — pure date-desc
+        # browse so the LLM can answer "latest X" correctly even when the query
+        # has no strong topical signal. Output shape mirrors METADATA_BROWSE.
+        if search_mode is not None and getattr(search_mode, "name", None) == "RECENCY_BROWSE":
+            return self._recency_search(context_name, num_results, metadata_filter)
         fetch = num_results * 5  # over-fetch then RRF-trim
         # Honor the legacy ES SECTION_NUMBER / RELATED_RESOURCE contract: when
         # the mode declares `use_vector_search=False`, skip the pgvector branch
