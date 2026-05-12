@@ -42,6 +42,29 @@ def _items_payload(rows: list[dict]) -> dict:
     return {"value": rows}
 
 
+def _stenograms_payload(rows: list[dict]) -> dict:
+    return {"value": rows}
+
+
+def _make_stenogram(
+    *,
+    sid: int,
+    doc_id: str,
+    file_path: str | None = None,
+    last_updated: str = "2026-05-01T20:00:00",
+) -> dict:
+    return {
+        "DocumentPlenumSessionID": doc_id,
+        "PlenumSessionID": sid,
+        "GroupTypeID": 43,
+        "GroupTypeDesc": "סטנוגרמה",
+        "ApplicationID": 1,
+        "ApplicationDesc": "DOC",
+        "FilePath": file_path or f"https://fs.knesset.gov.il/25/plenum/25_st_{doc_id}.doc",
+        "LastUpdatedDate": last_updated,
+    }
+
+
 def _make_session(
     sid: int,
     *,
@@ -110,9 +133,16 @@ def test_happy_path_writes_joined_csv(mock_requests, tmp_path: Path, fixed_now):
         _make_item(4, sid=1002, ordinal=2, name="חוק ג'"),
         # No items for session 1003 → one row with empty item columns.
     ]
+    # Stenograms exist for sessions 1001 and 1002; session 1003 has none
+    # (mimics "upcoming session, transcript not yet published").
+    stenograms = [
+        _make_stenogram(sid=1001, doc_id="9991"),
+        _make_stenogram(sid=1002, doc_id="9992"),
+    ]
     mock_requests.get.side_effect = [
         _json_response(_sessions_payload(sessions)),
         _json_response(_items_payload(items)),
+        _json_response(_stenograms_payload(stenograms)),
     ]
 
     out = tmp_path / "plenary_schedule.csv"
@@ -148,15 +178,17 @@ def test_happy_path_writes_joined_csv(mock_requests, tmp_path: Path, fixed_now):
     assert len(hashes) == 1
     assert hashes.pop()  # non-empty
 
-    # Every row carries a Knesset source URL derived from session_id.
-    for r in rows:
-        expected_url = (
-            f"https://www.knesset.gov.il/plenum/heb/sessionDet.aspx"
-            f"?SessionID={r['session_id']}"
-        )
-        assert r["source_url"] == expected_url, (
-            f"row for session {r['session_id']} has wrong source_url: {r['source_url']!r}"
-        )
+    # Sessions with a stenogram get the fs.knesset.gov.il FilePath as source_url.
+    # Session 1003 has no stenogram → source_url is empty.
+    assert all(
+        r["source_url"] == "https://fs.knesset.gov.il/25/plenum/25_st_9991.doc"
+        for r in rows if r["session_id"] == "1001"
+    )
+    assert all(
+        r["source_url"] == "https://fs.knesset.gov.il/25/plenum/25_st_9992.doc"
+        for r in rows if r["session_id"] == "1002"
+    )
+    assert s3[0]["source_url"] == ""
 
 
 @patch.object(process_odata, "requests")
@@ -186,6 +218,7 @@ def test_hash_short_circuit_skips_rewrite(mock_requests, tmp_path: Path, fixed_n
     mock_requests.get.side_effect = [
         _json_response(_sessions_payload(sessions)),
         _json_response(_items_payload(items)),
+        _json_response(_stenograms_payload([])),
     ]
     process_odata.process_knesset_odata_source(
         output_csv_path=out,
@@ -199,6 +232,7 @@ def test_hash_short_circuit_skips_rewrite(mock_requests, tmp_path: Path, fixed_n
     mock_requests.get.side_effect = [
         _json_response(_sessions_payload(sessions)),
         _json_response(_items_payload(items)),
+        _json_response(_stenograms_payload([])),
     ]
     process_odata.process_knesset_odata_source(
         output_csv_path=out,
@@ -221,6 +255,7 @@ def test_hash_changes_when_item_updated(mock_requests, tmp_path: Path, fixed_now
     mock_requests.get.side_effect = [
         _json_response(_sessions_payload(sessions)),
         _json_response(_items_payload(items_v1)),
+        _json_response(_stenograms_payload([])),
     ]
     process_odata.process_knesset_odata_source(
         output_csv_path=out,
@@ -232,6 +267,7 @@ def test_hash_changes_when_item_updated(mock_requests, tmp_path: Path, fixed_now
     mock_requests.get.side_effect = [
         _json_response(_sessions_payload(sessions)),
         _json_response(_items_payload(items_v2)),
+        _json_response(_stenograms_payload([])),
     ]
     process_odata.process_knesset_odata_source(
         output_csv_path=out,
@@ -257,6 +293,7 @@ def test_session_filter_uses_window(mock_requests, tmp_path: Path, fixed_now):
     mock_requests.get.side_effect = [
         _json_response(_sessions_payload(sessions)),
         _json_response(_items_payload([])),
+        _json_response(_stenograms_payload([])),
     ]
     out = tmp_path / "plenary_schedule.csv"
     process_odata.process_knesset_odata_source(
@@ -277,6 +314,29 @@ def test_session_filter_uses_window(mock_requests, tmp_path: Path, fixed_now):
 
 
 @patch.object(process_odata, "requests")
+def test_stenogram_request_filters_by_group_type_43(mock_requests, tmp_path: Path, fixed_now):
+    """The stenogram fetch must constrain the OData $filter to GroupTypeID eq 43."""
+    sessions = [_make_session(1001)]
+    mock_requests.get.side_effect = [
+        _json_response(_sessions_payload(sessions)),
+        _json_response(_items_payload([])),
+        _json_response(_stenograms_payload([_make_stenogram(sid=1001, doc_id="42")])),
+    ]
+    process_odata.process_knesset_odata_source(
+        output_csv_path=tmp_path / "plenary_schedule.csv",
+        base_url="https://example.test/Odata/ParliamentInfo.svc",
+        now=fixed_now,
+    )
+    # Third call is the KNS_DocumentPlenumSession request with the GroupTypeID filter.
+    third_call = mock_requests.get.call_args_list[2]
+    url = third_call.args[0]
+    params = third_call.kwargs["params"]
+    assert url.endswith("/KNS_DocumentPlenumSession")
+    assert "PlenumSessionID eq 1001" in params["$filter"]
+    assert "GroupTypeID eq 43" in params["$filter"]
+
+
+@patch.object(process_odata, "requests")
 def test_paged_results_followed(mock_requests, tmp_path: Path, fixed_now):
     """``@odata.nextLink`` is followed until exhausted."""
     page1 = {
@@ -289,6 +349,7 @@ def test_paged_results_followed(mock_requests, tmp_path: Path, fixed_now):
         _json_response(page1),
         _json_response(page2),
         _json_response(items),
+        _json_response(_stenograms_payload([])),
     ]
 
     out = tmp_path / "plenary_schedule.csv"
