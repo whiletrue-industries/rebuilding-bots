@@ -643,8 +643,14 @@ _REGULAR_METADATA_SURFACE = {
     "title": (
         "DocumentTitle", "title", "שם_החלטה",
     ),
+    # NOTE: `ReferenceLinks` is an ARRAY of URLs on committee_decisions /
+    # ethics_decisions / legal_advisor_* (extraction pipeline emits it
+    # this way; the per-doc "source_url" / "קישור_למקור" string promised
+    # in config.yaml is in practice NOT populated for those contexts).
+    # _surface_metadata's list-unwrap below takes the first element —
+    # usually the canonical PDF, with cross-refs trailing.
     "source_url": (
-        "source_url", "קישור_למקור", "file_url",
+        "source_url", "קישור_למקור", "file_url", "ReferenceLinks",
     ),
     "official_source": ("OfficialSource",),
     "decision_number": ("procedure_number_str", "מספר_מסמך", "מספר_החלטה"),
@@ -658,7 +664,13 @@ def _surface_metadata(metadata: Dict) -> Dict[str, Any]:
     """Pull the allowlisted fields out of metadata + extracted_data
     (whichever shape this context uses). Returns only fields with a
     non-empty value, so the yaml output stays small for contexts that
-    don't have rich metadata."""
+    don't have rich metadata.
+
+    Array-valued fields (e.g. `ReferenceLinks`) are unwrapped to their
+    first element. If you add a multi-element-valued field where you
+    actually want all elements visible to the LLM, surface it under a
+    different canonical key with its own handling — don't just append
+    to one of the existing tuples expecting list semantics."""
     if not metadata:
         return {}
     extracted = metadata.get('extracted_data') or {}
@@ -666,12 +678,17 @@ def _surface_metadata(metadata: Dict) -> Dict[str, Any]:
     for canonical, candidates in _REGULAR_METADATA_SURFACE.items():
         for key in candidates:
             val = extracted.get(key) or metadata.get(key)
-            if val:
-                # Truncate long strings (e.g. official_source can be a paragraph)
-                if isinstance(val, str) and len(val) > 200:
-                    val = val[:200] + "..."
-                out[canonical] = val
-                break
+            if not val:
+                continue
+            if isinstance(val, list):
+                val = val[0] if val else None
+                if not val:
+                    continue
+            # Truncate long strings (e.g. official_source can be a paragraph)
+            if isinstance(val, str) and len(val) > 200:
+                val = val[:200] + "..."
+            out[canonical] = val
+            break
     return out
 
 
