@@ -89,6 +89,14 @@ _SOURCE_URL_LINE_RE = re.compile(
     r"(?m)^(?:" + "|".join(_SOURCE_URL_CANDIDATE_KEYS) + r"):\n(https?://[^\n]+)"
 )
 
+# CSV column names that carry URL data (one URL per row, e.g.
+# plenary_schedule.source_url = the session's stenogram). These are
+# pulled out of the flattened markdown at CSV-collection time so the
+# URL never enters the embedded vector — URLs are high-cardinality
+# low-signal tokens that crowd out the actual semantic content. The
+# value lands directly in document metadata.source_url instead.
+_METADATA_ONLY_CSV_COLUMNS = frozenset({"source_url", "file_url", "url"})
+
 
 def _extract_source_url(content: str) -> str | None:
     """Return the first https?:// URL found under a URL-typed column, or None."""
@@ -244,6 +252,7 @@ async def _process_file_stream_async(
     content: Union[str, io.BufferedReader],
     content_type: str,
     source_id: str,
+    extra_meta: dict,
     concurrency: SyncConcurrency,
     client,
     *,
@@ -258,13 +267,16 @@ async def _process_file_stream_async(
         client=client,
     )
     metadata = dict(metadata or {})
+    # extra_meta is structured per-row data lifted out of the CSV (e.g.
+    # source_url) — it wins over what the LLM extractor may have guessed.
+    metadata.update(extra_meta or {})
     metadata['source_id'] = source_id
     return (fname, io.BytesIO(text.encode('utf-8')), ctype, metadata)
 
 def _collect_raw_streams_files(config_dir: Path, source):
-    """Return [(filename, content, content_type)] without the OpenAI step."""
+    """Return [(filename, content, content_type, extra_meta)] without the OpenAI step."""
     files = list(config_dir.glob(source))
-    return [(f.name, f.open('rb'), 'text/markdown') for f in files]
+    return [(f.name, f.open('rb'), 'text/markdown', {}) for f in files]
 
 
 def _collect_raw_streams_split(config_dir: Path, context_name, source, offset=0):
@@ -279,11 +291,11 @@ def _collect_raw_streams_split(config_dir: Path, context_name, source, offset=0)
         document_name = sanitize_filename(document_name)
         structure = data.get('structure', [])
         markdown_dict = generate_markdown_dict(structure, document_name)
-        return [(fname, content, 'text/markdown') for fname, content in markdown_dict.items()]
+        return [(fname, content, 'text/markdown', {}) for fname, content in markdown_dict.items()]
     else:
         content = filename.read_text()
         parts = content.split('\n---\n')
-        return [(f'{context_name}_{i+offset}.md', c, 'text/markdown') for i, c in enumerate(parts)]
+        return [(f'{context_name}_{i+offset}.md', c, 'text/markdown', {}) for i, c in enumerate(parts)]
 
 
 def _collect_raw_streams_google_spreadsheet(context_name, source, offset=0):
@@ -303,19 +315,34 @@ def _collect_raw_streams_google_spreadsheet(context_name, source, offset=0):
                     else:
                         content += f'{row[header]}\n\n'
         if content:
-            raw.append((f'{context_name}_{idx+offset}.md', content, 'text/markdown'))
+            raw.append((f'{context_name}_{idx+offset}.md', content, 'text/markdown', {}))
     return raw
 
 
 def _collect_raw_streams_csv(config_dir, context_name, source, offset=0):
+    """Flatten CSV rows into markdown chunks.
+
+    Columns listed in ``_METADATA_ONLY_CSV_COLUMNS`` (e.g. ``source_url``)
+    are NOT included in the markdown content — they land in the per-row
+    ``extra_meta`` dict, which gets merged into document metadata
+    downstream so the URL becomes ``metadata.source_url`` without
+    poisoning the embedding. Empty values yield no entry.
+    """
     with open(config_dir / source, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         raw = []
         for idx, row in enumerate(reader):
             content = ''
+            extra_meta: dict = {}
             for k, v in row.items():
+                if k in _METADATA_ONLY_CSV_COLUMNS:
+                    if v:
+                        # Map any URL-typed column name to the canonical
+                        # ``source_url`` metadata field.
+                        extra_meta['source_url'] = v
+                    continue
                 content += f'{k}:\n{v}\n\n'
-            raw.append((f'{context_name}_{idx+offset}.md', content, 'text/markdown'))
+            raw.append((f'{context_name}_{idx+offset}.md', content, 'text/markdown', extra_meta))
         return raw
 
 def _raw_streams_for_context(config_dir, context_name, context_, offset=0):
@@ -341,7 +368,7 @@ def _raw_streams_for_context(config_dir, context_name, context_, offset=0):
     else:
         raise ValueError(f'Unknown context type: {context_type}')
 
-    return [(fname, content, ctype, source_id) for fname, content, ctype in raw]
+    return [(fname, content, ctype, source_id, extra_meta) for fname, content, ctype, extra_meta in raw]
 
 
 async def collect_context_sources_async(
@@ -371,7 +398,7 @@ async def collect_context_sources_async(
     cache = _open_metadata_cache()
 
     context_name = context_['name']
-    raw: list[tuple[str, object, str, str]] = []
+    raw: list[tuple[str, object, str, str, dict]] = []
     if 'sources' in context_:
         for source in context_['sources']:
             raw.extend(_raw_streams_for_context(config_dir, context_name, source, offset=len(raw)))
@@ -392,16 +419,16 @@ async def collect_context_sources_async(
     # what keeps SYNC_CONCURRENCY=1 byte-equal to the serial implementation.
     tasks = [
         _process_file_stream_async(
-            fn, content, ct, sid, concurrency, client,
+            fn, content, ct, sid, em, concurrency, client,
             bot=bot, context_name=context_name, extraction_cache=extraction_cache,
         )
-        for fn, content, ct, sid in raw
+        for fn, content, ct, sid, em in raw
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     file_streams: list = []
     rpd_count = 0
-    for r, (fn, _, _, _) in zip(results, raw):
+    for r, (fn, _, _, _, _) in zip(results, raw):
         if isinstance(r, RpdExhausted):
             rpd_count += 1
             continue
