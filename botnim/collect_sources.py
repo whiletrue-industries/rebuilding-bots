@@ -84,6 +84,18 @@ _SOURCE_DOC_LINE_RE = re.compile(
 )
 
 
+_SOURCE_URL_CANDIDATE_KEYS = ("source_url", "file_url", "url")
+_SOURCE_URL_LINE_RE = re.compile(
+    r"(?m)^(?:" + "|".join(_SOURCE_URL_CANDIDATE_KEYS) + r"):\n(https?://[^\n]+)"
+)
+
+
+def _extract_source_url(content: str) -> str | None:
+    """Return the first https?:// URL found under a URL-typed column, or None."""
+    m = _SOURCE_URL_LINE_RE.search(content)
+    return m.group(1).strip() if m else None
+
+
 def _extract_source_doc(content: str) -> str | None:
     """Return the first non-empty candidate-key value from CSV-flattened content."""
     for m in _SOURCE_DOC_LINE_RE.finditer(content):
@@ -98,6 +110,9 @@ def _build_metadata_record(content: str, file_path: str, document_type: str, ext
     source_doc = _extract_source_doc(content)
     if source_doc:
         metadata['source_doc'] = source_doc
+    source_url = _extract_source_url(content)
+    if source_url:
+        metadata['source_url'] = source_url
     if error is not None:
         metadata['status'] = 'extraction_error'
         metadata['error'] = str(error)
