@@ -660,6 +660,21 @@ _REGULAR_METADATA_SURFACE = {
 }
 
 
+# Known-fabricated URL patterns produced by the pre-2026-05-12 extraction
+# pipeline when it couldn't find a real source URL in the PDF body and
+# interpolated the (now-removed) `example:` template from config.yaml's
+# `קישור_למקור` field. Filtered out at surface time so the bot doesn't
+# hand the user a fabricated `gov.il/...decision_YYYY_NN.pdf` link.
+# Backfill plan: bump EXTRACTION_VERSION + re-sync the four affected
+# contexts (committee_decisions, ethics_decisions, legal_advisor_letters,
+# legal_advisor_opinions) and remove this filter once verified.
+_FABRICATED_SOURCE_URL_RE = re.compile(
+    r"^https?://(?:www\.)?knesset\.gov\.il/"
+    r"(?:committee/decisions/decision_\d{4}_\d+\.pdf"
+    r"|legal/opinions/opinion_\d{4}_\d+\.pdf)$"
+)
+
+
 def _surface_metadata(metadata: Dict) -> Dict[str, Any]:
     """Pull the allowlisted fields out of metadata + extracted_data
     (whichever shape this context uses). Returns only fields with a
@@ -684,6 +699,12 @@ def _surface_metadata(metadata: Dict) -> Dict[str, Any]:
                 val = val[0] if val else None
                 if not val:
                     continue
+            # Drop known-fabricated source URLs (see _FABRICATED_SOURCE_URL_RE).
+            # Letting the loop fall through to the next candidate gives
+            # ReferenceLinks → file_url → etc. a chance to win if any of
+            # them holds a real URL for this row.
+            if canonical == "source_url" and isinstance(val, str) and _FABRICATED_SOURCE_URL_RE.match(val):
+                continue
             # Truncate long strings (e.g. official_source can be a paragraph)
             if isinstance(val, str) and len(val) > 200:
                 val = val[:200] + "..."

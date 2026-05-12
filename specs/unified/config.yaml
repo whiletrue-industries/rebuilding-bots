@@ -148,8 +148,13 @@ context:
         example: המסמך הופץ לכל חברי הכנסת
         hint: הוסף הערות או פרטים חשובים נוספים
       - name: קישור_למקור
-        description: קישור ישיר לקובץ ה-PDF
-        example: https://knesset.gov.il/legal/opinions/opinion_2024_01.pdf
+        # No example URL: when the extractor couldn't find a real URL
+        # in the PDF body it used to interpolate this template into a
+        # fabricated URL (e.g. opinion_2026_99.pdf). Without the example
+        # the LLM falls back to leaving the field empty (per dynamic_
+        # extraction prompt rule 6) — and the canonical URL still
+        # reaches the doc via the index CSV's `url` column → metadata.
+        description: 'קישור ישיר לקובץ ה-PDF — השאר ריק אם אינו מופיע במפורש בטקסט המסמך.'
       - name: טקסט_מלא
         description: תוכן מלא של המסמך
         hint: תמיד כלול את כל הטקסט של מסמך כפי שהופק מה-PDF, בעברית.
@@ -246,8 +251,13 @@ context:
         example: המסמך הופץ לכל חברי הכנסת
         hint: הוסף הערות או פרטים חשובים נוספים
       - name: קישור_למקור
-        description: קישור ישיר לקובץ ה-PDF
-        example: https://knesset.gov.il/legal/opinions/opinion_2024_01.pdf
+        # No example URL: when the extractor couldn't find a real URL
+        # in the PDF body it used to interpolate this template into a
+        # fabricated URL (e.g. opinion_2026_99.pdf). Without the example
+        # the LLM falls back to leaving the field empty (per dynamic_
+        # extraction prompt rule 6) — and the canonical URL still
+        # reaches the doc via the index CSV's `url` column → metadata.
+        description: 'קישור ישיר לקובץ ה-PDF — השאר ריק אם אינו מופיע במפורש בטקסט המסמך.'
       - name: טקסט_מלא
         description: תוכן מלא של המסמך
         hint: תמיד כלול את כל הטקסט של מסמך כפי שהופק מה-PDF, בעברית.
@@ -337,8 +347,11 @@ context:
         example: ההחלטה התקבלה פה אחד
         hint: הוסף הערות או הסתייגויות אם קיימות
       - name: קישור_למקור
-        description: קישור ישיר לקובץ ה-PDF
-        example: https://knesset.gov.il/committee/decisions/decision_2024_12.pdf
+        # No example URL: see same-name fields above. The committee
+        # variant template was producing fabricated decision_YYYY_NN.pdf
+        # URLs on ~14% of rows where the extractor couldn't find a real
+        # URL in the PDF body.
+        description: 'קישור ישיר לקובץ ה-PDF — השאר ריק אם אינו מופיע במפורש בטקסט המסמך.'
       - name: טקסט_מלא
         description: תוכן מלא של ההחלטה
         hint: תמיד כלול את כל הטקסט של מסמך כפי שהופק מה-PDF, בעברית.
