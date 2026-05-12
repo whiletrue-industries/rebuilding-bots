@@ -21,6 +21,10 @@ specs/.published/
 .worktrees/
 
 # Staged copy of parlibot/deploy/ files for docker build context (populated
-# by parlibot/deploy.sh phase 3 immediately before docker build; must not be
-# committed into the rebuilding-bots repo).
-/deploy/
+# by parlibot/deploy.sh phase 3 immediately before docker build). The
+# directory itself is ignored EXCEPT for gold-set.json, which carries a
+# committed empty-array stub so CI Docker builds can satisfy the Dockerfile
+# COPY without parlibot in the build context. deploy.sh phase 3 overwrites
+# the stub with the real gold-set before each prod docker build.
+/deploy/*
+!/deploy/gold-set.json

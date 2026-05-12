@@ -109,14 +109,28 @@ def _normalize_dt(value: Optional[str]) -> str:
     return value
 
 
-def _compute_hash(sessions: list[dict], items: list[dict]) -> str:
-    """SHA-256 over the (id, last_updated) tuples, sorted for determinism."""
+def _compute_hash(
+    sessions: list[dict],
+    items: list[dict],
+    stenograms: list[dict] | None = None,
+) -> str:
+    """SHA-256 over the (id, last_updated) tuples, sorted for determinism.
+
+    Stenograms participate in the hash so that a session gaining its
+    stenogram (some hours/days after it ends) triggers a CSV rewrite —
+    we want the new ``source_url`` to land in the next sync, not stay
+    stale until something else in the session changes.
+    """
     h = hashlib.sha256()
     for row in sorted(sessions, key=lambda r: r.get("PlenumSessionID") or 0):
         h.update(f"S:{row.get('PlenumSessionID')}:{row.get('LastUpdatedDate', '')}\n".encode())
     for row in sorted(items, key=lambda r: r.get("plmPlenumSessionID") or 0):
         h.update(
             f"I:{row.get('plmPlenumSessionID')}:{row.get('LastUpdatedDate', '')}\n".encode()
+        )
+    for row in sorted(stenograms or [], key=lambda r: r.get("DocumentPlenumSessionID") or ""):
+        h.update(
+            f"D:{row.get('DocumentPlenumSessionID')}:{row.get('LastUpdatedDate', '')}\n".encode()
         )
     return h.hexdigest()
 
@@ -197,6 +211,42 @@ def fetch_session_items(
     return out
 
 
+# GroupTypeID for the stenogram (סטנוגרמה) — the full plenary transcript.
+# Stenograms are published after the session completes, so they're absent
+# for upcoming sessions; that's intentional (semantic search shouldn't
+# return upcoming sessions for content questions anyway; live-tool does).
+_STENOGRAM_GROUP_TYPE_ID = 43
+
+
+def fetch_session_stenograms(
+    base_url: str,
+    session_ids: list[int],
+    timeout: int = 60,
+) -> list[dict]:
+    """Fetch stenogram document rows (GroupTypeID=43) for the given session IDs.
+
+    Returns rows from KNS_DocumentPlenumSession filtered to the stenogram
+    group type. Each row carries ``PlenumSessionID``, ``FilePath`` (the
+    fs.knesset.gov.il URL), and ``LastUpdatedDate`` (used to pick the
+    latest if a session somehow has multiple stenogram rows).
+    """
+    if not session_ids:
+        return []
+    url = f"{base_url}/KNS_DocumentPlenumSession"
+    out: list[dict] = []
+    chunk_size = 25
+    for i in range(0, len(session_ids), chunk_size):
+        chunk = session_ids[i:i + chunk_size]
+        clauses = " or ".join(f"PlenumSessionID eq {sid}" for sid in chunk)
+        params = {
+            "$filter": f"({clauses}) and GroupTypeID eq {_STENOGRAM_GROUP_TYPE_ID}",
+            "$top": _PAGE_SIZE,
+            "$format": "json",
+        }
+        out.extend(_fetch_paged(url, base_params=params, timeout=timeout))
+    return out
+
+
 def process_knesset_odata_source(
     *,
     output_csv_path: Path,
@@ -251,7 +301,17 @@ def process_knesset_odata_source(
     items = fetch_session_items(base_url, session_ids, timeout=_http_timeout)
     logger.info("Got %d agenda items across %d sessions", len(items), len(sessions))
 
-    upstream_hash = _compute_hash(sessions, items)
+    stenograms = fetch_session_stenograms(base_url, session_ids, timeout=_http_timeout)
+    logger.info("Got %d stenograms for %d sessions", len(stenograms), len(sessions))
+    # Latest-wins if a session has multiple stenogram rows (rare).
+    stenogram_url_by_session: dict[int, str] = {}
+    for doc in sorted(stenograms, key=lambda d: d.get("LastUpdatedDate") or ""):
+        sid = doc.get("PlenumSessionID")
+        fp = (doc.get("FilePath") or "").strip()
+        if sid and fp:
+            stenogram_url_by_session[sid] = fp
+
+    upstream_hash = _compute_hash(sessions, items, stenograms)
     stored_hash = _existing_upstream_hash(output_csv)
     if stored_hash and stored_hash == upstream_hash:
         logger.info(
@@ -278,6 +338,7 @@ def process_knesset_odata_source(
         "session_finish_iso",
         "session_human_date", # DD/MM/YYYY HH:MM (Hebrew-locale-friendly)
         "is_special_meeting",
+        "source_url",
         "item_ordinal",
         "item_type",
         "item_name",
@@ -303,6 +364,7 @@ def process_knesset_odata_source(
             "session_finish_iso": f_iso,
             "session_human_date": _hebrew_date(s_iso),
             "is_special_meeting": "כן" if s.get("IsSpecialMeeting") else "לא",
+            "source_url": stenogram_url_by_session.get(s.get("PlenumSessionID"), ""),
         }
         sid = s["PlenumSessionID"]
         rows_for_session = items_by_session.get(sid, [])

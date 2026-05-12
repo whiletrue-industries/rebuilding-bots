@@ -24,8 +24,13 @@ COPY backend/api/requirements.txt requirements-server.txt
 RUN pip install -r requirements-server.txt -r requirements.txt -r requirements-pdf-scraping.txt
 COPY botnim/ ./botnim
 COPY scripts/ ./scripts
-# parlibot/deploy/gold-set.json — staged into rebuilding-bots/deploy/ by
-# parlibot's deploy.sh phase 3 just before docker build (see deploy.sh).
+# Gold-set lives at deploy/gold-set.json. The committed stub is a
+# placeholder (empty array) so CI Docker builds succeed without parlibot
+# in the build context. parlibot/deploy.sh phase 3 overwrites this with
+# the real gold-set immediately before the production docker build, so
+# the image deployed to staging/prod has the actual entries needed by
+# the daily scheduled sanity runner (Lambda + EventBridge → /sanity/run
+# → botnim.sanity.runner.run_sanity → load_gold_set()).
 COPY deploy/gold-set.json /srv/deploy/gold-set.json
 COPY specs/ ./specs
 # alembic.ini lives at repo root and is required to run schema migrations

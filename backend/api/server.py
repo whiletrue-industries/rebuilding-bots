@@ -351,6 +351,7 @@ async def knesset_sessions_live(
     from botnim.document_parser.knesset_odata.process_odata import (
         fetch_plenum_sessions,
         fetch_session_items,
+        fetch_session_stenograms,
         _hebrew_date,
         _DEFAULT_BASE,
     )
@@ -396,6 +397,31 @@ async def knesset_sessions_live(
         for s in sessions:
             sid = s.get("PlenumSessionID")
             s["items"] = items_by_session.get(sid, [])
+
+    # Source-URL enrichment: KNS_DocumentPlenumSession (GroupTypeID=43,
+    # סטנוגרמה) gives us the canonical Knesset transcript URL per session.
+    # Sessions without a published stenogram (typically upcoming sittings)
+    # simply lack `source_url`. We swallow stenogram fetch failures so a
+    # transient outage on this extra OData call doesn't break the main
+    # response.
+    if sessions:
+        ids = [s["PlenumSessionID"] for s in sessions if s.get("PlenumSessionID") is not None]
+        try:
+            stenograms = fetch_session_stenograms(_DEFAULT_BASE, ids, timeout=timeout)
+            stenogram_url_by_session: Dict[int, str] = {}
+            for doc in sorted(stenograms, key=lambda d: d.get("LastUpdatedDate") or ""):
+                sid = doc.get("PlenumSessionID")
+                fp = (doc.get("FilePath") or "").strip()
+                if sid and fp:
+                    stenogram_url_by_session[sid] = fp
+            for s in sessions:
+                url = stenogram_url_by_session.get(s.get("PlenumSessionID"))
+                if url:
+                    s["source_url"] = url
+        except requests.exceptions.RequestException:
+            # Best-effort enrichment; don't fail the main response if the
+            # extra OData call has a transient issue.
+            pass
 
     for s in sessions:
         s["StartDateHe"] = _hebrew_date(s.get("StartDate", ""))
