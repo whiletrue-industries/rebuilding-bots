@@ -44,9 +44,12 @@ logger = get_logger(__name__)
 #                                 small offline benchmark and contributed to
 #                                 the 2026-05-09 prod 504s.)
 #
-# `government_decisions` overrides chunk_max_tokens/overlap to 6000/300 in
-# config.yaml because re-chunking 27k+ rows to 600 tokens balloons to ~250k
-# chunks and meaningfully changes tail latency.
+# `government_decisions` pins chunk_max_tokens/overlap to 600/80 in config.yaml
+# — matching the code default. (Caveat: aurora_writer.py's write_decision /
+# write_decisions_batched call _chunk_for_embedding without forwarding the
+# per-context override, so the YAML values for this context are documentary
+# rather than load-bearing right now; fixing that requires plumbing the
+# context dict into those call sites.)
 _CHUNK_MAX_TOKENS_DEFAULT = 600
 _CHUNK_OVERLAP_TOKENS_DEFAULT = 80
 _HNSW_EF_SEARCH_DEFAULT = 100
