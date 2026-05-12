@@ -776,6 +776,12 @@ _TS_QUERY_DROP = frozenset({
     "how", "why", "when", "where", "who", "which",
 })
 
+# Token-count threshold for _build_prefix_or_tsquery's long-query
+# fallback. Queries with more than this many post-filter tokens skip
+# the prefix-OR + stem-variant expansion and use AND-only on bare
+# tokens instead — see the rationale block in _build_prefix_or_tsquery.
+_MAX_PREFIX_TOKENS = 6
+
 
 def _build_prefix_or_tsquery(query_text: str) -> str:
     """Turn a user query into a tsquery string with OR + prefix semantics.
@@ -808,6 +814,33 @@ def _build_prefix_or_tsquery(query_text: str) -> str:
     tokens = [t for t in cleaned.split() if _ok(t)]
     if not tokens:
         return ""
+
+    # Long-query fallback: a 10-term prefix-OR (~20-way after the
+    # stem-variant expansion below) blew past the 12s RETRIEVE_TIMEOUT
+    # on staging Aurora against the ~30k-row government_decisions
+    # corpus (verbatim-title query, probed 2026-05-12).
+    #
+    # For long queries we switch from prefix-OR to AND-with-prefix:
+    #   - AND is naturally selective — Postgres picks the most-
+    #     selective prefix match first, so the overall scan stays
+    #     cheap even on large corpora (a single distinctive term
+    #     narrows the candidate set to a handful of rows).
+    #   - Keeping the `:*` prefix on each term preserves morphology
+    #     coverage (Hebrew construct/absolute alternation, plural
+    #     suffixes, etc.) — pure AND-on-bare-tokens regressed
+    #     government_decisions on the local probe (5 random titles:
+    #     80% → 40%) because some title tokens had inflected forms
+    #     in the doc that exact-match couldn't catch.
+    #   - Skipping the stem-variant expansion (the second `:*` per
+    #     token) keeps the plan width bounded.
+    # A cap-and-truncate alternative (keep top-N tokens by length)
+    # was tested first and regressed local probe set 93% → 72% —
+    # it dropped distinctive short proper-noun tokens (e.g. MK names
+    # in ethics-decisions titles) that BM25 needed to rank correctly.
+    # AND-with-prefix below keeps every token.
+    if len(tokens) > _MAX_PREFIX_TOKENS:
+        return " & ".join(f"{t}:*" for t in tokens)
+
     # For each token emit prefix variants:
     #   - the token itself with `:*` (matches the exact form + suffixes)
     #   - for non-numeric tokens with len >= 5, the token minus its last

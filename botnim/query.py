@@ -622,13 +622,73 @@ def _format_result_as_dict(result: SearchResult, explain: bool) -> Dict[str, Any
         result_dict['_explanation'] = result._explanation
     return result_dict
 
-def _format_result_as_yaml_entry(result: SearchResult) -> Dict[str, str]:
-    """Format a single result for YAML output"""
+# Fields surfaced in the REGULAR-mode yaml entry alongside the body
+# chunk content. Without this, the LLM has only the chunk body to ground
+# its answer — and a chunk body often mentions OTHER documents by number /
+# date (e.g. a decision that AMENDS prior decisions), which the LLM then
+# confuses with the current document's identity. Probed 2026-05-12: bot
+# returned `החלטה 3327 / 19.08.2025` for the verbatim-title query when
+# the correct answer (`publish_date: 2026-10-26`, gov 37) only existed
+# in metadata, not in the body. Surfacing date/title/source_url/identifier
+# from metadata gives the LLM a deterministic source for those facts.
+#
+# Allowlist (NOT the whole metadata dict) to keep yaml output bounded and
+# avoid leaking internal pipeline state (`chunk_index`, `extracted_at`,
+# `status`, `filename`, etc.) to the LLM. Different contexts use different
+# field names for the same concept; the first non-empty value wins per key.
+_REGULAR_METADATA_SURFACE = {
+    "date": (
+        "publish_date", "PublicationDate", "תאריך", "תאריך_מכתב", "session_date",
+    ),
+    "title": (
+        "DocumentTitle", "title", "שם_החלטה",
+    ),
+    "source_url": (
+        "source_url", "קישור_למקור", "file_url",
+    ),
+    "official_source": ("OfficialSource",),
+    "decision_number": ("procedure_number_str", "מספר_מסמך", "מספר_החלטה"),
+    "government_number": ("government_number",),
+    "subject": ("נושא_כללי", "נושא_ספציפי", "agenda_item"),
+    "speaker": ("speaker_name", "שולח"),
+}
+
+
+def _surface_metadata(metadata: Dict) -> Dict[str, Any]:
+    """Pull the allowlisted fields out of metadata + extracted_data
+    (whichever shape this context uses). Returns only fields with a
+    non-empty value, so the yaml output stays small for contexts that
+    don't have rich metadata."""
+    if not metadata:
+        return {}
+    extracted = metadata.get('extracted_data') or {}
+    out: Dict[str, Any] = {}
+    for canonical, candidates in _REGULAR_METADATA_SURFACE.items():
+        for key in candidates:
+            val = extracted.get(key) or metadata.get(key)
+            if val:
+                # Truncate long strings (e.g. official_source can be a paragraph)
+                if isinstance(val, str) and len(val) > 200:
+                    val = val[:200] + "..."
+                out[canonical] = val
+                break
+    return out
+
+
+def _format_result_as_yaml_entry(result: SearchResult) -> Dict[str, Any]:
+    """Format a single REGULAR-mode result for YAML output. Surfaces a
+    small allowlist of metadata fields alongside the body content so the
+    LLM can cite date/title/source from metadata rather than guessing
+    from intra-body references to other documents."""
     parts = result.full_content.split('\n\n', 1)
-    return dict(
+    entry: Dict[str, Any] = dict(
         header=parts[0].strip(),
         text=parts[1].strip() if len(parts) > 1 else '',
     )
+    surfaced = _surface_metadata(result.metadata or {})
+    if surfaced:
+        entry['metadata'] = surfaced
+    return entry
 
 def format_search_results(results: List[SearchResult], format: str, explain: bool, search_mode: SearchModeConfig = None) -> str:
     """
