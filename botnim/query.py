@@ -247,8 +247,8 @@ class QueryClient:
                 SearchResult(
                     score=hit['_score'],
                     id=hit['_id'],
-                    content=hit['_source']['content'].strip().split('\n')[0],
-                    full_content=hit['_source']['content'] if search_mode.name not in ("METADATA_BROWSE", "RECENCY_BROWSE") else None,
+                    content=_scrub_fabricated_urls(hit['_source']['content']).strip().split('\n')[0],
+                    full_content=_scrub_fabricated_urls(hit['_source']['content']) if search_mode.name not in ("METADATA_BROWSE", "RECENCY_BROWSE") else None,
                     metadata=hit['_source'].get('metadata', None),
                     _explanation=hit.get('_explanation', None) if explain else None,
                     context_name=self.context_name
@@ -673,6 +673,29 @@ _FABRICATED_SOURCE_URL_RE = re.compile(
     r"(?:committee/decisions/decision_\d{4}_\d+\.pdf"
     r"|legal/opinions/opinion_\d{4}_\d+\.pdf)$"
 )
+
+# Match the same fabricated URLs anywhere inside a chunk body (no anchors,
+# so we can find them in markdown content lines like
+# `קישור_למקור:\nhttps://knesset.gov.il/committee/decisions/decision_2026_52.pdf`).
+# PR #148 only filtered these out of `metadata.source_url`; the LLM was
+# still reading them straight from the chunk body and citing them. This
+# scrubber runs at retrieve-time on the raw chunk content before the
+# QueryClient hands it to the formatter — bot now sees no URL to cite.
+_FABRICATED_SOURCE_URL_INLINE_RE = re.compile(
+    r"https?://(?:www\.)?knesset\.gov\.il/"
+    r"(?:committee/decisions/decision_\d{4}_\d+\.pdf"
+    r"|legal/opinions/opinion_\d{4}_\d+\.pdf)"
+)
+
+
+def _scrub_fabricated_urls(content: str) -> str:
+    """Replace fabricated PDF URLs in chunk body with an empty string so
+    the LLM has no fake URL to cite. Idempotent; cheap; preserves chunk
+    structure (line breaks and surrounding `קישור_למקור:` label stay,
+    just the URL line becomes blank)."""
+    if not content:
+        return content
+    return _FABRICATED_SOURCE_URL_INLINE_RE.sub("", content)
 
 
 def _surface_metadata(metadata: Dict) -> Dict[str, Any]:
