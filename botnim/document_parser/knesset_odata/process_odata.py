@@ -306,7 +306,8 @@ def process_knesset_odata_source(
             "is_special_meeting": "כן" if s.get("IsSpecialMeeting") else "לא",
             "source_url": (
                 f"https://www.knesset.gov.il/plenum/heb/sessionDet.aspx"
-                f"?SessionID={s['PlenumSessionID']}"
+                f"?SessionID={s.get('PlenumSessionID')}"
+                if s.get("PlenumSessionID") else ""
             ),
         }
         sid = s["PlenumSessionID"]
