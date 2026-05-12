@@ -248,7 +248,7 @@ class QueryClient:
                     score=hit['_score'],
                     id=hit['_id'],
                     content=hit['_source']['content'].strip().split('\n')[0],
-                    full_content=hit['_source']['content'] if search_mode.name != "METADATA_BROWSE" else None,
+                    full_content=hit['_source']['content'] if search_mode.name not in ("METADATA_BROWSE", "RECENCY_BROWSE") else None,
                     metadata=hit['_source'].get('metadata', None),
                     _explanation=hit.get('_explanation', None) if explain else None,
                     context_name=self.context_name
@@ -351,45 +351,88 @@ def government_distribution_sidecar(
         return None
 
 
+def _md_field(metadata: Dict, extracted_data: Dict, *keys: str, default=None):
+    """Return the first non-empty value for any of `keys`, looking first in
+    `extracted_data` (legacy shape with extracted_data wrapper) then in
+    top-level `metadata` (current flat shape used by legal_advisor_letters /
+    legal_advisor_opinions / committee_decisions / ethics_decisions).
+    """
+    for key in keys:
+        val = extracted_data.get(key)
+        if val:
+            return val
+    for key in keys:
+        val = metadata.get(key)
+        if val:
+            return val
+    return default
+
+
 def _build_core_browse_item(result: SearchResult) -> Dict[str, Any]:
     """Build the core fields for a browse item"""
     metadata = result.metadata or {}
-    extracted_data = metadata.get('extracted_data', {})
-    
+    extracted_data = metadata.get('extracted_data') or {}
+
     return {
         "document_type": CONTEXT_DISPLAY_NAMES.get(result.context_name, result.context_name or 'unknown'),
         "document_id": result.id,
         "relevance_score": round(result.score, 2),
-        "title": extracted_data.get('DocumentTitle', 'ללא כותרת'),
-        "summary": extracted_data.get('Summary', '')
+        "title": _md_field(metadata, extracted_data, 'DocumentTitle', 'title', 'שם_החלטה', default='ללא כותרת'),
+        "summary": _md_field(metadata, extracted_data, 'Summary', 'תקציר', default=''),
     }
 
 def _extract_source_url(metadata: Dict, extracted_data: Dict) -> Optional[str]:
     """Extract source URL with fallback logic"""
-    return metadata.get('source_url', '') or extracted_data.get('קישור_למקור', '')
+    return (
+        metadata.get('source_url')
+        or extracted_data.get('קישור_למקור')
+        or metadata.get('קישור_למקור')
+        or (metadata.get('ReferenceLinks')[0] if metadata.get('ReferenceLinks') else None)
+        or ''
+    )
 
-def _extract_date_field(extracted_data: Dict) -> Optional[str]:
-    """Extract the first available date field from configured date fields"""
+def _extract_date_field(metadata: Dict, extracted_data: Dict) -> Optional[str]:
+    """Extract the first available date field from configured date fields.
+    Looks in both the legacy extracted_data wrapper and the current flat
+    top-level metadata shape (legal_advisor_letters / _opinions / committee_*
+    / ethics_* are flat; older contexts may still use extracted_data).
+    """
     for date_field in METADATA_BROWSE_FIELDS['date_fields']:
         if extracted_data.get(date_field):
             return extracted_data[date_field]
+        if metadata.get(date_field):
+            return metadata[date_field]
     return None
 
-def _process_metadata_fields(extracted_data: Dict, browse_item: Dict) -> Dict[str, Any]:
-    """Process and filter metadata fields, excluding core fields and duplicates"""
+def _process_metadata_fields(metadata: Dict, extracted_data: Dict, browse_item: Dict) -> Dict[str, Any]:
+    """Process and filter metadata fields, excluding core fields and duplicates.
+
+    Sources fields from BOTH extracted_data (legacy shape) and top-level
+    metadata (current flat shape). extracted_data takes precedence on conflicts.
+    """
     relevant_metadata = {}
-    core_fields = {'DocumentTitle', 'Summary', 'title', 'status', 'document_type'}
-    
+    core_fields = {
+        'DocumentTitle', 'Summary', 'title', 'status', 'document_type',
+        'context_name', 'context_type', 'filename', 'source_id',
+        'chunk_index', 'total_chunks', 'extracted_at', 'document_id',
+        'raw_content', 'error',
+    }
+
     # Add date if available
-    date_value = _extract_date_field(extracted_data)
+    date_value = _extract_date_field(metadata, extracted_data)
     if date_value:
         relevant_metadata['date'] = date_value
-    
-    # Process all other metadata fields
-    for field, value in extracted_data.items():
-        if _should_include_metadata_field(field, value, core_fields, browse_item):
-            relevant_metadata[field] = _format_metadata_value(value)
-    
+
+    # Process all other metadata fields — extracted_data first, then flat metadata.
+    seen = set()
+    for source in (extracted_data, metadata):
+        for field, value in source.items():
+            if field in seen:
+                continue
+            if _should_include_metadata_field(field, value, core_fields, browse_item):
+                relevant_metadata[field] = _format_metadata_value(value)
+                seen.add(field)
+
     return relevant_metadata
 
 def _should_include_metadata_field(field: str, value: Any, core_fields: set, browse_item: Dict) -> bool:
@@ -417,18 +460,15 @@ def _add_full_text_indicator(extracted_data: Dict, relevant_metadata: Dict) -> N
 def _extract_metadata_fields(result: SearchResult) -> Dict[str, Any]:
     """Extract and structure metadata fields for browse display"""
     metadata = result.metadata or {}
-    extracted_data = metadata.get('extracted_data', {})
-    
-    # Build core fields
+    extracted_data = metadata.get('extracted_data') or {}
+
     browse_item = _build_core_browse_item(result)
-    
-    # Add source URL if available
+
     source_url = _extract_source_url(metadata, extracted_data)
     if source_url:
         browse_item["source_url"] = source_url
-    
-    # Process metadata fields
-    relevant_metadata = _process_metadata_fields(extracted_data, browse_item)
+
+    relevant_metadata = _process_metadata_fields(metadata, extracted_data, browse_item)
     
     # Add full text indicator
     _add_full_text_indicator(extracted_data, relevant_metadata)
@@ -439,13 +479,19 @@ def _extract_metadata_fields(result: SearchResult) -> Dict[str, Any]:
     
     return browse_item
 
-def _format_metadata_browse_results(results: List[SearchResult]) -> Dict[str, Any]:
+def _format_metadata_browse_results(
+    results: List[SearchResult],
+    search_mode_name: str = "METADATA_BROWSE",
+) -> Dict[str, Any]:
     """
-    Format search results specifically for METADATA_BROWSE mode
-    Returns structured metadata for browsing instead of full content
+    Format search results for any browse-style mode (METADATA_BROWSE,
+    RECENCY_BROWSE). Returns structured metadata for browsing instead of
+    full content. `search_mode_name` echoes the actual mode used so the
+    LLM (and humans reading the trace) can tell similarity-ranked vs
+    date-ranked results apart.
     """
     return {
-        "search_mode": "METADATA_BROWSE",
+        "search_mode": search_mode_name,
         "total_results": len(results),
         "documents": [_extract_metadata_fields(result) for result in results]
     }
@@ -526,17 +572,20 @@ def _format_metadata_browse_text(results: List[SearchResult]) -> str:
     
     return header + "\n".join(formatted_results) + footer
 
-def _format_browse_mode_results(results: List[SearchResult], format: str) -> str:
-    """Handle METADATA_BROWSE mode formatting"""
+def _format_browse_mode_results(
+    results: List[SearchResult],
+    format: str,
+    search_mode_name: str = "METADATA_BROWSE",
+) -> str:
+    """Handle browse-style mode formatting (METADATA_BROWSE, RECENCY_BROWSE)."""
     if format == 'dict':
-        return _format_metadata_browse_results(results)
+        return _format_metadata_browse_results(results, search_mode_name)
     elif format == 'yaml':
-        browse_results = _format_metadata_browse_results(results)
+        browse_results = _format_metadata_browse_results(results, search_mode_name)
         return yaml.dump(browse_results, allow_unicode=True, width=1000000, sort_keys=False)
     elif format == 'text':
         return _format_metadata_browse_text(results)
     else:
-        # Fallback for unsupported formats in browse mode
         return _format_metadata_browse_text(results)
 
 def _format_result_as_text_short(result: SearchResult) -> str:
@@ -593,12 +642,15 @@ def format_search_results(results: List[SearchResult], format: str, explain: boo
     Returns:
         str: Formatted search results as a text string
     """
-    # Check if we're in METADATA_BROWSE mode for special formatting
-    is_browse_mode = search_mode and search_mode.name == "METADATA_BROWSE"
-    
+    # Check if we're in a browse-style mode (metadata-summary output).
+    # RECENCY_BROWSE shares the same response shape; only the row selection
+    # differs (date-desc vs similarity).
+    is_browse_mode = search_mode and search_mode.name in ("METADATA_BROWSE", "RECENCY_BROWSE")
+
     if is_browse_mode:
-        return _format_browse_mode_results(results, format)
-    
+        return _format_browse_mode_results(results, format, search_mode.name)
+
+
     # Process regular results
     formatted_results = []
     for result in results:
