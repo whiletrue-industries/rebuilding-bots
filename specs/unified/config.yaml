@@ -36,10 +36,17 @@ context:
       input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%A4%D7%A8%D7%A9%D7%A0%D7%95%D7%AA
 - slug: legal_text
   name: Knesset Bylaws (תקנון הכנסת) and related laws
-  # Title-rich Hebrew document corpus — BM25 reliably outranks vector cosine
-  # for verbatim section / law name queries. See the per-context override
-  # rationale in botnim/vector_store/vector_store_aurora.py:search().
+  # Hebrew-friendly retrieval. The default `tsquery` BM25 strategy uses PG's
+  # `simple` tsconfig which has no Hebrew analyzer — so construct-state
+  # alternation (ועדת↔ועדה↔ועדות) is invisible and procedural-question
+  # queries miss the relevant sections. Switched to `trigram` (pg_trgm
+  # word_similarity, GIN-indexed via migration 0015) on 2026-05-13.
+  # Local A/B on prod-equivalent query "מה הדרך ליזום ועדת חקירה ממלכתית":
+  #   tsquery: 0/3 prod-cited sections in top-8 (§22 / §129 / §135)
+  #   trigram: 3/3 prod-cited sections in top-8
+  # See vector_store_aurora.py _LEXICAL_STRATEGY_* for full rationale.
   use_lexical_search: true
+  lexical_strategy: trigram
   sources:
   - type: split
     source: extraction/חוק_הכנסת_structure_content.json

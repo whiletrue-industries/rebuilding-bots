@@ -56,6 +56,26 @@ _HNSW_EF_SEARCH_DEFAULT = 100
 _HNSW_EF_SEARCH_MIN = 10
 _HNSW_EF_SEARCH_MAX = 1000
 
+# Per-context lexical strategies. `tsquery` is the existing prefix-OR
+# BM25 path; `trigram` uses pg_trgm.word_similarity() against the
+# documents_content_trgm GIN index (added in alembic 0015).
+#
+# Trigram is the Hebrew-friendly option: 3-gram character matching
+# bridges construct-state alternation (ועדת↔ועדה↔ועדות) without
+# needing a real Hebrew tsconfig. Local A/B on the prod query
+# "מה הדרך ליזום ועדת חקירה ממלכתית?" — trigram surfaced all 3
+# prod-cited sections in top-8; tsquery surfaced 0/3.
+_LEXICAL_STRATEGY_TSQUERY = "tsquery"
+_LEXICAL_STRATEGY_TRIGRAM = "trigram"
+_LEXICAL_STRATEGIES = frozenset({_LEXICAL_STRATEGY_TSQUERY, _LEXICAL_STRATEGY_TRIGRAM})
+
+# pg_trgm.word_similarity_threshold default is 0.6 — too strict for our
+# corpus (real-relevance hits scored 0.55-0.76 in 2026-05-13 probes,
+# so the default cuts off the top of the ranking). 0.1 is a wide net
+# that still beats unrelated docs by a healthy margin under RRF.
+# Set via SET LOCAL inside the search txn — never leaks.
+_TRIGRAM_WORD_SIMILARITY_THRESHOLD = 0.1
+
 # Back-compat aliases for callers that import the old names.
 CHUNK_MAX_TOKENS = _CHUNK_MAX_TOKENS_DEFAULT
 CHUNK_OVERLAP_TOKENS = _CHUNK_OVERLAP_TOKENS_DEFAULT
@@ -570,6 +590,18 @@ class VectorStoreAurora(VectorStoreBase):
         else:
             use_lexical = bool(ctx_lex)
 
+        # Which lexical scoring path to use when the lexical branch is on.
+        # `tsquery` (default) — existing prefix-OR BM25 with ts_rank_cd.
+        # `trigram` — pg_trgm.word_similarity() ranking, GIN-indexed.
+        # See _LEXICAL_STRATEGIES constants for rationale.
+        ctx_strategy = (ctx_cfg or {}).get("lexical_strategy", _LEXICAL_STRATEGY_TSQUERY)
+        if ctx_strategy not in _LEXICAL_STRATEGIES:
+            logger.warning(
+                "context %s: unknown lexical_strategy=%r, falling back to %s",
+                context_name, ctx_strategy, _LEXICAL_STRATEGY_TSQUERY,
+            )
+            ctx_strategy = _LEXICAL_STRATEGY_TSQUERY
+
         # Resolve context_id from (bot, name) — small extra round-trip but
         # keeps the search call self-contained and resilient to context
         # rows being added/removed mid-process.
@@ -616,36 +648,63 @@ class VectorStoreAurora(VectorStoreBase):
             else:
                 vector_rows = []
 
-            # BM25 query construction. We can't use plainto_tsquery directly
-            # because it ANDs every term and treats words as exact matches —
-            # both fatal for Hebrew search:
-            #   - AND fails when the user query has a stopword-y interrogative
-            #     ("מהן", "מה", "האם") that appears in zero documents.
-            #   - Hebrew has heavy construct/absolute form alternation
-            #     ("ועדת" vs "ועדה" vs "ועדות") with no PG-shipped Hebrew
-            #     analyzer, so exact matching misses 90%+ of relevant docs.
-            # Mitigation: convert each non-trivial token to a `term:*` prefix
-            # match and OR them. This roughly mirrors what ES did with
-            # `fuzziness: AUTO` on REGULAR_CONFIG. Combined with the weighted
-            # multi-field tsv (migration 0004) and ts_rank_cd, the BM25 side
-            # surfaces docs whose DocumentTitle / metadata mentions the topic
-            # even when the exact construct form isn't in the body.
-            ts_query_str = _build_prefix_or_tsquery(query_text) if use_lexical else ''
-            if ts_query_str:
-                bm25_rows = sess.execute(text(
+            # Lexical scoring branch. Two strategies, opt-in per context:
+            #
+            # 1. `tsquery` (default, back-compat): prefix-OR BM25.
+            #    Can't use plainto_tsquery directly — it ANDs every term
+            #    and uses exact match, both fatal for Hebrew:
+            #      - AND fails on stopword-y interrogatives ("מהן", "מה")
+            #      - construct/absolute alternation ("ועדת"/"ועדה"/"ועדות")
+            #        misses 90%+ of relevant docs under exact match
+            #    Mitigation: prefix-OR `term:*` against the weighted
+            #    multi-field tsv (migration 0004) via ts_rank_cd.
+            #
+            # 2. `trigram`: pg_trgm.word_similarity() ranking.
+            #    Hebrew-aware via character 3-grams — bridges construct
+            #    alternation natively. Index: `documents_content_trgm`
+            #    (migration 0015). On the prod query, surfaced 3/3
+            #    prod-cited sections in top-8; tsquery hit 0/3.
+            if not use_lexical:
+                lexical_rows = []
+            elif ctx_strategy == _LEXICAL_STRATEGY_TRIGRAM:
+                # Lower the threshold so word_similarity returns hits in the
+                # 0.1-0.6 range we observed as legitimately relevant.
+                sess.execute(text(
+                    f"SET LOCAL pg_trgm.word_similarity_threshold = "
+                    f"{_TRIGRAM_WORD_SIMILARITY_THRESHOLD}"
+                ))
+                # `%>` is the word-similarity-above-threshold operator and
+                # is GIN-indexable via gin_trgm_ops — short-circuits before
+                # word_similarity() runs against every row.
+                lexical_rows = sess.execute(text(
                     f"""
                     SELECT id, content, metadata,
-                           ts_rank_cd(tsv, to_tsquery('simple', :q)) AS score
+                           word_similarity(:q, content) AS score
                     FROM documents
                     WHERE context_id = :cid
-                      AND tsv @@ to_tsquery('simple', :q){md_filter_sql}
+                      AND :q %> content{md_filter_sql}
                     ORDER BY score DESC
                     LIMIT :limit
                     """
-                ), {"cid": cid, "q": ts_query_str, "limit": fetch, **md_params}).fetchall()
+                ), {"cid": cid, "q": query_text, "limit": fetch, **md_params}).fetchall()
             else:
-                # Lexical disabled, OR empty query (all tokens too short / stopwords); skip BM25.
-                bm25_rows = []
+                ts_query_str = _build_prefix_or_tsquery(query_text)
+                if ts_query_str:
+                    lexical_rows = sess.execute(text(
+                        f"""
+                        SELECT id, content, metadata,
+                               ts_rank_cd(tsv, to_tsquery('simple', :q)) AS score
+                        FROM documents
+                        WHERE context_id = :cid
+                          AND tsv @@ to_tsquery('simple', :q){md_filter_sql}
+                        ORDER BY score DESC
+                        LIMIT :limit
+                        """
+                    ), {"cid": cid, "q": ts_query_str, "limit": fetch, **md_params}).fetchall()
+                else:
+                    # All tokens too short / stopwords — skip the lexical pass.
+                    lexical_rows = []
+            bm25_rows = lexical_rows  # kept name for back-compat with _rrf_fuse call below
 
         return _rrf_fuse(vector_rows, bm25_rows, num_results)
 
