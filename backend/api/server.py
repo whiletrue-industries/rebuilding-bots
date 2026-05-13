@@ -473,6 +473,19 @@ def _try_run_with_advisory_lock(key: int, label: str, fn) -> None:
 
     Lock is released explicitly via ``pg_advisory_unlock`` and again
     implicitly when the connection closes.
+
+    Cleanup hardening (2026-05-13): if either ``pg_advisory_unlock`` or
+    ``commit`` raises (network blip, server-side disconnect, pool-internal
+    error), the connection MUST be rolled back before close. Otherwise the
+    DBAPI connection returns to the pool with an open transaction; PG then
+    shows it as ``idle in transaction`` indefinitely, which blocks
+    ``CREATE INDEX CONCURRENTLY``, ``VACUUM FULL``, and any future schema
+    change against the affected tables (and eventually risks XID-wraparound
+    autovacuum failure). Recovered orphan observed 2026-05-13 04:00 UTC on
+    staging Aurora — pid 47135 held a stale ``pg_try_advisory_lock``
+    transaction for 4h, blocking ``alembic 0015``'s
+    ``CREATE INDEX CONCURRENTLY documents_content_trgm`` from completing
+    phase 2 until manually terminated.
     """
     from sqlalchemy import text as _text
     from botnim.db.session import get_engine
@@ -486,11 +499,31 @@ def _try_run_with_advisory_lock(key: int, label: str, fn) -> None:
         try:
             fn()
         finally:
+            cleanup_failed = False
             try:
                 conn.execute(_text("SELECT pg_advisory_unlock(:k)"), {"k": key})
                 conn.commit()
             except Exception:
-                logger.warning("%s: pg_advisory_unlock failed; lock will release on session close", label, exc_info=True)
+                cleanup_failed = True
+                logger.warning(
+                    "%s: pg_advisory_unlock or commit failed; rolling back to "
+                    "release transaction state before returning conn to pool",
+                    label,
+                    exc_info=True,
+                )
+            if cleanup_failed:
+                try:
+                    conn.rollback()
+                except Exception:
+                    # If even rollback fails the conn is effectively dead;
+                    # the close() below is our last resort. Log and move on
+                    # — never let cleanup-of-cleanup mask the original failure.
+                    logger.warning(
+                        "%s: rollback after unlock/commit failure also failed; "
+                        "conn close() is the last line of defence",
+                        label,
+                        exc_info=True,
+                    )
     finally:
         conn.close()
 

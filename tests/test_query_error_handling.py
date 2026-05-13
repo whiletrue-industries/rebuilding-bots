@@ -268,3 +268,51 @@ class TestAdvisoryLock:
                         if any("pg_advisory_unlock" in str(a) for a in c.args)]
         assert unlock_calls, "must call pg_advisory_unlock even when body raises"
         conn.close.assert_called_once()
+
+    def test_rolls_back_when_unlock_fails(self, caplog):
+        """If ``pg_advisory_unlock`` raises (network blip, server-side
+        disconnect), the connection must be rolled back so it doesn't go
+        back to the pool with an open transaction. See the staging incident
+        on 2026-05-13 — an orphan ``idle in transaction`` session blocked
+        ``CREATE INDEX CONCURRENTLY`` for 4 hours."""
+        from backend.api import server as server_module
+
+        conn = MagicMock()
+        # First execute() (pg_try_advisory_lock) succeeds; second (unlock) raises.
+        # We use side_effect on execute() itself rather than scalar() so the
+        # unlock call path actually throws.
+        first_result = MagicMock()
+        first_result.scalar.return_value = True
+        conn.execute.side_effect = [first_result, ConnectionError("server gone")]
+        engine = MagicMock()
+        engine.connect.return_value = conn
+
+        with caplog.at_level(logging.WARNING):
+            with patch.object(sys.modules["botnim.db.session"], "get_engine", return_value=engine):
+                server_module._try_run_with_advisory_lock(0xDEADBEEF, "TEST", lambda: None)
+
+        conn.rollback.assert_called_once()
+        conn.close.assert_called_once()
+        assert "pg_advisory_unlock or commit failed" in caplog.text
+
+    def test_rolls_back_when_commit_fails(self):
+        """Same hardening, but for a commit() failure after a successful
+        unlock (rare but observed when the conn was dropped between the
+        unlock and the commit)."""
+        from backend.api import server as server_module
+
+        conn = MagicMock()
+        first_result = MagicMock()
+        first_result.scalar.return_value = True
+        # Two successful execute() calls (try_lock + unlock); commit() then raises.
+        conn.execute.return_value = MagicMock(scalar=MagicMock(return_value=True))
+        conn.execute.side_effect = [first_result, MagicMock()]
+        conn.commit.side_effect = ConnectionError("conn gone")
+        engine = MagicMock()
+        engine.connect.return_value = conn
+
+        with patch.object(sys.modules["botnim.db.session"], "get_engine", return_value=engine):
+            server_module._try_run_with_advisory_lock(0xDEADBEEF, "TEST", lambda: None)
+
+        conn.rollback.assert_called_once()
+        conn.close.assert_called_once()
