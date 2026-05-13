@@ -5,6 +5,7 @@ from io import StringIO
 import csv
 from pathlib import Path
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ...config import get_openai_client, get_logger
 
@@ -14,6 +15,39 @@ from .pdf_processor import process_single_pdf
 from .exceptions import EmptyUpstreamIndex
 
 logger = get_logger(__name__)
+
+# Per-PDF work is dominated by Tesseract OCR (releases the GIL) and one
+# OpenAI field-extraction call (network I/O), so threads parallelize cleanly.
+# Override at runtime with PDF_PROCESSING_WORKERS=N when re-extracting a
+# large context (committee_decisions, knesset_protocols, ...).
+PDF_PROCESSING_WORKERS = int(os.environ.get('PDF_PROCESSING_WORKERS', '8'))
+
+
+def _process_one_pdf(row, external_source, config, openai_client, upstream_revision):
+    url = row['url']
+    if external_source is not None:
+        pdf_url = f'{external_source}/{row["filename"]}'
+    else:
+        pdf_url = row['url']
+    out_rows: list[dict] = []
+    with tempfile.NamedTemporaryFile(suffix='.pdf') as tmp_file:
+        try:
+            logger.info(f'Processing PDF: {pdf_url}')
+            resp = requests.get(pdf_url)
+            resp.raise_for_status()
+            tmp_file.write(resp.content)
+            tmp_file.flush()
+            records = process_single_pdf(Path(tmp_file.name), config, openai_client)
+            for record in records:
+                out_rows.append({
+                    'url': url,
+                    'revision': REVISION,
+                    'upstream_revision': upstream_revision or '',
+                    **record,
+                })
+        except Exception as e:
+            print(f"Error processing {pdf_url}: {e}")
+    return out_rows
 
 
 def _existing_upstream_revision(output_csv: Path) -> str | None:
@@ -118,33 +152,27 @@ def process_pdf_source(config: SourceConfig):
                 existing_urls[(row['url'], row['revision'])] = row
 
     out = []
+    to_process = []
     for row in input_records:
         url = row['url']
-        if external_source is not None:
-            pdf_url = f'{external_source}/{row["filename"]}'
-        else:
-            pdf_url = row['url']
         if (url, REVISION) in existing_urls:
             out.append(existing_urls[(url, REVISION)])
             logger.info(f'Skipping existing URL: {url}')
             continue
-        with tempfile.NamedTemporaryFile(suffix='.pdf') as tmp_file:
-            try:
-                logger.info(f'Processing PDF: {pdf_url}')
-                resp = requests.get(pdf_url)
-                resp.raise_for_status()
-                tmp_file.write(resp.content)
-                tmp_file.flush()
-                records = process_single_pdf(Path(tmp_file.name), config, openai_client)
-                for record in records:
-                    out.append({
-                        'url': url,
-                        'revision': REVISION,
-                        'upstream_revision': upstream_revision or '',
-                        **record
-                    })
-            except Exception as e:
-                print(f"Error processing {pdf_url}: {e}")
+        to_process.append(row)
+
+    if to_process:
+        logger.info(
+            f'Processing {len(to_process)} PDFs with {PDF_PROCESSING_WORKERS} '
+            f'workers (skipped {len(out)} already-cached rows)'
+        )
+        with ThreadPoolExecutor(max_workers=PDF_PROCESSING_WORKERS) as ex:
+            futures = [
+                ex.submit(_process_one_pdf, row, external_source, config, openai_client, upstream_revision)
+                for row in to_process
+            ]
+            for fut in as_completed(futures):
+                out.extend(fut.result())
 
     # Write the output CSV atomically: write to a sibling .tmp, then os.replace.
     tmp_output = output_csv.with_suffix(output_csv.suffix + '.tmp')
