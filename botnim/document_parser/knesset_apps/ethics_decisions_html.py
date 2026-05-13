@@ -68,16 +68,16 @@ class EthicsDecisionsConfig:
     committee_id:
         Defaults to 2217. Used only to compose the canonical
         front-end ``Route`` query parameter the API expects.
-    historical_archive_csv:
-        Optional path (relative to config_dir, resolved by the
-        dispatcher) to a committed CSV of older-Knesset decisions
-        in the same ``url,filename,date,knesset_num,title`` shape.
-        When set, rows from that CSV are merged into the live API
-        results before writing index.csv; the LIVE rows win on URL
-        collision so a freshly-edited K25 entry isn't overwritten by
-        a stale archive row. This lets us extend coverage back to
-        K15 (≈1999) without standing up a live fetcher for archive
-        pages that are gated behind the Knesset CDN's JS challenge.
+    Coverage of older Knessets (K15-K23, ≈1999–2021) is achieved by
+    seeding ``output_csv_path`` with a committed CSV in the same
+    ``url,filename,date,knesset_num,title`` shape. When the fetcher
+    runs and the output path already exists, those rows are loaded
+    BEFORE the live fetch and merged into the result. Live rows win
+    on URL collision so a freshly-edited K25 entry isn't overwritten
+    by a stale archive row. This lets us extend coverage past the
+    live API's K25-only horizon without standing up a separate
+    fetcher for archive pages that are gated behind the Knesset
+    CDN's JS challenge.
     """
 
     output_csv_path: Path
@@ -87,7 +87,6 @@ class EthicsDecisionsConfig:
     api_url: str = _API_URL
     timeout_s: int = 60
     extra_headers: dict = field(default_factory=dict)
-    historical_archive_csv: Optional[Path] = None
 
 
 _DATE_NEAR_PDF = re.compile(r"(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})")
@@ -163,27 +162,24 @@ def _absolute(href: str) -> str:
     return "https://main.knesset.gov.il/" + href
 
 
-def _load_archive_rows(archive_csv: Path) -> list[DocRow]:
-    """Load a committed historical-archive CSV in the same shape as our
-    live output. Missing/blank ``knesset_num`` is coerced to 0 so a
-    malformed row still flows through (downstream readers tolerate 0).
+def _load_seed_rows(seed_csv: Path) -> list[DocRow]:
+    """Load existing rows from ``output_csv_path`` as a seed.
 
-    Returns an empty list on a missing file rather than raising — the
-    parameter is optional and an absent archive should not break the
-    live K25 fetch.
+    The same file is the fetcher's output AND its archive seed: when
+    we ship a committed ``index.csv`` of older Knessets, the next
+    fetcher run reads it, merges in live K25, and writes the merged
+    result back. Returns an empty list on a missing file — that's
+    the legitimate first-run state, not an error.
     """
-    if not archive_csv.exists():
-        logger.warning(
-            "historical_archive_csv=%s missing; skipping merge", archive_csv,
-        )
+    if not seed_csv.exists():
         return []
     rows: list[DocRow] = []
-    with open(archive_csv, encoding="utf-8") as f:
+    with open(seed_csv, encoding="utf-8") as f:
         reader = csv.DictReader(f)
         missing = set(CSV_FIELDS) - set(reader.fieldnames or [])
         if missing:
             raise ValueError(
-                f"historical_archive_csv {archive_csv} is missing columns: "
+                f"seed CSV {seed_csv} is missing columns: "
                 f"{sorted(missing)} (expected {CSV_FIELDS})"
             )
         for r in reader:
@@ -204,16 +200,16 @@ def _load_archive_rows(archive_csv: Path) -> list[DocRow]:
     return rows
 
 
-def _merge_rows(live: list[DocRow], archive: list[DocRow]) -> list[DocRow]:
-    """Merge live + archive rows, deduping by URL with live winning.
+def _merge_rows(live: list[DocRow], seed: list[DocRow]) -> list[DocRow]:
+    """Merge live + seed rows, deduping by URL with live winning.
 
-    Live rows are appended first; archive rows for URLs not in the live
-    set follow. The order preserves "newest first" within each source
-    when callers pass them in that order.
+    Live rows are placed first so freshly-fetched content surfaces
+    ahead of the older archive when callers iterate in order. Seed
+    rows for URLs not in the live set follow.
     """
     seen = {r.url for r in live}
     merged = list(live)
-    for r in archive:
+    for r in seed:
         if r.url in seen:
             continue
         seen.add(r.url)
@@ -228,11 +224,13 @@ def fetch_ethics_decisions_index(
 ) -> list[DocRow]:
     """Call the JSON-wrapped Pages API and write ``index.csv``.
 
-    When ``config.historical_archive_csv`` is set, the live K25 rows
-    are merged with the committed archive CSV — live wins on URL
-    collisions, archive fills in the older Knessets that the live API
-    can't reach (those live behind the Knesset CDN's JS challenge and
-    aren't realistically scrapeable from a backend job).
+    If ``output_csv_path`` already exists, its rows are loaded as a
+    seed BEFORE the live fetch and merged into the result. This is
+    how older-Knesset coverage works: ship a committed index.csv
+    containing K15-K23 rows; the next fetcher run reads them, merges
+    in live K25, and writes the merged result back to the same path.
+    Live wins on URL collision so freshly-edited K25 content isn't
+    overwritten by stale seed data.
     """
     route = (
         f"https://main.knesset.gov.il/APPS/committees/"
@@ -259,18 +257,14 @@ def fetch_ethics_decisions_index(
     live_rows = list(_extract_pdf_anchors(html, knesset_num=config.knesset_num))
     logger.info("fetch_ethics_decisions: extracted %d live PDF rows", len(live_rows))
 
-    if config.historical_archive_csv is not None:
-        archive_rows = _load_archive_rows(Path(config.historical_archive_csv))
-        logger.info(
-            "fetch_ethics_decisions: loaded %d archive rows from %s",
-            len(archive_rows), config.historical_archive_csv,
-        )
-        rows = _merge_rows(live_rows, archive_rows)
+    seed_rows = _load_seed_rows(Path(config.output_csv_path))
+    if seed_rows:
+        rows = _merge_rows(live_rows, seed_rows)
         logger.info(
             "fetch_ethics_decisions: merged total %d rows "
-            "(%d live + %d archive, %d dedup'd)",
-            len(rows), len(live_rows), len(archive_rows),
-            len(live_rows) + len(archive_rows) - len(rows),
+            "(%d live + %d seed, %d dedup'd)",
+            len(rows), len(live_rows), len(seed_rows),
+            len(live_rows) + len(seed_rows) - len(rows),
         )
     else:
         rows = live_rows

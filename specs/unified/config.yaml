@@ -396,15 +396,17 @@ context:
       page_name: "EthicsDecisions25"
       committee_id: 2217
       knesset_num: 25
-      # Historical-archive merge: the live API only exposes K25.
-      # Older Knessets (K15-K23, ~1999–2021) are listed on per-Knesset
-      # static HTML pages that are gated behind the Knesset CDN's JS
-      # challenge, so a backend fetcher can't reach them. The CSV
-      # below was scraped once via a headed browser (2026-05-13) and
-      # is checked in as the source-of-truth for those Knessets. The
-      # fetcher merges these rows with the live K25 fetch (live wins
-      # on URL collisions). Refresh once per future Knesset turnover.
-      historical_archive_csv: extraction/ethics_decisions_archive_legacy.csv
+      # Historical coverage of older Knessets (K15-K23, ~1999–2021)
+      # is achieved by SEEDING extraction/ethics_decisions/index.csv
+      # with rows scraped once via a headed browser (2026-05-13)
+      # from the per-Knesset CommitteeDecisionsN.aspx archive pages —
+      # those pages are gated behind the Knesset CDN's JS challenge
+      # so a backend fetcher can't reach them directly. On every
+      # fetcher run, that committed file is loaded, live K25 is
+      # fetched, and the merged result is written back (live wins on
+      # URL collisions). The K25 portion churns; the K15-K23 portion
+      # stays stable forever. Refresh once per future Knesset
+      # turnover.
   - type: csv
     source: extraction/ethics_committee_decisions.csv
     fetcher:
