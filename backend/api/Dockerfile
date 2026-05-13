@@ -1,4 +1,8 @@
-FROM --platform=linux/amd64 python:3.12
+# Default to amd64 to match ECS Fargate. Local Apple Silicon devs override
+# via compose (build.args.BASE_PLATFORM=linux/arm64 + platform: linux/arm64)
+# so OCR / Playwright run natively at ~5-10× the emulated speed.
+ARG BASE_PLATFORM=linux/amd64
+FROM --platform=${BASE_PLATFORM} python:3.12
 # tesseract-ocr (+ Hebrew language data) is needed by pytesseract for the
 # fallback OCR path on scanned-PDF refreshes. poppler-utils provides
 # pdftoppm/pdftotext used by pdf2image / PyMuPDF backends.
