@@ -8,7 +8,15 @@ from ._concurrency import async_retry_openai
 logger = get_logger(__name__)
 
 
-EXTRACTION_VERSION = "v1-gpt-4o-mini"  # bump on prompt/model/schema change
+EXTRACTION_VERSION = "v2-gpt-4o-mini-heb-fix-ocr-gate"
+# v1 → v2 (2026-05-13): gate the visual→logical Hebrew character reversal in
+# `fix_ocr_hebrew_text` / `fix_ocr_full_content` behind a heuristic
+# (`_hebrew_is_visual_order`). Modern Tesseract `heb` returns logical-order
+# Hebrew; unconditional reversal had been corrupting 102/548
+# committee_decisions chunks (and a tail across ethics/legal_advisor/
+# government_decisions). Bumping the version invalidates the
+# extraction_cache so the fix re-derives metadata on the next
+# `botnim sync --force-rebuild` of the affected contexts.
 
 
 class RpdExhausted(Exception):

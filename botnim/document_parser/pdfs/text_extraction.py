@@ -161,12 +161,76 @@ def fix_hebrew_text_direction(text: str, is_ocr: bool = False) -> str:
         return '\n'.join(fixed_lines)
 
 
+# Hebrew final-form letters (\u05DA, \u05DD, \u05DF, \u05E3, \u05E5) \u2014 Hebrew orthography is
+# strict: these letters can ONLY appear as the last character of a word.
+# Anywhere else is a typesetting bug. We exploit that as the heuristic.
+#
+# Empirical validation (2026-05-13, n=100 known-clean Hebrew chunks from
+# Wikisource legal_text vs the same chunks word-by-word-reversed):
+#
+#   signal `final-form at word START`:
+#     clean    samples: 0% rate (min/p10/median/p90/max = 0 / 0 / 0 / 0 / 0)
+#     reversed samples: 11\u201327% rate (p10/median/p90 = 0.112 / 0.181 / 0.265)
+#
+# Perfect separation across 100/100 samples. ANY non-zero rate is signal.
+# To defend against rare single-character OCR errors / typos in proper
+# nouns, require \u22652 distinct final-form-at-start hits and \u226510 Hebrew
+# words total before triggering.
+#
+# Pre-2026-05-13 behavior: reversal was unconditional. Modern Tesseract
+# (`heb` lang pack) returns logical-order Hebrew already, so unconditional
+# reversal CORRUPTED clean output and yielded the mojibake observed in
+# 102 / 548 committee_decisions chunks (and a tail across the other
+# PDF-pipeline contexts). The downstream LLM field-extractor then
+# hallucinated plausible-looking PublicationDates around the garbled
+# text. Probed end-to-end 2026-05-13: raw Tesseract output is clean,
+# the broken "fix" was the entire bug.
+_HEBREW_FINAL_FORMS = frozenset("\u05DA\u05DD\u05DF\u05E3\u05E5")
+_HEBREW_PUNCT_STRIP = ":,./()\"'\u00B7-\u05F4\u05F3"
+_HEBREW_MIN_WORDS = 10
+_HEBREW_FINAL_START_HITS_FOR_REVERSED = 2
+
+
+def _hebrew_is_visual_order(text: str, sample_size: int = 200) -> bool:
+    """Return True iff `text` looks like character-reversed (visual-order)
+    Hebrew. Cheap O(n) sample; safe on any input \u2014 non-Hebrew returns
+    False after touching at most a handful of words.
+
+    The signal: Hebrew final-form letters at word-start. They cannot
+    legally occur there in correct logical-order Hebrew; in reversed
+    Hebrew they're 11\u201327% of words. See module-level comment for the
+    100-sample empirical separation.
+    """
+    hebrew_words = []
+    for word in text.split():
+        stripped = word.strip(_HEBREW_PUNCT_STRIP)
+        if not stripped:
+            continue
+        if any('\u0590' <= c <= '\u05FF' for c in stripped):
+            hebrew_words.append(stripped)
+            if len(hebrew_words) >= sample_size:
+                break
+    if len(hebrew_words) < _HEBREW_MIN_WORDS:
+        # Sample too small to confidently distinguish \u2014 no-op is the safe
+        # default (modern OCR is logical-order anyway).
+        return False
+    final_at_start = sum(1 for w in hebrew_words if w[0] in _HEBREW_FINAL_FORMS)
+    return final_at_start >= _HEBREW_FINAL_START_HITS_FOR_REVERSED
+
+
 def fix_ocr_hebrew_text(text: str) -> str:
     """
     Fix Hebrew text direction issues specifically for OCR-extracted text.
-    OCR text typically has correct line order, but characters within Hebrew words are reversed,
-    and word order within lines may also be reversed.
+
+    Gated by `_hebrew_is_visual_order` \u2014 only reverses characters if the
+    input is detected as character-reversed (visual order). Modern
+    Tesseract with the `heb` pack returns LOGICAL-order Hebrew already,
+    so this function is a no-op for that case. Kept active for legacy /
+    older OCR sources that produce visual order.
     """
+    if not _hebrew_is_visual_order(text):
+        return text
+
     lines = text.split('\n')
     fixed_lines = []
 
@@ -209,6 +273,10 @@ def fix_ocr_full_content(text: str) -> str:
     Fix Hebrew text direction issues specifically for OCR-extracted full content field.
     This function handles the character-level reversal within Hebrew words that occurs
     in the full content field for OCR documents.
+
+    Gated by `_hebrew_is_visual_order` (see `fix_ocr_hebrew_text`) \u2014 only
+    reverses when the input actually looks character-reversed. No-op for
+    modern Tesseract output.
     """
     if not text.strip():
         return text
@@ -216,6 +284,9 @@ def fix_ocr_full_content(text: str) -> str:
     # Check if text contains Hebrew
     hebrew_in_text = sum(1 for c in text if '\u0590' <= c <= '\u05FF')
     if hebrew_in_text < len(text) * 0.3:  # Less than 30% Hebrew in text
+        return text
+
+    if not _hebrew_is_visual_order(text):
         return text
 
     # For OCR full content, each Hebrew word is reversed at the character level
