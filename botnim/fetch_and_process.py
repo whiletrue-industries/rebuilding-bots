@@ -86,6 +86,13 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
             fetch_ethics_decisions_index, EthicsDecisionsConfig,
         )
         output_csv_path = config_dir / source['source']
+        # historical_archive_csv (when set) is documented as
+        # relative-to-config_dir; resolve it here so the fetcher
+        # only sees an absolute path. Mirrors the indexed_pdf branch's
+        # treatment of local_index_csv_path.
+        archive_csv_raw = fetcher.pop('historical_archive_csv', None)
+        if archive_csv_raw is not None:
+            fetcher['historical_archive_csv'] = config_dir / archive_csv_raw
         fetch_ethics_decisions_index(
             EthicsDecisionsConfig(output_csv_path=output_csv_path, **fetcher)
         )

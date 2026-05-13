@@ -151,3 +151,106 @@ def test_empty_html_first_run_writes_empty_csv(tmp_path: Path):
     rows = fetch_ethics_decisions_index(cfg, http_get=http)
     assert rows == []
     assert out.exists()
+
+
+# ---------- historical_archive_csv merge ----------
+
+def _write_archive_csv(path: Path, rows: list[dict]) -> None:
+    fieldnames = ["url", "filename", "date", "knesset_num", "title"]
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for r in rows:
+            w.writerow(r)
+
+
+def test_archive_merge_appends_older_knessets(tmp_path: Path):
+    """Archive rows for URLs not in the live fetch are appended."""
+    archive = tmp_path / "archive.csv"
+    _write_archive_csv(archive, [
+        {"url": "https://main.knesset.gov.il/.../hachlatot17_40.pdf",
+         "filename": "hachlatot17_40.pdf",
+         "date": "2008-05-12", "knesset_num": "17",
+         "title": "החלטה 17/40"},
+        {"url": "https://main.knesset.gov.il/.../hachlatot18_1.pdf",
+         "filename": "hachlatot18_1.pdf",
+         "date": "2009-04-14", "knesset_num": "18",
+         "title": "החלטה 18/1"},
+    ])
+    out = tmp_path / "index.csv"
+    cfg = EthicsDecisionsConfig(
+        output_csv_path=out,
+        historical_archive_csv=archive,
+    )
+    live_html = (
+        '<table><tr><td>9.7.2025</td>'
+        '<td><a href="/Activity/committees/Ethics/Decisions25/Decisions25-43.pdf">'
+        'החלטה 43/25</a></td></tr></table>'
+    )
+    http = MagicMock(return_value=_resp({"Html": live_html}))
+    rows = fetch_ethics_decisions_index(cfg, http_get=http)
+    urls = [r.url for r in rows]
+    assert any("Decisions25-43.pdf" in u for u in urls), urls
+    assert any("hachlatot17_40.pdf" in u for u in urls), urls
+    assert any("hachlatot18_1.pdf" in u for u in urls), urls
+    # Live row comes first (we prepend live), archive after.
+    assert "Decisions25-43.pdf" in urls[0]
+
+
+def test_archive_merge_live_wins_on_url_collision(tmp_path: Path):
+    """If a URL appears in both live and archive, the live row wins —
+    so freshly-edited K25 content isn't overwritten by stale archive."""
+    archive = tmp_path / "archive.csv"
+    _write_archive_csv(archive, [
+        {"url": "https://main.knesset.gov.il/Activity/committees/Ethics/"
+                "Decisions25/Decisions25-43.pdf",
+         "filename": "Decisions25-43.pdf",
+         "date": "1900-01-01", "knesset_num": "25",
+         "title": "STALE TITLE — should not appear"},
+    ])
+    out = tmp_path / "index.csv"
+    cfg = EthicsDecisionsConfig(
+        output_csv_path=out,
+        historical_archive_csv=archive,
+    )
+    live_html = (
+        '<table><tr><td>9.7.2025</td>'
+        '<td><a href="/Activity/committees/Ethics/Decisions25/Decisions25-43.pdf">'
+        'LIVE TITLE</a></td></tr></table>'
+    )
+    http = MagicMock(return_value=_resp({"Html": live_html}))
+    rows = fetch_ethics_decisions_index(cfg, http_get=http)
+    matching = [r for r in rows if "Decisions25-43.pdf" in r.url]
+    assert len(matching) == 1, "URL should appear exactly once after dedup"
+    assert matching[0].title == "LIVE TITLE"
+
+
+def test_archive_merge_missing_file_skipped_gracefully(tmp_path: Path):
+    """A missing archive path logs a warning but does not abort the live fetch."""
+    out = tmp_path / "index.csv"
+    cfg = EthicsDecisionsConfig(
+        output_csv_path=out,
+        historical_archive_csv=tmp_path / "does_not_exist.csv",
+    )
+    live_html = (
+        '<table><tr><td><a href="/x.pdf">live</a></td></tr></table>'
+    )
+    http = MagicMock(return_value=_resp({"Html": live_html}))
+    rows = fetch_ethics_decisions_index(cfg, http_get=http)
+    assert len(rows) == 1
+    assert rows[0].url.endswith("/x.pdf")
+
+
+def test_archive_merge_malformed_csv_raises(tmp_path: Path):
+    """Archive CSV missing required columns is a hard error — better to
+    fail loud than silently drop rows."""
+    archive = tmp_path / "archive.csv"
+    archive.write_text("url,filename\nhttps://x/y.pdf,y.pdf\n", encoding="utf-8")
+    out = tmp_path / "index.csv"
+    cfg = EthicsDecisionsConfig(
+        output_csv_path=out,
+        historical_archive_csv=archive,
+    )
+    http = MagicMock(return_value=_resp({"Html": '<a href="/z.pdf">z</a>'}))
+    with pytest.raises(ValueError, match="missing columns"):
+        fetch_ethics_decisions_index(cfg, http_get=http)

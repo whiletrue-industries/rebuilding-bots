@@ -309,8 +309,13 @@ context:
     fetcher:
       kind: knesset_apps_committee
       committee_id: 2211
-      from_date: "2022-11-15"
-      knesset_ids: "25"
+      # Coverage uncapped (was: from_date=2022-11-15, knesset_ids="25").
+      # The upstream API ignores KnessetIDs filtering for this committee
+      # anyway (probed 2026-05-13: same 233 items returned regardless of
+      # the filter value). Removing from_date lets us bring in the full
+      # archive — currently ~233 decisions going back to 2013-05-29
+      # (start of the 19th Knesset; pre-2013 isn't in upstream).
+      knesset_ids: "16,17,18,19,20,21,22,23,24,25"
   - type: csv
     source: extraction/knesset_committee_decisions.csv
     fetcher:
@@ -391,6 +396,15 @@ context:
       page_name: "EthicsDecisions25"
       committee_id: 2217
       knesset_num: 25
+      # Historical-archive merge: the live API only exposes K25.
+      # Older Knessets (K15-K23, ~1999–2021) are listed on per-Knesset
+      # static HTML pages that are gated behind the Knesset CDN's JS
+      # challenge, so a backend fetcher can't reach them. The CSV
+      # below was scraped once via a headed browser (2026-05-13) and
+      # is checked in as the source-of-truth for those Knessets. The
+      # fetcher merges these rows with the live K25 fetch (live wins
+      # on URL collisions). Refresh once per future Knesset turnover.
+      historical_archive_csv: extraction/ethics_decisions_archive_legacy.csv
   - type: csv
     source: extraction/ethics_committee_decisions.csv
     fetcher:
