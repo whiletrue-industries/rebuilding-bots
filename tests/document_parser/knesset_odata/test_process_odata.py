@@ -179,7 +179,8 @@ def test_happy_path_writes_joined_csv(mock_requests, tmp_path: Path, fixed_now):
     assert hashes.pop()  # non-empty
 
     # Sessions with a stenogram get the fs.knesset.gov.il FilePath as source_url.
-    # Session 1003 has no stenogram → source_url is empty.
+    # Session 1003 has no stenogram → falls back to the session-detail URL,
+    # so every row carries a real Knesset link.
     assert all(
         r["source_url"] == "https://fs.knesset.gov.il/25/plenum/25_st_9991.doc"
         for r in rows if r["session_id"] == "1001"
@@ -188,7 +189,9 @@ def test_happy_path_writes_joined_csv(mock_requests, tmp_path: Path, fixed_now):
         r["source_url"] == "https://fs.knesset.gov.il/25/plenum/25_st_9992.doc"
         for r in rows if r["session_id"] == "1002"
     )
-    assert s3[0]["source_url"] == ""
+    assert s3[0]["source_url"] == (
+        "https://www.knesset.gov.il/plenum/heb/sessionDet.aspx?SessionID=1003"
+    )
 
 
 @patch.object(process_odata, "requests")
@@ -334,6 +337,72 @@ def test_stenogram_request_filters_by_group_type_43(mock_requests, tmp_path: Pat
     assert url.endswith("/KNS_DocumentPlenumSession")
     assert "PlenumSessionID eq 1001" in params["$filter"]
     assert "GroupTypeID eq 43" in params["$filter"]
+
+
+@pytest.mark.parametrize("sid,expected", [
+    (2256195, "https://www.knesset.gov.il/plenum/heb/sessionDet.aspx?SessionID=2256195"),
+    ("2256195", "https://www.knesset.gov.il/plenum/heb/sessionDet.aspx?SessionID=2256195"),
+    (1, "https://www.knesset.gov.il/plenum/heb/sessionDet.aspx?SessionID=1"),
+])
+def test_session_detail_url_happy_path(sid, expected):
+    from botnim.document_parser.knesset_odata.process_odata import session_detail_url
+    assert session_detail_url(sid) == expected
+
+
+@pytest.mark.parametrize("sid", [None, "", 0])
+def test_session_detail_url_returns_empty_for_missing(sid):
+    """No session id → no URL (callers fall back to '' for the CSV)."""
+    from botnim.document_parser.knesset_odata.process_odata import session_detail_url
+    assert session_detail_url(sid) == ""
+
+
+def test_write_csv_uses_detail_url_when_no_stenogram(tmp_path):
+    """Sessions without a stenogram get the session-detail URL as source_url."""
+    from botnim.document_parser.knesset_odata.process_odata import write_csv_rows
+
+    sessions = [
+        # Past session — has stenogram in the lookup
+        {
+            "PlenumSessionID": 2241628,
+            "Number": 383,
+            "KnessetNum": 25,
+            "Name": "ישיבה רגילה",
+            "StartDate": "2026-03-25T11:00:00",
+            "FinishDate": "2026-03-26T10:23:10",
+            "IsSpecialMeeting": False,
+        },
+        # Future session — no stenogram, should fall back to sessionDet
+        {
+            "PlenumSessionID": 2256195,
+            "Number": 390,
+            "KnessetNum": 25,
+            "Name": "ישיבה רגילה",
+            "StartDate": "2026-05-13T11:00:00",
+            "FinishDate": "",
+            "IsSpecialMeeting": False,
+        },
+    ]
+    items_by_session = {2241628: [], 2256195: []}
+    stenogram_url_by_session = {
+        2241628: "https://fs.knesset.gov.il/25/plenum/25_st_383.doc",
+        # 2256195: not present — future session
+    }
+
+    out_path = tmp_path / "plenary.csv"
+    write_csv_rows(out_path, sessions, items_by_session,
+                   stenogram_url_by_session, upstream_hash="testhash")
+
+    import csv as _csv
+    with open(out_path, encoding="utf-8") as f:
+        rows = list(_csv.DictReader(f))
+
+    by_session = {r["session_id"]: r for r in rows}
+    assert by_session["2241628"]["source_url"] == (
+        "https://fs.knesset.gov.il/25/plenum/25_st_383.doc"
+    )
+    assert by_session["2256195"]["source_url"] == (
+        "https://www.knesset.gov.il/plenum/heb/sessionDet.aspx?SessionID=2256195"
+    )
 
 
 @patch.object(process_odata, "requests")

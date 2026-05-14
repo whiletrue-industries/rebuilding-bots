@@ -354,6 +354,7 @@ async def knesset_sessions_live(
         fetch_session_stenograms,
         _hebrew_date,
         _DEFAULT_BASE,
+        session_detail_url,
     )
 
     def _parse(s: str, label: str) -> datetime:
@@ -401,9 +402,10 @@ async def knesset_sessions_live(
     # Source-URL enrichment: KNS_DocumentPlenumSession (GroupTypeID=43,
     # סטנוגרמה) gives us the canonical Knesset transcript URL per session.
     # Sessions without a published stenogram (typically upcoming sittings)
-    # simply lack `source_url`. We swallow stenogram fetch failures so a
-    # transient outage on this extra OData call doesn't break the main
-    # response.
+    # fall back to the session-detail (agenda) page, so every session in the
+    # response carries a real Knesset URL. We swallow stenogram fetch
+    # failures so a transient outage on this extra OData call doesn't break
+    # the main response — but still populate the detail URL on each session.
     if sessions:
         ids = [s["PlenumSessionID"] for s in sessions if s.get("PlenumSessionID") is not None]
         try:
@@ -415,13 +417,15 @@ async def knesset_sessions_live(
                 if sid and fp:
                     stenogram_url_by_session[sid] = fp
             for s in sessions:
-                url = stenogram_url_by_session.get(s.get("PlenumSessionID"))
-                if url:
-                    s["source_url"] = url
+                sid = s.get("PlenumSessionID")
+                s["source_url"] = (
+                    stenogram_url_by_session.get(sid)
+                    or session_detail_url(sid)
+                )
         except requests.exceptions.RequestException:
-            # Best-effort enrichment; don't fail the main response if the
-            # extra OData call has a transient issue.
-            pass
+            # Best-effort enrichment; still populate the detail URL on every session.
+            for s in sessions:
+                s["source_url"] = session_detail_url(s.get("PlenumSessionID"))
 
     for s in sessions:
         s["StartDateHe"] = _hebrew_date(s.get("StartDate", ""))
