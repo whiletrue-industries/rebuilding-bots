@@ -160,6 +160,23 @@ def _hebrew_date(iso_dt: str) -> str:
     return dt.strftime("%d/%m/%Y %H:%M")
 
 
+_SESSION_DETAIL_URL_TEMPLATE = (
+    "https://www.knesset.gov.il/plenum/heb/sessionDet.aspx?SessionID={sid}"
+)
+
+
+def session_detail_url(session_id) -> str:
+    """Return the Knesset session-detail (agenda) URL for ``session_id``.
+
+    Works for both upcoming and past sessions — the page is the same
+    permalink the Knesset's own UI links to. Returns "" for missing or
+    falsy IDs so the caller can substitute it directly into a CSV cell.
+    """
+    if not session_id:
+        return ""
+    return _SESSION_DETAIL_URL_TEMPLATE.format(sid=session_id)
+
+
 def fetch_plenum_sessions(
     base_url: str,
     start_dt: datetime,

@@ -336,6 +336,23 @@ def test_stenogram_request_filters_by_group_type_43(mock_requests, tmp_path: Pat
     assert "GroupTypeID eq 43" in params["$filter"]
 
 
+@pytest.mark.parametrize("sid,expected", [
+    (2256195, "https://www.knesset.gov.il/plenum/heb/sessionDet.aspx?SessionID=2256195"),
+    ("2256195", "https://www.knesset.gov.il/plenum/heb/sessionDet.aspx?SessionID=2256195"),
+    (1, "https://www.knesset.gov.il/plenum/heb/sessionDet.aspx?SessionID=1"),
+])
+def test_session_detail_url_happy_path(sid, expected):
+    from botnim.document_parser.knesset_odata.process_odata import session_detail_url
+    assert session_detail_url(sid) == expected
+
+
+@pytest.mark.parametrize("sid", [None, "", 0])
+def test_session_detail_url_returns_empty_for_missing(sid):
+    """No session id → no URL (callers fall back to '' for the CSV)."""
+    from botnim.document_parser.knesset_odata.process_odata import session_detail_url
+    assert session_detail_url(sid) == ""
+
+
 @patch.object(process_odata, "requests")
 def test_paged_results_followed(mock_requests, tmp_path: Path, fixed_now):
     """``@odata.nextLink`` is followed until exhausted."""
