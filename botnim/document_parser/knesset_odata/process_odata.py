@@ -343,35 +343,62 @@ def process_knesset_odata_source(
     for lst in items_by_session.values():
         lst.sort(key=lambda r: (r.get("Ordinal") or 0, r.get("ItemID") or 0))
 
-    fieldnames = [
-        "upstream_hash",
-        "session_id",
-        "session_number",
-        "knesset_num",
-        "session_name",
-        "session_date",       # YYYY-MM-DD
-        "session_time",       # HH:MM
-        "session_start_iso",
-        "session_finish_iso",
-        "session_human_date", # DD/MM/YYYY HH:MM (Hebrew-locale-friendly)
-        "is_special_meeting",
-        "source_url",
-        "item_ordinal",
-        "item_type",
-        "item_name",
-        "item_status_id",
-        "item_is_discussion",
-    ]
+    write_csv_rows(
+        output_csv,
+        sessions,
+        items_by_session,
+        stenogram_url_by_session,
+        upstream_hash=upstream_hash,
+    )
 
+
+_CSV_FIELDNAMES = [
+    "upstream_hash",
+    "session_id",
+    "session_number",
+    "knesset_num",
+    "session_name",
+    "session_date",       # YYYY-MM-DD
+    "session_time",       # HH:MM
+    "session_start_iso",
+    "session_finish_iso",
+    "session_human_date", # DD/MM/YYYY HH:MM (Hebrew-locale-friendly)
+    "is_special_meeting",
+    "source_url",
+    "item_ordinal",
+    "item_type",
+    "item_name",
+    "item_status_id",
+    "item_is_discussion",
+]
+
+
+def write_csv_rows(
+    output_csv: Path,
+    sessions: list[dict],
+    items_by_session: dict[int, list[dict]],
+    stenogram_url_by_session: dict[int, str],
+    *,
+    upstream_hash: str,
+) -> None:
+    """Write one CSV row per ``(session, item)`` pair (or one empty-agenda row).
+
+    Atomically replaces ``output_csv`` on success. ``source_url`` is the
+    session's stenogram URL when published, otherwise the session-detail
+    (agenda) URL — so every row has a real Knesset link, even for
+    upcoming sessions.
+    """
+    output_csv = Path(output_csv)
     out_rows: list[dict] = []
     for s in sessions:
         s_iso = _normalize_dt(s.get("StartDate"))
         f_iso = _normalize_dt(s.get("FinishDate"))
         s_date = s_iso[:10] if s_iso else ""
         s_time = s_iso[11:16] if s_iso else ""
+        sid = s.get("PlenumSessionID")
         common = {
             "upstream_hash": upstream_hash,
-            "session_id": s.get("PlenumSessionID") or "",
+            "session_id": sid or "",
             "session_number": s.get("Number") or "",
             "knesset_num": s.get("KnessetNum") or "",
             "session_name": (s.get("Name") or "").strip(),
@@ -381,9 +408,11 @@ def process_knesset_odata_source(
             "session_finish_iso": f_iso,
             "session_human_date": _hebrew_date(s_iso),
             "is_special_meeting": "כן" if s.get("IsSpecialMeeting") else "לא",
-            "source_url": stenogram_url_by_session.get(s.get("PlenumSessionID"), ""),
+            "source_url": (
+                stenogram_url_by_session.get(sid)
+                or session_detail_url(sid)
+            ),
         }
-        sid = s["PlenumSessionID"]
         rows_for_session = items_by_session.get(sid, [])
         if not rows_for_session:
             row = dict(common)
@@ -410,7 +439,7 @@ def process_knesset_odata_source(
     tmp_output = output_csv.with_suffix(output_csv.suffix + ".tmp")
     try:
         with open(tmp_output, "w", encoding="utf-8", newline="") as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            writer = csv.DictWriter(csv_file, fieldnames=_CSV_FIELDNAMES)
             writer.writeheader()
             for row in out_rows:
                 writer.writerow(row)
