@@ -124,3 +124,30 @@ def test_csv_collector_no_url_columns_unchanged(tmp_path):
     assert "title:\nחוק יסוד" in content
     assert "body:\nabc" in content
     assert extra_meta == {}
+
+
+def test_lexicon_url_column_is_metadata_only(tmp_path):
+    """lexicon_url column lands in extra_meta, NOT in the flattened content."""
+    from botnim.collect_sources import _collect_raw_streams_csv
+
+    csv_path = tmp_path / "lexicon.csv"
+    csv_path.write_text(
+        "מידע,lexicon_url,source_url\n"
+        "שאילתות חבר הכנסת: סעיף 137 לתקנון.,"
+        "https://main.knesset.gov.il/About/Lexicon/Pages/query.aspx,"
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_137\n",
+        encoding="utf-8",
+    )
+    out = _collect_raw_streams_csv(tmp_path, "common_takanon_knowledge", "lexicon.csv")
+    assert len(out) == 1
+    fname, content, ctype, extra_meta = out[0]
+    # Neither URL should appear in the embedding content.
+    assert "https://" not in content
+    assert "lexicon_url" not in content
+    # Both URLs should land in extra_meta.
+    assert extra_meta["lexicon_url"] == (
+        "https://main.knesset.gov.il/About/Lexicon/Pages/query.aspx"
+    )
+    assert extra_meta["source_url"] == (
+        "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_137"
+    )
