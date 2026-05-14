@@ -165,7 +165,7 @@ _SESSION_DETAIL_URL_TEMPLATE = (
 )
 
 
-def session_detail_url(session_id) -> str:
+def session_detail_url(session_id: int | str | None) -> str:
     """Return the Knesset session-detail (agenda) URL for ``session_id``.
 
     Works for both upcoming and past sessions — the page is the same
