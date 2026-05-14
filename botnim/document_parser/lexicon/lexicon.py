@@ -106,6 +106,13 @@ def scrape():
 def scrape_lexicon(output_path):
     """Scrape the Knesset lexicon to CSV, with index-hash short-circuit.
 
+    Output CSV columns:
+      - ``מידע``        : the lexicon entry body. No embedded markdown link.
+      - ``lexicon_url`` : the original Knesset Lexicon page URL (traceability).
+      - ``source_url``  : a Wikisource section anchor when the entry text
+                          references a known law+section; falls back to the
+                          Lexicon URL otherwise.
+
     On every run, fetches the index page and computes its sha256. If the
     hash matches the sentinel stored alongside ``output_path`` AND the CSV
     already exists, returns immediately without re-scraping. Otherwise
@@ -115,6 +122,8 @@ def scrape_lexicon(output_path):
     leaves the old sentinel (and old CSV) untouched, and the next run
     re-attempts.
     """
+    from .section_url import derive_section_url
+
     output_path = Path(output_path)
     sentinel_path = output_path.parent / (output_path.name + SENTINEL_SUFFIX)
 
@@ -131,18 +140,24 @@ def scrape_lexicon(output_path):
 
     state = 'changed' if sentinel_path.exists() else 'first run'
     print(f"lexicon: index {state} (sha={new_hash[:12]}); scraping all entries...")
-    rows = []
+    rows: list[dict[str, str]] = []
     for entry in _iter_entries(index_html):
-        link_text = entry.get('link_text', '')
-        content = entry.get('content', '')
-        content_url = entry.get('content_url', '')
-        formatted = f"{link_text}: {content}. \n\n[קישור למידע]({content_url})."
-        rows.append([formatted])
+        link_text = entry.get('link_text', '') or ''
+        content = entry.get('content', '') or ''
+        content_url = entry.get('content_url', '') or ''
+        body = f"{link_text}: {content}.".strip()
+        haystack = f"{link_text}\n{content}"
+        derived = derive_section_url(haystack)
+        rows.append({
+            'מידע':        body,
+            'lexicon_url': content_url,
+            'source_url':  derived or content_url,
+        })
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        writer.writerow(['מידע'])
+    with open(output_path, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=['מידע', 'lexicon_url', 'source_url'])
+        writer.writeheader()
         writer.writerows(rows)
 
     # Write sentinel only after CSV write succeeds.

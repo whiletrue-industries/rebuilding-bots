@@ -89,10 +89,12 @@ def test_first_run_writes_csv_and_sentinel(mock_requests, _mock_time, tmp_path: 
     assert sentinel.exists()
     # Sentinel matches the dehydrated href-list hash (NOT raw HTML).
     assert sentinel.read_text().strip() == _expected_hash(_INDEX_HTML_V1)
-    # CSV has header + 2 entry rows
+    # CSV has header + 2 entry rows. 3-column format introduced 2026-05-13:
+    # מידע (content), lexicon_url (traceability), source_url (Wikisource
+    # anchor when detectable, else falls back to lexicon_url).
     with open(out, encoding="utf-8") as f:
         rows = list(csv.reader(f))
-    assert rows[0] == ["מידע"]
+    assert rows[0] == ["מידע", "lexicon_url", "source_url"]
     assert len(rows) == 3  # header + 2
 
 
@@ -139,10 +141,10 @@ def test_changed_index_re_scrapes(mock_requests, _mock_time, tmp_path: Path):
 
     lexicon.scrape_lexicon(out)
 
-    # CSV rewritten (no longer the "old row" content).
+    # CSV rewritten (no longer the "old row" content). 3-column format.
     with open(out, encoding="utf-8") as f:
         rows = list(csv.reader(f))
-    assert rows[0] == ["מידע"]
+    assert rows[0] == ["מידע", "lexicon_url", "source_url"]
     assert len(rows) == 4  # header + 3 fresh entries
     assert all("old row" not in r[0] for r in rows[1:])
     # Sentinel updated to V2's dehydrated hash.
