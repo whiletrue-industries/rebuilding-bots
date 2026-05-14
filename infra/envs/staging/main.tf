@@ -108,6 +108,25 @@ module "botnim_api" {
       # to this endpoint; protocol=http/protobuf required (Phoenix rejects
       # JSON OTLP with HTTP 415).
       PHOENIX_COLLECTOR_ENDPOINT = "http://phoenix:6006/v1/traces"
+      # Trust the upstream LibreChat `traceparent` header so bot-side spans
+      # (rrf.fuse, embed, db.select, tool execution) join the same trace as
+      # the originating chat.turn. Without this, the admin trace view at
+      # /admin/sources only shows LibreChat-side spans; bot internals land
+      # in a separate Phoenix trace that LibreChat never queries.
+      #
+      # Security trade-off: botnim/observability/middleware.py:9 warns
+      # against this in staging/prod because a public caller could forge
+      # a traceparent to inject spans into a chosen trace_id. In our
+      # topology this is acceptable for STAGING because:
+      #   - Phoenix UI/data is internal-only (no external port)
+      #   - /api/botnim/traces/<id> is admin-only behind LibreChat JWT
+      #   - The only "exposure" is that an admin viewing a trace might
+      #     see injected content from a forged-traceparent request — and
+      #     only if the attacker guessed/observed a real LibreChat
+      #     trace_id (128-bit random; effectively unguessable).
+      # Re-evaluate before turning on in prod; the durable fix is to
+      # stitch traces server-side in LibreChat (see follow-up issue).
+      PHOENIX_PROPAGATE_TRACE = "true"
     },
   )
 
