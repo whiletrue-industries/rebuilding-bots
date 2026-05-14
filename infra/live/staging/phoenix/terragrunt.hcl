@@ -170,7 +170,14 @@ inputs = {
   # deploy.sh exports TF_VAR_image_tag (the git short-SHA used for botnim-api
   # / librechat ECR images) repo-wide; the bare name collided and Terragrunt
   # silently rendered `arizephoenix/phoenix:<git-sha>` → CannotPullContainerError.
-  phoenix_image_tag = "version-7.0.0"
+  #
+  # 2026-05-14: bumped from version-7.0.0 → version-15.9.0 to pick up the fix
+  # for arize-ai/phoenix#4006 ("graphql queries become slow as data
+  # increases", PR #4159 merged 2024-08-07). On v7.0.0 every GET/POST to
+  # /graphql, /healthz, / returned 504 at the service-connect 15s upstream
+  # timeout while POST /v1/traces continued ingesting fine — exact match
+  # for the upstream bug.
+  phoenix_image_tag = "version-15.9.0"
 
   # Defense-in-depth: Phoenix must never be on the public internet.
   # The module already defaults this to false and enforces it via a validation
