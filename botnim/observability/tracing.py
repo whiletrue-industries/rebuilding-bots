@@ -61,8 +61,16 @@ def init_tracing(app: "FastAPI") -> None:
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
     env = os.getenv("ENVIRONMENT", "unknown")
+    # Write to Phoenix's "default" project (no explicit project_name) so the
+    # bot's spans land in the SAME project as LibreChat's chat.turn root.
+    # The LibreChat admin trace fetch at /api/botnim/traces/<id> uses
+    # single-project lookup (it breaks out at the first project that has
+    # spans for the given trace_id); aligning projects is the simplest way
+    # to surface bot-internal spans (rrf.fuse, embed, SELECT documents)
+    # in the merged trace timeline. LibreChat uses serviceName-only export
+    # and lands in "default" too in Phoenix v15 (which doesn't auto-route
+    # by service.name without openinference.project.name).
     tracer_provider = register(
-        project_name=f"botnim-{env}",
         endpoint=endpoint,
         set_global_tracer_provider=True,
         batch=True,
