@@ -380,7 +380,7 @@
     },
     "/botnim/knesset/sessions": {
       "get": {
-        "description": "Live Knesset plenary sessions in a date window — JIT call to knesset.gov.il OData (no caching). Use this for time-sensitive questions: 'מה הישיבה הבאה במליאה', 'מה היה בישיבה לפני', 'איזה ישיבות מתוכננות בשבועיים הקרובים'. For content-driven semantic queries ('which session covered חוק מימון מפלגות'), use search_unified__plenary_schedule__dev instead. Returns sessions ordered by StartDate ascending; when include_items=true (default) each session has its agenda items inline as `items: [...]`. Hebrew dates are added as StartDateHe/FinishDateHe.",
+        "description": "Live Knesset plenary sessions in a date window — JIT call to knesset.gov.il OData (no caching). Use this for time-sensitive questions: 'מה הישיבה הבאה במליאה', 'מה היה בישיבה לפני', 'איזה ישיבות מתוכננות בשבועיים הקרובים'. For content-driven semantic queries ('which session covered חוק מימון מפלגות'), use search_unified__plenary_schedule__dev instead. Returns sessions ordered by StartDate ascending; when include_items=true (default) each session has its agenda items inline as `items: [...]`. Hebrew dates are added as StartDateHe/FinishDateHe. Every returned session carries a `source_url` field: the stenogram URL when a transcript has been published, otherwise the session-detail (agenda) URL at `https://www.knesset.gov.il/plenum/heb/sessionDet.aspx?SessionID=<X>`. Cite this URL verbatim when referring to a session in answers — never link to the bare Knesset homepage.",
         "operationId": "knesset_sessions_live",
         "parameters": [
           {
