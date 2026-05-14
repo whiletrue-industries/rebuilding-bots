@@ -45,6 +45,28 @@ CONTENT_CLASS = '.LexiconContent'
 # Sentinel suffix appended to the output CSV path. Stored sha256 hex.
 SENTINEL_SUFFIX = '.index.sha256'
 
+# Columns the current scraper emits. The set is checked against the
+# existing CSV header so an upgrade from a legacy 1-column CSV forces
+# a re-scrape even when the sentinel still matches Knesset's index.
+_CURRENT_CSV_FIELDNAMES = ('מידע', 'lexicon_url', 'source_url')
+
+
+def _csv_matches_current_schema(csv_path: Path) -> bool:
+    """Return True iff ``csv_path`` exists with the current header columns.
+
+    Reads only the first line. Treats any read error as "doesn't match"
+    so the caller re-scrapes (the safe default).
+    """
+    try:
+        with open(csv_path, 'r', encoding='utf-8', newline='') as f:
+            reader = csv.reader(f)
+            header = next(reader, None)
+    except OSError:
+        return False
+    if not header:
+        return False
+    return tuple(header) == _CURRENT_CSV_FIELDNAMES
+
 
 def _fetch_index() -> tuple[str, str]:
     """Fetch the lexicon index page. Returns (html, content_sha256_hex).
@@ -129,7 +151,7 @@ def scrape_lexicon(output_path):
 
     index_html, new_hash = _fetch_index()
 
-    if sentinel_path.exists() and output_path.exists():
+    if sentinel_path.exists() and output_path.exists() and _csv_matches_current_schema(output_path):
         try:
             old_hash = sentinel_path.read_text(encoding='utf-8').strip()
         except OSError:
@@ -139,6 +161,8 @@ def scrape_lexicon(output_path):
             return
 
     state = 'changed' if sentinel_path.exists() else 'first run'
+    if sentinel_path.exists() and output_path.exists() and not _csv_matches_current_schema(output_path):
+        state = 'schema upgrade'
     print(f"lexicon: index {state} (sha={new_hash[:12]}); scraping all entries...")
     rows: list[dict[str, str]] = []
     for entry in _iter_entries(index_html):

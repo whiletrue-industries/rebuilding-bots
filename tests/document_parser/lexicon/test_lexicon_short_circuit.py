@@ -105,8 +105,11 @@ def test_unchanged_index_short_circuits(mock_requests, _mock_time, tmp_path: Pat
     out = tmp_path / "lexicon.csv"
     sentinel = tmp_path / "lexicon.csv.index.sha256"
 
-    # Pre-populate sentinel + CSV from a prior run.
-    out.write_text("מידע\nold row\n", encoding="utf-8")
+    # Pre-populate sentinel + CSV from a prior run. The CSV must carry
+    # the current 3-col header — a legacy 1-col CSV would (correctly)
+    # trip the schema-upgrade guard and force a re-scrape.
+    legacy_body = "מידע,lexicon_url,source_url\nold row,a,b\n"
+    out.write_text(legacy_body, encoding="utf-8")
     sentinel.write_text(_expected_hash(_INDEX_HTML_V1), encoding="utf-8")
 
     # Only the index GET should fire — no per-entry GETs.
@@ -115,7 +118,7 @@ def test_unchanged_index_short_circuits(mock_requests, _mock_time, tmp_path: Pat
     lexicon.scrape_lexicon(out)
 
     # CSV untouched.
-    assert out.read_text(encoding="utf-8") == "מידע\nold row\n"
+    assert out.read_text(encoding="utf-8") == legacy_body
     # Exactly one GET (index only).
     assert mock_requests.get.call_count == 1
 
@@ -183,7 +186,8 @@ def test_viewstate_drift_does_not_force_rescrape(mock_requests, _mock_time, tmp_
     out = tmp_path / "lexicon.csv"
     sentinel = tmp_path / "lexicon.csv.index.sha256"
 
-    out.write_text("מידע\nold row\n", encoding="utf-8")
+    legacy_body = "מידע,lexicon_url,source_url\nold row,a,b\n"
+    out.write_text(legacy_body, encoding="utf-8")
     sentinel.write_text(_expected_hash(_INDEX_HTML_V1), encoding="utf-8")
 
     # Server returns V1_DRIFT — same hrefs as V1 but different ViewState +
@@ -194,7 +198,7 @@ def test_viewstate_drift_does_not_force_rescrape(mock_requests, _mock_time, tmp_
     lexicon.scrape_lexicon(out)
 
     # CSV untouched (short-circuit fired despite the drift).
-    assert out.read_text(encoding="utf-8") == "מידע\nold row\n"
+    assert out.read_text(encoding="utf-8") == legacy_body
     # Only the index GET — no per-entry GETs.
     assert mock_requests.get.call_count == 1
     # Sentinel unchanged (stayed at V1's hash).

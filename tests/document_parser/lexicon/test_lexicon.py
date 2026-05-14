@@ -123,3 +123,71 @@ def test_source_url_falls_back_to_lexicon_url(tmp_path):
     rows = _read_csv(out)
     by_url = {r["lexicon_url"].rsplit("/", 1)[-1]: r for r in rows}
     assert by_url["dictionary.aspx"]["source_url"] == by_url["dictionary.aspx"]["lexicon_url"]
+
+
+def test_legacy_one_column_csv_triggers_rescrape_even_when_sentinel_matches(tmp_path):
+    """Schema-upgrade guard: pre-existing 1-col CSV must NOT short-circuit.
+
+    On a real staging EFS, the existing ``lexicon.csv`` is the legacy
+    1-column shape AND its sentinel matches Knesset's current index hash.
+    Without this guard the new scraper would early-return and never write
+    the 3-column CSV. This test reproduces that exact state.
+    """
+    out = tmp_path / "lexicon.csv"
+    sentinel = tmp_path / "lexicon.csv.index.sha256"
+
+    # Pre-seed legacy 1-column CSV + a sentinel that will match the
+    # _fetch_index hash we're about to compute.
+    out.write_text("מידע\nשורה ישנה\n", encoding="utf-8")
+
+    with patch.object(lex_mod, "requests", create=True) as mock_req, \
+         patch.object(lex_mod.time, "sleep", lambda _s: None):
+        mock_req.get = _mock_get
+        # First call: compute current hash to pre-seed sentinel.
+        _, current_hash = lex_mod._fetch_index()
+        sentinel.write_text(current_hash, encoding="utf-8")
+        # The actual run under test.
+        lex_mod.scrape_lexicon(out)
+
+    rows = _read_csv(out)
+    assert {"מידע", "lexicon_url", "source_url"} == set(rows[0].keys()), \
+        "scraper should have re-scraped into the 3-col schema"
+    assert len(rows) == 3
+
+
+def test_csv_matches_current_schema_helper(tmp_path):
+    """The helper distinguishes legacy 1-col, current 3-col, and missing."""
+    missing = tmp_path / "missing.csv"
+    legacy = tmp_path / "legacy.csv"
+    legacy.write_text("מידע\nx\n", encoding="utf-8")
+    current = tmp_path / "current.csv"
+    current.write_text("מידע,lexicon_url,source_url\na,b,c\n", encoding="utf-8")
+
+    assert lex_mod._csv_matches_current_schema(missing) is False
+    assert lex_mod._csv_matches_current_schema(legacy) is False
+    assert lex_mod._csv_matches_current_schema(current) is True
+
+
+def test_matching_schema_csv_with_matching_sentinel_short_circuits(tmp_path):
+    """Idempotent path: 3-col CSV + matching sentinel → no re-scrape."""
+    out = tmp_path / "lexicon.csv"
+    sentinel = tmp_path / "lexicon.csv.index.sha256"
+    out.write_text("מידע,lexicon_url,source_url\noriginal,a,b\n", encoding="utf-8")
+
+    call_count = {"n": 0}
+    original_iter = lex_mod._iter_entries
+
+    def counting_iter(html):
+        call_count["n"] += 1
+        yield from original_iter(html)
+
+    with patch.object(lex_mod, "requests", create=True) as mock_req, \
+         patch.object(lex_mod.time, "sleep", lambda _s: None), \
+         patch.object(lex_mod, "_iter_entries", counting_iter):
+        mock_req.get = _mock_get
+        _, current_hash = lex_mod._fetch_index()
+        sentinel.write_text(current_hash, encoding="utf-8")
+        lex_mod.scrape_lexicon(out)
+
+    assert call_count["n"] == 0, "scrape should have short-circuited"
+    assert out.read_text(encoding="utf-8").startswith("מידע,lexicon_url,source_url\noriginal,")
