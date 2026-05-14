@@ -125,6 +125,71 @@ def test_source_url_falls_back_to_lexicon_url(tmp_path):
     assert by_url["dictionary.aspx"]["source_url"] == by_url["dictionary.aspx"]["lexicon_url"]
 
 
+def test_curated_override_wins_over_regex_derived_and_fallback(tmp_path):
+    """Hand-curated overrides take priority over derive_section_url and the
+    lexicon-URL fallback.
+
+    Reproduces the production bug fixed by the overrides file: the שאילתות
+    entry's body describes §137 mechanics without naming the section, so
+    ``derive_section_url`` returns None and the source_url falls back to
+    the Knesset glossary page. With an override for that URL, the source
+    points at the takanon §137 Wikisource anchor.
+    """
+    out = tmp_path / "lexicon.csv"
+    # The third mocked entry's content_url ends with dictionary.aspx and
+    # its body has no section reference (see _FAKE_ENTRY_HTML_GENERIC).
+    fake_overrides = {
+        "https://main.knesset.gov.il/About/Lexicon/Pages/dictionary.aspx":
+            "https://he.wikisource.org/wiki/%D7%AA%D7%A7%D7%A0%D7%95%D7%9F_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_137",
+    }
+    with patch.object(lex_mod, "requests", create=True) as mock_req, \
+         patch.object(lex_mod.time, "sleep", lambda _s: None), \
+         patch.object(lex_mod, "_load_section_overrides", lambda: fake_overrides):
+        mock_req.get = _mock_get
+        lex_mod.scrape_lexicon(out)
+    rows = _read_csv(out)
+    by_url = {r["lexicon_url"].rsplit("/", 1)[-1]: r for r in rows}
+    assert by_url["dictionary.aspx"]["source_url"] == fake_overrides[
+        "https://main.knesset.gov.il/About/Lexicon/Pages/dictionary.aspx"
+    ]
+
+
+def test_curated_override_beats_regex_derived(tmp_path):
+    """If BOTH a regex-derived anchor AND an override exist, override wins.
+
+    Lets us correct mis-derivations without changing the regex (which is
+    used by many lexicon entries).
+    """
+    out = tmp_path / "lexicon.csv"
+    # query.aspx's mocked body cites "סעיף 137 לתקנון הכנסת" — derive_section_url
+    # would produce תקנון §137. Override targets §86 instead. Override must win.
+    target_url = "https://he.wikisource.org/wiki/%D7%AA%D7%A7%D7%A0%D7%95%D7%9F_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_86"
+    fake_overrides = {
+        "https://main.knesset.gov.il/About/Lexicon/Pages/query.aspx": target_url,
+    }
+    with patch.object(lex_mod, "requests", create=True) as mock_req, \
+         patch.object(lex_mod.time, "sleep", lambda _s: None), \
+         patch.object(lex_mod, "_load_section_overrides", lambda: fake_overrides):
+        mock_req.get = _mock_get
+        lex_mod.scrape_lexicon(out)
+    rows = _read_csv(out)
+    by_url = {r["lexicon_url"].rsplit("/", 1)[-1]: r for r in rows}
+    assert by_url["query.aspx"]["source_url"] == target_url
+
+
+def test_load_section_overrides_reads_committed_file():
+    """Sanity-check that the committed overrides JSON in the repo loads."""
+    overrides = lex_mod._load_section_overrides()
+    assert isinstance(overrides, dict)
+    assert len(overrides) > 0, "expected at least one curated override"
+    # All values must be Wikisource URLs (the only legal target shape).
+    for k, v in overrides.items():
+        assert v.startswith("https://he.wikisource.org/"), f"bad target for {k}: {v}"
+    # Known sanity-DoD entries must be present in the override file.
+    assert "https://main.knesset.gov.il/About/Lexicon/Pages/query.aspx" in overrides
+    assert "https://main.knesset.gov.il/About/Lexicon/Pages/reservation.aspx" in overrides
+
+
 def test_legacy_one_column_csv_triggers_rescrape_even_when_sentinel_matches(tmp_path):
     """Schema-upgrade guard: pre-existing 1-col CSV must NOT short-circuit.
 
