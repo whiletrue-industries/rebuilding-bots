@@ -16,6 +16,7 @@ Lambda picks up such edits on the next index-page change, since most
 edits coincide with link-list churn).
 """
 import hashlib
+import json
 from pathlib import Path
 
 import requests
@@ -49,6 +50,37 @@ SENTINEL_SUFFIX = '.index.sha256'
 # existing CSV header so an upgrade from a legacy 1-column CSV forces
 # a re-scrape even when the sentinel still matches Knesset's index.
 _CURRENT_CSV_FIELDNAMES = ('מידע', 'lexicon_url', 'source_url')
+
+# Hand-curated mapping from Knesset lexicon URL → Wikisource section
+# anchor. Covers entries whose body describes a takanon/law section
+# WITHOUT naming the section number explicitly — so ``derive_section_url``
+# can't catch it. See
+# ``specs/unified/extraction/lexicon_section_overrides.json``.
+_OVERRIDES_FILENAME = 'lexicon_section_overrides.json'
+
+
+def _load_section_overrides() -> dict[str, str]:
+    """Load hand-curated lexicon_url → wikisource_url overrides.
+
+    Searches alongside this module first (for in-repo invocations), then
+    walks up to find ``specs/unified/extraction/lexicon_section_overrides.json``.
+    Returns ``{}`` on any read/parse error so the scraper degrades to the
+    derive-or-fallback behaviour.
+    """
+    candidates = [
+        Path(__file__).resolve().parents[3]
+            / 'specs' / 'unified' / 'extraction' / _OVERRIDES_FILENAME,
+        Path('/srv/specs/unified/extraction') / _OVERRIDES_FILENAME,
+    ]
+    for p in candidates:
+        try:
+            with open(p, encoding='utf-8') as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return {k: v for k, v in data.items() if isinstance(v, str) and v}
+        except (OSError, json.JSONDecodeError):
+            continue
+    return {}
 
 
 def _csv_matches_current_schema(csv_path: Path) -> bool:
@@ -131,9 +163,12 @@ def scrape_lexicon(output_path):
     Output CSV columns:
       - ``מידע``        : the lexicon entry body. No embedded markdown link.
       - ``lexicon_url`` : the original Knesset Lexicon page URL (traceability).
-      - ``source_url``  : a Wikisource section anchor when the entry text
-                          references a known law+section; falls back to the
-                          Lexicon URL otherwise.
+      - ``source_url``  : a Wikisource section anchor. Priority order:
+                          (1) hand-curated overrides file
+                              (``lexicon_section_overrides.json``),
+                          (2) regex-derived anchor when the body cites
+                              "סעיף N לחוק/לתקנון" explicitly,
+                          (3) fall back to the Lexicon URL itself.
 
     On every run, fetches the index page and computes its sha256. If the
     hash matches the sentinel stored alongside ``output_path`` AND the CSV
@@ -163,7 +198,8 @@ def scrape_lexicon(output_path):
     state = 'changed' if sentinel_path.exists() else 'first run'
     if sentinel_path.exists() and output_path.exists() and not _csv_matches_current_schema(output_path):
         state = 'schema upgrade'
-    print(f"lexicon: index {state} (sha={new_hash[:12]}); scraping all entries...")
+    overrides = _load_section_overrides()
+    print(f"lexicon: index {state} (sha={new_hash[:12]}); scraping all entries... ({len(overrides)} curated overrides)")
     rows: list[dict[str, str]] = []
     for entry in _iter_entries(index_html):
         link_text = entry.get('link_text', '') or ''
@@ -174,11 +210,16 @@ def scrape_lexicon(output_path):
         # entries do — the upstream scrape leaves a sentence-final dot).
         body = f"{link_text}: {content}".rstrip(".") + "."
         haystack = f"{link_text}\n{content}"
-        derived = derive_section_url(haystack)
+        # Source-URL priority: curated override > regex-derived > lexicon page.
+        source_url = (
+            overrides.get(content_url)
+            or derive_section_url(haystack)
+            or content_url
+        )
         rows.append({
             'מידע':        body,
             'lexicon_url': content_url,
-            'source_url':  derived or content_url,
+            'source_url':  source_url,
         })
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
