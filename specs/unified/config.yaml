@@ -297,7 +297,7 @@ context:
 
         '
 - slug: committee_decisions
-  name: החלטות ועדות הכנסת
+  name: החלטות ועדת הכנסת
   description: 'Search the knesset committee decisions. Use for: the knesset committee
     resolutions, procedural decisions, administrative committee matters.'
   examples: החלטת ועדת הכנסת על נוהל, החלטה פרוצדורלית, הסדר עבודה
