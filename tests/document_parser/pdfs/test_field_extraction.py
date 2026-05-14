@@ -89,3 +89,26 @@ def test_multi_key_dict_is_not_unwrapped():
     data = {"title": "ok", "summary": "extra detail"}
     out = validate_extracted_data(data, schema, cfg)
     assert out == [{"title": "ok", "summary": "extra detail"}]
+
+
+def test_single_key_wrapper_with_empty_list_unwraps_to_empty():
+    """``{"decisions": []}`` is a legitimate "no items found" response —
+    unwrap to [] so the validator's existing list path produces an empty
+    result, not validates the wrapper as a single (invalid) item."""
+    cfg = _minimal_config()
+    schema = _schema(["title"])
+    data = {"items": []}
+    out = validate_extracted_data(data, schema, cfg)
+    assert out == []
+
+
+def test_single_key_wrapper_with_mixed_list_is_not_unwrapped():
+    """If the wrapper's value contains anything other than dicts, the
+    guardrail must refuse to unwrap. The validator then attempts to
+    validate the wrapper dict itself and raises because required fields
+    are missing."""
+    cfg = _minimal_config()
+    schema = _schema(["title"])
+    data = {"items": [{"title": "ok"}, "stray"]}
+    with pytest.raises(PDFValidationError):
+        validate_extracted_data(data, schema, cfg)

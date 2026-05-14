@@ -158,14 +158,14 @@ def validate_extracted_data(data: Any, schema: Dict[str, Any], config: SourceCon
     if not isinstance(data, (dict, list)):
         raise PDFValidationError(f"LLM returned invalid data type: {type(data)}. Expected dict or list.")
 
-    # Recovery: ``response_format={"type":"json_object"}`` (see
-    # field_extraction.py:74) forbids a top-level JSON array. When the
-    # extraction prompt asks the LLM for "an array of objects" (multi-item
-    # PDFs like ethics committee summaries that bundle several decisions),
-    # the LLM wraps under a single key: ``{"decisions": [{...}, {...}]}``.
-    # Unwrap that shape so the existing list path handles it. The wrap key
-    # name is LLM-chosen (typically the entity plural — "decisions",
-    # "items", "results"); we don't hard-code it.
+    # Recovery: the OpenAI call above sets
+    # ``response_format={"type":"json_object"}``, which forbids a top-level
+    # JSON array. When the extraction prompt asks the LLM for "an array of
+    # objects" (multi-item PDFs like ethics committee summaries that bundle
+    # several decisions), the LLM wraps under a single key:
+    # ``{"decisions": [{...}, {...}]}``. Unwrap that shape so the existing
+    # list path handles it. The wrap key name is LLM-chosen (typically the
+    # entity plural — "decisions", "items", "results"); we don't hard-code it.
     #
     # Guardrails:
     #   - len == 1: only unwrap a SINGLE-key dict so a legitimate multi-
@@ -174,11 +174,11 @@ def validate_extracted_data(data: Any, schema: Dict[str, Any], config: SourceCon
     #   - all dicts: the value must be a list of dicts. Lists of strings
     #     or scalars are not what the extraction schema expects.
     if isinstance(data, dict) and len(data) == 1:
-        only_val = next(iter(data.values()))
+        only_key, only_val = next(iter(data.items()))
         if isinstance(only_val, list) and all(isinstance(x, dict) for x in only_val):
             logger.info(
                 "Unwrapping single-key wrapper dict (key=%r, %d items)",
-                next(iter(data.keys())),
+                only_key,
                 len(only_val),
             )
             data = only_val
