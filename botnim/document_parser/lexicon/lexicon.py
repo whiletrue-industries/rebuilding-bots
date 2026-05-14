@@ -145,7 +145,10 @@ def scrape_lexicon(output_path):
         link_text = entry.get('link_text', '') or ''
         content = entry.get('content', '') or ''
         content_url = entry.get('content_url', '') or ''
-        body = f"{link_text}: {content}.".strip()
+        # rstrip trailing periods before appending our own so we don't emit
+        # ".." when ``content`` already ends with a period (most glossary
+        # entries do — the upstream scrape leaves a sentence-final dot).
+        body = f"{link_text}: {content}".rstrip(".") + "."
         haystack = f"{link_text}\n{content}"
         derived = derive_section_url(haystack)
         rows.append({

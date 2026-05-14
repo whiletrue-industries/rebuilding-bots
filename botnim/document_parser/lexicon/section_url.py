@@ -30,6 +30,14 @@ def _wiki_url(title: str) -> str:
     return "https://he.wikisource.org/wiki/" + quote(title, safe=":").replace("%20", "_")
 
 
+def _wiki_anchor(section: str) -> str:
+    """Build the section fragment of a Wikisource URL. Same ``%20→_`` rule
+    as :func:`_wiki_url` applies because the anchor is also a MediaWiki
+    section title — spaces in the anchor name are canonicalised to
+    underscores by MediaWiki."""
+    return quote(f"סעיף {section}", safe=":").replace("%20", "_")
+
+
 # Wikisource page URLs for laws referenced by the lexicon corpus. These
 # MUST match the URLs in specs/unified/config.yaml `legal_text` fetchers
 # so the citations land on the same documents the bot already has indexed.
@@ -99,4 +107,4 @@ def derive_section_url(text: str) -> str | None:
         return None
 
     base_url = _LAW_URLS[earliest[1]]
-    return f"{base_url}#{quote(f'סעיף {section}').replace('%20', '_')}"
+    return f"{base_url}#{_wiki_anchor(section)}"
