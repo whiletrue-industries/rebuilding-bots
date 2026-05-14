@@ -361,6 +361,21 @@ resource "aws_ecs_service" "phoenix" {
         # bare alias org-infra's modules/app sets for botnim-api.
         dns_name = "phoenix"
       }
+
+      # AWS ECS Service Connect's default perRequestTimeout is 15 seconds
+      # (configurable since Jan 2024). Phoenix's GraphQL endpoint —
+      # used by LibreChat's admin trace UI at /api/botnim/traces/<id> —
+      # routinely takes longer than that on first hit (cold cache, schema
+      # loading, multi-project scan). With the default 15s in effect,
+      # OTLP POST /v1/traces (fast, sub-second) ingested fine while every
+      # request to /graphql, /healthz, / returned 504 at exactly 15.0s
+      # before reaching Phoenix at all (Phoenix logs showed zero
+      # non-OTLP traffic). Raising to 60s mirrors the inbound timeout
+      # already in place on botnim-api's SC mapping.
+      timeout {
+        per_request_timeout_seconds = 60
+        idle_timeout_seconds        = 120
+      }
     }
   }
 
