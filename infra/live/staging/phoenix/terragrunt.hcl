@@ -156,9 +156,13 @@ inputs = {
   # Phoenix DB secret — set by Task A2 operator gate.
   phoenix_db_secret_arn = local.phoenix_db_secret_arn
 
-  # Resource sizing — staging runs at minimum viable spec.
-  task_cpu    = 512
-  task_memory = 1024
+  # Resource sizing — 512/1024 ran out of headroom for the GraphQL/UI side
+  # after a few days of accumulated traces (OTLP POST /v1/traces continued
+  # ingesting fine but all GET/POST to /graphql, /healthz, / returned 504
+  # at the service-connect upstream-timeout boundary). Bumped to 1 vCPU /
+  # 2 GiB on 2026-05-14 so the GraphQL handler has the headroom it needs.
+  task_cpu    = 1024
+  task_memory = 2048
 
   # Explicit pin — prevents ad-hoc `terragrunt apply` calls from silently
   # tracking future module-default bumps. Update during intentional upgrades.
