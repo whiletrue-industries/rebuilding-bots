@@ -93,9 +93,17 @@ _SOURCE_URL_LINE_RE = re.compile(
 # plenary_schedule.source_url = the session's stenogram). These are
 # pulled out of the flattened markdown at CSV-collection time so the
 # URL never enters the embedded vector — URLs are high-cardinality
-# low-signal tokens that crowd out the actual semantic content. The
-# value lands directly in document metadata.source_url instead.
-_METADATA_ONLY_CSV_COLUMNS = frozenset({"source_url", "file_url", "url"})
+# low-signal tokens that crowd out the actual semantic content.
+#
+# Columns in ``_SOURCE_URL_ALIASES`` are canonicalised to the
+# ``source_url`` metadata key (they're synonyms — historical column
+# names for the same concept). Other URL-typed columns are kept under
+# their own column name so callers can distinguish them (e.g.
+# ``lexicon_url`` is the original Knesset Lexicon glossary URL, while
+# ``source_url`` is the derived Wikisource section anchor — both carried
+# alongside per row for traceability).
+_SOURCE_URL_ALIASES = frozenset({"source_url", "file_url", "url"})
+_METADATA_ONLY_CSV_COLUMNS = frozenset({"source_url", "file_url", "url", "lexicon_url"})
 
 
 def _extract_source_url(content: str) -> str | None:
@@ -337,9 +345,13 @@ def _collect_raw_streams_csv(config_dir, context_name, source, offset=0):
             for k, v in row.items():
                 if k in _METADATA_ONLY_CSV_COLUMNS:
                     if v:
-                        # Map any URL-typed column name to the canonical
-                        # ``source_url`` metadata field.
-                        extra_meta['source_url'] = v
+                        # ``source_url`` / ``file_url`` / ``url`` are
+                        # historical synonyms — canonicalise to the
+                        # ``source_url`` metadata key. Other URL-typed
+                        # columns (e.g. ``lexicon_url``) keep their own
+                        # name so they don't overwrite ``source_url``.
+                        meta_key = 'source_url' if k in _SOURCE_URL_ALIASES else k
+                        extra_meta[meta_key] = v
                     continue
                 content += f'{k}:\n{v}\n\n'
             raw.append((f'{context_name}_{idx+offset}.md', content, 'text/markdown', extra_meta))
