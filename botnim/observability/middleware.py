@@ -12,10 +12,13 @@ Security model:
   the same Phoenix trace as the triggering chat.turn root span.
 """
 from __future__ import annotations
+import logging
 import os
 from fastapi import FastAPI, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from opentelemetry import trace as otel_trace
+
+logger = logging.getLogger(__name__)
 
 
 class _TraceHeaderMiddleware(BaseHTTPMiddleware):
@@ -24,6 +27,16 @@ class _TraceHeaderMiddleware(BaseHTTPMiddleware):
         self._propagate = propagate
 
     async def dispatch(self, request: Request, call_next):
+        # DIAGNOSTIC: log incoming traceparent so we can verify LibreChat
+        # is propagating it. Remove after the bot-trace-merge issue is
+        # resolved.
+        incoming_tp = request.headers.get("traceparent")
+        incoming_ts = request.headers.get("tracestate")
+        if request.url.path.startswith("/botnim/retrieve"):
+            logger.info(
+                "trace_diag IN  path=%s propagate=%s traceparent=%r tracestate=%r",
+                request.url.path, self._propagate, incoming_tp, incoming_ts,
+            )
         if not self._propagate:
             # Drop incoming traceparent — botnim-api always opens fresh roots
             # to defend against forged trace IDs from unauthed callers.
@@ -37,6 +50,13 @@ class _TraceHeaderMiddleware(BaseHTTPMiddleware):
         ctx = span.get_span_context() if span else None
         if ctx and ctx.is_valid:
             response.headers["x-phoenix-trace-id"] = format(ctx.trace_id, "032x")
+            if request.url.path.startswith("/botnim/retrieve"):
+                logger.info(
+                    "trace_diag OUT path=%s trace_id=%032x span_id=%016x is_remote=%s",
+                    request.url.path, ctx.trace_id, ctx.span_id, getattr(ctx, "is_remote", None),
+                )
+        elif request.url.path.startswith("/botnim/retrieve"):
+            logger.info("trace_diag OUT path=%s NO_VALID_SPAN_CONTEXT", request.url.path)
         return response
 
 
