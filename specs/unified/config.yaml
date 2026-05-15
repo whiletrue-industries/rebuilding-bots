@@ -296,7 +296,7 @@ context:
         החזר מערך של אובייקטים JSON, כל אובייקט מייצג מסמך אחד.
 
         '
-- slug: committee_decisions
+- slug: house_committee_decisions
   name: החלטות ועדת הכנסת
   description: 'Search the knesset committee decisions. Use for: the knesset committee
     resolutions, procedural decisions, administrative committee matters.'
