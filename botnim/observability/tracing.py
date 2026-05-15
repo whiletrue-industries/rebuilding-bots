@@ -70,12 +70,25 @@ def init_tracing(app: "FastAPI") -> None:
     # in the merged trace timeline. LibreChat uses serviceName-only export
     # and lands in "default" too in Phoenix v15 (which doesn't auto-route
     # by service.name without openinference.project.name).
+    #
+    # IMPORTANT — DO NOT call register(batch=True) then add_span_processor.
+    # Phoenix's register() prints a warning we missed for months:
+    #   "Using a default SpanProcessor. add_span_processor will overwrite
+    #   this default."
+    # That replaces (not appends!) the OTLP-exporting BatchSpanProcessor
+    # with our scrubber, so every bot span gets scrubbed-then-dropped.
+    # Mirror LibreChat's pattern: build the BatchSpanProcessor + scrubber
+    # ourselves and add BOTH explicitly.
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
     tracer_provider = register(
         endpoint=endpoint,
         set_global_tracer_provider=True,
-        batch=True,
-        # Phoenix rejects JSON OTLP with 415; force the protobuf encoding.
+        batch=False,  # we wire the exporter manually below
         protocol="http/protobuf",
+    )
+    tracer_provider.add_span_processor(
+        BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
     )
     tracer_provider.add_span_processor(SecretScrubbingSpanProcessor())
 
@@ -98,4 +111,4 @@ def init_tracing(app: "FastAPI") -> None:
         # rather than crash the API; spans for SQLA will be missing but
         # FastAPI + OpenAI are still covered.
         logger.warning("SQLAlchemy instrumentation skipped: %s", e)
-    logger.info("phoenix tracing initialized: endpoint=%s project=botnim-%s", endpoint, env)
+    logger.info("phoenix tracing initialized: endpoint=%s project=default env=%s", endpoint, env)
