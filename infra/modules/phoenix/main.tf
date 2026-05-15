@@ -76,6 +76,23 @@ resource "aws_security_group_rule" "phoenix_ingress_from_clients" {
   description              = "Allow Service Connect callers (LibreChat / botnim-api) to reach Phoenix:6006"
 }
 
+# Workaround ingress rules — needed while some app tasks use an older
+# org-infra modules/app ref that doesn't auto-attach the cluster-wide
+# internal-service-clients SG to their ENIs. Without this, those tasks
+# can't reach phoenix:6006 over Service Connect (Phoenix logs see only
+# the other client tasks' traffic). See var.extra_client_security_group_ids.
+resource "aws_security_group_rule" "phoenix_ingress_from_extra_clients" {
+  for_each = toset(var.extra_client_security_group_ids)
+
+  type                     = "ingress"
+  from_port                = 6006
+  to_port                  = 6006
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.phoenix.id
+  source_security_group_id = each.value
+  description              = "Allow ${each.value} (legacy client SG) to reach Phoenix:6006"
+}
+
 # Open Aurora's SG to phoenix on 5432. Org-infra's modules/app does this
 # automatically for `enable_aurora_access = true` callers (e.g. botnim-api,
 # whose task SG is on Aurora's ingress allowlist). Our hand-rolled phoenix

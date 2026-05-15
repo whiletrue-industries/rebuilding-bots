@@ -146,6 +146,19 @@ inputs = {
   # ../buildup-org-infra), exposed via /buildup/shared/staging/contract.
   internal_service_clients_sg_id = local.contract.internal_services.client_security_group_id
 
+  # Workaround: the botnim-api task ENI doesn't carry the cluster-wide
+  # internal-service-clients SG (its app module ref
+  # `feat/ecs-efs-and-sidecars-v2` predates the auto-attach that
+  # LibreChat's `648976c` ref includes), so the canonical ingress rule
+  # above silently denies bot→phoenix traffic. Every OTLP export from
+  # botnim-api was failing without a visible error — Phoenix logs only
+  # ever showed LibreChat's spans. Allowlist the bot's task SG directly
+  # until the bot module ref is bumped. The SG id is hardcoded because
+  # it's the long-lived task SG created once by org-infra modules/app;
+  # if the bot ever rebuilds its SG (terraform replace), this needs an
+  # update.
+  extra_client_security_group_ids = ["sg-06e042ecc3b57aa9b"]
+
   # Shared Aurora cluster's SG. Phoenix module appends a rule on this SG
   # allowing phoenix's task SG on 5432 — Aurora's ingress allowlist is
   # explicit per task SG (NOT internal-service-clients-sg-based), so phoenix

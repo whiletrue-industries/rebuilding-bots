@@ -65,6 +65,12 @@ variable "internal_service_clients_sg_id" {
   description = "SG ID of the cluster-wide internal-service-clients SG that botnim-api / librechat tasks attach to. Consumed by an aws_security_group_rule that allows TCP 6006 ingress on phoenix from that SG so Service Connect calls succeed (the SC sidecar forwards directly to the upstream ENI, which AWS still enforces SG ingress on). Sourced from /buildup/shared/<env>/contract → internal_services.client_security_group_id; defined in ../buildup-org-infra."
 }
 
+variable "extra_client_security_group_ids" {
+  type        = list(string)
+  default     = []
+  description = "Additional task SGs allowed to reach phoenix:6006. Workaround for app modules that don't attach the cluster-wide internal-service-clients SG to their ENIs (e.g., the botnim-api task currently uses an org-infra modules/app ref that predates that auto-attach). For each SG in this list the phoenix module appends a parallel aws_security_group_rule alongside the canonical internal_service_clients_sg_id ingress. Remove the entry once the upstream module bumps its modules/app ref to one that includes the cluster-wide client SG."
+}
+
 variable "secrets_kms_key_arn" {
   type        = string
   default     = ""
