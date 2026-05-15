@@ -247,10 +247,10 @@
         "deprecated": false
       }
     },
-    "/botnim/retrieve/unified/committee_decisions__dev": {
+    "/botnim/retrieve/unified/house_committee_decisions__dev": {
       "get": {
-        "description": "Search Knesset committee decisions. THREE modes — choose by intent: (a) 'אילו החלטות התקבלו לאחרונה', 'מה ההחלטות האחרונות', 'הכי חדשות' → search_mode=RECENCY_BROWSE: calendar-newest decisions in pure date-desc order (no similarity ranking). (b) 'אילו החלטות יש על X', 'רשימת החלטות בנושא…', topical browse → search_mode=METADATA_BROWSE (25 similarity-ranked summaries). (c) substantive content question → leave REGULAR (default). Present 3–5 items with title, date, one-line subject, and קישור_למקור; do not re-sort RECENCY_BROWSE results.",
-        "operationId": "search_unified__committee_decisions__dev",
+        "description": "Search Knesset committee decisions. THREE modes — choose by intent: (a) 'אילו החלטות התקבלו לאחרונה', 'מה ההחלטות האחרונות', 'הכי חדשות', 'מה ההחלטה האחרונה' → search_mode=RECENCY_BROWSE: results are returned strictly date-desc (SQL `ORDER BY doc_date DESC, id DESC`), so results[0] IS the newest decision. When the user asks for THE latest (singular), report results[0] verbatim — do NOT re-rank by inspecting dates yourself, do NOT pick a different item even if its date string looks 'rounder' or appears earlier in the list visually. When the user asks for the latest few, present them in the order received. (b) 'אילו החלטות יש על X', 'רשימת החלטות בנושא…', topical browse → search_mode=METADATA_BROWSE (25 similarity-ranked summaries). (c) substantive content question → leave REGULAR (default). Present 3–5 items with title, date, one-line subject, and קישור_למקור.",
+        "operationId": "search_unified__house_committee_decisions__dev",
         "parameters": [
           {
             "name": "query",
