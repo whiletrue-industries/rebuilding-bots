@@ -58,6 +58,12 @@ arize-phoenix-otel==0.7.1
 openinference-instrumentation-openai==0.1.18
 opentelemetry-instrumentation-sqlalchemy
 opentelemetry-instrumentation-fastapi
+# Pin wrapt <2 — openinference-instrumentation-openai 0.1.18 calls
+# wrap_function_wrapper(module=..., ...). wrapt 2.x removed the `module`
+# kwarg so the call raises TypeError at init time, taking down the whole
+# tracing pipeline. Remove this pin once we bump openinference to a
+# release compatible with wrapt 2.x.
+wrapt<2
 
 # AWS SDK — used by alembic 0014_phoenix_app_password_from_secret to read
 # botnim/<env>/phoenix-db-url and ALTER ROLE phoenix_app to match the
