@@ -92,7 +92,16 @@ def init_tracing(app: "FastAPI") -> None:
     )
     tracer_provider.add_span_processor(SecretScrubbingSpanProcessor())
 
-    OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
+    try:
+        OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
+    except Exception as e:
+        # openinference-instrumentation-openai 0.1.18 broke with wrapt 2.x
+        # ("wrap_function_wrapper() got an unexpected keyword argument
+        # 'module'"). Don't let that take down the rest of the pipeline —
+        # FastAPI / SQLAlchemy spans are the load-bearing ones for the
+        # admin trace UI. Bump openinference once a compatible release
+        # lands.
+        logger.warning("OpenAI instrumentation skipped: %s", e)
     FastAPIInstrumentor.instrument_app(
         app, tracer_provider=tracer_provider,
         excluded_urls="health,healthz",
