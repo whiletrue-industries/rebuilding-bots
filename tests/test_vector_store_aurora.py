@@ -697,3 +697,76 @@ def test_upload_files_writes_source_id_from_metadata(aurora_db, monkeypatch):
         ), {"cid": cid}).fetchall()
     assert rows, "expected at least one row inserted"
     assert all(r[0] == "חוק_הכנסת" for r in rows), f"all rows should have source_id; got {rows!r}"
+
+
+def test_recency_search_filters_invalid_dates(aurora_db, database_url, monkeypatch):
+    """RECENCY_BROWSE must filter out garbage dates that pass a loose regex but
+    sort to the top under ORDER BY doc_date DESC.
+
+    Real-world bug (committee_decisions _427.md, 2026-05-15): metadata.תאריך
+    held the literal string '3390-06-91' (year out of range, day=91). The
+    previous regex `^[0-9]{4}-[0-9]{2}-[0-9]{2}` accepted it; the bogus row
+    sorted to position [0] and poisoned every recency answer for that
+    context. Lock in the stricter validation so a future "simplification"
+    can't silently regress.
+    """
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import RECENCY_BROWSE_CONFIG
+
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    dummy_emb = [0.0] * 1536
+    seed = [
+        # (filename, date_string, expected_in_results)
+        ("decision_25apr.md",   "2026-04-25",                 True),
+        ("decision_25mar.md",   "2026-03-25",                 True),
+        ("decision_31may1999.md","1999-05-31",                True),
+        ("decision_with_time.md","2025-04-03T10:00:00",       True),
+        ("decision_bogus.md",   "3390-06-91",                 False),  # the real bug
+        ("decision_old.md",     "1850-01-01",                 False),  # pre-1900
+        ("decision_future.md",  "2040-12-31",                 False),  # post-2039
+        ("decision_bad_month.md","2025-13-01",                False),
+        ("decision_bad_day.md", "2025-04-32",                 False),
+        ("decision_hebrew.md",  "תשע\"ח",                     False),
+        ("decision_dmy.md",     "25-04-2025",                 False),  # DD-MM-YYYY
+    ]
+    docs = []
+    for fname, date_str, _expected in seed:
+        docs.append((
+            f"content of {fname}",
+            dummy_emb,
+            {"filename": fname, "source_id": fname, "תאריך": date_str},
+        ))
+    _seed_documents(database_url, cid, docs)
+
+    results = store.search(
+        context_name="x",
+        query_text="anything",
+        search_mode=RECENCY_BROWSE_CONFIG,
+        embedding=dummy_emb,
+        num_results=20,
+    )
+    returned_dates = [
+        h["_source"]["metadata"]["תאריך"] for h in results["hits"]["hits"]
+    ]
+
+    expected_kept = {date_str for _, date_str, expected in seed if expected}
+    expected_dropped = {date_str for _, date_str, expected in seed if not expected}
+
+    assert set(returned_dates) == expected_kept, (
+        f"unexpected set of dates returned.\n"
+        f"  got:      {returned_dates!r}\n"
+        f"  expected: {expected_kept!r}"
+    )
+    assert not (set(returned_dates) & expected_dropped), (
+        f"bogus dates leaked into results: "
+        f"{set(returned_dates) & expected_dropped!r}"
+    )
+
+    # The ordering is the load-bearing part: results[0] is what the LLM treats
+    # as "the latest". After filtering, 2026-04-25 must be on top.
+    assert returned_dates[0] == "2026-04-25", (
+        f"results[0] must be the newest valid date; got {returned_dates[0]!r}"
+    )

@@ -517,7 +517,11 @@ class VectorStoreAurora(VectorStoreBase):
                     ) AS rn
                   FROM dated
                   WHERE doc_date IS NOT NULL
-                    AND doc_date ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}'
+                    -- Strict: realistic year (1900-2039), valid month (01-12), valid day (01-31).
+                    -- The loose `^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}` admitted garbage like
+                    -- '3390-06-91' (committee_decisions _427.md), which sorted to position [0]
+                    -- under ORDER BY doc_date DESC and poisoned every recency query.
+                    AND doc_date ~ '^(19[0-9]{{2}}|20[0-3][0-9])-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])'
                 )
                 SELECT id, content, metadata
                 FROM ranked
