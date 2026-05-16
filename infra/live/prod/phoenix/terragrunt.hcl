@@ -38,7 +38,7 @@ locals {
 
   # AWS account ID for prod. Used to construct the Secrets Manager ARN.
   # Verify with: aws --profile anubanu-prod sts get-caller-identity
-  aws_account_id = "REPLACE_WITH_PROD_ACCOUNT_ID"
+  aws_account_id = "086879295714"
 
   # ECS cluster + Service Connect namespace are read from the prod platform
   # contract (see local.contract below). Discovery on staging on 2026-05-10
