@@ -577,8 +577,9 @@ def _run_sanity_job_background() -> None:
         env = os.environ.get("ENVIRONMENT", DEFAULT_ENVIRONMENT)
         logger.info(f"SANITY_START: env={env}")
         try:
+            from botnim.db.session import build_libpq_database_url
             from botnim.sanity.runner import run_sanity
-            run_id = run_sanity(env=env, db_url=os.environ["DATABASE_URL"])
+            run_id = run_sanity(env=env, db_url=build_libpq_database_url())
             logger.info(f"SANITY_OK: run_id={run_id}")
         except Exception as e:
             logger.error(f"SANITY_FAILED: {type(e).__name__}: {e}", exc_info=True)

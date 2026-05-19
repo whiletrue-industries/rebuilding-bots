@@ -198,19 +198,49 @@ async def _get_metadata_for_content_async(
     if cached_local is not None:
         return cached_local
 
-    # L2: Aurora cache.
+    # L2: Aurora cache with version-fallback to smooth EXTRACTION_VERSION bumps.
+    # See docs/superpowers/specs/2026-05-19-extraction-cache-delta-design.md.
     if extraction_cache is not None:
         try:
-            cached_aurora = extraction_cache.get(content_hash, EXTRACTION_VERSION)
+            hit = extraction_cache.get_with_fallback(content_hash, EXTRACTION_VERSION)
         except Exception as e:
-            logger.warning("extraction_cache.get failed for %s: %s", file_path, e)
-            cached_aurora = None
-        if cached_aurora is not None:
+            logger.warning(
+                "extraction_cache.get_with_fallback failed for %s: %s", file_path, e,
+            )
+            hit = None
+        if hit is not None:
+            payload = hit["payload"]
             async with concurrency.cache_lock:
-                cache.set(_cache_key(content), {"content": content, "metadata": cached_aurora})
-            return cached_aurora
+                cache.set(_cache_key(content), {"content": content, "metadata": payload})
 
-    # Miss. Bounded LLM call.
+            if hit["stale"]:
+                # Stale row served. Try to claim a re-warm slot from the
+                # per-run budget; if granted, schedule a background re-extract
+                # at the current version. Sync caller already has the stale
+                # payload — failures in the re-warm path never affect it.
+                if not concurrency.rpd_tripped.is_set() and await concurrency.rewarm_budget_take():
+                    # Track the task on the concurrency object so the
+                    # orchestrator can drain it before run_async() returns —
+                    # otherwise asyncio.run() closes the loop and cancels
+                    # pending re-warms mid-LLM-call.
+                    concurrency.rewarm_tasks.append(asyncio.create_task(_rewarm_extraction(
+                        content=content,
+                        content_hash=content_hash,
+                        file_path=file_path,
+                        document_type=document_type,
+                        bot=bot,
+                        context_name=context_name,
+                        extraction_cache=extraction_cache,
+                        concurrency=concurrency,
+                        client=client,
+                    )))
+            else:
+                concurrency.exact_hits_count += 1
+
+            return payload
+
+    # Full miss. Bounded LLM call.
+    concurrency.llm_miss_count += 1
     try:
         extracted_data = await concurrency.run_bounded(
             extract_structured_content_async,
@@ -243,6 +273,71 @@ async def _get_metadata_for_content_async(
     async with concurrency.cache_lock:
         cache.set(_cache_key(content), {'content': content, 'metadata': metadata})
     return metadata
+
+
+async def _rewarm_extraction(
+    *,
+    content: str,
+    content_hash: str,
+    file_path: str,
+    document_type: str | None,
+    bot: str | None,
+    context_name: str | None,
+    extraction_cache,
+    concurrency,
+    client,
+) -> None:
+    """Re-extract content at the current EXTRACTION_VERSION and persist.
+
+    Best-effort: failures (RPD, transient 5xx, parse errors) log + return
+    without affecting the synchronous caller that already received its
+    stale payload. Goes through ``concurrency.run_bounded`` so it
+    competes for the same async semaphore as the primary extraction
+    path.
+
+    Deliberately does NOT update L1 (the legacy KVFile) — L1 was already
+    populated with the stale payload when the sync caller was unblocked,
+    and overwriting it mid-run would create a race. The next run's L2
+    fallback picks up the freshly-written current-version row as an
+    exact hit anyway.
+    """
+    from .dynamic_extraction import (
+        EXTRACTION_VERSION, RpdExhausted, extract_structured_content_async,
+    )
+    try:
+        extracted = await concurrency.run_bounded(
+            extract_structured_content_async,
+            content, document_type=document_type, client=client,
+        )
+    except RpdExhausted:
+        # Daily quota — let it propagate to the orchestrator's trip flag
+        # so other in-flight re-warms also short-circuit. The original
+        # caller already has its stale payload, so this RPD won't surface
+        # as a sync failure.
+        concurrency.rpd_tripped.set()
+        return
+    except Exception as e:
+        logger.info("rewarm failed for %s: %s (stale payload remains)", file_path, e)
+        return
+
+    if extracted is None or "error" in (extracted or {}):
+        # _build_metadata_record handles error shape; for the re-warm path
+        # we'd rather leave the stale row in place than overwrite with an
+        # error payload.
+        logger.info("rewarm produced error payload for %s; keeping stale row", file_path)
+        return
+
+    metadata = _build_metadata_record(content, file_path, document_type, extracted, None)
+    if extraction_cache is not None and bot and context_name:
+        try:
+            extraction_cache.put(
+                content_hash, EXTRACTION_VERSION,
+                payload=metadata, bot=bot, context=context_name,
+                document_type=document_type,
+            )
+            concurrency.rewarmed_count += 1
+        except Exception as e:
+            logger.info("rewarm cache.put failed for %s: %s", file_path, e)
 
 def _prepare_file_content(filename: str, content: Union[str, io.BufferedReader], content_type: str) -> tuple[str, str, str]:
     """Normalize the raw content to (filename, utf-8 text, content_type).
@@ -460,6 +555,15 @@ async def collect_context_sources_async(
             rpd_count, len(tasks), context_name, len(file_streams), rpd_count,
         )
 
+    # Drain any background re-warm tasks before returning so the
+    # orchestrator's `asyncio.run()` loop doesn't close mid-LLM-call and
+    # cancel them — that would leave rewarmed_count=0 even though the
+    # budget was consumed. Each re-warm is best-effort; exceptions are
+    # captured so a single failure doesn't poison the whole drain.
+    if concurrency.rewarm_tasks:
+        await asyncio.gather(*concurrency.rewarm_tasks, return_exceptions=True)
+        concurrency.rewarm_tasks.clear()
+
     cache.close()
     return file_streams
 
@@ -478,10 +582,26 @@ def collect_context_sources(context_, config_dir: Path, *, bot=None, extraction_
     aurora sync wires them through.
     """
     concurrency = SyncConcurrency()
-    return run_async(collect_context_sources_async(
+    result = run_async(collect_context_sources_async(
         context_, config_dir, concurrency,
         bot=bot, extraction_cache=extraction_cache,
     ))
+    # Cache-stats summary line — see 2026-05-19 extraction-cache-delta-design
+    # spec. CloudWatch metric filter on EXTRACTION_CACHE_SUMMARY surfaces the
+    # post-bump re-warm progress without needing a new DB column.
+    context_slug = context_.get('slug') or context_.get('name') or '?'
+    logger.info(
+        "EXTRACTION_CACHE_SUMMARY: bot=%s context=%s "
+        "exact_hits=%d stale_served=%d rewarmed=%d llm_misses=%d "
+        "rewarm_budget_remaining=%d",
+        bot or '?', context_slug,
+        concurrency.exact_hits_count,
+        concurrency.stale_served_count,
+        concurrency.rewarmed_count,
+        concurrency.llm_miss_count,
+        concurrency.rewarm_budget_remaining,
+    )
+    return result
 
 def collect_all_sources(context_list, config_dir):
     all_sources = []

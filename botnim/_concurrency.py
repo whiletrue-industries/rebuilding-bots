@@ -32,6 +32,7 @@ from .config import get_logger
 logger = get_logger(__name__)
 
 DEFAULT_SYNC_CONCURRENCY = 10
+DEFAULT_REWARM_BUDGET = 2000
 
 
 def get_sync_concurrency() -> int:
@@ -59,6 +60,35 @@ def get_sync_concurrency() -> int:
     return value
 
 
+def get_rewarm_budget() -> int:
+    """Read the per-run cache-rewarm budget from the environment.
+
+    Caps how many stale (older-version) cache hits this sync run will
+    re-extract at the current ``EXTRACTION_VERSION``. ``0`` disables
+    re-warming entirely (stale rows continue to serve indefinitely).
+    See ``docs/superpowers/specs/2026-05-19-extraction-cache-delta-design.md``
+    for the rationale and default sizing (~7 days to drain a 13K-row
+    corpus at one refresh per env per day).
+    """
+    raw = os.environ.get("EXTRACTION_REWARM_MAX_PER_RUN", "").strip()
+    if not raw:
+        return DEFAULT_REWARM_BUDGET
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            "EXTRACTION_REWARM_MAX_PER_RUN=%r is not an int; falling back to %d",
+            raw, DEFAULT_REWARM_BUDGET,
+        )
+        return DEFAULT_REWARM_BUDGET
+    if value < 0:
+        logger.warning(
+            "EXTRACTION_REWARM_MAX_PER_RUN=%d is < 0; clamping to 0", value,
+        )
+        return 0
+    return value
+
+
 class SyncConcurrency:
     """Shared per-run gating primitives.
 
@@ -67,7 +97,11 @@ class SyncConcurrency:
     cache across runs.
     """
 
-    def __init__(self, concurrency: int | None = None) -> None:
+    def __init__(
+        self,
+        concurrency: int | None = None,
+        rewarm_budget: int | None = None,
+    ) -> None:
         self.concurrency = concurrency if concurrency is not None else get_sync_concurrency()
         # Bounds in-flight OpenAI calls (extraction + embeddings share this).
         # One pool keeps the overall rate predictable; splitting by API
@@ -81,6 +115,50 @@ class SyncConcurrency:
         # set, sibling tasks short-circuit instead of burning their slots
         # on calls guaranteed to fail until UTC midnight.
         self.rpd_tripped: asyncio.Event = asyncio.Event()
+
+        # Cache-rewarm budget: caps how many stale (older-EXTRACTION_VERSION)
+        # cache hits this run will re-extract at the current version. See
+        # rewarm_budget_take() and the 2026-05-19 extraction-cache-delta
+        # design spec for the full rationale.
+        self._rewarm_remaining = (
+            rewarm_budget if rewarm_budget is not None else get_rewarm_budget()
+        )
+        self._rewarm_lock = asyncio.Lock()
+        # Re-warm tasks scheduled by _get_metadata_for_content_async. The
+        # orchestrator drains these before returning, otherwise the
+        # asyncio.run() event loop closes mid-LLM-call and the tasks get
+        # cancelled — leaving rewarmed_count=0 even though budget was taken.
+        self.rewarm_tasks: list[asyncio.Task] = []
+        # Observability counters — written by _get_metadata_for_content_async
+        # and _rewarm_extraction; read at end-of-run for the
+        # EXTRACTION_CACHE_SUMMARY log line.
+        self.exact_hits_count = 0
+        self.stale_served_count = 0
+        self.rewarmed_count = 0
+        self.llm_miss_count = 0
+
+    async def rewarm_budget_take(self) -> bool:
+        """Atomically decrement the per-run re-warm budget.
+
+        Returns ``True`` if a slot was available (caller should schedule a
+        background re-extract at the current ``EXTRACTION_VERSION``);
+        ``False`` otherwise (caller serves stale + skips re-warm).
+
+        Always counts the stale-served event regardless of whether a slot
+        was available, so ``stale_served_count`` reflects total stale
+        reads in the run.
+        """
+        async with self._rewarm_lock:
+            self.stale_served_count += 1
+            if self._rewarm_remaining <= 0:
+                return False
+            self._rewarm_remaining -= 1
+            return True
+
+    @property
+    def rewarm_budget_remaining(self) -> int:
+        """Read-only view of remaining re-warm slots — for summary logs."""
+        return self._rewarm_remaining
 
     async def run_bounded(
         self,

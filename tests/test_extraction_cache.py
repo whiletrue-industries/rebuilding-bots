@@ -288,3 +288,202 @@ async def test_force_rebuild_purges_then_writes(cache, tmp_path):
     purged = cache.purge(bot="unified", context="ctx_fr", extractor_version=EXTRACTION_VERSION)
     assert purged == 1
     assert cache.get("stale_h", EXTRACTION_VERSION) is None
+
+
+# -----------------------------------------------------------------------------
+# get_with_fallback + per-run rewarm budget — 2026-05-19 delta-design spec
+# -----------------------------------------------------------------------------
+
+def test_get_with_fallback_exact_hit(cache):
+    """An exact match at the current version returns stale=False."""
+    cache.put("h_exact", "v2", payload={"t": "exact"},
+              bot="unified", context="ctx", document_type="text/markdown")
+    hit = cache.get_with_fallback("h_exact", "v2")
+    assert hit is not None
+    assert hit["payload"] == {"t": "exact"}
+    assert hit["from_version"] == "v2"
+    assert hit["stale"] is False
+
+
+def test_get_with_fallback_returns_older_version_as_stale(cache):
+    """If only an older-version row exists, fallback serves it as stale."""
+    cache.put("h_old", "v1", payload={"t": "old"},
+              bot="unified", context="ctx", document_type="text/markdown")
+    hit = cache.get_with_fallback("h_old", "v2")
+    assert hit is not None
+    assert hit["payload"] == {"t": "old"}
+    assert hit["from_version"] == "v1"
+    assert hit["stale"] is True
+
+
+def test_get_with_fallback_picks_most_recent_older_version(cache):
+    """Multiple older versions → pick the most-recently-extracted one."""
+    cache.put("h_multi", "v1", payload={"t": "v1-old"},
+              bot="unified", context="ctx", document_type="text/markdown")
+    cache.put("h_multi", "v2", payload={"t": "v2-newer"},
+              bot="unified", context="ctx", document_type="text/markdown")
+    # Current version is v3, neither cached at v3 yet.
+    hit = cache.get_with_fallback("h_multi", "v3")
+    assert hit is not None
+    assert hit["from_version"] == "v2"
+    assert hit["payload"] == {"t": "v2-newer"}
+    assert hit["stale"] is True
+
+
+def test_get_with_fallback_prefers_exact_over_older(cache):
+    """Even when an older row would tie on recency, the exact match wins."""
+    cache.put("h_both", "v1", payload={"t": "v1"},
+              bot="unified", context="ctx", document_type="text/markdown")
+    cache.put("h_both", "v2", payload={"t": "v2"},
+              bot="unified", context="ctx", document_type="text/markdown")
+    hit = cache.get_with_fallback("h_both", "v1")
+    assert hit is not None
+    assert hit["from_version"] == "v1"
+    assert hit["payload"] == {"t": "v1"}
+    assert hit["stale"] is False
+
+
+def test_get_with_fallback_returns_none_when_no_rows(cache):
+    """No row at any version → None (caller proceeds to LLM extraction)."""
+    assert cache.get_with_fallback("nothing_cached", "v2") is None
+
+
+@pytest.mark.asyncio
+async def test_rewarm_budget_take_caps_per_run():
+    """Budget enforces the cap; stale_served counts regardless of budget."""
+    sc = SyncConcurrency(rewarm_budget=2)
+    assert await sc.rewarm_budget_take() is True   # 1 of 2
+    assert await sc.rewarm_budget_take() is True   # 2 of 2
+    assert await sc.rewarm_budget_take() is False  # cap hit, served stale only
+    assert await sc.rewarm_budget_take() is False  # still capped
+    assert sc.stale_served_count == 4
+    assert sc.rewarm_budget_remaining == 0
+
+
+@pytest.mark.asyncio
+async def test_rewarm_budget_zero_serves_stale_forever():
+    """budget=0 → every stale read is served, none rewarmed."""
+    sc = SyncConcurrency(rewarm_budget=0)
+    for _ in range(5):
+        assert await sc.rewarm_budget_take() is False
+    assert sc.stale_served_count == 5
+    assert sc.rewarm_budget_remaining == 0
+
+
+@pytest.mark.asyncio
+async def test_collect_serves_stale_payload_and_schedules_rewarm(cache, tmp_path):
+    """Stale cache hit → caller gets stale payload immediately; a background
+    re-extract at EXTRACTION_VERSION runs and persists the new version row."""
+    csv_value = "stale-target-content"
+    pipeline_content = f"body:\n{csv_value}"
+    csv_path = tmp_path / "src.csv"
+    csv_path.write_text("body\n" + csv_value + "\n", encoding="utf-8")
+    context_ = {"name": "ctx_stale", "slug": "ctx_stale", "type": "csv",
+                "source": "src.csv", "fetcher": None}
+
+    # Wipe L1 KVFile so a stale entry from a prior test run can't pre-empt
+    # the L2 fallback lookup we're trying to exercise.
+    import shutil
+    repo_root = Path(__file__).resolve().parent.parent
+    (repo_root / "cache" / "metadata.sqlite").unlink(missing_ok=True)
+    shutil.rmtree(repo_root / "cache" / "metadata", ignore_errors=True)
+
+    # Pre-seed a stale row at an older version — no row exists at the
+    # current EXTRACTION_VERSION yet.
+    stale_payload = {"title": "from-stale", "stale_marker": True, "status": "processed"}
+    h = _content_hash(pipeline_content)
+    cache.put(h, "v0-legacy",
+              payload=stale_payload, bot="unified", context="ctx_stale",
+              document_type="text/markdown")
+
+    # Fake the LLM so the rewarm produces a known new payload.
+    rewarm_calls = {"n": 0}
+
+    async def _fake_completion(client, system_message):
+        rewarm_calls["n"] += 1
+        resp = MagicMock()
+        resp.choices = [MagicMock(message=MagicMock(
+            content='{"DocumentMetadata": {"DocumentTitle": "from-rewarm"}}'
+        ))]
+        return resp
+
+    concurrency = SyncConcurrency(rewarm_budget=10)
+    with patch("botnim.dynamic_extraction._async_chat_completion_inner", side_effect=_fake_completion):
+        streams = await collect_context_sources_async(
+            context_, tmp_path, concurrency,
+            bot="unified", extraction_cache=cache,
+        )
+
+    # Sync caller got the stale payload (proxied through metadata).
+    assert len(streams) == 1
+    _, _, _, metadata = streams[0]
+    assert metadata.get("stale_marker") is True, "sync caller should see stale payload synchronously"
+
+    # Allow scheduled rewarm task(s) to drain.
+    await asyncio.sleep(0.05)
+    pending = [t for t in asyncio.all_tasks() if not t.done() and t is not asyncio.current_task()]
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
+    # The rewarm fired exactly once and wrote a current-version row.
+    assert rewarm_calls["n"] == 1
+    rewarmed = cache.get(h, EXTRACTION_VERSION)
+    assert rewarmed is not None
+    assert rewarmed["DocumentMetadata"]["DocumentTitle"] == "from-rewarm"
+
+    # Counters reflect what happened.
+    assert concurrency.stale_served_count == 1
+    assert concurrency.rewarmed_count == 1
+    assert concurrency.exact_hits_count == 0
+    assert concurrency.llm_miss_count == 0
+
+
+@pytest.mark.asyncio
+async def test_collect_zero_budget_serves_stale_without_rewarm(cache, tmp_path):
+    """budget=0: stale payload served, no LLM call scheduled."""
+    csv_value = "zero-budget-content"
+    pipeline_content = f"body:\n{csv_value}"
+    csv_path = tmp_path / "src.csv"
+    csv_path.write_text("body\n" + csv_value + "\n", encoding="utf-8")
+    context_ = {"name": "ctx_zero", "slug": "ctx_zero", "type": "csv",
+                "source": "src.csv", "fetcher": None}
+
+    import shutil
+    repo_root = Path(__file__).resolve().parent.parent
+    (repo_root / "cache" / "metadata.sqlite").unlink(missing_ok=True)
+    shutil.rmtree(repo_root / "cache" / "metadata", ignore_errors=True)
+
+    h = _content_hash(pipeline_content)
+    cache.put(h, "v0-legacy",
+              payload={"title": "stale-served", "stale_marker": True, "status": "processed"},
+              bot="unified", context="ctx_zero", document_type="text/markdown")
+
+    rewarm_calls = {"n": 0}
+    async def _fake_completion(*args, **kwargs):
+        rewarm_calls["n"] += 1
+        raise AssertionError("budget=0 must not trigger LLM calls")
+
+    concurrency = SyncConcurrency(rewarm_budget=0)
+    with patch("botnim.dynamic_extraction._async_chat_completion_inner", side_effect=_fake_completion):
+        streams = await collect_context_sources_async(
+            context_, tmp_path, concurrency,
+            bot="unified", extraction_cache=cache,
+        )
+        # Drain any pending tasks (there shouldn't be any).
+        await asyncio.sleep(0.05)
+        pending = [t for t in asyncio.all_tasks() if not t.done() and t is not asyncio.current_task()]
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+
+    assert rewarm_calls["n"] == 0
+    assert len(streams) == 1
+    _, _, _, metadata = streams[0]
+    assert metadata.get("stale_marker") is True
+
+    # No current-version row was written.
+    assert cache.get(h, EXTRACTION_VERSION) is None
+
+    # Counters.
+    assert concurrency.stale_served_count == 1
+    assert concurrency.rewarmed_count == 0
+    assert concurrency.rewarm_budget_remaining == 0
