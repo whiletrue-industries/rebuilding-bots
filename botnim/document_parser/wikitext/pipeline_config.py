@@ -4,6 +4,7 @@ Pipeline configuration and validation.
 """
 
 from dataclasses import dataclass, field
+import hashlib
 from pathlib import Path
 import re
 from typing import Optional, Dict, Any, List
@@ -71,8 +72,13 @@ class WikitextProcessorConfig:
     
     def __post_init__(self):
         """Initialize derived paths."""
+        # Download the HTML once. Cache the bytes' sha256 so the run() cache
+        # check can short-circuit the LLM-driven Stage 1 when the upstream
+        # Wikisource page hasn't changed since the last fap.
+        html_bytes = requests.get(self.input_url, headers=HEADERS).content
+        self.input_html_sha256 = hashlib.sha256(html_bytes).hexdigest()
         with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as tf:
-            tf.write(requests.get(self.input_url, headers=HEADERS).content)
+            tf.write(html_bytes)
             tf.flush()
             self.input_html_file = Path(tf.name)
         self.output_base_dir = Path(self.output_base_dir)

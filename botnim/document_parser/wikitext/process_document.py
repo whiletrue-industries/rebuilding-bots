@@ -17,6 +17,35 @@ import json
 # Logger setup
 logger = get_logger(__name__)
 
+
+# Wikitext structure-extractor version. Bump when:
+#   - the system prompt in extract_structure.extract_structure_from_html changes
+#   - the response schema (StructureResponse / StructureItem) changes
+#   - the model in pipeline_config.WikitextProcessorConfig.model changes
+#   - any post-processing in build_nested_structure changes
+# Bumping invalidates every cached content_file at one stroke; the next fap
+# re-extracts. Unlike the per-chunk extraction_cache, wikitext sources are a
+# handful per bot (~10 for unified), so the bump cost is bounded.
+WIKITEXT_EXTRACTOR_VERSION = "v1-gpt-4.1-mini"
+
+
+def _read_cached_metadata(content_file: Path) -> dict | None:
+    """Return the metadata dict from an existing content_file, or None.
+
+    Failures (missing file, malformed JSON, missing metadata key) return None
+    so the caller falls through to a fresh extraction — never raise from
+    the cache-check fast path.
+    """
+    if not content_file.exists():
+        return None
+    try:
+        with open(content_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception:
+        return None
+    md = data.get('metadata') if isinstance(data, dict) else None
+    return md if isinstance(md, dict) else None
+
 def validate_markdown_output(output_dir: Path) -> list:
     errors = []
     if not output_dir.exists() or not output_dir.is_dir():
@@ -59,7 +88,11 @@ class WikitextProcessor:
             nested_structure = build_nested_structure(structure_items)
             # Convert to JSON-serializable format
             structure_data = nested_structure # No longer using flatten_for_json_serialization
-            # Prepare output data with metadata
+            # Prepare output data with metadata. ``html_sha256`` and
+            # ``wikitext_extractor_version`` are the cache key for the
+            # next-run skip in ``run()``. They flow through Stage 2 verbatim
+            # (extract_content_for_sections mutates structure data in place,
+            # leaves metadata alone) and end up in the final content_file.
             output_data = {
                 "metadata": {
                     "input_file": str(self.config.input_url),
@@ -69,7 +102,9 @@ class WikitextProcessor:
                     "max_tokens": self.config.max_tokens,
                     "total_items": len(structure_items),
                     "structure_type": "nested_hierarchy",
-                    "mark_type": self.config.content_type
+                    "mark_type": self.config.content_type,
+                    "html_sha256": self.config.input_html_sha256,
+                    "wikitext_extractor_version": WIKITEXT_EXTRACTOR_VERSION,
                 },
                 "structure": structure_data
             }
@@ -189,6 +224,34 @@ class WikitextProcessor:
         # Initialize metadata
         self.start_time = datetime.now()
         self.metadata.start_time = self.start_time.isoformat()
+
+        # Cache fast-path: if the previous run's content_file is still on
+        # disk and was extracted from this exact same HTML at the current
+        # WIKITEXT_EXTRACTOR_VERSION, skip both Stage 1 (the LLM call) and
+        # Stage 2. Saves ~30K input tokens / source / day in steady state.
+        # Bumping WIKITEXT_EXTRACTOR_VERSION (or any content change at the
+        # upstream Wikisource URL) invalidates the cache and forces a
+        # fresh extraction on the next fap.
+        cached_md = _read_cached_metadata(self.config.content_file)
+        if (cached_md is not None
+                and cached_md.get('html_sha256') == self.config.input_html_sha256
+                and cached_md.get('wikitext_extractor_version') == WIKITEXT_EXTRACTOR_VERSION):
+            logger.info(
+                "WIKITEXT_CACHE_HIT: url=%s html_sha256=%s version=%s "
+                "(skipping LLM structure extraction)",
+                self.config.input_url,
+                self.config.input_html_sha256[:12],
+                WIKITEXT_EXTRACTOR_VERSION,
+            )
+            self.metadata.end_time = datetime.now().isoformat()
+            return True
+
+        logger.info(
+            "WIKITEXT_CACHE_MISS: url=%s html_sha256=%s version=%s",
+            self.config.input_url,
+            self.config.input_html_sha256[:12],
+            WIKITEXT_EXTRACTOR_VERSION,
+        )
 
         try:
             # Stage 1: Extract structure
