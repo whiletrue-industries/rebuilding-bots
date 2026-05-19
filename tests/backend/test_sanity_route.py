@@ -77,6 +77,33 @@ def test_run_sanity_body_uses_db_host_shape_without_database_url(
     via the same path get_engine() uses (libpq form for raw psycopg) — not via
     ``os.environ["DATABASE_URL"]``, which previously raised KeyError and made
     every scheduled sanity invocation fail before reaching the runner."""
+    # `test_query_error_handling.py` substitutes botnim.db.session with a
+    # MagicMock at module-load time so server.py imports without needing a
+    # real DB; that pollution leaks across files inside the same pytest
+    # session. Load the REAL module from disk under a private alias and
+    # patch the assertion target directly — avoids fighting the other
+    # test's sys.modules setup at all.
+    import importlib.util
+    import pathlib
+    real_session_path = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "botnim" / "db" / "session.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "_real_botnim_db_session_for_test", real_session_path
+    )
+    real_session = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(real_session)
+    # Override JUST the function the body imports — monkeypatch reverts
+    # on test exit, leaving the other test's MagicMock-module untouched.
+    import sys as _sys
+    target_module = _sys.modules.get("botnim.db.session")
+    if target_module is not None:
+        monkeypatch.setattr(
+            target_module, "build_libpq_database_url",
+            real_session.build_libpq_database_url, raising=False,
+        )
+
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("BOTNIM_DATABASE_URL", raising=False)
     monkeypatch.setenv("DB_HOST", "aurora.example")
