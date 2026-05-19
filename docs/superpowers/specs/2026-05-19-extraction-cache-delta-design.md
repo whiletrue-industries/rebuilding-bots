@@ -136,6 +136,18 @@ The `ORDER BY (extractor_version = :v) DESC, extracted_at DESC LIMIT 1` clause i
 
 The existing `get(content_hash, extractor_version)` method stays as-is for callers that want exact-only semantics (the `--force-rebuild` purge logic in `vector_store_base.py` does not need fallback).
 
+### Orchestrator drains pending re-warm tasks before returning
+
+Empirical finding from the 2026-05-19 local-compose validation: `asyncio.run()` (the entry point under `run_async()` in `botnim/_concurrency.py`) closes the event loop on return and **cancels** any pending tasks. A naive `asyncio.create_task(_rewarm_extraction(...))` is therefore cancelled mid-LLM-call when the main `asyncio.gather` returns, leaving `rewarmed_count=0` even though the budget was consumed.
+
+Fix: track each scheduled re-warm task on the concurrency object (`rewarm_tasks: list[asyncio.Task]`) and `asyncio.gather(*tasks, return_exceptions=True)` them at the end of `collect_context_sources_async`, after the primary extraction `gather` and before the function returns. Each re-warm runs through `concurrency.run_bounded` so it competes for the same async semaphore; the drain just makes sure the loop stays open until they finish.
+
+Penalty: the run blocks for as long as the slowest in-flight re-warm. With `EXTRACTION_REWARM_MAX_PER_RUN=2000` and a 10-wide semaphore, that's ~200 sequential LLM calls per pool slot, ~3 minutes of tail latency at the end of a refresh. Acceptable for daily-cadence refreshes; trivial for the typical 5-50 re-warms per context.
+
+### Note on L1 (KVFile) interaction with stale payloads
+
+When L2 returns a stale-hit, the existing L1 KVFile write at the same line of `_get_metadata_for_content_async` populates L1 with the stale payload — exactly as the spec intended for fast intra-run reads. **A subsequent extraction of the same content in the same process therefore hits L1 and never re-consults L2** (and thus never re-triggers the budget). This is acceptable: each ECS task replacement empties L1 (it lives at `/srv/cache/metadata.sqlite` in the writable container layer, not on EFS), so the next process boot will go through L2 again. Operators verifying the delta locally must `rm /srv/cache/metadata.sqlite` between successive test runs against the same content — covered in the manual-test recipe at the bottom of this spec.
+
 ### Re-warm budget on `SyncConcurrency`
 
 New field on the existing `SyncConcurrency` class in `botnim/_concurrency.py`:
@@ -306,3 +318,70 @@ Ship this design when, after merging and one full daily refresh in staging:
 - Gold-set sanity DoD pass-rate on the next scheduled run is within noise of the pre-deploy baseline. Stale-served payloads should not move the rubric noticeably because the v1→v2 delta is the OCR gate, not the core extraction quality.
 
 Subsequent days should show the stale-served count monotonically decreasing as the v1→v2 backlog drains, until it bottoms out at ~0 (steady state).
+
+## Manual local-compose verification (recipe)
+
+1. Bring up the aurora-local stack with a staging-cloned Aurora DB:
+
+   ```
+   docker compose -f docker-compose.aurora-local.yml up -d postgres botnim_api
+   ```
+
+2. Recreate a "post-bump" state for one small context by purging its v2 rows:
+
+   ```
+   docker exec botnim_api python -c "
+   from botnim.db.session import get_session
+   from sqlalchemy import text
+   with get_session() as s:
+       s.execute(text(\"DELETE FROM extraction_cache WHERE bot='unified' AND context='ידע רלוונטי על התקציב' AND extractor_version='v2-gpt-4o-mini-heb-fix-ocr-gate'\"))
+       s.commit()
+   "
+   ```
+
+3. Reset the `BIGSERIAL` sequence if the local DB came from a `pg_restore` dump (the dump doesn't carry the sequence state). Otherwise the rewarm's `INSERT` hits `duplicate key value violates unique constraint "extraction_cache_pkey"` on the id column:
+
+   ```
+   docker exec botnim_api python -c "
+   from botnim.db.session import get_session
+   from sqlalchemy import text
+   with get_session() as s:
+       m = s.execute(text('SELECT MAX(id) FROM extraction_cache')).scalar() + 1
+       seq = s.execute(text(\"SELECT pg_get_serial_sequence('extraction_cache','id')\")).scalar()
+       s.execute(text(f\"SELECT setval('{seq}', {m})\")); s.commit()
+   "
+   ```
+
+4. Wipe the L1 KVFile so the test exercises L2 (subsequent runs against the same content hit L1 in-process):
+
+   ```
+   docker exec botnim_api rm -f /srv/cache/metadata.sqlite
+   ```
+
+5. Run extraction over the smallest local context with `EXTRACTION_REWARM_MAX_PER_RUN=5`:
+
+   ```
+   docker exec -e OPENAI_API_KEY=... -e OPENAI_API_KEY_STAGING=... \
+               -e EXTRACTION_REWARM_MAX_PER_RUN=5 botnim_api \
+     python -c "
+   import yaml
+   from pathlib import Path
+   from botnim.collect_sources import collect_context_sources
+   from botnim.extraction_cache import ExtractionCache
+   with open('/srv/specs/unified/config.yaml') as f: spec = yaml.safe_load(f)
+   ctx = next(c for c in spec['context'] if c['slug'] == 'common_budget_knowledge')
+   cache = ExtractionCache(environment='local')
+   collect_context_sources(ctx, Path('/srv/specs/unified'), bot='unified', extraction_cache=cache)
+   "
+   ```
+
+Expected `EXTRACTION_CACHE_SUMMARY` line:
+
+```
+EXTRACTION_CACHE_SUMMARY: bot=unified context=common_budget_knowledge
+    exact_hits=0 stale_served=45 rewarmed=5 llm_misses=0 rewarm_budget_remaining=0
+```
+
+Post-run, the cache should hold 45 v1 rows (unchanged) + 5 v2 rows (newly rewarmed). Re-running the same step (after re-purging L1) drains another 5 rows from v1 to v2; after ~9 runs the entire 45-chunk corpus is at v2 and `stale_served` drops to 0.
+
+Empirical 2026-05-19 local run with a 2-day-old staging-cloned Aurora confirmed all of the above: 53,947 v1 + 2,500 v2 rows cluster-wide → first iteration on the small `common_budget_knowledge` context produced the exact summary line above.

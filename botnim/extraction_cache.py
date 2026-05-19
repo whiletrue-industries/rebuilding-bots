@@ -43,6 +43,42 @@ class ExtractionCache:
         # SQLAlchemy returns the JSONB column as a python dict already.
         return row[0] if isinstance(row[0], dict) else json.loads(row[0])
 
+    def get_with_fallback(
+        self, content_hash: str, current_version: str
+    ) -> dict[str, Any] | None:
+        """Return ``{"payload", "from_version", "stale"}`` or ``None``.
+
+        Prefers an exact match at ``current_version``; if absent, returns
+        the most-recently-extracted row at any other version for the same
+        ``content_hash``. ``stale`` indicates which case was hit. Single
+        round-trip — the ``ORDER BY (extractor_version = :v) DESC``
+        clause is a boolean rank that puts the exact match first; ties
+        break by recency. The existing primary key on
+        ``(content_hash, extractor_version)`` already gives a fast index
+        range scan, and per-hash row counts are tiny (1-3 in practice)
+        so the sort cost is negligible.
+
+        See ``docs/superpowers/specs/2026-05-19-extraction-cache-delta-design.md``
+        for why this exists.
+        """
+        with get_session() as sess:
+            row = sess.execute(text(
+                "SELECT payload, extractor_version "
+                "FROM extraction_cache "
+                "WHERE content_hash = :h "
+                "ORDER BY (extractor_version = :v) DESC, extracted_at DESC "
+                "LIMIT 1"
+            ), {"h": content_hash, "v": current_version}).fetchone()
+        if row is None:
+            return None
+        payload = row[0] if isinstance(row[0], dict) else json.loads(row[0])
+        from_version = row[1]
+        return {
+            "payload": payload,
+            "from_version": from_version,
+            "stale": from_version != current_version,
+        }
+
     def put(
         self,
         content_hash: str,
