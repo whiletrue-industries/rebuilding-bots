@@ -29,7 +29,7 @@ Returns the list of available bots.
 
 ```json
 [
-  {"slug": "unified", "name": "בוט מאוחד ...", "description": "..."}
+  {"slug": "unified", "name": "בוטנים", "description": "..."}
 ]
 ```
 
@@ -44,7 +44,7 @@ Returns the full BotConfig bundle:
 ```json
 {
   "slug": "unified",
-  "name": "בוט מאוחד - תקנון, חוקים ותקציב - פיתוח",
+  "name": "בוטנים - פיתוח",
   "description": "...",
   "environment": "staging",
   "model": "gpt-5.4-mini",
