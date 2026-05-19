@@ -54,6 +54,22 @@ def get_engine() -> Engine:
     return _engine
 
 
+def build_libpq_database_url() -> str:
+    """Return the same DB URL ``get_engine()`` uses, in libpq form.
+
+    SQLAlchemy needs ``postgresql+psycopg://...`` to pick the psycopg v3
+    dialect; raw psycopg consumers (``psycopg.connect``) accept only the
+    plain ``postgresql://...`` form. Call this from any code that wants
+    to hand a URL to psycopg directly without re-implementing the
+    DB_HOST/DB_PORT/etc. → URL assembly.
+    """
+    url = _build_database_url()
+    prefix = "postgresql+psycopg://"
+    if url.startswith(prefix):
+        url = "postgresql://" + url[len(prefix):]
+    return url
+
+
 @contextmanager
 def get_session() -> Iterator[Session]:
     """Yield a SQLAlchemy session and commit on success / rollback on error."""
