@@ -260,3 +260,112 @@ def test_skips_non_doc_paths(mock_requests, tmp_path, fixed_now,
     )
     rows = list(csv.DictReader(out.open(encoding="utf-8")))
     assert all(r["document_id"] == "2" for r in rows)
+
+
+# -----------------------------------------------------------------------------
+# Per-document delta — 2026-05-19 follow-up to the wikitext per-source cache
+# -----------------------------------------------------------------------------
+
+@patch.object(process_protocols, "requests")
+def test_per_doc_delta_reuses_rows_when_last_updated_unchanged(
+    mock_requests, tmp_path, fixed_now, sample_committee_doc,
+):
+    """One run downloads + parses. Second run with the SAME LastUpdatedDate
+    but a different upstream_hash (e.g. a new doc was added elsewhere) must
+    reuse the per-turn rows for doc 1 without re-downloading."""
+    out = tmp_path / "knesset_protocols.csv"
+
+    # Run 1: two committees uploaded, both fresh → 2 OData calls (committees +
+    # plenum) + 2 .doc downloads = 4 GETs.
+    mock_requests.get.side_effect = [
+        _odata_response([_committee_index(1, last="2026-04-01T00:00:00"),
+                         _committee_index(2, last="2026-04-01T00:00:00")]),
+        _odata_response([]),
+        _doc_response(sample_committee_doc),
+        _doc_response(sample_committee_doc),
+    ]
+    process_protocols.process_knesset_protocols_source(
+        output_csv_path=out, base_url="https://example.test/Odata/x.svc",
+        days_history=30, max_protocols=10, rate_limit_seconds=0,
+        now=fixed_now,
+    )
+    rows_after_run1 = list(csv.DictReader(out.open(encoding="utf-8")))
+    assert {r["document_id"] for r in rows_after_run1} == {"1", "2"}
+    run1_calls = mock_requests.get.call_count
+    assert run1_calls == 4
+
+    # Run 2: doc 1 unchanged, doc 2 unchanged, but a THIRD doc appears with
+    # a different LastUpdatedDate → upstream_hash differs (so the coarse
+    # short-circuit doesn't kick in), but docs 1+2 should be reused.
+    # Expected new downloads: only doc 3.
+    mock_requests.get.side_effect = [
+        _odata_response([_committee_index(1, last="2026-04-01T00:00:00"),
+                         _committee_index(2, last="2026-04-01T00:00:00"),
+                         _committee_index(3, last="2026-05-19T00:00:00")]),
+        _odata_response([]),
+        _doc_response(sample_committee_doc),  # only doc 3 expected
+    ]
+    process_protocols.process_knesset_protocols_source(
+        output_csv_path=out, base_url="https://example.test/Odata/x.svc",
+        days_history=30, max_protocols=10, rate_limit_seconds=0,
+        now=fixed_now,
+    )
+    # The mock list was the per-call return values. If our code tried to
+    # download more than once (e.g. all three), it would exhaust the list
+    # and raise StopIteration. Reaching here means we made exactly one
+    # download in run 2.
+    rows_after_run2 = list(csv.DictReader(out.open(encoding="utf-8")))
+    assert {r["document_id"] for r in rows_after_run2} == {"1", "2", "3"}
+    # The CSV's upstream_hash must reflect the NEW run's hash uniformly —
+    # reused rows had their upstream_hash refreshed.
+    hashes = {r["upstream_hash"] for r in rows_after_run2}
+    assert len(hashes) == 1, f"upstream_hash should be uniform, got {hashes}"
+
+
+@patch.object(process_protocols, "requests")
+def test_per_doc_delta_redownloads_when_last_updated_changed(
+    mock_requests, tmp_path, fixed_now, sample_committee_doc,
+):
+    """A document whose LastUpdatedDate changed → re-downloaded + re-parsed."""
+    out = tmp_path / "knesset_protocols.csv"
+
+    # Run 1: one committee at older timestamp.
+    mock_requests.get.side_effect = [
+        _odata_response([_committee_index(1, last="2026-04-01T00:00:00")]),
+        _odata_response([]),
+        _doc_response(sample_committee_doc),
+    ]
+    process_protocols.process_knesset_protocols_source(
+        output_csv_path=out, base_url="https://example.test/Odata/x.svc",
+        days_history=30, max_protocols=10, rate_limit_seconds=0,
+        now=fixed_now,
+    )
+
+    # Run 2: same doc_id, BUT LastUpdatedDate bumped + a sibling new doc to
+    # force the upstream_hash to differ. Expect doc 1 to be re-downloaded.
+    fresh_doc = _make_doc([
+        (None, "מישיבת ועדת הכספים"),
+        ("נושא", "<< נושא >> נושא מעודכן"),
+        ("יור", '<< יור >> היו"ר חבר חדש: << יור >>'),
+        (None, "טקסט חדש."),
+    ])
+    mock_requests.get.side_effect = [
+        _odata_response([_committee_index(1, last="2026-05-19T10:00:00")]),
+        _odata_response([]),
+        _doc_response(fresh_doc),
+    ]
+    process_protocols.process_knesset_protocols_source(
+        output_csv_path=out, base_url="https://example.test/Odata/x.svc",
+        days_history=30, max_protocols=10, rate_limit_seconds=0,
+        now=fixed_now,
+    )
+    rows = list(csv.DictReader(out.open(encoding="utf-8")))
+    # The new chair name appears in the rewritten rows.
+    chair_rows = [r for r in rows if r["speaker_role"] == "chair"]
+    assert chair_rows, "expected at least one chair row"
+    assert any("חבר חדש" in r["speaker_name"] for r in chair_rows), (
+        f"expected fresh chair name in re-parsed rows, got "
+        f"{[r['speaker_name'] for r in chair_rows]}"
+    )
+    # And LastUpdatedDate is the new one.
+    assert {r["file_last_updated"] for r in rows} == {"2026-05-19T10:00:00"}

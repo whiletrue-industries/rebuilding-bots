@@ -233,6 +233,31 @@ def process_knesset_protocols_source(
                     upstream_hash, output_csv)
         return
 
+    # Per-document delta: even when the overall upstream_hash changed (one new
+    # protocol uploaded, or a single existing one re-edited), the vast
+    # majority of documents are unchanged. Re-downloading + re-parsing 13K
+    # .doc files because one was added is wasteful. Build a reuse index
+    # keyed by (document_id, file_last_updated) — if a document's
+    # LastUpdatedDate from OData matches what we already have on disk, we
+    # reuse the per-turn rows verbatim (only refreshing the upstream_hash
+    # column so the file remains internally consistent). When LastUpdatedDate
+    # differs (or the doc is new) we fall through to a fresh download+parse.
+    existing_rows_by_doc: dict[str, list[dict]] = {}
+    existing_last_updated_by_doc: dict[str, str] = {}
+    if output_csv.exists():
+        with open(output_csv, "r", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                doc_id = row.get("document_id") or ""
+                if not doc_id:
+                    continue
+                existing_rows_by_doc.setdefault(doc_id, []).append(row)
+                # All rows for the same document share the same file_last_updated;
+                # last writer wins but they should be identical.
+                existing_last_updated_by_doc[doc_id] = row.get("file_last_updated") or ""
+
+    reused_doc_count = 0
+    downloaded_doc_count = 0
+
     fieldnames = [
         "upstream_hash",
         "doc_kind",                # "committee" | "plenum"
@@ -257,10 +282,28 @@ def process_knesset_protocols_source(
     failures = 0
 
     def _process_doc(row: dict, kind: str, doc_id_field: str, sess_id_field: str):
-        nonlocal failures
+        nonlocal failures, reused_doc_count, downloaded_doc_count
         url = row.get("FilePath") or ""
         if not url.lower().endswith((".doc", ".docx")):
             return
+        doc_id = row.get(doc_id_field) or ""
+        upstream_last_updated = row.get("LastUpdatedDate") or ""
+        # Per-document cache hit: reuse the existing per-turn rows verbatim,
+        # only updating upstream_hash so the file's internal consistency
+        # marker reflects the current run. No download, no parse.
+        if (
+            doc_id
+            and doc_id in existing_rows_by_doc
+            and upstream_last_updated
+            and existing_last_updated_by_doc.get(doc_id) == upstream_last_updated
+        ):
+            for cached in existing_rows_by_doc[doc_id]:
+                refreshed = dict(cached)
+                refreshed["upstream_hash"] = upstream_hash
+                out_rows.append(refreshed)
+            reused_doc_count += 1
+            return
+        downloaded_doc_count += 1
         body = _download(url, timeout=_http_timeout)
         if rate_limit_seconds > 0:
             time.sleep(rate_limit_seconds)
@@ -333,4 +376,9 @@ def process_knesset_protocols_source(
     logger.info(
         "Wrote %d turn rows from %d documents (%d failures) to %s [hash=%s]",
         len(out_rows), total - failures, failures, output_csv, upstream_hash,
+    )
+    logger.info(
+        "KNESSET_PROTOCOLS_CACHE_SUMMARY: reused=%d downloaded=%d failures=%d "
+        "total_upstream=%d",
+        reused_doc_count, downloaded_doc_count, failures, total,
     )
