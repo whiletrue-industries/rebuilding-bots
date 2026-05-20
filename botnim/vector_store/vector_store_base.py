@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 from ..collect_sources import collect_context_sources
+from .._concurrency import RunBudget
 from ..config import get_logger
 
 logger = get_logger(__name__)
@@ -49,6 +50,12 @@ class VectorStoreBase(ABC):
             extraction_cache = ExtractionCache(environment=self.environment)
 
         bot_slug = self.config.get('slug')
+
+        # One RunBudget for the whole sync run — shared across every
+        # context's collect_context_sources call so the extraction
+        # circuit breaker (EXTRACTION_MAX_LLM_CALLS_PER_RUN) is genuinely
+        # per-run, not per-context. See RunBudget.
+        run_budget = RunBudget()
 
         for context_ in context:
             context_name = context_['slug']
@@ -102,6 +109,7 @@ class VectorStoreBase(ABC):
                 file_streams = collect_context_sources(
                     context_, self.config_dir,
                     bot=bot_slug, extraction_cache=extraction_cache,
+                    run_budget=run_budget,
                 )
                 file_streams = [((fname if self.production else '_' + fname), f, t, m) for fname, f, t, m in file_streams]
                 file_names = [fname for fname, _, _, _ in file_streams]

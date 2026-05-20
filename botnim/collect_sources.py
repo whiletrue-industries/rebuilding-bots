@@ -607,7 +607,8 @@ async def collect_context_sources_async(
     return file_streams
 
 
-def collect_context_sources(context_, config_dir: Path, *, bot=None, extraction_cache=None):
+def collect_context_sources(context_, config_dir: Path, *, bot=None,
+                            extraction_cache=None, run_budget=None):
     """Synchronous entry point — now fans out to the async pipeline under a
     bounded ``SYNC_CONCURRENCY`` pool.
 
@@ -619,8 +620,14 @@ def collect_context_sources(context_, config_dir: Path, *, bot=None, extraction_
     The new ``bot`` / ``extraction_cache`` kwargs default to ``None`` so
     legacy callers stay on the cache-free path; only the post-2026-04-26
     aurora sync wires them through.
+
+    ``run_budget`` (a ``RunBudget``) is the shared per-RUN LLM-call ceiling.
+    The orchestrator (``vector_store_update``) creates ONE and passes it to
+    every per-context call so the circuit breaker spans the whole run.
+    When ``None``, SyncConcurrency falls back to a private per-context
+    budget — fine for ad-hoc / single-context callers.
     """
-    concurrency = SyncConcurrency()
+    concurrency = SyncConcurrency(run_budget=run_budget)
     result = run_async(collect_context_sources_async(
         context_, config_dir, concurrency,
         bot=bot, extraction_cache=extraction_cache,
