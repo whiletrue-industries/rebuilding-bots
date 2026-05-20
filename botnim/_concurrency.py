@@ -33,6 +33,16 @@ logger = get_logger(__name__)
 
 DEFAULT_SYNC_CONCURRENCY = 10
 DEFAULT_REWARM_BUDGET = 2000
+# Per-context hard ceiling on TOTAL extraction LLM calls (rewarms + misses).
+# Defense-in-depth circuit breaker: the rewarm budget only caps the
+# stale→current re-warm path; genuinely-new chunks (llm_misses) are
+# otherwise uncapped. A content_hash-instability bug (see the 2026-05-20
+# `upstream_hash` poison fix) can route an entire corpus through the miss
+# path. 15000 sits above a legitimate cold-start of the largest context
+# (knesset_protocols, ~13K rows — which RPD-outs at ~10K/day anyway) and
+# well below a runaway (~104K). Tripping it is an alert, not a steady
+# state — it means "investigate", not "this is fine".
+DEFAULT_LLM_CALL_CEILING = 15000
 
 
 def get_sync_concurrency() -> int:
@@ -89,6 +99,31 @@ def get_rewarm_budget() -> int:
     return value
 
 
+def get_llm_call_ceiling() -> int:
+    """Read the per-context total-LLM-call circuit-breaker ceiling.
+
+    Caps rewarms + llm_misses combined. ``0`` disables the breaker
+    (uncapped — the pre-2026-05-20 behavior). See DEFAULT_LLM_CALL_CEILING.
+    """
+    raw = os.environ.get("EXTRACTION_MAX_LLM_CALLS_PER_RUN", "").strip()
+    if not raw:
+        return DEFAULT_LLM_CALL_CEILING
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            "EXTRACTION_MAX_LLM_CALLS_PER_RUN=%r is not an int; falling back to %d",
+            raw, DEFAULT_LLM_CALL_CEILING,
+        )
+        return DEFAULT_LLM_CALL_CEILING
+    if value < 0:
+        logger.warning(
+            "EXTRACTION_MAX_LLM_CALLS_PER_RUN=%d is < 0; clamping to 0", value,
+        )
+        return 0
+    return value
+
+
 class SyncConcurrency:
     """Shared per-run gating primitives.
 
@@ -101,6 +136,7 @@ class SyncConcurrency:
         self,
         concurrency: int | None = None,
         rewarm_budget: int | None = None,
+        llm_call_ceiling: int | None = None,
     ) -> None:
         self.concurrency = concurrency if concurrency is not None else get_sync_concurrency()
         # Bounds in-flight OpenAI calls (extraction + embeddings share this).
@@ -129,6 +165,17 @@ class SyncConcurrency:
         # asyncio.run() event loop closes mid-LLM-call and the tasks get
         # cancelled — leaving rewarmed_count=0 even though budget was taken.
         self.rewarm_tasks: list[asyncio.Task] = []
+        # Circuit breaker: hard ceiling on TOTAL extraction LLM calls
+        # (rewarms + misses) for this run. Defense-in-depth against a
+        # content_hash-instability bug routing a whole corpus through the
+        # uncapped llm_miss path. See get_llm_call_ceiling() / llm_call_permit().
+        self._llm_call_ceiling = (
+            llm_call_ceiling if llm_call_ceiling is not None else get_llm_call_ceiling()
+        )
+        self._llm_calls_made = 0
+        self._llm_lock = asyncio.Lock()
+        self.circuit_broken = False
+
         # Observability counters — written by _get_metadata_for_content_async
         # and _rewarm_extraction; read at end-of-run for the
         # EXTRACTION_CACHE_SUMMARY log line.
@@ -136,6 +183,40 @@ class SyncConcurrency:
         self.stale_served_count = 0
         self.rewarmed_count = 0
         self.llm_miss_count = 0
+        self.circuit_skipped_count = 0
+
+    async def llm_call_permit(self) -> bool:
+        """Atomically claim a slot from the per-run total-LLM-call ceiling.
+
+        Returns ``True`` if an extraction LLM call may proceed, ``False``
+        if the circuit breaker has tripped (caller must NOT make the call;
+        it serves stale if it can, else returns an error metadata record).
+
+        A ceiling of 0 disables the breaker entirely (uncapped). The first
+        trip logs a loud EXTRACTION_CIRCUIT_BREAKER line — it means a bug,
+        not a steady state.
+        """
+        if self._llm_call_ceiling <= 0:
+            return True
+        async with self._llm_lock:
+            if self._llm_calls_made >= self._llm_call_ceiling:
+                if not self.circuit_broken:
+                    self.circuit_broken = True
+                    logger.error(
+                        "EXTRACTION_CIRCUIT_BREAKER: hit %d LLM-call ceiling for "
+                        "this run — remaining chunks served stale or skipped. "
+                        "This indicates content_hash churn or a cold corpus far "
+                        "larger than expected; investigate before the next refresh.",
+                        self._llm_call_ceiling,
+                    )
+                return False
+            self._llm_calls_made += 1
+            return True
+
+    @property
+    def llm_calls_made(self) -> int:
+        """Read-only view of LLM calls consumed — for summary logs."""
+        return self._llm_calls_made
 
     async def rewarm_budget_take(self) -> bool:
         """Atomically decrement the per-run re-warm budget.
