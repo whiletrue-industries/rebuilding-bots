@@ -105,6 +105,25 @@ _SOURCE_URL_LINE_RE = re.compile(
 _SOURCE_URL_ALIASES = frozenset({"source_url", "file_url", "url"})
 _METADATA_ONLY_CSV_COLUMNS = frozenset({"source_url", "file_url", "url", "lexicon_url"})
 
+# Per-run / per-source provenance bookkeeping columns written by the
+# fetchers — NOT real document content. They MUST be dropped before the
+# CSV row is flattened into markdown, for two reasons:
+#
+#  1. They'd pollute the embedding with meaningless hash/revision strings.
+#  2. Far worse — they change the chunk's content_hash on every refresh
+#     where the upstream moved at all. `knesset_protocols.csv` carries an
+#     `upstream_hash` column = a hash of the *entire* OData index, so it
+#     rotates whenever ANY protocol is added or edited (i.e. essentially
+#     daily). With ~100K rows that means ~100K permanent extraction-cache
+#     misses every single day — the cache can never warm. The PDF CSVs
+#     carry `upstream_revision` / `revision` with the same failure mode.
+#
+# These columns stay in the CSV file itself (the fetchers' own delta
+# logic reads them) — they're only excluded from the flattened content
+# the sync pipeline hashes + embeds. Dropped entirely, not kept as
+# metadata: the bot has no use for them.
+_BOOKKEEPING_CSV_COLUMNS = frozenset({"upstream_hash", "upstream_revision", "revision"})
+
 
 def _extract_source_url(content: str) -> str | None:
     """Return the first https?:// URL found under a URL-typed column, or None."""
@@ -438,6 +457,10 @@ def _collect_raw_streams_csv(config_dir, context_name, source, offset=0):
             content = ''
             extra_meta: dict = {}
             for k, v in row.items():
+                if k in _BOOKKEEPING_CSV_COLUMNS:
+                    # Per-run provenance — never enters content or metadata.
+                    # See _BOOKKEEPING_CSV_COLUMNS for why this is critical.
+                    continue
                 if k in _METADATA_ONLY_CSV_COLUMNS:
                     if v:
                         # ``source_url`` / ``file_url`` / ``url`` are
