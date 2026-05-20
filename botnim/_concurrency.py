@@ -41,12 +41,16 @@ DEFAULT_REWARM_BUDGET = 2000
 # through the miss path.
 #
 # This ceiling is enforced via a single RunBudget object shared across every
-# context (see RunBudget). A full cold sync of all contexts is ~110K chunks
-# (knesset_protocols ~104K + the rest); 25000 caps a runaway at ~$10-12 and
-# lets a legitimate EXTRACTION_VERSION bump warm over ~4-5 daily refreshes.
-# Tripping it is an alert, not a steady state — it means "investigate".
-# Operators doing an intentional full re-extraction raise it for one run.
-DEFAULT_LLM_CALL_CEILING = 25000
+# context (see RunBudget). knesset_protocols is ~27K unique chunks; the rest
+# of the corpus is a few thousand more. 5000/run keeps any single daily
+# refresh's gpt-4o-mini spend at roughly $3 — under a tight daily OpenAI
+# budget — so a one-time mass re-extraction (e.g. after the 2026-05-20
+# `upstream_hash` poison fix) drains gradually over ~6 daily runs instead of
+# in one expensive shot. It also still caps a genuine runaway bug.
+# Tripping it is expected during a migration window; sustained tripping
+# afterwards means "investigate". Operators who DO want a one-shot full
+# re-extraction set EXTRACTION_MAX_LLM_CALLS_PER_RUN high (or 0) for one run.
+DEFAULT_LLM_CALL_CEILING = 5000
 
 
 def get_sync_concurrency() -> int:
