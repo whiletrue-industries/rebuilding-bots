@@ -258,8 +258,18 @@ async def _get_metadata_for_content_async(
 
             return payload
 
-    # Full miss. Bounded LLM call.
+    # Full miss — no cache row at any version. Circuit breaker: if this
+    # run has already burned its total-LLM-call ceiling, do NOT make the
+    # call. There's no older version to fall back to, so the chunk gets a
+    # minimal error metadata record and is picked up by a future run.
+    # This bounds the cost of a content_hash-instability bug.
     concurrency.llm_miss_count += 1
+    if not await concurrency.llm_call_permit():
+        concurrency.circuit_skipped_count += 1
+        return _build_metadata_record(
+            content, file_path, document_type, None,
+            RuntimeError("extraction skipped: per-run LLM-call ceiling reached"),
+        )
     try:
         extracted_data = await concurrency.run_bounded(
             extract_structured_content_async,
@@ -323,6 +333,12 @@ async def _rewarm_extraction(
     from .dynamic_extraction import (
         EXTRACTION_VERSION, RpdExhausted, extract_structured_content_async,
     )
+    # Circuit breaker: a re-warm is an LLM call too. If the run's total
+    # ceiling is reached, skip — the stale payload was already served to
+    # the sync caller, so skipping the re-warm is harmless (the row stays
+    # at the older version and is retried on a future run).
+    if not await concurrency.llm_call_permit():
+        return
     try:
         extracted = await concurrency.run_bounded(
             extract_structured_content_async,
@@ -616,13 +632,17 @@ def collect_context_sources(context_, config_dir: Path, *, bot=None, extraction_
     logger.info(
         "EXTRACTION_CACHE_SUMMARY: bot=%s context=%s "
         "exact_hits=%d stale_served=%d rewarmed=%d llm_misses=%d "
-        "rewarm_budget_remaining=%d",
+        "rewarm_budget_remaining=%d llm_calls_made=%d circuit_skipped=%d "
+        "circuit_broken=%s",
         bot or '?', context_slug,
         concurrency.exact_hits_count,
         concurrency.stale_served_count,
         concurrency.rewarmed_count,
         concurrency.llm_miss_count,
         concurrency.rewarm_budget_remaining,
+        concurrency.llm_calls_made,
+        concurrency.circuit_skipped_count,
+        concurrency.circuit_broken,
     )
     return result
 

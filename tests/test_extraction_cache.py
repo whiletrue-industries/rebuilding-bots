@@ -439,6 +439,73 @@ async def test_collect_serves_stale_payload_and_schedules_rewarm(cache, tmp_path
 
 
 @pytest.mark.asyncio
+async def test_llm_call_permit_caps_total_calls():
+    """The circuit breaker caps total LLM calls (rewarms + misses)."""
+    sc = SyncConcurrency(llm_call_ceiling=3)
+    assert await sc.llm_call_permit() is True   # 1
+    assert await sc.llm_call_permit() is True   # 2
+    assert await sc.llm_call_permit() is True   # 3
+    assert await sc.llm_call_permit() is False  # ceiling hit
+    assert await sc.llm_call_permit() is False
+    assert sc.circuit_broken is True
+    assert sc.llm_calls_made == 3
+
+
+@pytest.mark.asyncio
+async def test_llm_call_permit_zero_ceiling_disables_breaker():
+    """ceiling=0 → uncapped (pre-2026-05-20 behavior)."""
+    sc = SyncConcurrency(llm_call_ceiling=0)
+    for _ in range(50):
+        assert await sc.llm_call_permit() is True
+    assert sc.circuit_broken is False
+
+
+@pytest.mark.asyncio
+async def test_collect_circuit_breaker_skips_misses_past_ceiling(cache, tmp_path):
+    """With a tiny ceiling, llm_misses past the ceiling are skipped (no LLM
+    call) and return an error metadata record instead of blowing the budget."""
+    # 4 distinct CSV rows → 4 never-cached chunks → 4 llm_misses.
+    csv_path = tmp_path / "src.csv"
+    csv_path.write_text(
+        "body\nalpha-uncached\nbeta-uncached\ngamma-uncached\ndelta-uncached\n",
+        encoding="utf-8",
+    )
+    context_ = {"name": "ctx_cb", "slug": "ctx_cb", "type": "csv",
+                "source": "src.csv", "fetcher": None}
+
+    import shutil
+    repo_root = Path(__file__).resolve().parent.parent
+    (repo_root / "cache" / "metadata.sqlite").unlink(missing_ok=True)
+    shutil.rmtree(repo_root / "cache" / "metadata", ignore_errors=True)
+
+    llm_calls = {"n": 0}
+    async def _fake_completion(client, system_message):
+        llm_calls["n"] += 1
+        resp = MagicMock()
+        resp.choices = [MagicMock(message=MagicMock(
+            content='{"DocumentMetadata": {"DocumentTitle": "x"}}'
+        ))]
+        return resp
+
+    # ceiling=2 → only the first 2 misses get an LLM call; the other 2 skipped.
+    concurrency = SyncConcurrency(llm_call_ceiling=2)
+    with patch("botnim.dynamic_extraction._async_chat_completion_inner", side_effect=_fake_completion):
+        streams = await collect_context_sources_async(
+            context_, tmp_path, concurrency,
+            bot="unified", extraction_cache=cache,
+        )
+
+    assert len(streams) == 4
+    assert llm_calls["n"] == 2, f"ceiling=2 must cap LLM calls at 2, got {llm_calls['n']}"
+    assert concurrency.circuit_broken is True
+    assert concurrency.llm_miss_count == 4
+    assert concurrency.circuit_skipped_count == 2
+    # The 2 skipped chunks still produced a (degraded) metadata record.
+    statuses = [m.get("status") for _, _, _, m in streams]
+    assert statuses.count("extraction_error") == 2
+
+
+@pytest.mark.asyncio
 async def test_collect_zero_budget_serves_stale_without_rewarm(cache, tmp_path):
     """budget=0: stale payload served, no LLM call scheduled."""
     csv_value = "zero-budget-content"
