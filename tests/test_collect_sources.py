@@ -151,3 +151,76 @@ def test_lexicon_url_column_is_metadata_only(tmp_path):
     assert extra_meta["source_url"] == (
         "https://he.wikisource.org/wiki/תקנון_הכנסת#סעיף_137"
     )
+
+
+# -----------------------------------------------------------------------------
+# Bookkeeping columns must not poison content_hash — 2026-05-20 fix
+# -----------------------------------------------------------------------------
+
+import hashlib as _hashlib  # noqa: E402
+
+
+def test_csv_collector_drops_upstream_hash_from_content(tmp_path):
+    """knesset_protocols' upstream_hash column is per-run provenance; it must
+    NOT appear in the flattened content (would poison content_hash daily)."""
+    csv_path = tmp_path / "kp.csv"
+    _write_csv(csv_path, [
+        {
+            "upstream_hash": "a" * 64,
+            "document_id": "537",
+            "speaker_name": "ישראל ישראלי",
+            "turn_text": "טקסט הדיון",
+        },
+    ])
+    out = _collect_raw_streams_csv(tmp_path, "knesset_protocols", "kp.csv")
+    fname, content, ctype, extra_meta = out[0]
+    assert "upstream_hash" not in content
+    assert "a" * 64 not in content
+    # Real content survives.
+    assert "speaker_name:\nישראל ישראלי" in content
+    assert "turn_text:\nטקסט הדיון" in content
+    # Bookkeeping is dropped entirely — not parked in metadata either.
+    assert "upstream_hash" not in extra_meta
+
+
+def test_csv_content_hash_stable_across_upstream_hash_change(tmp_path):
+    """The core regression: two CSVs identical except for upstream_hash must
+    produce byte-identical flattened content → identical content_hash. This
+    is what lets the extraction cache actually hit for knesset_protocols."""
+    row_a = {
+        "upstream_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+        "document_id": "537",
+        "turn_text": "אותו הטקסט בדיוק",
+    }
+    row_b = dict(row_a, upstream_hash="2222222222222222222222222222222222222222222222222222222222222222")
+
+    csv_a = tmp_path / "a.csv"
+    csv_b = tmp_path / "b.csv"
+    _write_csv(csv_a, [row_a])
+    _write_csv(csv_b, [row_b])
+
+    content_a = _collect_raw_streams_csv(tmp_path, "knesset_protocols", "a.csv")[0][1]
+    content_b = _collect_raw_streams_csv(tmp_path, "knesset_protocols", "b.csv")[0][1]
+
+    assert content_a == content_b, "content must not vary with upstream_hash"
+    h = lambda s: _hashlib.sha256(s.strip().encode("utf-8")).hexdigest()
+    assert h(content_a) == h(content_b)
+
+
+def test_csv_collector_drops_pdf_revision_columns(tmp_path):
+    """PDF CSVs carry `revision` + `upstream_revision` — same poison, dropped."""
+    csv_path = tmp_path / "pdf.csv"
+    _write_csv(csv_path, [
+        {
+            "revision": "v7",
+            "upstream_revision": "2026-05-20T03:00:00",
+            "מספר_מסמך": "2024/123",
+            "טקסט_מלא": "תוכן המסמך",
+        },
+    ])
+    out = _collect_raw_streams_csv(tmp_path, "legal_advisor_opinions", "pdf.csv")
+    fname, content, ctype, extra_meta = out[0]
+    assert "revision" not in content
+    assert "upstream_revision" not in content
+    assert "v7" not in content
+    assert "טקסט_מלא:\nתוכן המסמך" in content
