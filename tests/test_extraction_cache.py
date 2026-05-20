@@ -461,6 +461,31 @@ async def test_llm_call_permit_zero_ceiling_disables_breaker():
 
 
 @pytest.mark.asyncio
+async def test_shared_run_budget_is_per_run_not_per_context():
+    """The core #175 fix: two SyncConcurrency instances (= two contexts)
+    sharing ONE RunBudget draw from a SINGLE ceiling. Without the shared
+    RunBudget the cap would be per-context (2x the intended value)."""
+    from botnim._concurrency import RunBudget
+
+    rb = RunBudget(llm_call_ceiling=3)
+    ctx_a = SyncConcurrency(run_budget=rb)   # "context A"
+    ctx_b = SyncConcurrency(run_budget=rb)   # "context B"
+
+    # 3 permits total across BOTH contexts — not 3 each.
+    assert await ctx_a.llm_call_permit() is True   # run total 1
+    assert await ctx_b.llm_call_permit() is True   # run total 2
+    assert await ctx_a.llm_call_permit() is True   # run total 3
+    assert await ctx_b.llm_call_permit() is False  # ceiling hit run-wide
+    assert await ctx_a.llm_call_permit() is False  # still capped
+
+    assert ctx_a.circuit_broken is True
+    assert ctx_b.circuit_broken is True
+    assert ctx_a.llm_calls_made == 3
+    assert ctx_b.llm_calls_made == 3
+    assert rb.llm_calls_made == 3
+
+
+@pytest.mark.asyncio
 async def test_collect_circuit_breaker_skips_misses_past_ceiling(cache, tmp_path):
     """With a tiny ceiling, llm_misses past the ceiling are skipped (no LLM
     call) and return an error metadata record instead of blowing the budget."""

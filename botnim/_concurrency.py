@@ -33,16 +33,20 @@ logger = get_logger(__name__)
 
 DEFAULT_SYNC_CONCURRENCY = 10
 DEFAULT_REWARM_BUDGET = 2000
-# Per-context hard ceiling on TOTAL extraction LLM calls (rewarms + misses).
-# Defense-in-depth circuit breaker: the rewarm budget only caps the
-# stale→current re-warm path; genuinely-new chunks (llm_misses) are
-# otherwise uncapped. A content_hash-instability bug (see the 2026-05-20
-# `upstream_hash` poison fix) can route an entire corpus through the miss
-# path. 15000 sits above a legitimate cold-start of the largest context
-# (knesset_protocols, ~13K rows — which RPD-outs at ~10K/day anyway) and
-# well below a runaway (~104K). Tripping it is an alert, not a steady
-# state — it means "investigate", not "this is fine".
-DEFAULT_LLM_CALL_CEILING = 15000
+# Per-RUN hard ceiling on TOTAL extraction LLM calls (rewarms + misses)
+# across ALL contexts in one sync run. Defense-in-depth circuit breaker:
+# the rewarm budget only caps the stale→current re-warm path; genuinely-new
+# chunks (llm_misses) are otherwise uncapped. A content_hash-instability bug
+# (see the 2026-05-20 `upstream_hash` poison fix) can route an entire corpus
+# through the miss path.
+#
+# This ceiling is enforced via a single RunBudget object shared across every
+# context (see RunBudget). A full cold sync of all contexts is ~110K chunks
+# (knesset_protocols ~104K + the rest); 25000 caps a runaway at ~$10-12 and
+# lets a legitimate EXTRACTION_VERSION bump warm over ~4-5 daily refreshes.
+# Tripping it is an alert, not a steady state — it means "investigate".
+# Operators doing an intentional full re-extraction raise it for one run.
+DEFAULT_LLM_CALL_CEILING = 25000
 
 
 def get_sync_concurrency() -> int:
@@ -100,10 +104,11 @@ def get_rewarm_budget() -> int:
 
 
 def get_llm_call_ceiling() -> int:
-    """Read the per-context total-LLM-call circuit-breaker ceiling.
+    """Read the per-RUN total-LLM-call circuit-breaker ceiling.
 
-    Caps rewarms + llm_misses combined. ``0`` disables the breaker
-    (uncapped — the pre-2026-05-20 behavior). See DEFAULT_LLM_CALL_CEILING.
+    Caps rewarms + llm_misses combined, across all contexts in one sync
+    run. ``0`` disables the breaker (uncapped — the pre-2026-05-20
+    behavior). See DEFAULT_LLM_CALL_CEILING.
     """
     raw = os.environ.get("EXTRACTION_MAX_LLM_CALLS_PER_RUN", "").strip()
     if not raw:
@@ -124,6 +129,35 @@ def get_llm_call_ceiling() -> int:
     return value
 
 
+class RunBudget:
+    """Per-sync-run LLM-call ceiling, shared across all contexts.
+
+    ``SyncConcurrency`` is constructed once *per context* (each context's
+    ``collect_context_sources`` spins its own ``asyncio.run`` event loop),
+    so a ceiling living on ``SyncConcurrency`` alone is per-context — with
+    ~10 contexts the effective cap is 10× the intended value. To make the
+    circuit breaker genuinely per-RUN, ``vector_store_update`` creates ONE
+    ``RunBudget`` and threads it through every ``collect_context_sources``
+    call; all contexts draw their ``llm_call_permit()`` slots from this
+    single counter.
+
+    Thread-safety: contexts are processed sequentially (one ``asyncio.run``
+    fully completes before the next starts), and within a context the
+    owning ``SyncConcurrency._llm_lock`` serializes access. So at any
+    instant only one event loop touches this object, under one lock — a
+    plain ``int`` is sufficient, no extra lock needed here.
+
+    A ceiling of 0 disables the breaker (uncapped).
+    """
+
+    def __init__(self, llm_call_ceiling: int | None = None) -> None:
+        self.llm_call_ceiling = (
+            llm_call_ceiling if llm_call_ceiling is not None else get_llm_call_ceiling()
+        )
+        self.llm_calls_made = 0
+        self.circuit_broken = False
+
+
 class SyncConcurrency:
     """Shared per-run gating primitives.
 
@@ -137,6 +171,7 @@ class SyncConcurrency:
         concurrency: int | None = None,
         rewarm_budget: int | None = None,
         llm_call_ceiling: int | None = None,
+        run_budget: "RunBudget | None" = None,
     ) -> None:
         self.concurrency = concurrency if concurrency is not None else get_sync_concurrency()
         # Bounds in-flight OpenAI calls (extraction + embeddings share this).
@@ -166,15 +201,18 @@ class SyncConcurrency:
         # cancelled — leaving rewarmed_count=0 even though budget was taken.
         self.rewarm_tasks: list[asyncio.Task] = []
         # Circuit breaker: hard ceiling on TOTAL extraction LLM calls
-        # (rewarms + misses) for this run. Defense-in-depth against a
-        # content_hash-instability bug routing a whole corpus through the
-        # uncapped llm_miss path. See get_llm_call_ceiling() / llm_call_permit().
-        self._llm_call_ceiling = (
-            llm_call_ceiling if llm_call_ceiling is not None else get_llm_call_ceiling()
-        )
-        self._llm_calls_made = 0
+        # (rewarms + misses). Defense-in-depth against a content_hash-
+        # instability bug routing a whole corpus through the uncapped
+        # llm_miss path. The ceiling is enforced against a RunBudget —
+        # shared across all contexts when the orchestrator passes one in,
+        # so the cap is genuinely per-RUN. Callers/tests that don't pass a
+        # run_budget (or pass llm_call_ceiling directly) get a private
+        # per-instance budget — per-context, fine for unit tests.
+        if run_budget is not None:
+            self._run_budget = run_budget
+        else:
+            self._run_budget = RunBudget(llm_call_ceiling=llm_call_ceiling)
         self._llm_lock = asyncio.Lock()
-        self.circuit_broken = False
 
         # Observability counters — written by _get_metadata_for_content_async
         # and _rewarm_extraction; read at end-of-run for the
@@ -186,37 +224,45 @@ class SyncConcurrency:
         self.circuit_skipped_count = 0
 
     async def llm_call_permit(self) -> bool:
-        """Atomically claim a slot from the per-run total-LLM-call ceiling.
+        """Atomically claim a slot from the per-RUN total-LLM-call ceiling.
 
         Returns ``True`` if an extraction LLM call may proceed, ``False``
         if the circuit breaker has tripped (caller must NOT make the call;
         it serves stale if it can, else returns an error metadata record).
 
-        A ceiling of 0 disables the breaker entirely (uncapped). The first
-        trip logs a loud EXTRACTION_CIRCUIT_BREAKER line — it means a bug,
-        not a steady state.
+        The counter lives on the shared RunBudget, so the cap spans every
+        context in the sync run. A ceiling of 0 disables the breaker
+        entirely (uncapped). The first trip logs a loud
+        EXTRACTION_CIRCUIT_BREAKER line — it means a bug, not a steady state.
         """
-        if self._llm_call_ceiling <= 0:
+        rb = self._run_budget
+        if rb.llm_call_ceiling <= 0:
             return True
         async with self._llm_lock:
-            if self._llm_calls_made >= self._llm_call_ceiling:
-                if not self.circuit_broken:
-                    self.circuit_broken = True
+            if rb.llm_calls_made >= rb.llm_call_ceiling:
+                if not rb.circuit_broken:
+                    rb.circuit_broken = True
                     logger.error(
                         "EXTRACTION_CIRCUIT_BREAKER: hit %d LLM-call ceiling for "
-                        "this run — remaining chunks served stale or skipped. "
-                        "This indicates content_hash churn or a cold corpus far "
-                        "larger than expected; investigate before the next refresh.",
-                        self._llm_call_ceiling,
+                        "this sync run (all contexts combined) — remaining chunks "
+                        "served stale or skipped. This indicates content_hash "
+                        "churn or a cold corpus far larger than expected; "
+                        "investigate before the next refresh.",
+                        rb.llm_call_ceiling,
                     )
                 return False
-            self._llm_calls_made += 1
+            rb.llm_calls_made += 1
             return True
 
     @property
     def llm_calls_made(self) -> int:
-        """Read-only view of LLM calls consumed — for summary logs."""
-        return self._llm_calls_made
+        """Run-wide LLM calls consumed so far — for summary logs."""
+        return self._run_budget.llm_calls_made
+
+    @property
+    def circuit_broken(self) -> bool:
+        """Whether the per-run circuit breaker has tripped."""
+        return self._run_budget.circuit_broken
 
     async def rewarm_budget_take(self) -> bool:
         """Atomically decrement the per-run re-warm budget.
