@@ -331,6 +331,10 @@ class VectorStoreAurora(VectorStoreBase):
         successful = 0  # row count, not file count
         skipped = 0
         files_seen = 0
+        # Every chunk content_hash this run produces (whether skipped as
+        # unchanged or freshly inserted). Used after the upload pass to
+        # delete rows whose content the run no longer produces.
+        seen_hashes: set[str] = set()
 
         # Per-context chunking — see _CHUNK_*_DEFAULT for rationale.
         # `context` here is the parsed YAML entry for this slug, so it carries
@@ -373,6 +377,7 @@ class VectorStoreAurora(VectorStoreBase):
                 for chunk_index, chunk_content in enumerate(chunks):
                     try:
                         chunk_hash = hashlib.sha256(chunk_content.encode("utf-8")).hexdigest()
+                        seen_hashes.add(chunk_hash)
 
                         # Content-hash skip: if this exact (context_id, content_hash)
                         # is already present, do nothing.
@@ -420,6 +425,42 @@ class VectorStoreAurora(VectorStoreBase):
                         skipped += 1
                         continue
 
+            # Reconcile: delete rows whose content this run did NOT produce
+            # — i.e. stale chunks of edited files and chunks of orphaned
+            # files. Runs AFTER the upload pass so the content-hash skip
+            # above can reuse unchanged rows (this replaces the old
+            # filename-based delete_existing_files, which ran BEFORE upload
+            # and wiped the rows the skip relied on).
+            #
+            # Safety guard: if the run produced zero chunks (empty or failed
+            # collection), skip the delete entirely — a transient upstream
+            # failure must never wipe an entire context.
+            if seen_hashes:
+                sess.execute(text(
+                    "CREATE TEMP TABLE _seen_hashes (h text PRIMARY KEY) "
+                    "ON COMMIT DROP"
+                ))
+                sess.execute(text(
+                    "INSERT INTO _seen_hashes (h) "
+                    "SELECT DISTINCT unnest(CAST(:hs AS text[]))"
+                ), {"hs": list(seen_hashes)})
+                reconcile = sess.execute(text(
+                    "DELETE FROM documents WHERE context_id = :cid "
+                    "AND content_hash NOT IN (SELECT h FROM _seen_hashes)"
+                ), {"cid": cid})
+                orphaned = reconcile.rowcount or 0
+                logger.info(
+                    "Reconcile: removed %d stale/orphan rows for context_id=%s "
+                    "(%d distinct content hashes kept this run)",
+                    orphaned, cid, len(seen_hashes),
+                )
+            else:
+                logger.warning(
+                    "upload_files produced 0 chunks for context_id=%s — skipping "
+                    "orphan reconcile so a transient empty run cannot wipe the "
+                    "context.", cid,
+                )
+
         if callable(callback):
             callback(successful)
         if skipped:
@@ -434,16 +475,23 @@ class VectorStoreAurora(VectorStoreBase):
             )
 
     def delete_existing_files(self, context_, vector_store, file_names):
-        """Delete documents whose metadata.filename matches any in file_names.
-        Returns the count of deleted rows.
+        """No-op — superseded by content-hash reconciliation in upload_files.
+
+        The previous implementation ran a filename-based DELETE *before*
+        upload_files. Because csv-type contexts name files positionally
+        (``<context>_0.md`` … ``_N.md``), every run's file list matched
+        every existing row, so this deleted the entire context — which in
+        turn defeated upload_files' content-hash skip (the rows it would
+        have reused were already gone), forcing a full re-embed of the
+        whole corpus on every sync (~$0.55/day for knesset_protocols
+        alone, even with no upstream changes).
+
+        upload_files now keeps unchanged chunks via the content-hash skip
+        and deletes only genuinely stale/orphan rows in a reconcile pass
+        AFTER the upload. This method is kept because the base
+        orchestrator calls it, but it intentionally does nothing.
         """
-        cid = vector_store
-        with get_session() as sess:
-            result = sess.execute(text(
-                "DELETE FROM documents "
-                "WHERE context_id = :cid AND metadata->>'filename' = ANY(:names)"
-            ), {"cid": cid, "names": list(file_names)})
-            return result.rowcount
+        return 0
 
     def _recency_search(
         self,

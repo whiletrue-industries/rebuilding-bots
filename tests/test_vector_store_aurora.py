@@ -213,7 +213,14 @@ def test_upload_files_skips_non_markdown(aurora_db, monkeypatch):
     assert fake.call_count == 0
 
 
-def test_delete_existing_files_removes_by_filename(aurora_db, monkeypatch):
+def test_delete_existing_files_is_noop(aurora_db, monkeypatch):
+    """delete_existing_files is now a no-op.
+
+    Its old filename-based DELETE ran before upload_files and wiped every
+    row for the current run's files — defeating upload_files' content-hash
+    skip and forcing a full re-embed every sync. Reconciliation now lives
+    in upload_files (see test_upload_files_reconciles_stale_and_orphan_rows).
+    """
     from botnim.vector_store.vector_store_aurora import VectorStoreAurora
     from botnim.db.session import get_engine
 
@@ -234,7 +241,7 @@ def test_delete_existing_files_removes_by_filename(aurora_db, monkeypatch):
     store.upload_files({"slug": "x"}, "x", cid, streams, lambda n: None)
 
     deleted = store.delete_existing_files({"slug": "x"}, cid, ["drop.md"])
-    assert deleted == 1
+    assert deleted == 0  # no-op — deletes nothing
 
     eng = get_engine()
     with eng.connect() as conn:
@@ -242,7 +249,84 @@ def test_delete_existing_files_removes_by_filename(aurora_db, monkeypatch):
             "SELECT (metadata->>'filename') FROM documents WHERE context_id=:cid"
         ), {"cid": cid}).fetchall()
     names = {r[0] for r in rows}
-    assert names == {"keep.md"}
+    assert names == {"keep.md", "drop.md"}  # nothing deleted
+
+
+def test_upload_files_reconciles_stale_and_orphan_rows(aurora_db, monkeypatch):
+    """upload_files deletes rows whose content the run no longer produces:
+    stale chunks of an edited file + chunks of an orphaned (removed) file.
+    Unchanged content is kept (skip), new content is inserted."""
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.db.session import get_engine
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+    eng = get_engine()
+
+    def contents():
+        with eng.connect() as conn:
+            return {r[0] for r in conn.execute(text(
+                "SELECT content FROM documents WHERE context_id=:c"), {"c": cid}).fetchall()}
+
+    # run 1 — two files
+    store.upload_files({"slug": "x"}, "x", cid,
+                       _make_file_streams([("a.md", "alpha", {}), ("b.md", "beta", {})]),
+                       lambda n: None)
+    assert contents() == {"alpha", "beta"}
+    assert fake.call_count == 2
+
+    # run 2 — a.md edited, b.md removed (orphan), c.md new
+    store.upload_files({"slug": "x"}, "x", cid,
+                       _make_file_streams([("a.md", "alpha-v2", {}), ("c.md", "gamma", {})]),
+                       lambda n: None)
+    # 'alpha' (edited away) + 'beta' (orphan) reconciled out; new content embedded
+    assert contents() == {"alpha-v2", "gamma"}
+    assert fake.call_count == 4  # +2 new embeds, nothing else
+
+    # run 3 — identical to run 2: pure steady state, zero embeds, zero changes
+    store.upload_files({"slug": "x"}, "x", cid,
+                       _make_file_streams([("a.md", "alpha-v2", {}), ("c.md", "gamma", {})]),
+                       lambda n: None)
+    assert contents() == {"alpha-v2", "gamma"}
+    assert fake.call_count == 4  # unchanged — the steady-state $0 case
+
+
+def test_upload_files_empty_run_does_not_wipe_context(aurora_db, monkeypatch):
+    """Safety guard: an empty file_streams (transient collection failure)
+    must NOT trigger the reconcile delete — the context stays intact."""
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.db.session import get_engine
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+
+    store.upload_files({"slug": "x"}, "x", cid,
+                       _make_file_streams([("a.md", "alpha", {}), ("b.md", "beta", {})]),
+                       lambda n: None)
+    eng = get_engine()
+    with eng.connect() as conn:
+        before = conn.execute(text(
+            "SELECT count(*) FROM documents WHERE context_id=:c"), {"c": cid}).scalar()
+    assert before == 2
+
+    # empty run — the guard must skip the reconcile delete entirely
+    store.upload_files({"slug": "x"}, "x", cid, [], lambda n: None)
+    with eng.connect() as conn:
+        after = conn.execute(text(
+            "SELECT count(*) FROM documents WHERE context_id=:c"), {"c": cid}).scalar()
+    assert after == 2  # context intact — NOT wiped
 
 
 def _seed_documents(database_url, context_id, docs):
