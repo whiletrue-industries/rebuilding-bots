@@ -1,1 +1,284 @@
-[]
+[
+  {
+    "source_excel_row": 0,
+    "question": "מה הנחיות היועצת המשפטית לכנסת בעניין הסתייגויות בוועדה",
+    "context": "legal_text",
+    "description": "Knesset legal advisor guidelines on reservations (הסתייגויות) in committee. The topic surfaces multiple memos: budget-reservation memo (8.1.2024), new-topic-via-reservation memo (4.5.2023), and concurrent-meetings memo (28.6.2022). Tests the bot's full-text-search legal retrieval on a topic that is split across many short legal-advisor letters rather than concentrated in a single takanon section.",
+    "expected_substrings": [
+      "הסתייגות"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: surface all three legal-advisor memos that touch on הסתייגויות בוועדה — the budget-reservation memo (8.1.2024), the new-topic-via-reservation memo (חוות דעת 23, 4.5.2023), and the concurrent-meetings memo (חוות דעת 40, 28.6.2022) — and synthesise them as one coherent set of guidelines. Should default to full-text search of the legal-advisor opinions corpus rather than asking the user to disambiguate or rephrase.",
+    "followup_prompt": "תרחיב — חפש בטקסט המלא של חוות הדעת של היועצת המשפטית לכנסת",
+    "expected_after_followup": "After the expansion prompt, the bot must explicitly surface the 8.1.2024 budget-reservation memo AND the 4.5.2023 new-topic memo (חוות דעת 23) and summarise their guidelines as one consolidated set. Failure mode: still answering with vague 'no dedicated memo found' or only listing one of the two.",
+    "observed": {
+      "routing": "היום - מוודא האם מדובר במידע משפטי או תקציבי קודם לכן.",
+      "baseline_answer": "להלן תוצאות החיפוש במאגר חוות הדעת המשפטיות של היועצת המשפטית לכנסת בנושא הסתייגויות בוועדה:\n\nלא נמצאה חוות דעת ייעודית של היועצת המשפטית לכנסת העוסקת ישירות בהנחיות לגבי הסתייגויות בוועדה.\nנמצאו חוות דעת בנושאים קרובים, כגון:\nהנחיות ליושבי ראש ועדות הכנסת בנוגע להוספת נושאים חדשים להצעות חוק במהלך הכנתן לקריאה שניה ושלישית, עם דגש על הליך חקיקה תקין (חוות דעת 23, 4.5.2023).\nהתייחסות להליך חקיקה נאות, שמירה על זכויות חברי הכנסת, והמלצה להיוועצות מוקדמת עם יועצים משפטיים לוועדות (חוות דעת 23, 4.5.2023).\nמכתב תשובה בנושא קיום ישיבות ועדות הכנסת במקביל לישיבת המליאה, תוך דגש על שמירה על הליך חקיקה נאות (חוות דעת 40, 28.6.2022).",
+      "followup_answer": "להלן עיקרי ההנחיות וההבהרות של היועצת המשפטית לכנסת בעניין הסתייגויות בוועדה, כפי שנמצאו בחיפוש מלא בטקסט חוות הדעת וההנחיות:\n\n1. הסתייגות תקציבית או הצעת חוק תקציבית — מכתב 8.1.2024.\n2. הסתייגויות ונושא חדש — מכתב 4.5.2023.\n3. עקרונות כלליים להליך חקיקה בוועדה.",
+      "notes": "חיפוש בטקסט המלא כברירת מחדל - יכול למצוא את ההנחיות לגבי נושא חדש והסתייגויות, יכולת לסכם את ההנחיות האלה כמקשה אחת",
+      "additional_notes": null
+    }
+  },
+  {
+    "source_excel_row": 1,
+    "question": "בחמש השנים האחרונות, בכמה גדל תקציב המדינה. הצעת התקציב. תציג לי בבקשה טבלה עם חישוב אחוזים",
+    "context": "common_budget_knowledge",
+    "description": "5-year state-budget growth with percentages. Bot routes to budget on the first turn but historically capped its answer at 2025 and only reached 2026 (proposed budget) after a follow-up clarifying the user wants the proposal year. Tests budget routing AND multi-year proposal handling — the latter touches CLAUDE.md layer C (BudgetKey DatasetInfo descriptions) so a regression here can be caused by stale BudgetKey metadata, not the bot itself.",
+    "expected_substrings": [
+      "תקציב המדינה"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: a single table covering the last five years (2022–2026) with year-over-year percentage growth AND total percentage growth across the full window (~39.6%). Must NOT silently cap at 2025 — the user explicitly wrote 'הצעת התקציב' so 2026 is in scope; if 2026 is a proposal not yet enacted, flag that explicitly rather than omitting it.",
+    "followup_prompt": "ומה לגבי שנת 2026 (גם אם זו עדיין הצעת תקציב)? תכלול גם את אחוז הגדילה הכולל מ-2022 ל-2026.",
+    "expected_after_followup": "After the explicit 2026-clarification follow-up, the bot must include 2026 (flagged as proposal) and produce the total cumulative growth percentage from 2022 → 2026 (≈39.6%).",
+    "observed": {
+      "routing": "ישר הלך למידע תקציבי",
+      "baseline_answer": "ענה תשובה קודם כל עד 2025, ובלי חישוב אחוז לכל הגדילה, רק בין שנים.",
+      "followup_answer": "לאחר חידוד לגבי שנת 2026 הצליח להביא את התשובה - 39.6%",
+      "notes": null,
+      "additional_notes": "קישור לשיחה - https://botnim.co.il/share/-IrqGdvLiGGq5vEoupjKJ"
+    }
+  },
+  {
+    "source_excel_row": 2,
+    "question": "לפי ההחלטות של ועדת האתיקה, ורק לפיהם, האם מותר להוציא חבר כנסת מישיבה בשלוש קריאות רצופות?",
+    "context": "legal_text",
+    "description": "Ethics-committee constraint on three consecutive calls-to-order, with the user explicitly scoping the search to ועדת האתיקה decisions only. The 31.10.2006 Limor Livnat vs. David Tal ruling explicitly says calls cannot be back-to-back. Tests the bot's ability to honour an explicit narrow scope.",
+    "expected_substrings": [
+      "ועדת האתיקה"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: honour the user-imposed scope — search ועדת האתיקה decisions only. Surface the 31.10.2006 Livnat vs. Tal decision as the on-point precedent and quote the operative finding (קריאה לסדר שלוש פעמים לא תיעשה באופן רצוף — חבר הכנסת חייב להזדמנות לתקן). Do NOT broaden to תקנון הכנסת §42 or ועדת הכנסת decisions even if those are easier matches in the corpus.",
+    "followup_prompt": null,
+    "expected_after_followup": null,
+    "observed": {
+      "routing": "הלך למידע המשפטי (אם לא מגביל בפרומפט רק לפי החלטות ועדת אתיקה - הולך לאיבוד)",
+      "baseline_answer": "לאור החלטות ועדת האתיקה, נמצאה החלטה עקרונית וישירה בנושא:\n\nב\"החלטת ועדת האתיקה בקובלנה של חה\"כ לימור לבנת נגד חה\"כ דוד טל\" (31.10.2006), נקבע במפורש כי קריאה לסדר שלוש פעמים לא תיעשה באופן רצוף, אלא יש לאפשר לחבר הכנסת שהות לתקן את דרכיו.",
+      "followup_answer": null,
+      "notes": null,
+      "additional_notes": null
+    }
+  },
+  {
+    "source_excel_row": 3,
+    "question": "האם מותר להוציא חבר כנסת בשלוש קריאות רצוף?",
+    "context": "legal_text",
+    "description": "Same call-to-order question as row 2 but with no scope restriction. Bot historically went to תקנון הכנסת §42(ב)(2) and ועדת הכנסת decisions, missing the directly-on-point ועדת האתיקה ruling. Tests whether the bot recognises that operational rules of the Knesset are partly set by ethics-committee decisions and legal-advisor letters, not only by the takanon.",
+    "expected_substrings": [
+      "קריאה"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: surface BOTH §42(ב)(2) of תקנון הכנסת AND the 31.10.2006 ועדת האתיקה Livnat vs. Tal decision in a single coherent answer. The bot must internalise that 'what is allowed/forbidden in the Knesset' is co-determined by takanon, ethics-committee decisions, and legal-advisor opinions — not only the takanon.",
+    "followup_prompt": "תחפש גם בהחלטות ועדת האתיקה ובמכתבי היועצת המשפטית לכנסת",
+    "expected_after_followup": "After being explicitly redirected to ethics-committee decisions, the bot must surface the 31.10.2006 Livnat vs. Tal decision and combine it with the takanon answer it already produced. Failure mode (currently observed): broadens to ועדת הכנסת decisions but still misses ועדת האתיקה.",
+    "observed": {
+      "routing": "הלך למידע המשפטי",
+      "baseline_answer": "על פי תוצאות החיפוש במאגר הידע המשפטי-תקנוני, ישנה התייחסות לכך שמי שמנהל את ישיבת מליאת הכנסת (לרוב יושב ראש הכנסת) יכול להוציא חבר כנסת מהמליאה בשל הפרה חמורה, גם אם לא קראו לו בשלוש קריאות קודם לכן. הדבר קשור לסעיף 42(ב)(2) לתקנון הכנסת.",
+      "followup_answer": "לא הלך להחלטות ועדת האתיקה אלא הלך לחפש בהחלטות ועדת הכנסת",
+      "notes": "הבוט צריך להכיר שמותר ואסור בכנסת לא נקבע בהכרח בתקנון אלא בהחלטות ועדת האתיקה וחוות הדעת ומכתבי היועצת המשפטית לכנסת",
+      "additional_notes": null
+    }
+  },
+  {
+    "source_excel_row": 4,
+    "question": "אני רוצה רשימה של כל הארגונים שמקבלים תמיכה מתקנת תמיכת ארגוני הנוער במשרד החינוך",
+    "context": "common_budget_knowledge",
+    "description": "List of organizations supported under the youth-organizations support criteria (תקנת תמיכה) at the Ministry of Education, with amounts. Bot historically returned a table of orgs (with download links) but no support amounts, and a follow-up asking explicitly for amounts also failed. Tests the bot's structured-data extraction over support-payments tables.",
+    "expected_substrings": [
+      "ארגוני הנוער"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: a three-column table — organization name, support amount (in ₪), source link. The amount column is the historically-failing piece; it must be populated from the underlying support-payments data, not silently omitted with a 'see link' workaround.",
+    "followup_prompt": "תכלול גם את סכומי התמיכה לכל ארגון בטבלה",
+    "expected_after_followup": "After explicit ask for amounts, the bot must produce the amounts column. CURRENT KNOWN FAILURE: even on follow-up the bot couldn't produce amounts — that's an XFAIL until structured-data extraction is fixed. If amounts now appear, that's a real PASS_T2.",
+    "observed": {
+      "routing": "הלך למידע תקציבי",
+      "baseline_answer": "סיפק תשובה בטבלה אבל רק של הארגונים ובלי סכומים. לכל ארגון קישור וקישור להורדת המידע המלא",
+      "followup_answer": "לא הצליח בפרומפט המשך שביקש את הסכומים להוציא אותם",
+      "notes": "טבלה עם הארגון וסכום התמיכה (כמובן קישור)",
+      "additional_notes": "קישור לשיחה שלי איתו - https://botnim.co.il/share/RL7wFYvoUEu7nNBqO2dwg"
+    }
+  },
+  {
+    "source_excel_row": 5,
+    "question": "אחרי שהתחיל הדיון בהצעת חוק בוועדה מסויימת, איך אפשר להעביר את הדיון לוועדה אחרת?",
+    "context": "legal_text",
+    "description": "Transferring a bill between committees mid-deliberation. Answer lives in תקנון הכנסת §78(ג). The bot's existing answer was deemed adequate by the goldset author, so this entry mostly guards against regression rather than driving improvement.",
+    "expected_substrings": [
+      "ועדת הכנסת"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: cite §78(ג) of תקנון הכנסת. Explain that ועדת הכנסת is the body that resolves the transfer, that consent of the original committee chair is required if discussion has already started, and that the plenary then votes without further debate.",
+    "followup_prompt": null,
+    "expected_after_followup": null,
+    "observed": {
+      "routing": "הלך למידע המשפטי",
+      "baseline_answer": "לאחר חיפוש במקורות המשפטיים, נמצא כי תקנון הכנסת מסדיר את האפשרות להעביר דיון בהצעת חוק מוועדה אחת לוועדה אחרת גם לאחר שהחל הדיון, אך הדבר תלוי בתנאים מסוימים:\n\nעל פי סעיף 78(ג) לתקנון הכנסת:\n- ועדת הכנסת רשאית להציע לכנסת להעביר הצעת חוק מהוועדה שאליה הועברה לדיון בוועדה אחרת...\n- אם נמסרה הבקשה לאחר שהחל הדיון, יש צורך בהסכמת יושב ראש הוועדה שכבר דנה בהצעה.",
+      "followup_answer": null,
+      "notes": "תשובה דומה לבוט הנוכחי תהיה מספקת",
+      "additional_notes": null
+    }
+  },
+  {
+    "source_excel_row": 6,
+    "question": "הגשתי שאילתה אבל עבר המועד הקבוע והשר לא השיב. מה הכלים שיש לי עכשיו?",
+    "context": "legal_text",
+    "description": "Tools available to an MK when a minister fails to answer a query (שאילתה) on time — the MK can ask the Speaker to upgrade it to שאילתה דחופה. Existing bot answer was deemed adequate; entry guards against regression.",
+    "expected_substrings": [
+      "שאילתה"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: identify that the MK can request the Speaker to treat the unanswered query as a שאילתה דחופה, and explain the consequence (answer delivered the following Wednesday plenary).",
+    "followup_prompt": null,
+    "expected_after_followup": null,
+    "observed": {
+      "routing": "הלך למידע מהשפטי",
+      "baseline_answer": "לאחר שביצעתי חיפוש במקורות המשפטיים הרלוונטיים, מצאתי את המידע הבא:\n\nאם שר לא השיב לשאילתה במועד הקבוע:\n- חבר הכנסת השואל רשאי לבקש מיושב-ראש הכנסת כי ינהגו בשאילתה כבשאילתה דחופה.\n- המשמעות: התשובה לשאילתה תימסר בישיבת הכנסת ביום רביעי שלאחר היום שבו היה השר אמור להשיב.",
+      "followup_answer": null,
+      "notes": "תשובה דומה לבוט הנוכחי תהיה מספקת",
+      "additional_notes": null
+    }
+  },
+  {
+    "source_excel_row": 7,
+    "question": "מה הדרך ליזום ועדת חקירה ממלכתית דרך הכנסת?",
+    "context": "legal_text",
+    "description": "How to initiate a STATE commission of inquiry (ועדת חקירה ממלכתית) via the Knesset. KNOWN FAILURE: the bot conflates this with ועדת חקירה פרלמנטרית, confidently answers the wrong question, and on follow-up admits it cannot reach חוק ועדות חקירה / חוק מבקר המדינה — both supposedly available in ספר החוקים הפתוח. Tests (a) terminology discipline (state vs. parliamentary) and (b) whether the legal-text corpus actually covers these two laws.",
+    "expected_substrings": [
+      "ועדת חקירה"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: recognise that the user explicitly asked about a STATE commission of inquiry (ועדת חקירה ממלכתית), governed by חוק ועדות חקירה. Distinguish ממלכתית from פרלמנטרית explicitly and walk through the Knesset path to initiate one (proposal → plenary → committee → recommendation to Government / President of the Supreme Court). If the corpus doesn't carry חוק ועדות חקירה, the bot must say so honestly rather than answer about parliamentary committees as if they were the same thing.",
+    "followup_prompt": "תחפש בחוק ועדות חקירה ובחוק מבקר המדינה — אני שואל על ועדת חקירה ממלכתית, לא פרלמנטרית",
+    "expected_after_followup": "After the explicit redirection, the bot must either (a) retrieve relevant sections of חוק ועדות חקירה / חוק מבקר המדינה and answer correctly, or (b) honestly admit those laws are not in its corpus. Currently does (b) on follow-up — that's the documented XFAIL. If it still rambles about parliamentary committees in turn 2, that's a regression FAIL.",
+    "observed": {
+      "routing": "שאל האם זה משפטי או תקציבי",
+      "baseline_answer": "להלן הדרך ליזום ועדת חקירה ממלכתית (פרלמנטרית) דרך הכנסת, על פי תקנון הכנסת וחוק-יסוד: הכנסת [ANSWERED ABOUT PARLIAMENTARY COMMITTEE INSTEAD]: 1. הגשת הצעה — חבר כנסת... 2. דיון במליאת הכנסת... 3. דיון בוועדת הכנסת (תקנון §128–129)... 4. אישור במליאה. 5. הרכב הוועדה.",
+      "followup_answer": "על פי המידע המשפטי-תקנוני הזמין במערכת, אין לי גישה ישירה לנוסח המלא של \"חוק ועדות חקירה\" או \"חוק מבקר המדינה\". התקנון והחוקים הנלווים במערכת כוללים בעיקר את חוק-יסוד: הכנסת, תקנון הכנסת, וחוקים ישירים הנוגעים לפעילות הכנסת. כל המידע שמצאתי עד כה מתייחס לוועדות חקירה פרלמנטריות בלבד, ולא לוועדות חקירה ממלכתיות.",
+      "notes": "הבוט השיב על ועדת חקירה פרלמנטרית למרות שנשאל על ממלכתית. עדיף שהיה משיב שהוא לא יודע. כשהתבקש הבוט לחפש בחוק מבקר המדינה או חוק ועדות חקירה הוא לא הצליח לגשת אליהם למרות שלכאורה הם נגישים בספר החוקים הפתוח",
+      "additional_notes": null
+    }
+  },
+  {
+    "source_excel_row": 8,
+    "question": "מה צריך כדי להכריז על חבר כנסת כפורש מסיעה?",
+    "context": "legal_text",
+    "description": "Requirements to declare an MK as having defected from their faction (פורש מסיעה). Substantive test under חוק-יסוד: הכנסת + procedural hearing in ועדת הכנסת. Bot historically failed to engage and asked the user to clarify whether they wanted legal or budget info — a deflection. The goldset author also embedded a known-good GPT-4 answer in the additional_notes column for reference.",
+    "expected_substrings": [
+      "סיעה"
+    ],
+    "must_not_contain": [
+      "איזה סוג מידע אתם מחפשים"
+    ],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: recognise פרישה מסיעה as a Knesset legal/procedural concept and answer all three layers in one go: (a) substantive test in חוק-יסוד: הכנסת — defection vs. permitted split; vote against faction with תמורה (consideration) counts as defection unless no consideration was received; (b) procedural step — ועדת הכנסת holds a hearing, gives the MK a chance to be heard, and makes the call; (c) consequences — cannot join another faction in same Knesset; potential bar from next election list; appeal to Jerusalem District Court (3-judge panel).",
+    "followup_prompt": "תרחיב לפי חוק-יסוד: הכנסת והליך ועדת הכנסת",
+    "expected_after_followup": "After the explicit redirect to חוק-יסוד: הכנסת and ועדת הכנסת, the bot must produce the substantive + procedural answer (matching the GPT-4 reference in additional_notes). Failure mode: still deflecting with 'איזה סוג מידע אתם מחפשים' or only naming ועדת הכנסת without the substantive test.",
+    "observed": {
+      "routing": "לא הצליח להכריע ושאל",
+      "baseline_answer": "לא נמצאה תשובה ישירה לשאלתך בתוצאות החיפוש הראשוניות. עם זאת, שאלתך עוסקת בהליך משפטי-תקנוני של הכנסת.\n\nלהמשך חיפוש מדויק, אשמח לדעת:\nאיזה סוג מידע אתם מחפשים? האם אתם מעוניינים במידע משפטי-תקנוני (למשל: סעיפים רלוונטיים בתקנון הכנסת או בחוקי הכנסת, החלטות ועדת הכנסת, חוות דעת משפטיות) או במידע תקציבי? או אולי במידע מסוג מסוים מהרשימות למעלה?",
+      "followup_answer": null,
+      "notes": "אני מצפה שהבוט ידע מה המשמעות של פרישה מסיעה ויגש לחלקים הרלוונטים של זה",
+      "additional_notes": "זו התשובה שהGPT הרגיל שלי ענה והיא מאוד מספקת: \nכדי להכריז על ח״כ כ**פורש מסיעה** צריך בעיקר שני דברים: **בסיס מהותי** לפי חוק־יסוד: הכנסת, ו**הליך פורמלי** בוועדת הכנסת.\n\n**מהותית:** ח״כ נחשב פורש אם הוא פרש מסיעתו **שלא במסגרת התפלגות מותרת**. החוק מגדיר \"פרישה\" גם כ\"הצבעה במליאת הכנסת שלא בהתאם לעמדת הסיעה בעניין הבעת אמון או אי־אמון בממשלה\", אבל יש חריג חשוב: אם הח״כ **לא קיבל תמורה** בעד ההצבעה — לא יראו בכך פרישה.\n\n**פרוצדורלית:** ועדת הכנסת היא זו שקובעת את דבר הפרישה. עליה לקיים ישיבה בסמוך לאחר הפרישה, לתת לח״כ הזדמנות להשמיע את טענותיו, לבדוק את העובדות, ולמצוא שהתקיימו המבחנים שבחוק־יסוד: הכנסת.\n\n**השלכות:** ח״כ שהוכרז כפורש לא יכול להצטרף לסיעה אחרת באותה כנסת, ואם לא התפטר סמוך לפרישתו — הוא עלול להיות מנוע מלהיכלל בבחירות הבאות ברשימת מועמדים שהגישה מפלגה שהייתה מיוצגת בכנסת היוצאת. על החלטת ועדת הכנסת אפשר לערער לבית המשפט המחוזי בירושלים בהרכב של שלושה שופטים."
+    }
+  },
+  {
+    "source_excel_row": 9,
+    "question": "מי מוסמך להכריז על ראש ממשלה שנבצר ממילוי תפקידו",
+    "context": "legal_text",
+    "description": "Authority to declare the PM incapacitated. Lives in חוק-יסוד: הממשלה (incapacity provisions). New goldset entry — no prior bot answer documented; included so we can track whether the legal corpus carries חוק-יסוד: הממשלה well enough to cite the right body and procedure.",
+    "expected_substrings": [
+      "נבצר"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: cite the relevant section(s) of חוק-יסוד: הממשלה. Distinguish temporary incapacity (Government decides; vice-PM steps in) from permanent incapacity (Knesset decides, supermajority threshold). Identify the consequence (acting PM steps in for temporary; new government formation triggered for permanent).",
+    "followup_prompt": "תחפש בחוק-יסוד: הממשלה — הוראות בדבר נבצרות ראש הממשלה",
+    "expected_after_followup": "After being directed to חוק-יסוד: הממשלה, the bot must cite the incapacity sections, distinguish temporary vs. permanent, and identify the deciding body in each case (Government / Knesset). Failure mode: cannot retrieve חוק-יסוד: הממשלה from corpus → XFAIL acceptable.",
+    "observed": {
+      "routing": null,
+      "baseline_answer": null,
+      "followup_answer": null,
+      "notes": null,
+      "additional_notes": null
+    }
+  },
+  {
+    "source_excel_row": 10,
+    "question": "מהו חוק המכרזים?",
+    "context": "legal_text",
+    "description": "What is the Tenders Law (חוק חובת המכרזים)? KNOWN FAILURE: even the previous Bonim system could not retrieve this law. Goldset entry left in so we notice if/when retrieval starts working — a green pass here probably means the legal corpus has been broadened.",
+    "expected_substrings": [
+      "מכרזים"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: cite חוק חובת המכרזים, התשנ\"ב-1992. Summarise scope (mandatory tenders for state/public-body contracts), key principles (equal opportunity, transparency), and exceptions.",
+    "followup_prompt": "תחפש בחוק חובת המכרזים, התשנ\"ב-1992",
+    "expected_after_followup": "Even after explicit ask, the current corpus does not appear to carry this law — XFAIL acceptable. If retrieval now works, that's a real PASS_T2 and probably means the legal corpus was broadened.",
+    "observed": {
+      "routing": null,
+      "baseline_answer": null,
+      "followup_answer": null,
+      "notes": "לא הצליח לשלוף את החוק :( גם במערכת של הבונים הישנה זה לא נשלף",
+      "additional_notes": null
+    }
+  },
+  {
+    "source_excel_row": 11,
+    "question": "מה הישיבה הבאה במליאה?",
+    "context": "plenary_schedule",
+    "description": "Live plenary tool — 'next session' query. Verifies the bot routes to knesset_sessions_live (not search_unified__plenary_schedule) for time-sensitive lookups. The embedded context is up to ~24h stale (refreshed by fap on the daily 04:00 UTC schedule), so 'what's next' must hit live OData.",
+    "expected_substrings": [
+      "ישיבה"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: bot calls knesset_sessions_live with from≈today, to≈today+30d. Surfaces the next session by StartDate >= today, including: session number, Hebrew date (StartDateHe in DD/MM/YYYY HH:MM format), and 1-3 top agenda items. Hebrew prose, not a JSON dump. FAIL conditions: (a) cites a 'next session' date < today (sign of stale embedded data); (b) 'I don't have that information' with no tool call; (c) calls only search_unified__plenary_schedule and presents the data without acknowledging its potential staleness. XFAIL: Knesset is in recess and OData genuinely returns 0 upcoming sessions — bot must say so explicitly rather than fabricate. PASS_T2: turn 1 returned the session but no agenda; the followup_prompt surfaced agenda items.",
+    "followup_prompt": "תפרט את סדר היום של אותה ישיבה",
+    "expected_after_followup": "After the expansion, the bot must produce the session's agenda items list (item_name fields from the live tool's items[] payload). FAIL if the bot says 'no agenda available' when the tool-call card from turn 1 shows the items array was non-empty.",
+    "observed": {
+      "routing": "הלך ל־knesset_sessions_live + search_unified__plenary_schedule",
+      "baseline_answer": "מצאתי את הישיבה הקרובה/האחרונה במאגר לוח המליאה: ישיבת מליאה בתאריך 27/04/2026 בשעה 15:00 (ישיבה מספר 386 בכנסת ה-25). לפי התוצאות, זו הישיבה הרלוונטית הקרובה שנמצאה במאגר.\n\nכמה סעיפים מסדר היום שנמצאו בישיבה זו:\n\nהצעה לסדר היום בנושא: \"הכישלון המדיני\"\nהצעה לדיון מהיר בנושא: קיצוץ נרחב בתקציב לסטודנטים בשירות מילואים פעיל\nהצעת חוק הוועדה לטיפול במשפחות נעדרים אזרחיים, התשפ\"ג-2023\nהצעת חוק סיוע לבני משפחות של אזרחים נעדרים, התשפ\"ה–2025\nחוק הביטוח הלאומי (תיקון מס' 265), התשפ\"ו-2026\nהצעה לסדר היום בנושא: \"הפקרות בצפון\"\nחוק השמות (תיקון מס' 9), התשפ\"ו-2026\n\nמקור: לוח המליאה דרך תוצאות החיפוש במאגר לוח המליאה.\n\nאם תרצה, אני יכול להמשיך ולבדוק:\n\nמה על סדר היום המלא של אותה ישיבה\nמתי הישיבה הבאה אחרי 27/04/2026",
+      "followup_answer": "להלן סדר היום שנמצא לישיבת המליאה מיום 27/04/2026 בשעה 15:00 (ישיבה 386, כנסת 25), לפי תוצאות מאגר לוח המליאה:\n\nהצעה לסדר היום בנושא: \"הכישלון המדיני\"\n\nקישור לתוצאה: פריט בלוח המליאה\n\nהצעה לדיון מהיר בנושא: קיצוץ נרחב בתקציב לסטודנטים בשירות מילואים פעיל\n\nקישור לתוצאה: פריט בלוח המליאה\n\nהצעת חוק הוועדה לטיפול במשפחות נעדרים אזרחיים, התשפ\"ג-2023\n\nקישור לתוצאה: פריט בלוח המליאה\n\nהצעה לסדר היום בנושא: \"הפקרות בצפון\"\n\nקישור לתוצאה: פריט בלוח המליאה\n\nחוק הביטוח הלאומי (תיקון מס' 265), התשפ\"ו-2026\n\nקישור לתוצאה: פריט בלוח המליאה\n\nהצעת חוק הוועדה לטיפול במשפחות נעדרים אזרחיים, התשפ\"ד-2023\n\nקישור לתוצאה: פריט בלוח המליאה\n\nחוק השמות (תיקון מס' 9), התשפ\"ו-2026\n\nקישור לתוצאה: פריט בלוח המליאה\n\nהצעת חוק הוועדה לטיפול במשפחות נעדרים אזרחיים, התשפ\"ה-2024\n\nקישור לתוצאה: פריט בלוח המליאה\n\nהצעת חוק הוועדה לטיפול במשפחות נעדרים וחטופים, התשפ\"ה-2024\n\nקישור לתוצאה: פריט בלוח המליאה\n\nחוק שיקום נזקי מלחמה בדרך של התחדשות עירונית, התשפ\"ו-2026\n\nקישור לתוצאה: פריט בלוח המליאה\n\nהערה: במאגר החיפוש הזה התוצאות מופיעות כצמדי ישיבה × פריט סדר יום, ולכן קיבלתי כמה מופעים של אותה ישיבה עם פריטים שונים. אם תרצה, אני יכול גם:\n\nלסדר את הפריטים לפי מספר הסעיף/הופעה במדויק, או\nלבדוק מה יש בישיבה הבאה אחרי זו.",
+      "notes": "Added 2026-05-10 as part of plenary live-tool verification. Backfilled from first sanity-dod run at PR-time. Backfilled 2026-05-10 from prod sanity-dod run /tmp/sanity-dod-vs-2026-05-10-1820.json (HTML at docs/sanity-runs/2026-05-10-1820-prod.html).",
+      "additional_notes": null
+    }
+  },
+  {
+    "source_excel_row": 12,
+    "question": "אילו ישיבות מליאה מתוכננות בשבועיים הקרובים?",
+    "context": "plenary_schedule",
+    "description": "Live plenary tool — date-window listing query. Verifies routing to knesset_sessions_live with a wider date range. Tests that the bot uses from≈today, to≈today+14d and produces a list rather than a single session.",
+    "expected_substrings": [
+      "מליאה"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: the bot calls knesset_sessions_live with from≈today, to≈today+14 days, and presents the upcoming sessions as a list/table sorted by date. Each entry should include Hebrew date (StartDateHe), session number, and a brief topic summary (top agenda items). FAIL conditions: (a) returns 0 sessions when the tool-call card shows OData returned some; (b) lists only past sessions; (c) returns sessions outside the requested window. XFAIL: recess (same as Q1).",
+    "followup_prompt": null,
+    "expected_after_followup": null,
+    "observed": {
+      "routing": "הלך ל־search_unified__plenary_schedule",
+      "baseline_answer": "מצאתי בלוח המליאה שתי ישיבות מתוכננות בשבועיים הקרובים לפי התוצאות שהוחזרו:\n\nתאריך\tשעה\tמס’ ישיבה\tסוג\tסעיפים עיקריים בסדר היום\n27/04/2026\t15:00\t386\tישיבת מליאה רגילה\tבין היתר: הצעת חוק שיקום נזקי מלחמה בדרך של התחדשות עירונית, הצעות לסדר בנושא \"הכישלון המדיני\", \"הפקרות בצפון\", הצעה לדיון מהיר בנושא קיצוץ בתקציב לסטודנטים במילואים, והצעות חוק נוספות\n04/05/2026\t11:00\t387\tישיבת מליאה רגילה\tבין היתר: הצעת חוק העמדה לדין בשל אירועי טבח 7 באוקטובר 2023 (טבח שמיני עצרת), התשפ\"ו–2026\n\nמקורות:\n\nישיבת מליאה 27/04/2026 15:00 — תוצאות החיפוש בלוח המליאה\nישיבת מליאה 04/05/2026 11:00 — תוצאות החיפוש בלוח המליאה\n\nהערה: בתוצאות שהוחזרו היו כמה רשומות חוזרות לאותה ישיבה, ולכן ריכזתי אותן לפי תאריך ולקחתי את הסעיפים שנמצאו בפועל. לא הוחזרו תאריכים נוספים מעבר לשתי הישיבות האלה בתוך חלון החיפוש.\n\nאם תרצה, אפשר להמשיך באחת משתי דרכים:\n\nלפרט את כל סעיפי סדר היום לכל אחת מהישיבות.\nלבדוק אם יש ישיבת מליאה נוספת מעבר לשבועיים הקרובים.",
+      "followup_answer": null,
+      "notes": "Added 2026-05-10 as part of plenary live-tool verification. Backfilled from first sanity-dod run at PR-time. Backfilled 2026-05-10 from prod sanity-dod run /tmp/sanity-dod-vs-2026-05-10-1820.json (HTML at docs/sanity-runs/2026-05-10-1820-prod.html).",
+      "additional_notes": null
+    }
+  },
+  {
+    "source_excel_row": 13,
+    "question": "באיזו ישיבת מליאה דנו בחוק הוועדה לטיפול במשפחות נעדרים?",
+    "context": "plenary_schedule",
+    "description": "Routing discriminator — content-by-text semantic query that should route through search_unified__plenary_schedule (embedded vector store), not knesset_sessions_live (live OData proxy). Both tools cover overlapping data (the embedded corpus is days_past=365 + days_future=90 from process_odata.py:51-52; the live tool returns the same sessions in any requested window), so the discriminator isn't 'data coverage' — it's 'query shape efficiency': content-by-text → embedding similarity is the cheap path; date-window-by-date → live tool is the cheap path. NOTE (freshness coupling): the topic 'חוק הוועדה לטיפול במשפחות נעדרים' was on plenary session 386 (27/04/2026, knesset 25) and several adjacent sessions per the 2026-05-10 corpus probe. As sessions age past the 365-day window the topic will drop out — Q3's question must be revised when the bot starts FAILING this entry due to corpus drift rather than routing.",
+    "expected_substrings": [
+      "נעדרים"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "IDEAL ONE-TURN ANSWER: the bot calls search_unified__plenary_schedule (and may additionally call knesset_sessions_live, but the answer must come from the embedded corpus). Surfaces at least one session with date, session number, and matching agenda item text mentioning 'חוק הוועדה לטיפול במשפחות נעדרים'. FAIL conditions: (a) tool-call card shows ONLY knesset_sessions_live AND the bot scans every session's items[] linearly to find the match (token-wasteful, slow — would have been one embedding query); (b) bot says 'no matching session found' when the embedded corpus has hits (verified at authoring time); (c) bot asks the user to narrow date range when the embedded corpus could answer directly. XFAIL: the topic has aged out of the 365-day window — symptom is that BOTH tools fail to surface it. Triggers a Q3 topic refresh, not a routing-bug ticket.",
+    "followup_prompt": null,
+    "expected_after_followup": null,
+    "observed": {
+      "routing": "הלך ל־search_unified__plenary_schedule",
+      "baseline_answer": "נמצא כי דנו בחוק הוועדה לטיפול במשפחות נעדרים אזרחיים בישיבת מליאה מס' 386 של הכנסת ה-25, בתאריך 27/04/2026 בשעה 15:00.\n\nבפרטי סדר היום מופיעים כמה וריאנטים של שם הצעת החוק, כולם באותה ישיבה:\n\nסעיף 2: “הצעת חוק הוועדה לטיפול במשפחות נעדרים אזרחיים, התשפ\"ג-2022”\nסעיף 3: “הצעת חוק הוועדה לטיפול במשפחות נעדרים אזרחיים, התשפ\"ג-2023”\nסעיף 4: “הצעת חוק הוועדה לטיפול במשפחות נעדרים אזרחיים, התשפ\"ד-2023”\nסעיף 5: “הצעת חוק הוועדה לטיפול במשפחות נעדרים אזרחיים, התשפ\"ה-2024”\n\nמקור: לוח מליאה – ישיבת 27/04/2026 15:00\n\n(התוצאה שהתקבלה מהחיפוש בלוח המליאה מצביעה על אותה ישיבה; לא התקבל קישור ישיר לפריט עצמו בתוצאת הכלי.)\n\nאם תרצה, אני יכול להמשיך ולבדוק:\n\nבאיזה סעיף בסדר היום בדיוק מדובר אם מחפשים נוסח מסוים של החוק, או\nמה היה רשום בלוח המליאה לגבי ההצבעה/הדיון באותו חוק.",
+      "followup_answer": null,
+      "notes": "Added 2026-05-10 as part of plenary live-tool verification. Topic chosen after corpus probe (חוק מימון מפלגות returned 0 keyword matches; missing-persons committee bill returned 12/15 keyword matches). Backfilled from first sanity-dod run at PR-time. Backfilled 2026-05-10 from prod sanity-dod run /tmp/sanity-dod-vs-2026-05-10-1820.json (HTML at docs/sanity-runs/2026-05-10-1820-prod.html).",
+      "additional_notes": null
+    }
+  }
+]
