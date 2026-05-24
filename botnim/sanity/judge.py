@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Optional
 
 from openai import OpenAI
@@ -69,7 +70,19 @@ _RUBRIC_SCHEMA = {
 
 
 def _client() -> OpenAI:
-    return OpenAI()  # reads OPENAI_API_KEY from env
+    # botnim tasks store the OpenAI key under env-suffixed names
+    # (OPENAI_API_KEY_PRODUCTION / OPENAI_API_KEY_STAGING) rather than
+    # the SDK-default OPENAI_API_KEY. Same convention used by the
+    # embedder — see botnim.vector_store.vector_store_aurora._client.
+    env = os.environ.get("ENVIRONMENT", "staging")
+    api_key = (
+        os.environ.get("OPENAI_API_KEY_PRODUCTION")
+        if env == "production"
+        else os.environ.get("OPENAI_API_KEY_STAGING")
+    )
+    # Final fallback to the SDK-default for local dev convenience.
+    api_key = api_key or os.environ.get("OPENAI_API_KEY")
+    return OpenAI(api_key=api_key)
 
 
 def _side_text(side: SideCapture) -> str:
