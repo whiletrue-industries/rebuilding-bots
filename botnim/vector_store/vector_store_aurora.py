@@ -335,6 +335,14 @@ class VectorStoreAurora(VectorStoreBase):
         # unchanged or freshly inserted). Used after the upload pass to
         # delete rows whose content the run no longer produces.
         seen_hashes: set[str] = set()
+        # Distinct filenames this run actually processed. The reconcile is
+        # scoped to this set so rows from files the run did NOT read are
+        # NEVER deleted — protects e.g. historical seeds whose source file
+        # is not in the current run's input but whose chunks are still
+        # legitimate. Without this scope the reconcile becomes a
+        # whole-context wipe whenever the run's input is incomplete (e.g.
+        # an EFS seed-stickiness window leaving an old subset on disk).
+        files_processed: set[str] = set()
 
         # Per-context chunking — see _CHUNK_*_DEFAULT for rationale.
         # `context` here is the parsed YAML entry for this slug, so it carries
@@ -358,6 +366,7 @@ class VectorStoreAurora(VectorStoreBase):
                     logger.debug("Skipping non-markdown file: %s", fname)
                     continue
                 files_seen += 1
+                files_processed.add(fname)
 
                 try:
                     raw_content = content_file.read().decode("utf-8")
@@ -425,17 +434,20 @@ class VectorStoreAurora(VectorStoreBase):
                         skipped += 1
                         continue
 
-            # Reconcile: delete rows whose content this run did NOT produce
-            # — i.e. stale chunks of edited files and chunks of orphaned
-            # files. Runs AFTER the upload pass so the content-hash skip
-            # above can reuse unchanged rows (this replaces the old
-            # filename-based delete_existing_files, which ran BEFORE upload
-            # and wiped the rows the skip relied on).
+            # Reconcile: delete stale chunks of files the current run
+            # actually processed. Per-file scope (metadata.filename IN
+            # files_processed) means rows from files NOT touched this run
+            # are never deleted — a partial / incomplete input must never
+            # wipe orthogonal context data. Per-hash filter (content_hash
+            # NOT IN seen_hashes) cleans up chunks superseded by new
+            # content within the files we did process.
             #
-            # Safety guard: if the run produced zero chunks (empty or failed
-            # collection), skip the delete entirely — a transient upstream
-            # failure must never wipe an entire context.
-            if seen_hashes:
+            # Safety guards:
+            #   1. Empty seen_hashes — skip entirely (a transient zero-chunk
+            #      run can never produce DELETEs).
+            #   2. Empty files_processed — same; if no files were touched,
+            #      no per-file delete is meaningful.
+            if seen_hashes and files_processed:
                 sess.execute(text(
                     "CREATE TEMP TABLE _seen_hashes (h text PRIMARY KEY) "
                     "ON COMMIT DROP"
@@ -444,15 +456,24 @@ class VectorStoreAurora(VectorStoreBase):
                     "INSERT INTO _seen_hashes (h) "
                     "SELECT DISTINCT unnest(CAST(:hs AS text[]))"
                 ), {"hs": list(seen_hashes)})
+                sess.execute(text(
+                    "CREATE TEMP TABLE _processed_files (f text PRIMARY KEY) "
+                    "ON COMMIT DROP"
+                ))
+                sess.execute(text(
+                    "INSERT INTO _processed_files (f) "
+                    "SELECT DISTINCT unnest(CAST(:fs AS text[]))"
+                ), {"fs": list(files_processed)})
                 reconcile = sess.execute(text(
                     "DELETE FROM documents WHERE context_id = :cid "
+                    "AND metadata->>'filename' IN (SELECT f FROM _processed_files) "
                     "AND content_hash NOT IN (SELECT h FROM _seen_hashes)"
                 ), {"cid": cid})
                 orphaned = reconcile.rowcount or 0
                 logger.info(
-                    "Reconcile: removed %d stale/orphan rows for context_id=%s "
-                    "(%d distinct content hashes kept this run)",
-                    orphaned, cid, len(seen_hashes),
+                    "Reconcile: removed %d stale chunks across %d processed "
+                    "files for context_id=%s (%d distinct content hashes kept)",
+                    orphaned, len(files_processed), cid, len(seen_hashes),
                 )
             else:
                 logger.warning(

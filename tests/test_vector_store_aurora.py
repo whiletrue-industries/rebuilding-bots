@@ -252,10 +252,16 @@ def test_delete_existing_files_is_noop(aurora_db, monkeypatch):
     assert names == {"keep.md", "drop.md"}  # nothing deleted
 
 
-def test_upload_files_reconciles_stale_and_orphan_rows(aurora_db, monkeypatch):
-    """upload_files deletes rows whose content the run no longer produces:
-    stale chunks of an edited file + chunks of an orphaned (removed) file.
-    Unchanged content is kept (skip), new content is inserted."""
+def test_upload_files_reconciles_stale_within_processed_files_only(aurora_db, monkeypatch):
+    """upload_files reconciles STALE chunks of files this run processed —
+    NOT rows belonging to files the run did not touch. A partial / incomplete
+    input must never silently wipe orthogonal context data (the 2026-05-22
+    K15-K23 ethics regression).
+
+    Cleanup of files genuinely removed upstream is an explicit operator
+    action (`botnim sync --force-rebuild`), not a side-effect of every
+    daily refresh.
+    """
     from botnim.vector_store.vector_store_aurora import VectorStoreAurora
     from botnim.db.session import get_engine
 
@@ -281,20 +287,69 @@ def test_upload_files_reconciles_stale_and_orphan_rows(aurora_db, monkeypatch):
     assert contents() == {"alpha", "beta"}
     assert fake.call_count == 2
 
-    # run 2 — a.md edited, b.md removed (orphan), c.md new
+    # run 2 — a.md edited (chunk now produces "alpha-v2"); b.md NOT in this
+    # run's input (e.g. seed dropped it, EFS-stale, partial run, …); c.md new
     store.upload_files({"slug": "x"}, "x", cid,
                        _make_file_streams([("a.md", "alpha-v2", {}), ("c.md", "gamma", {})]),
                        lambda n: None)
-    # 'alpha' (edited away) + 'beta' (orphan) reconciled out; new content embedded
-    assert contents() == {"alpha-v2", "gamma"}
-    assert fake.call_count == 4  # +2 new embeds, nothing else
+    # 'alpha' deleted as a stale chunk of a.md (run touched a.md, produced
+    # a different chunk_hash for it). 'beta' KEPT because b.md was not
+    # processed this run — per-file reconcile scope leaves untouched files
+    # alone. 'alpha-v2' + 'gamma' embedded.
+    assert contents() == {"alpha-v2", "beta", "gamma"}
+    assert fake.call_count == 4  # +2 new embeds
 
     # run 3 — identical to run 2: pure steady state, zero embeds, zero changes
     store.upload_files({"slug": "x"}, "x", cid,
                        _make_file_streams([("a.md", "alpha-v2", {}), ("c.md", "gamma", {})]),
                        lambda n: None)
-    assert contents() == {"alpha-v2", "gamma"}
+    assert contents() == {"alpha-v2", "beta", "gamma"}
     assert fake.call_count == 4  # unchanged — the steady-state $0 case
+
+
+def test_upload_files_does_not_delete_rows_for_untouched_files(aurora_db, monkeypatch):
+    """The 2026-05-22 regression specifically: a daily refresh whose source
+    CSV only mentions a SUBSET of files used to wipe every row from the
+    OTHER files (the K15-K23 ethics seed). The per-file reconcile scope
+    fixes this: untouched files stay intact regardless of run completeness.
+    """
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.db.session import get_engine
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+    config = {"slug": "unified", "name": "Unified"}
+    store = VectorStoreAurora(config=config, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "x"}, "x", False)
+    eng = get_engine()
+
+    # Seed three files of legitimate content
+    store.upload_files({"slug": "x"}, "x", cid,
+                       _make_file_streams([
+                           ("historical_1.md", "old-content-1", {}),
+                           ("historical_2.md", "old-content-2", {}),
+                           ("current.md", "today", {})]),
+                       lambda n: None)
+    with eng.connect() as conn:
+        n = conn.execute(text("SELECT count(*) FROM documents WHERE context_id=:c"),
+                          {"c": cid}).scalar()
+    assert n == 3
+
+    # Run a refresh that only mentions `current.md` (the EFS-stale case).
+    # Historical rows must NOT be deleted.
+    store.upload_files({"slug": "x"}, "x", cid,
+                       _make_file_streams([("current.md", "today", {})]),
+                       lambda n: None)
+    with eng.connect() as conn:
+        rows = sorted(r[0] for r in conn.execute(text(
+            "SELECT content FROM documents WHERE context_id=:c"), {"c": cid}).fetchall())
+    assert rows == ["old-content-1", "old-content-2", "today"], (
+        "Historical content was silently deleted by a partial run — the "
+        "2026-05-22 K15-K23 regression has come back. Per-file reconcile "
+        "scope must protect untouched files.")
 
 
 def test_upload_files_empty_run_does_not_wipe_context(aurora_db, monkeypatch):

@@ -11,31 +11,51 @@ set -eu
 # created on first use — no entrypoint setup required.
 
 # ─────────────────────────────────────────────────────────────────────────
-# EFS seed: /srv/specs/unified/extraction is an EFS access point in
-# staging/prod. On a fresh EFS (first deploy or after a wipe) it's empty;
-# botnim sync then finds no extraction CSVs and the bot serves nothing for
-# knesset PDF contexts. Seed from the image-baked copy at /srv/specs-seed
-# when the mount is empty. This is a no-op locally (both paths live in the
-# container) and a no-op after the first successful refresh writes real
-# content to EFS.
+# EFS seed sync: /srv/specs/unified/extraction is an EFS access point in
+# staging/prod, used as a CACHE for expensive downstream artifacts (the
+# downloaded Knesset PDFs/DOCs and the LLM-extracted markdown content
+# files). Seed CSVs in the image (e.g. ethics_decisions/index.csv with
+# the K15-K23 historical rows from commit 0e99978) are the canonical
+# source-of-truth and live in /srv/specs-seed; the EFS copy of them is
+# just a working set the fap stage reads + augments with live-fetch data.
+#
+# Earlier versions seeded EFS only when empty. Once EFS was populated,
+# image-baked seed updates (new historical rows, new contexts) never
+# reached runtime. Combined with the post-upload reconcile in
+# vector_store_aurora.upload_files, that quietly wiped any Aurora row
+# whose source CSV had been pruned out of EFS.
+#
+# Fix: always copy seed files from image → EFS at container start. This
+# is idempotent for unchanged files (cp -p preserves mtime), and safe
+# because Aurora is the real source of truth for retrieval — the daily
+# fap-sync re-derives any merged-with-live-fetch content right after
+# this script exits. Non-seed files on EFS (downloaded PDFs/DOCs,
+# extracted markdown content_files) are untouched because they don't
+# exist under $seed_dir.
 # ─────────────────────────────────────────────────────────────────────────
-seed_extraction_if_empty() {
+sync_seed_extraction() {
   local mount_dir=/srv/specs/unified/extraction
   local seed_dir=/srv/specs-seed/unified/extraction
   if [ ! -d "$seed_dir" ]; then
     return 0
   fi
   mkdir -p "$mount_dir"
-  if [ -z "$(ls -A "$mount_dir" 2>/dev/null)" ]; then
-    echo "[seed_extraction_if_empty] $mount_dir is empty; seeding from $seed_dir"
-    cp -R "$seed_dir"/. "$mount_dir"/
-    echo "[seed_extraction_if_empty] done; $(ls "$mount_dir" | wc -l) files seeded"
-  else
-    echo "[seed_extraction_if_empty] $mount_dir already populated; skip"
-  fi
+  local before after
+  before=$(find "$mount_dir" -type f 2>/dev/null | wc -l | tr -d ' ')
+  # -R recurse; --preserve=mode,timestamps copies file modes + mtimes but
+  # NOT ownership (the container runs as a non-root user, so chown would
+  # fail on EFS with "Operation not permitted" and abort the entrypoint
+  # under `set -eu`). Without ownership preservation, the new files are
+  # owned by the runtime user — same as anything written to EFS by fap.
+  # Default overwrite behavior is what we want: seed files always win;
+  # non-seed files on EFS (downloaded PDFs, extracted content_files) are
+  # untouched because they don't exist under $seed_dir.
+  cp -R --preserve=mode,timestamps "$seed_dir"/. "$mount_dir"/
+  after=$(find "$mount_dir" -type f 2>/dev/null | wc -l | tr -d ' ')
+  echo "[sync_seed_extraction] seed → mount sync complete; files in mount before=$before after=$after"
 }
 
-seed_extraction_if_empty
+sync_seed_extraction
 
 # ─────────────────────────────────────────────────────────────────────────
 # Cold-start flow (when SYNC_ON_STARTUP=1, i.e. ECS staging/prod):
