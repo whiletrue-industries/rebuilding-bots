@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from botnim.sanity import judge
-from botnim.sanity.types import Answer, CaptureRow
+from botnim.sanity.types import Answer, CaptureRow, SideCapture
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -25,9 +25,17 @@ def _make_row(row: int = 0, **kwargs) -> CaptureRow:
         expected_behavior="Cites §78 and explains the budget vote sequence.",
         must_not_contain=["איזה סוג מידע אתם מחפשים"],
         observed_notes="",
-        answer_old=Answer(text="ועדת הכנסת מצביעה על התקציב.", ok=True),
-        answer_new=Answer(text="לפי §78(ג) של תקנון הכנסת…", ok=True),
+        followup_prompt=None,
+        expected_after_followup=None,
+        answer_old=SideCapture(turn1=Answer(text="ועדת הכנסת מצביעה על התקציב.", ok=True)),
+        answer_new=SideCapture(turn1=Answer(text="לפי §78(ג) של תקנון הכנסת…", ok=True)),
     )
+    # Allow callers to override answer_old / answer_new with a bare Answer for
+    # convenience — wrap it in a SideCapture so the CaptureRow constructor
+    # gets the new schema.
+    for k in ("answer_old", "answer_new"):
+        if k in kwargs and isinstance(kwargs[k], Answer):
+            kwargs[k] = SideCapture(turn1=kwargs[k])
     base.update(kwargs)
     return CaptureRow(**base)
 
@@ -149,3 +157,45 @@ def test_judge_handles_unparseable_response_as_infra(monkeypatch):
     out = judge.judge_rubric(row)
     assert out.verdict == "INFRA"
     assert "parse" in out.reason.lower() or "json" in out.reason.lower()
+
+
+def test_client_reads_env_suffixed_api_key_production(monkeypatch):
+    """Regression guard for the 2026-05-24 prod incident: every prod
+    sanity run produced 14 INFRA verdicts because `_client()` called
+    `OpenAI()` with no args, and the SDK couldn't find an OPENAI_API_KEY
+    — the botnim task only sets OPENAI_API_KEY_PRODUCTION (same
+    convention as the embedder). Make sure we read the env-suffixed
+    name and pass it explicitly to OpenAI().
+    """
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("OPENAI_API_KEY_PRODUCTION", "sk-prod-from-suffix")
+    monkeypatch.delenv("OPENAI_API_KEY_STAGING", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    seen = {}
+    monkeypatch.setattr(judge, "OpenAI", lambda api_key=None: seen.setdefault("k", api_key))
+    judge._client()
+    assert seen["k"] == "sk-prod-from-suffix"
+
+
+def test_client_reads_env_suffixed_api_key_staging(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "staging")
+    monkeypatch.setenv("OPENAI_API_KEY_STAGING", "sk-staging-from-suffix")
+    monkeypatch.delenv("OPENAI_API_KEY_PRODUCTION", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    seen = {}
+    monkeypatch.setattr(judge, "OpenAI", lambda api_key=None: seen.setdefault("k", api_key))
+    judge._client()
+    assert seen["k"] == "sk-staging-from-suffix"
+
+
+def test_client_falls_back_to_standard_openai_api_key(monkeypatch):
+    """For local-dev convenience: if neither suffixed var is set but
+    OPENAI_API_KEY is, use that."""
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY_PRODUCTION", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY_STAGING", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-local-fallback")
+    seen = {}
+    monkeypatch.setattr(judge, "OpenAI", lambda api_key=None: seen.setdefault("k", api_key))
+    judge._client()
+    assert seen["k"] == "sk-local-fallback"
