@@ -157,6 +157,15 @@ inputs = {
   # silently rendered `arizephoenix/phoenix:<git-sha>` → CannotPullContainerError.
   phoenix_image_tag = "version-7.0.0"
 
+  # Pull from in-account ECR mirror (`mirror/phoenix`) instead of public
+  # DockerHub. On 2026-05-24 prod Phoenix entered a crashloop because Fargate's
+  # outbound NAT IP pool was hitting DockerHub's 100-pulls/6h anonymous limit;
+  # the registry started returning 429 toomanyrequests on every task placement.
+  # The mirror eliminates the DockerHub dependency. Same convention as the
+  # existing `mirror/mongo` and `mirror/meilisearch` repos in this account.
+  # Recipe to refresh the mirror image is in parlibot/CLAUDE.md.
+  phoenix_image_repository = "086879295714.dkr.ecr.il-central-1.amazonaws.com/mirror/phoenix"
+
   # Defense-in-depth: Phoenix must never be on the public internet.
   # The module already defaults this to false and enforces it via a validation
   # block; we repeat it here so this stack's intent is visible without reading

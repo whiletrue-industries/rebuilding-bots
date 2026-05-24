@@ -52,7 +52,21 @@ variable "phoenix_image_tag" {
   # used for botnim-api / librechat ECR images). When the names collided,
   # terragrunt silently rendered `arizephoenix/phoenix:<git-sha>` and the
   # Phoenix task failed with CannotPullContainerError every deploy.
-  description = "arizephoenix/phoenix Docker tag — pin to a known-good version"
+  description = "Phoenix Docker tag — pin to a known-good version"
+}
+
+variable "phoenix_image_repository" {
+  type        = string
+  default     = "arizephoenix/phoenix"
+  # On 2026-05-24 prod started failing CannotPullContainerError with 429
+  # toomanyrequests against registry-1.docker.io because Fargate's outbound
+  # NAT shares an IP pool with everyone else in the region, and DockerHub's
+  # unauthenticated rate limit (100 pulls / 6h / source IP) was being eaten
+  # by neighbours. Overriding this to an in-account ECR mirror
+  # (e.g. 086879295714.dkr.ecr.il-central-1.amazonaws.com/mirror/phoenix)
+  # eliminates the DockerHub dependency entirely. See parlibot/CLAUDE.md
+  # for the mirror-image recipe.
+  description = "Container image repository (without tag). Defaults to the public DockerHub repo; override to an ECR mirror when DockerHub rate limits are biting."
 }
 
 variable "aurora_security_group_id" {
