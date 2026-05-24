@@ -17,6 +17,7 @@ from botnim.sanity.types import (
     CaptureResult,
     CaptureRow,
     GoldEntry,
+    SideCapture,
 )
 
 
@@ -34,8 +35,9 @@ def fake_pipeline(monkeypatch):
         return CaptureResult(rows=[CaptureRow(
             row=0, question="q", expected_behavior="e",
             must_not_contain=[], observed_notes="",
-            answer_old=Answer(text="old", ok=True),
-            answer_new=Answer(text="new", ok=True),
+            followup_prompt=None, expected_after_followup=None,
+            answer_old=SideCapture(turn1=Answer(text="old", ok=True)),
+            answer_new=SideCapture(turn1=Answer(text="new", ok=True)),
         )])
 
     def fake_judge_all(rows):
@@ -87,7 +89,7 @@ def test_run_sanity_happy_path_finalizes_succeeded(fake_pipeline):
 
 
 def test_run_sanity_uses_env_specific_urls(fake_pipeline):
-    runner.run_sanity(env="prod", db_url="postgres://fake")
+    runner.run_sanity(env="production", db_url="postgres://fake")
     capture_kwargs = fake_pipeline["captured"]["capture_kwargs"]
     assert capture_kwargs["url_old"] == "https://botnim.co.il"
     assert capture_kwargs["url_new"] == "https://botnim.build-up.team"
@@ -97,6 +99,37 @@ def test_run_sanity_staging_uses_staging_url(fake_pipeline):
     runner.run_sanity(env="staging", db_url="postgres://fake")
     capture_kwargs = fake_pipeline["captured"]["capture_kwargs"]
     assert capture_kwargs["url_new"] == "https://botnim.staging.build-up.team"
+
+
+def test_urls_for_env_rejects_short_form_prod():
+    """Regression guard for the 2026-05-24 prod incident: botnim-api's
+    server.py reads `os.environ['ENVIRONMENT']`, which is set to
+    'production' / 'staging' / 'local' per botnim.config.VALID_ENVIRONMENTS.
+    `_urls_for_env` used to accept the SHORT form 'prod' instead of the
+    canonical 'production', so every prod sanity invocation crashed with
+    `ValueError: unknown env: production`. Pin the canonical naming so
+    nobody silently re-introduces the alias.
+    """
+    with pytest.raises(ValueError, match="unknown env"):
+        runner._urls_for_env("prod")
+
+
+def test_urls_for_env_accepts_canonical_production_and_staging():
+    assert runner._urls_for_env("production") == (
+        "https://botnim.co.il", "https://botnim.build-up.team",
+    )
+    assert runner._urls_for_env("staging") == (
+        "https://botnim.co.il", "https://botnim.staging.build-up.team",
+    )
+
+
+def test_urls_for_env_error_message_lists_accepted_values():
+    """The error message must guide the operator to the right input."""
+    with pytest.raises(ValueError) as exc:
+        runner._urls_for_env("dev")
+    msg = str(exc.value)
+    assert "production" in msg
+    assert "staging" in msg
 
 
 def test_run_sanity_capture_failure_marks_failed(monkeypatch, caplog):

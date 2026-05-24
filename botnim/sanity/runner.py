@@ -35,11 +35,19 @@ _SANITY_PASSWORD = "rebuilding279602"
 
 
 def _urls_for_env(env: str) -> tuple[str, str]:
-    if env == "prod":
+    # Canonical env names match botnim.config.VALID_ENVIRONMENTS:
+    #   ['production', 'staging', 'local']
+    # The server.py route handler reads `os.environ['ENVIRONMENT']` and
+    # passes it through to run_sanity verbatim, so the names that arrive
+    # here MUST be the canonical ones. Historic acceptance of `"prod"`
+    # was a one-off that caused `ValueError: unknown env: production`
+    # in prod once LibreChat started setting ENVIRONMENT=production
+    # for its own AdminSanity dashboard filter.
+    if env == "production":
         return ("https://botnim.co.il", "https://botnim.build-up.team")
     if env == "staging":
         return ("https://botnim.co.il", "https://botnim.staging.build-up.team")
-    raise ValueError(f"unknown env: {env}")
+    raise ValueError(f"unknown env: {env!r} (expected one of: production, staging)")
 
 
 def run_sanity(*, env: str, db_url: str) -> str:
