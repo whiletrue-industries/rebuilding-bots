@@ -128,15 +128,18 @@ def write_decision(
 
 
 def _resolve_openai_api_key(environment: str) -> str | None:
-    """Mirror `_get_embedding_client`'s key resolution rules.
+    """Delegate to the canonical resolver in botnim.config.
 
-    Production reads OPENAI_API_KEY_PRODUCTION; everything else (local,
-    staging) reads OPENAI_API_KEY_STAGING. Documented at length in
-    CLAUDE.md ("OPENAI_API_KEY_STAGING is required even for ENV=local").
+    The central resolver also honours OPENAI_API_KEY_<ENV>_FAP_SYNC when
+    invoked inside a fap_sync_context() (e.g. from _run_refresh_job),
+    routing the daily refresh to a dedicated OpenAI key while keeping
+    chat retrieval on the regular key.
     """
-    if environment == "production":
-        return os.getenv("OPENAI_API_KEY_PRODUCTION")
-    return os.getenv("OPENAI_API_KEY_STAGING")
+    from botnim.config import _resolve_openai_api_key as _resolve
+    try:
+        return _resolve(environment)
+    except ValueError:
+        return None
 
 
 def write_decisions_batched(

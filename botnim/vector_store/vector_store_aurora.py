@@ -216,12 +216,11 @@ def _get_embedding_client(environment: str):
     this function to inject a fake. Kept as a module-level function
     (not a method) so monkeypatch works without subclassing.
     """
-    api_key = (
-        os.getenv("OPENAI_API_KEY_PRODUCTION")
-        if environment == "production"
-        else os.getenv("OPENAI_API_KEY_STAGING")
-    )
-    client = OpenAI(api_key=api_key)
+    # Centralised through _resolve_openai_api_key so the contextvar in
+    # botnim.config picks up the OPENAI_API_KEY_<ENV>_FAP_SYNC override
+    # when this client is built inside a fap_sync_context().
+    from botnim.config import _resolve_openai_api_key
+    client = OpenAI(api_key=_resolve_openai_api_key(environment))
 
     class _Wrapper:
         def embed(self, text: str) -> list:
@@ -254,14 +253,13 @@ class VectorStoreAurora(VectorStoreBase):
         self.environment = env_name
 
         # OpenAI client surface — query.py expects `vector_store.openai_client.embeddings.create(...)`
-        # to mint query embeddings. Same env-var convention as VectorStoreES; the
-        # CLAUDE.md troubleshooting note covers why we read STAGING for non-prod
-        # (no separate _LOCAL key in the existing infra).
-        openai_api_key = (
-            os.getenv("OPENAI_API_KEY_PRODUCTION") if production
-            else os.getenv("OPENAI_API_KEY_STAGING")
-        )
-        self.openai_client = OpenAI(api_key=openai_api_key)
+        # to mint query embeddings. Centralised through _resolve_openai_api_key
+        # so the contextvar in botnim.config picks up the
+        # OPENAI_API_KEY_<ENV>_FAP_SYNC override when this store is built
+        # inside a fap_sync_context() (i.e. during the daily refresh, not
+        # at chat-retrieval time).
+        from botnim.config import _resolve_openai_api_key
+        self.openai_client = OpenAI(api_key=_resolve_openai_api_key(self.environment))
 
         # Trigger engine creation early so connection failures surface here, not later
         get_engine()

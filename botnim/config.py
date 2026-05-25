@@ -1,4 +1,6 @@
+from contextlib import contextmanager
 from pathlib import Path
+import contextvars
 import dotenv
 import logging
 import os
@@ -27,10 +29,48 @@ def get_logger(name: str) -> logging.Logger:
     #     logger.addHandler(handler)
     return logger
 
+# Set to True for the duration of a daily-refresh / fap-sync execution to
+# route OpenAI calls to the dedicated fap-sync key when one is configured.
+# Implemented as a contextvars.ContextVar so the flag rides asyncio.Task
+# boundaries automatically — and any OpenAI client constructed inside the
+# context window has its api_key baked in at construction time, so worker
+# threads that consume that client (e.g. process_pdfs.ThreadPoolExecutor)
+# inherit the right key by way of the client object, not by re-reading
+# environ inside each worker.
+_IN_FAP_SYNC: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    'botnim_in_fap_sync', default=False
+)
+
+
+@contextmanager
+def fap_sync_context():
+    """Enter a fap-sync execution context.
+
+    While the context is active, ``_resolve_openai_api_key(env)`` prefers
+    the ``OPENAI_API_KEY_<ENV>_FAP_SYNC`` env var over the regular
+    ``OPENAI_API_KEY_<ENV>``. Lets the daily refresh use a dedicated key
+    (cost isolation, rate-limit segregation) without altering the key
+    used by chat retrieval, sanity, or any other runtime path on the
+    same process.
+
+    Falls back transparently to the regular env-suffixed key if the
+    fap-sync-specific var is unset — so an env that hasn't opted in to
+    key separation keeps the old behaviour.
+    """
+    token = _IN_FAP_SYNC.set(True)
+    try:
+        yield
+    finally:
+        _IN_FAP_SYNC.reset(token)
+
+
 def _resolve_openai_api_key(environment: str | None = None) -> str:
     """Resolve OPENAI_API_KEY for the given environment.
 
     Lookup order:
+      0. ``OPENAI_API_KEY_{ENV}_FAP_SYNC`` — only consulted when the current
+         execution context is inside :func:`fap_sync_context`. Lets the
+         daily refresh use a dedicated key without affecting runtime paths.
       1. ``OPENAI_API_KEY_{ENV}`` for the requested environment (when given).
       2. The unprefixed ``OPENAI_API_KEY`` (works on any task that wires the
          secret directly under that name).
@@ -40,11 +80,18 @@ def _resolve_openai_api_key(environment: str | None = None) -> str:
          on whichever ECS task they happen to run on, instead of hardcoding
          a staging-only fallback that fails on prod.
     """
+    in_fap_sync = _IN_FAP_SYNC.get()
     candidates: list[str] = []
+    if environment and in_fap_sync:
+        candidates.append(f'OPENAI_API_KEY_{environment.upper()}_FAP_SYNC')
     if environment:
         candidates.append(f'OPENAI_API_KEY_{environment.upper()}')
     candidates.append('OPENAI_API_KEY')
     for env_name in ('PRODUCTION', 'STAGING', 'LOCAL'):
+        if in_fap_sync:
+            fap_var = f'OPENAI_API_KEY_{env_name}_FAP_SYNC'
+            if fap_var not in candidates:
+                candidates.append(fap_var)
         var = f'OPENAI_API_KEY_{env_name}'
         if var not in candidates:
             candidates.append(var)

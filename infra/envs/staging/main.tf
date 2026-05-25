@@ -144,6 +144,11 @@ module "botnim_api" {
   secret_environment_variables = merge(
     {
       "OPENAI_API_KEY_${upper(var.environment)}" = aws_secretsmanager_secret.openai_api_key.arn
+      # Dedicated key the daily refresh uses while inside
+      # botnim.config.fap_sync_context. Falls back to OPENAI_API_KEY_<ENV>
+      # transparently if the secret value is unset, so the refresh still
+      # runs before the secret is populated.
+      "OPENAI_API_KEY_${upper(var.environment)}_FAP_SYNC" = aws_secretsmanager_secret.openai_api_key_fap_sync.arn
       # Consumed by backend/api/refresh_auth.py to authenticate the Lambda's
       # calls to /admin/refresh. Value is set out-of-band via Secrets Manager.
       BOTNIM_ADMIN_API_KEY        = aws_secretsmanager_secret.refresh_admin_api_key.arn
