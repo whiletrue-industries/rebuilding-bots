@@ -78,8 +78,11 @@ class VectorStoreES(VectorStoreBase):
         logger.info(f"Connecting to Elasticsearch at {es_kwargs['hosts'][0]} for {env_name} environment")
 
         self.es_client = Elasticsearch(**es_kwargs)
-        openai_api_key = os.getenv('OPENAI_API_KEY_PRODUCTION') if production else os.getenv('OPENAI_API_KEY_STAGING')
-        self.openai_client = OpenAI(api_key=openai_api_key)
+        # Centralised through _resolve_openai_api_key so the contextvar
+        # in botnim.config picks up the OPENAI_API_KEY_<ENV>_FAP_SYNC
+        # override when this store is built inside a fap_sync_context().
+        from botnim.config import _resolve_openai_api_key
+        self.openai_client = OpenAI(api_key=_resolve_openai_api_key(env_name))
 
         # Verify connection
         try:

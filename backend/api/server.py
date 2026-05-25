@@ -535,13 +535,24 @@ def _try_run_with_advisory_lock(key: int, label: str, fn) -> None:
 def _run_refresh_job() -> None:
     env = os.environ.get("ENVIRONMENT", DEFAULT_ENVIRONMENT)
     logger.info(f"REFRESH_START: env={env}")
-    # fetch_and_process(environment, bot, context, kind). 'all' kind so any
-    # newly-added fetcher type (bk_csv for government_decisions, future
-    # additions) gets picked up without a code change here. Static fetchers
-    # (lexicon, wikitext) re-run cheaply when nothing changed upstream.
-    fetch_and_process(env, "all", "all", "all")
-    # backend defaults to 'aurora' (sync.py:80) post-2026-04 migration.
-    sync_agents(env, "all")
+    # Daily refresh uses a dedicated OpenAI key when configured (see
+    # botnim.config.fap_sync_context). All OpenAI clients built inside
+    # this block — sync embeddings, gpt-4o-mini extraction, gpt-4.1-mini
+    # PDF field extraction — pick up OPENAI_API_KEY_<ENV>_FAP_SYNC if it
+    # is set; the chat-retrieval and sanity-judge paths on the same task
+    # are unaffected because they construct their clients OUTSIDE this
+    # context (sanity has its own daemon thread; /retrieve hits its own
+    # request context).
+    from botnim.config import fap_sync_context
+    with fap_sync_context():
+        # fetch_and_process(environment, bot, context, kind). 'all' kind so
+        # any newly-added fetcher type (bk_csv for government_decisions,
+        # future additions) gets picked up without a code change here.
+        # Static fetchers (lexicon, wikitext) re-run cheaply when nothing
+        # changed upstream.
+        fetch_and_process(env, "all", "all", "all")
+        # backend defaults to 'aurora' (sync.py:80) post-2026-04 migration.
+        sync_agents(env, "all")
     logger.info("REFRESH_OK")
 
 

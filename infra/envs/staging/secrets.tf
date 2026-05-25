@@ -12,6 +12,16 @@ resource "aws_secretsmanager_secret" "openai_api_key" {
   kms_key_id  = local.contract.ecs.kms_key_arn
 }
 
+# Dedicated key for the daily fap-sync (botnim.config.fap_sync_context).
+# Lets the refresh run on its own OpenAI org/project for cost isolation
+# without disturbing chat retrieval or sanity, which use the regular key
+# above.
+resource "aws_secretsmanager_secret" "openai_api_key_fap_sync" {
+  name        = "botnim-api/${var.environment}/openai-api-key-fap-sync"
+  description = "Dedicated OpenAI API key consumed only by the daily fap-sync (fap_sync_context)"
+  kms_key_id  = local.contract.ecs.kms_key_arn
+}
+
 # TODO(post-soak): remove after Window C closes (~T+30d) — rollback artifact.
 # Keep until Aurora migration soak period ends and we confirm no rollback to ES.
 resource "aws_secretsmanager_secret" "elasticsearch_password" {
