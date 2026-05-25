@@ -8,7 +8,7 @@
       "הסתייגות"
     ],
     "must_not_contain": [],
-    "expected_behavior": "IDEAL ONE-TURN ANSWER: surface all three legal-advisor memos that touch on הסתייגויות בוועדה — the budget-reservation memo (8.1.2024), the new-topic-via-reservation memo (חוות דעת 23, 4.5.2023), and the concurrent-meetings memo (חוות דעת 40, 28.6.2022) — and synthesise them as one coherent set of guidelines. Should default to full-text search of the legal-advisor opinions corpus rather than asking the user to disambiguate or rephrase.",
+    "expected_behavior": "ACCEPT EITHER ONE-TURN PATH: (a) surface the three legal-advisor memos that touch on הסתייגויות בוועדה — the budget-reservation memo (8.1.2024), the new-topic-via-reservation memo (חוות דעת 23, 4.5.2023), and the concurrent-meetings memo (חוות דעת 40, 28.6.2022) — and synthesise them as one coherent set; OR (b) give a substantive, sourced takanon-based answer (e.g. §86 of תקנון הכנסת) explaining the procedure for committee reservations. Both readings of 'הנחיות היועצת' are valid; what counts as a fail is asking the user to disambiguate, rephrasing the question back, or producing a vague non-answer.",
     "followup_prompt": "תרחיב — חפש בטקסט המלא של חוות הדעת של היועצת המשפטית לכנסת",
     "expected_after_followup": "After the expansion prompt, the bot must explicitly surface the 8.1.2024 budget-reservation memo AND the 4.5.2023 new-topic memo (חוות דעת 23) and summarise their guidelines as one consolidated set. Failure mode: still answering with vague 'no dedicated memo found' or only listing one of the two.",
     "observed": {
