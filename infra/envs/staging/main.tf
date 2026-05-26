@@ -101,6 +101,13 @@ module "botnim_api" {
       # S3 bucket for /tools/generate_word_doc uploads. Bucket lifecycle
       # auto-purges objects after 7 days; presigned URLs are shorter-lived.
       WORD_DOCS_BUCKET = aws_s3_bucket.word_docs.id
+      # 2026-05-26: disable the per-run extraction LLM-call ceiling
+      # (mirrors prod). Default 5000 in
+      # botnim/_concurrency.py:DEFAULT_LLM_CALL_CEILING cut the daily
+      # refresh short on backlog days; fap-sync now has its own OpenAI
+      # key so the cost-isolation arg for the cap is gone. 0 disables
+      # the circuit breaker.
+      EXTRACTION_MAX_LLM_CALLS_PER_RUN = "0"
       # Phoenix LLM-tracing collector (in-cluster Service Connect DNS).
       # When unset, botnim/observability/tracing.py is a no-op. The phoenix
       # ECS service is provisioned by infra/live/staging/phoenix/. Botnim-api
