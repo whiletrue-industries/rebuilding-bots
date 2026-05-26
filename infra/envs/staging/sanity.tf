@@ -202,7 +202,10 @@ resource "aws_scheduler_schedule" "sanity" {
   name                = "botnim-sanity-${var.environment}"
   group_name          = "default"
   schedule_expression = "cron(0 3,12 * * ? *)"
-  state               = "ENABLED"
+  # 2026-05-26: auto-runs paused (mirrors prod). Admins can still trigger
+  # sanity manually from the /d/sanity UI; flip back to "ENABLED" to
+  # restore the twice-daily auto-runs.
+  state = "DISABLED"
   flexible_time_window {
     mode = "OFF"
   }

@@ -202,7 +202,12 @@ resource "aws_scheduler_schedule" "sanity" {
   name                = "botnim-sanity-${var.environment}"
   group_name          = "default"
   schedule_expression = "cron(0 3,12 * * ? *)"
-  state               = "ENABLED"
+  # 2026-05-26: auto-runs paused. Each twice-daily fire costs ~$3-4 in
+  # gpt-4o (LibreChat capture + sanity-judge) on the regular OpenAI key.
+  # Admins can still trigger sanity manually from the /d/sanity UI; the
+  # scheduler resource is kept so re-enabling is a one-line flip back to
+  # "ENABLED" rather than a resource recreate.
+  state = "DISABLED"
   flexible_time_window {
     mode = "OFF"
   }
