@@ -210,3 +210,175 @@ def test_replace_context_none_with_force_rebuild_false_is_noop(aurora_db, monkey
         f"replace_context='none' must not delete; got {mock_delete.call_count} call(s)"
     )
     assert _doc_count(cid) == pre_count, "row count unchanged"
+
+
+# ---------------------------------------------------------------------------
+# SYNC_DELTA observability (2026-05-27)
+#
+# Pins down the per-context structured log line that distinguishes
+# "chunks_unchanged" (cache hit, no LLM cost) from "chunks_inserted"
+# (genuinely new content_hash, paid LLM cost) and "orphans_deleted"
+# (reconcile displacement of stale content_hashes in the same files).
+# The motivation: before this line, the existing `successful` counter
+# folded the first two together, and there was no way to tell from logs
+# whether a run did new work or just churned existing chunks because of
+# extraction non-determinism. churn_ratio = orphans / inserts answers
+# that question at-a-glance.
+# ---------------------------------------------------------------------------
+
+
+def _parse_sync_delta(caplog) -> dict[str, str]:
+    """Extract the latest SYNC_DELTA line and return its k=v pairs as a dict."""
+    lines = [r.getMessage() for r in caplog.records if r.getMessage().startswith("SYNC_DELTA: ")]
+    assert lines, "no SYNC_DELTA log line emitted"
+    payload = lines[-1][len("SYNC_DELTA: "):]
+    out = {}
+    for pair in payload.split():
+        if "=" not in pair:
+            continue
+        k, v = pair.split("=", 1)
+        out[k] = v
+    return out
+
+
+def test_sync_delta_logs_cache_hit_on_unchanged_chunks(aurora_db, monkeypatch, caplog):
+    """Re-uploading the SAME chunks should produce SYNC_DELTA with
+    chunks_unchanged=N, chunks_inserted=0, orphans_deleted=0, churn_ratio=N/A."""
+    import logging
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+    store = VectorStoreAurora(
+        config={"slug": "unified", "name": "Unified"},
+        config_dir=".", environment="staging",
+    )
+    cid = store.get_or_create_vector_store(
+        {"slug": "ctx_delta_log_a"}, "ctx_delta_log_a",
+        replace_context=False, force_rebuild=False,
+    )
+    # Seed.
+    store.upload_files(
+        {"slug": "ctx_delta_log_a"}, "ctx_delta_log_a", cid,
+        _file_streams([("a.md", "alpha", {"title": "A"})]),
+        callback=lambda _: None,
+    )
+
+    # Re-upload identical input → all unchanged, no inserts, no orphans.
+    with caplog.at_level(logging.INFO, logger="botnim.vector_store.vector_store_aurora"):
+        store.upload_files(
+            {"slug": "ctx_delta_log_a"}, "ctx_delta_log_a", cid,
+            _file_streams([("a.md", "alpha", {"title": "A"})]),
+            callback=lambda _: None,
+        )
+    delta = _parse_sync_delta(caplog)
+    assert delta["bot"] == "unified"
+    assert delta["context"] == "ctx_delta_log_a"
+    assert delta["files_processed"] == "1"
+    assert delta["chunks_unchanged"] == "1"
+    assert delta["chunks_inserted"] == "0"
+    assert delta["orphans_deleted"] == "0"
+    assert delta["churn_ratio"] == "N/A", (
+        "churn_ratio must be N/A when chunks_inserted=0 (avoid 0/0); "
+        f"got {delta['churn_ratio']!r}"
+    )
+
+
+def test_sync_delta_logs_new_content_with_zero_churn(aurora_db, monkeypatch, caplog):
+    """Adding a NEW file with a NEW chunk_hash (no prior row in the file)
+    should produce chunks_inserted>0, orphans_deleted=0, churn_ratio=0%."""
+    import logging
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+    store = VectorStoreAurora(
+        config={"slug": "unified", "name": "Unified"},
+        config_dir=".", environment="staging",
+    )
+    cid = store.get_or_create_vector_store(
+        {"slug": "ctx_delta_log_b"}, "ctx_delta_log_b",
+        replace_context=False, force_rebuild=False,
+    )
+    # Seed with one file.
+    store.upload_files(
+        {"slug": "ctx_delta_log_b"}, "ctx_delta_log_b", cid,
+        _file_streams([("a.md", "alpha", {"title": "A"})]),
+        callback=lambda _: None,
+    )
+    # Now upload: same a.md (unchanged) + a brand-new b.md.
+    with caplog.at_level(logging.INFO, logger="botnim.vector_store.vector_store_aurora"):
+        store.upload_files(
+            {"slug": "ctx_delta_log_b"}, "ctx_delta_log_b", cid,
+            _file_streams([
+                ("a.md", "alpha", {"title": "A"}),
+                ("b.md", "beta",  {"title": "B"}),
+            ]),
+            callback=lambda _: None,
+        )
+    delta = _parse_sync_delta(caplog)
+    assert delta["chunks_unchanged"] == "1"
+    assert delta["chunks_inserted"] == "1"
+    assert delta["orphans_deleted"] == "0"
+    assert delta["churn_ratio"] == "0%", (
+        "1 insert + 0 deletes = 0% churn (the new content displaced nothing); "
+        f"got {delta['churn_ratio']!r}"
+    )
+
+
+def test_sync_delta_logs_pure_churn_at_100pct(aurora_db, monkeypatch, caplog):
+    """Re-uploading the SAME filename with DIFFERENT content body simulates
+    the extraction-drift pattern from the 2026-05-27 incident: every chunk
+    has a new content_hash, the per-file reconcile deletes the previous
+    chunks, net documents stays the same. churn_ratio must report 100%
+    so an operator can spot 'we paid LLM cost for ~0 new info' at a glance.
+    """
+    import logging
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+
+    fake = _FakeEmbeddingClient()
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: fake,
+    )
+    store = VectorStoreAurora(
+        config={"slug": "unified", "name": "Unified"},
+        config_dir=".", environment="staging",
+    )
+    cid = store.get_or_create_vector_store(
+        {"slug": "ctx_delta_log_c"}, "ctx_delta_log_c",
+        replace_context=False, force_rebuild=False,
+    )
+    # Seed.
+    store.upload_files(
+        {"slug": "ctx_delta_log_c"}, "ctx_delta_log_c", cid,
+        _file_streams([("a.md", "version-one body", {"title": "A"})]),
+        callback=lambda _: None,
+    )
+    assert _doc_count(cid) == 1
+    # Re-upload the SAME filename with different body → fresh content_hash;
+    # reconcile drops the old hash; net stays at 1.
+    with caplog.at_level(logging.INFO, logger="botnim.vector_store.vector_store_aurora"):
+        store.upload_files(
+            {"slug": "ctx_delta_log_c"}, "ctx_delta_log_c", cid,
+            _file_streams([("a.md", "version-two body — extraction drifted",
+                            {"title": "A"})]),
+            callback=lambda _: None,
+        )
+    assert _doc_count(cid) == 1, (
+        "net doc_count must stay at 1 after the per-file reconcile drops the stale chunk"
+    )
+    delta = _parse_sync_delta(caplog)
+    assert delta["chunks_unchanged"] == "0"
+    assert delta["chunks_inserted"] == "1"
+    assert delta["orphans_deleted"] == "1"
+    assert delta["churn_ratio"] == "100%", (
+        "1 insert + 1 delete in the same file = 100% churn; "
+        f"got {delta['churn_ratio']!r}"
+    )
