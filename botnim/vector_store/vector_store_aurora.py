@@ -329,6 +329,16 @@ class VectorStoreAurora(VectorStoreBase):
         successful = 0  # row count, not file count
         skipped = 0
         files_seen = 0
+        # Per-chunk delta breakdown — SYNC_DELTA observability (2026-05-27).
+        # Before, `successful` counted both "skipped because exists" and
+        # "INSERTed because new" together, so log readers couldn't tell
+        # whether a run actually surfaced new content or just paid LLM cost
+        # to re-embed chunks whose content_hash drifted. These split the
+        # counter so the per-context SYNC_DELTA line can expose
+        # chunks_inserted (real work) vs chunks_unchanged (cache hits)
+        # vs orphans_deleted (reconcile replacements).
+        chunks_unchanged = 0  # (cid, content_hash) row already existed → no embed, no INSERT
+        chunks_inserted  = 0  # row didn't exist → embed + INSERT happened
         # Every chunk content_hash this run produces (whether skipped as
         # unchanged or freshly inserted). Used after the upload pass to
         # delete rows whose content the run no longer produces.
@@ -398,6 +408,7 @@ class VectorStoreAurora(VectorStoreBase):
                                 fname, chunk_index + 1, total_chunks,
                             )
                             successful += 1
+                            chunks_unchanged += 1
                             continue
 
                         # New or changed content — embed and insert
@@ -424,6 +435,7 @@ class VectorStoreAurora(VectorStoreBase):
                             "sid": (metadata or {}).get("source_id"),
                         })
                         successful += 1
+                        chunks_inserted += 1
                     except Exception as exc:
                         logger.error(
                             "Failed to process %s (chunk %d/%d): %s",
@@ -474,11 +486,40 @@ class VectorStoreAurora(VectorStoreBase):
                     orphaned, len(files_processed), cid, len(seen_hashes),
                 )
             else:
+                orphaned = 0
                 logger.warning(
                     "upload_files produced 0 chunks for context_id=%s — skipping "
                     "orphan reconcile so a transient empty run cannot wipe the "
                     "context.", cid,
                 )
+
+            # Structured per-context SYNC_DELTA marker (2026-05-27). One line,
+            # grep-friendly. Distinguishes the three meaningful outcomes of a
+            # delta sync that the unsplit `successful` counter could not:
+            #   - chunks_unchanged: existed at the same content_hash → cache hit
+            #   - chunks_inserted:  embedded + INSERTed (content_hash didn't exist)
+            #   - orphans_deleted:  removed by per-file reconcile (stale chunks
+            #                       in files the run touched but no longer
+            #                       produces this content_hash for)
+            #
+            # churn_ratio = orphans_deleted / chunks_inserted:
+            #   ~0.0 → inserts are net-new content (good, expected for genuine
+            #          upstream additions)
+            #   ~1.0 → every insert displaced an old chunk in the same file
+            #          (= re-extraction churn — extraction non-determinism,
+            #          chunking drift, etc. costs LLM money for ~0 new info)
+            if chunks_inserted > 0:
+                churn_pct_str = f"{int(round(100.0 * orphaned / chunks_inserted))}%"
+            else:
+                churn_pct_str = "N/A"
+            logger.info(
+                "SYNC_DELTA: bot=%s context=%s files_processed=%d "
+                "chunks_unchanged=%d chunks_inserted=%d orphans_deleted=%d "
+                "chunks_skipped_error=%d churn_ratio=%s",
+                self.config.get('slug', '?'), context_name, len(files_processed),
+                chunks_unchanged, chunks_inserted, orphaned,
+                skipped, churn_pct_str,
+            )
 
         if callable(callback):
             callback(successful)
