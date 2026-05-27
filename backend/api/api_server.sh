@@ -47,10 +47,27 @@ sync_seed_extraction() {
   # fail on EFS with "Operation not permitted" and abort the entrypoint
   # under `set -eu`). Without ownership preservation, the new files are
   # owned by the runtime user — same as anything written to EFS by fap.
-  # Default overwrite behavior is what we want: seed files always win;
-  # non-seed files on EFS (downloaded PDFs, extracted content_files) are
-  # untouched because they don't exist under $seed_dir.
-  cp -R --preserve=mode,timestamps "$seed_dir"/. "$mount_dir"/
+  #
+  # 2026-05-27: --update added (PR rb#?). The old "seed files always win"
+  # comment was the documented design but it produced the
+  # restart-wipes-fap-sync bug: at every container restart this cp
+  # unconditionally overwrote EFS's live-fetched index.csv with the
+  # image-baked seed (mtime frozen at image build time, e.g. May 14).
+  # The next fap-sync re-derived only what was in the just-restored
+  # seed CSV, leaving everything fap-sync had previously fetched
+  # in-between as orphans that the per-file reconcile would then DELETE
+  # from `documents`. We lost the 2026 ethics decisions via this exact
+  # path on May 27.
+  #
+  # --update changes the semantic to "newer source wins": if EFS already
+  # has a newer copy (the typical state after a fap-sync run), the cp
+  # skips it. New image-baked seed updates STILL propagate because their
+  # mtime at build time is newer than whatever the old EFS file's mtime
+  # is — the operator-intended path.
+  #
+  # Non-seed files on EFS (downloaded PDFs, extracted content_files)
+  # remain untouched because they don't exist under $seed_dir.
+  cp -R --preserve=mode,timestamps --update "$seed_dir"/. "$mount_dir"/
   after=$(find "$mount_dir" -type f 2>/dev/null | wc -l | tr -d ' ')
   echo "[sync_seed_extraction] seed → mount sync complete; files in mount before=$before after=$after"
 }
