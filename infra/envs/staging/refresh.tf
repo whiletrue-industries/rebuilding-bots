@@ -227,7 +227,9 @@ resource "aws_scheduler_schedule" "refresh" {
   name                = "botnim-refresh-${var.environment}"
   group_name          = "default"
   schedule_expression = "cron(0 4 * * ? *)"
-  state               = "ENABLED"
+  # 2026-05-27: paused alongside prod following the EFS-clobber
+  # incident. Flip back to "ENABLED" when ready.
+  state = "DISABLED"
 
   flexible_time_window {
     mode = "OFF"
