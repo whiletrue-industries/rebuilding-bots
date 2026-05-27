@@ -222,7 +222,11 @@ resource "aws_scheduler_schedule" "refresh" {
   name                = "botnim-refresh-${var.environment}"
   group_name          = "default"
   schedule_expression = "cron(0 4 * * ? *)"
-  state               = "ENABLED"
+  # 2026-05-27: paused following the EFS-clobber incident. We're moving
+  # to local-prod-DB rehearsal of fap-sync before re-enabling. Flip
+  # back to "ENABLED" when the team is confident the architectural
+  # fixes (S3 replacement or filename stabilisation) are in place.
+  state = "DISABLED"
 
   flexible_time_window {
     mode = "OFF"
