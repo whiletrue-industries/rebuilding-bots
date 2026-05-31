@@ -41,7 +41,13 @@ module "botnim_api" {
     # librechat co-habits at the same host with /* catch-all and does NOT
     # create its own DNS record. Using `subdomain` (vs `host_headers`) is what
     # triggers org-infra's auto-wiring of the service-connect ingress SG.
-    subdomain         = "botnim"
+    subdomain = "botnim"
+    # subdomain is kept (drives the build-up.team DNS record + the auto-wiring
+    # noted above); host_headers is added so the listener rule also matches the
+    # legacy botnim.co.il host (served via the shared ALB + an ACM SNI cert).
+    # host_headers replaces the default [<fqdn>], so botnim.build-up.team MUST
+    # stay in the list.
+    host_headers      = ["botnim.build-up.team", "botnim.co.il", "www.botnim.co.il"]
     listener_priority = var.listener_priority
     path_patterns     = ["/botnim/*"]
   }
