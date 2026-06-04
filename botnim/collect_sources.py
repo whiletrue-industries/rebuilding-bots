@@ -122,7 +122,16 @@ _METADATA_ONLY_CSV_COLUMNS = frozenset({"source_url", "file_url", "url", "lexico
 # logic reads them) — they're only excluded from the flattened content
 # the sync pipeline hashes + embeds. Dropped entirely, not kept as
 # metadata: the bot has no use for them.
-_BOOKKEEPING_CSV_COLUMNS = frozenset({"upstream_hash", "upstream_revision", "revision"})
+# 2026-06-04: added `file_last_updated` — knesset_protocols' per-document OData
+# LastUpdatedDate (process_protocols.py:326). It rotates whenever the upstream
+# doc is touched, so leaving it in the flattened content re-hashed every turn
+# and the extraction cache never warmed (prod probe: 334K cache rows for a
+# ~134K-chunk corpus ≈ 2.5x bloat, ~7-9K fresh rows + 0 hits every run). Same
+# provenance class as upstream_hash; stays in the CSV for the fetcher's delta
+# logic, only excluded from the hashed/embedded content.
+_BOOKKEEPING_CSV_COLUMNS = frozenset(
+    {"upstream_hash", "upstream_revision", "revision", "file_last_updated"}
+)
 
 
 def _extract_source_url(content: str) -> str | None:

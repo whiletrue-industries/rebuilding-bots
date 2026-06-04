@@ -224,3 +224,55 @@ def test_csv_collector_drops_pdf_revision_columns(tmp_path):
     assert "upstream_revision" not in content
     assert "v7" not in content
     assert "טקסט_מלא:\nתוכן המסמך" in content
+
+
+# -----------------------------------------------------------------------------
+# knesset_protocols' file_last_updated (= OData LastUpdatedDate) is per-document
+# provenance that rotates whenever the upstream doc is touched. It MUST be
+# dropped from content like upstream_hash — otherwise every turn re-hashes and
+# the extraction cache never warms (observed in prod 2026-06-04: 334K cache rows
+# for a ~134K-chunk corpus ≈ 2.5x bloat, 7-9K fresh rows every run, 0 hits).
+# -----------------------------------------------------------------------------
+
+
+def test_csv_collector_drops_file_last_updated_from_content(tmp_path):
+    csv_path = tmp_path / "kp.csv"
+    _write_csv(csv_path, [
+        {
+            "file_last_updated": "2026-06-04T11:10:54.293",
+            "document_id": "537",
+            "speaker_name": "ישראל ישראלי",
+            "turn_text": "טקסט הדיון",
+        },
+    ])
+    out = _collect_raw_streams_csv(tmp_path, "knesset_protocols", "kp.csv")
+    fname, content, ctype, extra_meta = out[0]
+    assert "file_last_updated" not in content
+    assert "2026-06-04T11:10:54.293" not in content
+    # Real content survives.
+    assert "speaker_name:\nישראל ישראלי" in content
+    assert "turn_text:\nטקסט הדיון" in content
+    # Dropped entirely — not parked in metadata either.
+    assert "file_last_updated" not in extra_meta
+
+
+def test_csv_content_hash_stable_across_file_last_updated_change(tmp_path):
+    """Core regression: two CSVs identical except for file_last_updated must
+    produce byte-identical flattened content → identical content_hash, so the
+    extraction cache can finally warm for knesset_protocols."""
+    row_a = {
+        "file_last_updated": "2026-06-04T11:10:54.293",
+        "document_id": "537",
+        "turn_text": "אותו הטקסט בדיוק",
+    }
+    row_b = dict(row_a, file_last_updated="2026-05-01T08:00:00.000")
+
+    _write_csv(tmp_path / "a.csv", [row_a])
+    _write_csv(tmp_path / "b.csv", [row_b])
+
+    content_a = _collect_raw_streams_csv(tmp_path, "knesset_protocols", "a.csv")[0][1]
+    content_b = _collect_raw_streams_csv(tmp_path, "knesset_protocols", "b.csv")[0][1]
+
+    assert content_a == content_b, "content must not vary with file_last_updated"
+    h = lambda s: _hashlib.sha256(s.strip().encode("utf-8")).hexdigest()
+    assert h(content_a) == h(content_b)
