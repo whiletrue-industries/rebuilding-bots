@@ -182,10 +182,11 @@ resource "aws_cloudwatch_metric_alarm" "refresh_lambda_errors" {
 }
 
 # ---------------------------------------------------------------------------
-# EventBridge Scheduler: daily at 04:00 UTC (07:00 Asia/Jerusalem).
-# Backups run at 03:00 UTC (see efs_backup.tf); refresh runs an hour later so
-# the two jobs don't contend for the filesystem. Same UTC hour as staging
-# per operator policy.
+# EventBridge Scheduler: Tue & Thu at 02:00 UTC (05:00 Asia/Jerusalem).
+# (Was daily 04:00 UTC.) NOTE: EFS backups still run DAILY at 03:00 UTC (see
+# efs_backup.tf). A long-running refresh started at 02:00 could overlap the
+# 03:00 backup on Tue/Thu — revisit the offset (or the backup time) if
+# filesystem contention reappears now that refresh precedes the backup.
 # ---------------------------------------------------------------------------
 
 data "aws_iam_policy_document" "refresh_scheduler_assume" {
@@ -221,12 +222,13 @@ resource "aws_iam_role_policy" "refresh_scheduler_invoke" {
 resource "aws_scheduler_schedule" "refresh" {
   name                = "botnim-refresh-${var.environment}"
   group_name          = "default"
-  schedule_expression = "cron(0 4 * * ? *)"
-  # 2026-05-27: paused following the EFS-clobber incident. We're moving
-  # to local-prod-DB rehearsal of fap-sync before re-enabling. Flip
-  # back to "ENABLED" when the team is confident the architectural
-  # fixes (S3 replacement or filename stabilisation) are in place.
-  state = "DISABLED"
+  schedule_expression = "cron(0 2 ? * TUE,THU *)"
+  # 2026-05-27: paused following the EFS-clobber incident (rehearse
+  # fap-sync against a local prod-DB copy before re-enabling).
+  # 2026-06-04: re-enabled per operator request, twice-weekly (Tue+Thu
+  # 02:00 UTC) rather than daily to limit blast radius while the EFS
+  # behaviour is monitored.
+  state = "ENABLED"
 
   flexible_time_window {
     mode = "OFF"
