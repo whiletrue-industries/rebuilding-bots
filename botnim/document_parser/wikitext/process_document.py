@@ -6,6 +6,7 @@ Main pipeline runner for HTML document processing.
 from pathlib import Path
 from ...config import get_logger, get_openai_client
 from ...storage import get_artifact_store
+from ...storage.base import wikitext_cache_key
 from .pipeline_config import WikitextProcessorConfig, PipelineMetadata, PipelineStage
 from .extract_structure import extract_structure_from_html, build_nested_structure
 from .extract_content import extract_content_from_html
@@ -33,12 +34,14 @@ WIKITEXT_EXTRACTOR_VERSION = "v1-gpt-4.1-mini"
 def _wikitext_cache_key(bot: str, html_sha256: str) -> str:
     """Durable, versioned-by-key location of the cached content_file.
 
-    Mirrors the relpath-under-extraction naming as a store key:
-      cache/wikitext/<bot>/<html_sha256>__<WIKITEXT_EXTRACTOR_VERSION>.json
+    Delegates to the canonical key builder in ``storage.base`` (the single
+    source of truth for the key shape) — this thin wrapper only binds the
+    canonical ``WIKITEXT_EXTRACTOR_VERSION`` so callers don't have to.
+    Produces ``cache/wikitext/<bot>/<html_sha256>__<version>.json``.
     Bumping WIKITEXT_EXTRACTOR_VERSION changes the key, so an old object is
     never read — no in-place invalidation needed.
     """
-    return f"cache/wikitext/{bot}/{html_sha256}__{WIKITEXT_EXTRACTOR_VERSION}.json"
+    return wikitext_cache_key(bot, html_sha256, WIKITEXT_EXTRACTOR_VERSION)
 
 
 def _metadata_from_bytes(raw: bytes) -> dict | None:

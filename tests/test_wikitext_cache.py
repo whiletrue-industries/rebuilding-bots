@@ -57,7 +57,11 @@ def _make_store(tmp_path: Path):
 
 
 def _cache_key(bot: str, html_sha256: str, version: str) -> str:
-    return f"cache/wikitext/{bot}/{html_sha256}__{version}.json"
+    # Delegate to the canonical key builder so the tests can't silently
+    # drift from the real key shape used by process_document.
+    from botnim.storage.base import wikitext_cache_key
+
+    return wikitext_cache_key(bot, html_sha256, version)
 
 
 def _content_payload(*, html_sha256: str, version: str, model: str = "gpt-4.1-mini") -> bytes:
