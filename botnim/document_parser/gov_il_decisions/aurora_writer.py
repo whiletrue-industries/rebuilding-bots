@@ -60,6 +60,27 @@ def existing_page_ids(context_id: str) -> set[str]:
     return {r[0] for r in rows if r[0]}
 
 
+def newest_publish_date(context_id: str):
+    """Return the max ``publish_date`` (a ``datetime.date``) across this
+    context's documents, or ``None`` if the context is empty / has no
+    parseable publish_date.
+
+    ``publish_date`` is stored in metadata as ``DD.MM.YYYY`` (e.g.
+    ``01.06.2026``); we parse it in SQL and guard with a regex so a
+    malformed value can't error the query. Used by the gov_il fetcher's
+    freshness alarm to turn silent staleness into a loud, alarmable log
+    line (see ``process.process_gov_il_decisions_source``).
+    """
+    with get_session() as sess:
+        row = sess.execute(sql_text(
+            "SELECT max(to_date(metadata->>'publish_date', 'DD.MM.YYYY')) "
+            "FROM documents "
+            "WHERE context_id = :cid "
+            "AND metadata->>'publish_date' ~ '^[0-9]{2}\\.[0-9]{2}\\.[0-9]{4}$'"
+        ), {"cid": context_id}).fetchone()
+    return row[0] if row else None
+
+
 def write_decision(
     context_id: str,
     *,
