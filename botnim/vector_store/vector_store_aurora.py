@@ -394,7 +394,8 @@ class VectorStoreAurora(VectorStoreBase):
                 except Exception as exc:
                     logger.error("Failed to read file %s: %s", fname, exc)
                     skipped += 1
-                    file_ok = False
+                    # `continue` skips the merge gate (if file_ok) below,
+                    # keeping this file out of files_processed / seen_hashes.
                     continue
 
                 chunks = _chunk_for_embedding(raw_content, max_tokens=chunk_max, overlap_tokens=chunk_overlap)

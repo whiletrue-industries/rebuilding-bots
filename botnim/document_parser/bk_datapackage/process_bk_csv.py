@@ -15,7 +15,7 @@ Safety rails — same shape as ``process_pdfs.py``:
 
 * ``EmptyUpstreamIndex`` if the upstream CSV is empty (header-only or
   zero rows) — refuses to overwrite the existing on-disk CSV.
-* Atomic write: ``.tmp`` + ``os.replace``.
+* Atomic write via the ArtifactStore (``write_csv_artifact``).
 * Revision short-circuit via the ``datapackage.json`` ``hash`` field
   (BudgetKey's datapackages don't have ``revision`` like the knesset
   ones; use the resource ``hash`` instead).

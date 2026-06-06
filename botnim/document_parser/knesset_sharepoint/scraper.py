@@ -101,7 +101,9 @@ class ScrapeConfig:
         for the legal-advisor pages; ``table a`` for ethics (paired
         with extra date-row logic — see ``ethics_extractor``).
     output_csv_path:
-        Where to write the resulting ``index.csv``.
+        Unused — output goes through the ArtifactStore (``store`` / ``key``).
+        Kept for backwards-compat with callers that supply it; may be removed
+        in a future cleanup once ``ethics_committee_decisions_config`` is retired.
     sub_index_extractor:
         Optional callable that, given the rendered listing HTML, yields
         sub-page URLs to also scrape (used by ethics whose top-level
@@ -120,7 +122,7 @@ class ScrapeConfig:
 
     page_url: str
     anchor_selector: str = "a"
-    output_csv_path: Path = field(default_factory=lambda: Path("/tmp/index.csv"))
+    output_csv_path: Optional[Path] = None  # unused; output goes through store/key
     sub_index_extractor: Optional[Callable[[str], list[str]]] = None
     row_extractor: Optional[Callable[[object], Iterable[PdfRow]]] = None
     extra_browser_args: list[str] = field(default_factory=list)
@@ -280,13 +282,12 @@ def scrape_pdf_index(config: ScrapeConfig) -> list[PdfRow]:
 def legal_advisor_opinions_config(
     store: ArtifactStore,
     key: str,
-    output_csv_path: Optional[Path] = None,
+    output_csv_path: Optional[Path] = None,  # accepted but unused; output goes through store/key
 ) -> ScrapeConfig:
     """Replaces BK's ``knesset_legal_advisor`` pipeline."""
     return ScrapeConfig(
         page_url=PREFIX + "/about/departments/pages/leg/ldguidelines.aspx",
         anchor_selector="a.LDDocLink",
-        output_csv_path=output_csv_path or Path("/tmp/index.csv"),
         store=store,
         key=key,
     )
@@ -295,13 +296,12 @@ def legal_advisor_opinions_config(
 def legal_advisor_letters_config(
     store: ArtifactStore,
     key: str,
-    output_csv_path: Optional[Path] = None,
+    output_csv_path: Optional[Path] = None,  # accepted but unused; output goes through store/key
 ) -> ScrapeConfig:
     """Replaces BK's ``knesset_legal_advisor_letters`` pipeline."""
     return ScrapeConfig(
         page_url=PREFIX + "/about/departments/pages/leg/ldguidelines2.aspx",
         anchor_selector="a.LDDocLink",
-        output_csv_path=output_csv_path or Path("/tmp/index.csv"),
         store=store,
         key=key,
     )
@@ -361,7 +361,14 @@ def _ethics_row_extractor(page) -> Iterable[PdfRow]:
 
 
 def ethics_committee_decisions_config(output_csv_path: Path) -> ScrapeConfig:
-    """Replaces BK's ``ethics_committee_decisions`` pipeline."""
+    """DEPRECATED — not wired into fetch_and_process; do not call.
+
+    Ethics decisions are now fetched via ``knesset_apps_ethics`` (which reads
+    from the Knesset Apps JSON API and writes through the ArtifactStore).
+    This preset has no ``store`` / ``key``, so calling ``scrape_pdf_index``
+    with it would crash at the ``_atomic_write_csv`` call. Kept here only as
+    a reference for the original SharePoint-scraping approach.
+    """
     return ScrapeConfig(
         page_url=PREFIX + "/Activity/committees/Ethics/Pages/CommitteeDecisionsPast.aspx",
         anchor_selector="table a",

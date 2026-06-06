@@ -73,11 +73,13 @@ def _load_section_overrides(
     Resolution order:
       1. ``seed/<bot>/lexicon_section_overrides.json`` via ``store`` (the
          operator-owned immutable seed).  A missing object falls through.
-      2. Legacy on-disk candidates: alongside this module (for in-repo
-         invocations), then the ``/srv/specs/unified/extraction`` image dir.
+      2. The in-repo ``specs/unified/extraction/lexicon_section_overrides.json``
+         resolved relative to this module (for in-repo / local-dev invocations).
 
-    Returns ``{}`` on any read/parse error so the scraper degrades to the
-    derive-or-fallback behaviour.
+    In deployed environments the same file is served from the ArtifactStore
+    ``seed/`` prefix, so there is no longer a hardcoded ``/srv/specs``
+    filesystem fallback. Returns ``{}`` on any read/parse error so the
+    scraper degrades to the derive-or-fallback behaviour.
     """
     def _coerce(data) -> dict[str, str] | None:
         if isinstance(data, dict):
@@ -96,7 +98,6 @@ def _load_section_overrides(
     candidates = _disk_candidates if _disk_candidates is not None else [
         Path(__file__).resolve().parents[3]
             / 'specs' / 'unified' / 'extraction' / _OVERRIDES_FILENAME,
-        Path('/srv/specs/unified/extraction') / _OVERRIDES_FILENAME,
     ]
     for p in candidates:
         try:

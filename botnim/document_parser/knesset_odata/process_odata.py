@@ -21,7 +21,7 @@ Safety rails follow the bk_csv pattern:
 * ``EmptyUpstreamIndex`` if zero sessions come back — refuses to
   overwrite the existing on-disk CSV (e.g. the API is down or returns
   200 with an empty result during a deploy window).
-* Atomic write via ``.tmp`` + ``os.replace``.
+* Atomic write via the ArtifactStore (``write_csv_artifact``).
 * Hash short-circuit: SHA-256 of the sorted ``(PlenumSessionID,
   LastUpdatedDate)`` tuples is stored in column ``upstream_hash``;
   unchanged → leave the file alone. We compute our own hash because
