@@ -50,6 +50,18 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         )
         runner = WikitextProcessor(config)
         runner.run(generate_markdown=False)
+        # GAP B fix: after run() the content_file exists locally (both on
+        # cache-hit and cache-miss paths).  Write it to the sync-read key
+        # key_for_extraction(bot, source['source']) so the sync reader can
+        # retrieve it via store.get_bytes(key).  The durable wikitext cache
+        # (cache/wikitext/<bot>/<sha>__<version>.json) is KEPT intact — it
+        # gives the cross-deploy zero-LLM HIT.  This second write is to the
+        # extraction/<name>_structure_content.json slot that collect_sources
+        # reads.  ``key`` was already computed at the top of this function from
+        # source['source']; it is the canonical single-source-of-key value.
+        if key is not None and config.content_file.exists():
+            with open(config.content_file, 'rb') as _cf:
+                store.put_atomic(key, _cf.read())
     elif fetcher_kind == 'pdf':
         from .document_parser.pdfs.process_pdfs import process_pdf_source
         from .document_parser.pdfs.pdf_extraction_config import SourceConfig
@@ -124,13 +136,19 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         # 1 wrote — the container cwd is /app, not config_dir.
         fetcher_kw = dict(fetcher)
         raw_idx = fetcher_kw.get('local_index_csv_path')
+        # GAP A fix: derive the store key for the index.csv from the ORIGINAL
+        # relative relpath BEFORE we resolve it to an absolute path.  Stage 1
+        # (knesset_apps, knesset_sharepoint) writes the index to the store at
+        # key_for_extraction(bot, raw_idx); process_pdf_source must read from
+        # the same key when the local file is absent (S3 backend in ECS).
+        index_key = key_for_extraction(config_dir.name, raw_idx) if raw_idx else None
         if raw_idx:
             idx = Path(raw_idx)
             if not idx.is_absolute():
                 idx = config_dir / idx
             fetcher_kw['local_index_csv_path'] = str(idx)
         config = SourceConfig(**fetcher_kw, output_csv_path=config_dir / source['source'])
-        process_pdf_source(config, store=store, key=key)
+        process_pdf_source(config, store=store, key=key, index_key=index_key)
     elif fetcher_kind == 'gov_il_decisions':
         # First-party gov.il scrape that writes DIRECTLY to Aurora,
         # bypassing the extraction/<x>.csv → botnim sync pipeline.

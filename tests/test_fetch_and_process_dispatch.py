@@ -389,14 +389,17 @@ def test_indexed_pdf_end_to_end_empty_index(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 def test_indexed_pdf_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
-    """indexed_pdf must receive store=<singleton> and key=cache/<bot>/<relpath>."""
+    """indexed_pdf must receive store=<singleton>, key=cache/<bot>/<output relpath>,
+    and index_key=cache/<bot>/<index relpath> (GAP A fix: Stage 2 reads its index
+    from the store when the local file is absent)."""
     store = LocalFsStore(tmp_path / "store")
     monkeypatch.setattr(fap, "get_artifact_store", lambda: store)
     called = {}
 
-    def _fake_process_pdf_source(config, *, store, key):
+    def _fake_process_pdf_source(config, *, store, key, index_key=None):
         called["store"] = store
         called["key"] = key
+        called["index_key"] = index_key
 
     monkeypatch.setattr(
         "botnim.document_parser.pdfs.process_pdfs.process_pdf_source",
@@ -414,3 +417,6 @@ def test_indexed_pdf_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
     fap.fetch_and_process_source("local", tmp_path / "unified", "ctx", src, "all")
     assert called["store"] is store
     assert called["key"] == key_for_extraction("unified", "extraction/x.csv")
+    # GAP A: dispatcher must also pass the store key for the index so Stage 2
+    # can fall back to the store when the local file is absent.
+    assert called["index_key"] == key_for_extraction("unified", "extraction/x/index.csv")

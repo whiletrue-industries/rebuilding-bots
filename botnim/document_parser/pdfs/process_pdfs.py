@@ -66,7 +66,7 @@ def _existing_upstream_revision(store: ArtifactStore, key: str) -> str | None:
     return None
 
 
-def process_pdf_source(config: SourceConfig, *, store: ArtifactStore, key: str):
+def process_pdf_source(config: SourceConfig, *, store: ArtifactStore, key: str, index_key: str | None = None):
     openai_client = get_openai_client()
 
     # NEW: local-index branch — index.csv already on disk (Stage 1 wrote it).
@@ -74,16 +74,32 @@ def process_pdf_source(config: SourceConfig, *, store: ArtifactStore, key: str):
     # knesset_sharepoint) writes a BK-shape index.csv to disk; here we just
     # consume it. row['url'] is the absolute PDF URL, so we don't need to
     # build it from external_source/filename.
+    #
+    # GAP A fix: Stage 1 now writes the index to the STORE at index_key
+    # (key_for_extraction(bot, raw_idx)).  If the local file is absent (S3
+    # backend in ECS, or a fresh dev checkout) we fall back to the store.
+    # If neither exists we raise EmptyUpstreamIndex as before.
     if config.local_index_csv_path is not None:
         from ..knesset_apps.common import EmptyUpstreamIndex as KnessetEmptyUpstreamIndex
         index_path = Path(config.local_index_csv_path)
-        if not index_path.exists():
-            raise KnessetEmptyUpstreamIndex(
-                f"local index {index_path} does not exist — Stage 1 has not "
-                f"run yet; refusing to overwrite {key}"
+        if index_path.exists():
+            # Local file present — read directly (dev / committed-index path).
+            with open(index_path, "r", encoding="utf-8") as f:
+                input_records = list(csv.DictReader(f))
+        elif index_key is not None and store.exists(index_key):
+            # Store-resident index written by Stage 1 (S3 backend in ECS).
+            logger.info(
+                "local index %s absent; reading from store key %s",
+                index_path, index_key,
             )
-        with open(index_path, "r", encoding="utf-8") as f:
-            input_records = list(csv.DictReader(f))
+            raw = store.get_bytes(index_key).decode("utf-8")
+            input_records = list(csv.DictReader(raw.splitlines()))
+        else:
+            raise KnessetEmptyUpstreamIndex(
+                f"local index {index_path} does not exist and store key "
+                f"{index_key!r} is also absent — Stage 1 has not run yet; "
+                f"refusing to overwrite {key}"
+            )
         if len(input_records) == 0:
             if store.exists(key):
                 raise KnessetEmptyUpstreamIndex(
