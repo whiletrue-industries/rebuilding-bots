@@ -3,7 +3,6 @@ from pathlib import Path
 
 import yaml
 
-from .document_parser.lexicon.lexicon import scrape_lexicon
 from .config import SPECS
 
 
@@ -45,7 +44,12 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         config = SourceConfig(**fetcher, output_csv_path=output_csv_path)
         process_pdf_source(config)
     elif fetcher_kind == 'lexicon':
-        scrape_lexicon(output_path=config_dir / source['source'])
+        from .document_parser.lexicon.lexicon import scrape_lexicon
+        from .storage import get_artifact_store
+        from .storage.csv_writer import key_for_extraction
+        store = get_artifact_store()
+        artifact_key = key_for_extraction(config_dir.name, source['source'])
+        scrape_lexicon(store=store, key=artifact_key)
     elif fetcher_kind == 'bk_csv':
         # BudgetKey single-CSV datapackage (e.g. government_decisions). Different
         # from `pdf` which downloads PDF binaries listed in an index.csv and runs

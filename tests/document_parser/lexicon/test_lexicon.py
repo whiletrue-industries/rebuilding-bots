@@ -1,10 +1,18 @@
 """Tests for the lexicon scraper's CSV output shape."""
 import csv
+import io
 from pathlib import Path
 from unittest.mock import patch
 
-from botnim.document_parser.lexicon import lexicon as lex_mod
+import boto3
+from moto import mock_aws
 
+from botnim.document_parser.lexicon import lexicon as lex_mod
+from botnim.storage.local_fs import LocalFsStore
+from botnim.storage.s3_store import S3Store
+
+
+_KEY = "cache/unified/extraction/lexicon.csv"
 
 _FAKE_INDEX_HTML = '''
 <html><body>
@@ -57,30 +65,46 @@ def _mock_get(url, headers=None):  # noqa: ARG001
     return r
 
 
-def _read_csv(path: Path) -> list[dict[str, str]]:
-    with open(path, encoding="utf-8") as f:
-        return list(csv.DictReader(f))
+def _read_rows_from_store(store, key) -> list[dict[str, str]]:
+    return list(csv.DictReader(io.StringIO(store.get_bytes(key).decode("utf-8"))))
 
 
 def test_csv_has_three_columns(tmp_path):
-    out = tmp_path / "lexicon.csv"
+    store = LocalFsStore(tmp_path)
     with patch.object(lex_mod, "requests", create=True) as mock_req, \
          patch.object(lex_mod.time, "sleep", lambda _s: None):
         mock_req.get = _mock_get
-        lex_mod.scrape_lexicon(out)
-    rows = _read_csv(out)
+        lex_mod.scrape_lexicon(store=store, key=_KEY)
+    rows = _read_rows_from_store(store, _KEY)
     assert {"מידע", "lexicon_url", "source_url"} == set(rows[0].keys())
     assert len(rows) == 3
 
 
+def test_csv_lands_at_key_on_s3():
+    with mock_aws():
+        boto3.client("s3", region_name="il-central-1").create_bucket(
+            Bucket="botnim-artifacts-test",
+            CreateBucketConfiguration={"LocationConstraint": "il-central-1"},
+        )
+        store = S3Store("botnim-artifacts-test", region_name="il-central-1")
+        with patch.object(lex_mod, "requests", create=True) as mock_req, \
+             patch.object(lex_mod.time, "sleep", lambda _s: None):
+            mock_req.get = _mock_get
+            lex_mod.scrape_lexicon(store=store, key=_KEY)
+        assert store.exists(_KEY)
+        # Sentinel written alongside the CSV at <key>.index.sha256.
+        assert store.exists(_KEY + ".index.sha256")
+        assert len(_read_rows_from_store(store, _KEY)) == 3
+
+
 def test_content_does_not_contain_markdown_link(tmp_path):
     """The `[קישור למידע](URL)` segment must NOT appear in column מידע."""
-    out = tmp_path / "lexicon.csv"
+    store = LocalFsStore(tmp_path)
     with patch.object(lex_mod, "requests", create=True) as mock_req, \
          patch.object(lex_mod.time, "sleep", lambda _s: None):
         mock_req.get = _mock_get
-        lex_mod.scrape_lexicon(out)
-    rows = _read_csv(out)
+        lex_mod.scrape_lexicon(store=store, key=_KEY)
+    rows = _read_rows_from_store(store, _KEY)
     for r in rows:
         assert "[קישור למידע]" not in r["מידע"], r["מידע"]
         assert "https://" not in r["מידע"], r["מידע"]
@@ -88,12 +112,12 @@ def test_content_does_not_contain_markdown_link(tmp_path):
 
 def test_source_url_uses_wikisource_when_section_detected(tmp_path):
     """Entries that reference a known law+section get a Wikisource URL."""
-    out = tmp_path / "lexicon.csv"
+    store = LocalFsStore(tmp_path)
     with patch.object(lex_mod, "requests", create=True) as mock_req, \
          patch.object(lex_mod.time, "sleep", lambda _s: None):
         mock_req.get = _mock_get
-        lex_mod.scrape_lexicon(out)
-    rows = _read_csv(out)
+        lex_mod.scrape_lexicon(store=store, key=_KEY)
+    rows = _read_rows_from_store(store, _KEY)
     by_url = {r["lexicon_url"].rsplit("/", 1)[-1]: r for r in rows}
 
     # שאילתות → סעיף 137 לתקנון
@@ -115,12 +139,12 @@ def test_source_url_uses_wikisource_when_section_detected(tmp_path):
 
 def test_source_url_falls_back_to_lexicon_url(tmp_path):
     """Generic entries without a section reference keep the Lexicon URL."""
-    out = tmp_path / "lexicon.csv"
+    store = LocalFsStore(tmp_path)
     with patch.object(lex_mod, "requests", create=True) as mock_req, \
          patch.object(lex_mod.time, "sleep", lambda _s: None):
         mock_req.get = _mock_get
-        lex_mod.scrape_lexicon(out)
-    rows = _read_csv(out)
+        lex_mod.scrape_lexicon(store=store, key=_KEY)
+    rows = _read_rows_from_store(store, _KEY)
     by_url = {r["lexicon_url"].rsplit("/", 1)[-1]: r for r in rows}
     assert by_url["dictionary.aspx"]["source_url"] == by_url["dictionary.aspx"]["lexicon_url"]
 
@@ -128,16 +152,8 @@ def test_source_url_falls_back_to_lexicon_url(tmp_path):
 def test_curated_override_wins_over_regex_derived_and_fallback(tmp_path):
     """Hand-curated overrides take priority over derive_section_url and the
     lexicon-URL fallback.
-
-    Reproduces the production bug fixed by the overrides file: the שאילתות
-    entry's body describes §137 mechanics without naming the section, so
-    ``derive_section_url`` returns None and the source_url falls back to
-    the Knesset glossary page. With an override for that URL, the source
-    points at the takanon §137 Wikisource anchor.
     """
-    out = tmp_path / "lexicon.csv"
-    # The third mocked entry's content_url ends with dictionary.aspx and
-    # its body has no section reference (see _FAKE_ENTRY_HTML_GENERIC).
+    store = LocalFsStore(tmp_path)
     fake_overrides = {
         "https://main.knesset.gov.il/About/Lexicon/Pages/dictionary.aspx":
             "https://he.wikisource.org/wiki/%D7%AA%D7%A7%D7%A0%D7%95%D7%9F_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_137",
@@ -146,8 +162,8 @@ def test_curated_override_wins_over_regex_derived_and_fallback(tmp_path):
          patch.object(lex_mod.time, "sleep", lambda _s: None), \
          patch.object(lex_mod, "_load_section_overrides", lambda: fake_overrides):
         mock_req.get = _mock_get
-        lex_mod.scrape_lexicon(out)
-    rows = _read_csv(out)
+        lex_mod.scrape_lexicon(store=store, key=_KEY)
+    rows = _read_rows_from_store(store, _KEY)
     by_url = {r["lexicon_url"].rsplit("/", 1)[-1]: r for r in rows}
     assert by_url["dictionary.aspx"]["source_url"] == fake_overrides[
         "https://main.knesset.gov.il/About/Lexicon/Pages/dictionary.aspx"
@@ -155,14 +171,8 @@ def test_curated_override_wins_over_regex_derived_and_fallback(tmp_path):
 
 
 def test_curated_override_beats_regex_derived(tmp_path):
-    """If BOTH a regex-derived anchor AND an override exist, override wins.
-
-    Lets us correct mis-derivations without changing the regex (which is
-    used by many lexicon entries).
-    """
-    out = tmp_path / "lexicon.csv"
-    # query.aspx's mocked body cites "סעיף 137 לתקנון הכנסת" — derive_section_url
-    # would produce תקנון §137. Override targets §86 instead. Override must win.
+    """If BOTH a regex-derived anchor AND an override exist, override wins."""
+    store = LocalFsStore(tmp_path)
     target_url = "https://he.wikisource.org/wiki/%D7%AA%D7%A7%D7%A0%D7%95%D7%9F_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA#%D7%A1%D7%A2%D7%99%D7%A3_86"
     fake_overrides = {
         "https://main.knesset.gov.il/About/Lexicon/Pages/query.aspx": target_url,
@@ -171,8 +181,8 @@ def test_curated_override_beats_regex_derived(tmp_path):
          patch.object(lex_mod.time, "sleep", lambda _s: None), \
          patch.object(lex_mod, "_load_section_overrides", lambda: fake_overrides):
         mock_req.get = _mock_get
-        lex_mod.scrape_lexicon(out)
-    rows = _read_csv(out)
+        lex_mod.scrape_lexicon(store=store, key=_KEY)
+    rows = _read_rows_from_store(store, _KEY)
     by_url = {r["lexicon_url"].rsplit("/", 1)[-1]: r for r in rows}
     assert by_url["query.aspx"]["source_url"] == target_url
 
@@ -191,30 +201,23 @@ def test_load_section_overrides_reads_committed_file():
 
 
 def test_legacy_one_column_csv_triggers_rescrape_even_when_sentinel_matches(tmp_path):
-    """Schema-upgrade guard: pre-existing 1-col CSV must NOT short-circuit.
-
-    On a real staging EFS, the existing ``lexicon.csv`` is the legacy
-    1-column shape AND its sentinel matches Knesset's current index hash.
-    Without this guard the new scraper would early-return and never write
-    the 3-column CSV. This test reproduces that exact state.
-    """
-    out = tmp_path / "lexicon.csv"
-    sentinel = tmp_path / "lexicon.csv.index.sha256"
+    """Schema-upgrade guard: pre-existing 1-col CSV must NOT short-circuit."""
+    store = LocalFsStore(tmp_path)
 
     # Pre-seed legacy 1-column CSV + a sentinel that will match the
     # _fetch_index hash we're about to compute.
-    out.write_text("מידע\nשורה ישנה\n", encoding="utf-8")
+    store.put_atomic(_KEY, "מידע\nשורה ישנה\n".encode("utf-8"))
 
     with patch.object(lex_mod, "requests", create=True) as mock_req, \
          patch.object(lex_mod.time, "sleep", lambda _s: None):
         mock_req.get = _mock_get
         # First call: compute current hash to pre-seed sentinel.
         _, current_hash = lex_mod._fetch_index()
-        sentinel.write_text(current_hash, encoding="utf-8")
+        store.put_atomic(_KEY + lex_mod.SENTINEL_SUFFIX, current_hash.encode("utf-8"))
         # The actual run under test.
-        lex_mod.scrape_lexicon(out)
+        lex_mod.scrape_lexicon(store=store, key=_KEY)
 
-    rows = _read_csv(out)
+    rows = _read_rows_from_store(store, _KEY)
     assert {"מידע", "lexicon_url", "source_url"} == set(rows[0].keys()), \
         "scraper should have re-scraped into the 3-col schema"
     assert len(rows) == 3
@@ -222,22 +225,21 @@ def test_legacy_one_column_csv_triggers_rescrape_even_when_sentinel_matches(tmp_
 
 def test_csv_matches_current_schema_helper(tmp_path):
     """The helper distinguishes legacy 1-col, current 3-col, and missing."""
-    missing = tmp_path / "missing.csv"
-    legacy = tmp_path / "legacy.csv"
-    legacy.write_text("מידע\nx\n", encoding="utf-8")
-    current = tmp_path / "current.csv"
-    current.write_text("מידע,lexicon_url,source_url\na,b,c\n", encoding="utf-8")
+    store = LocalFsStore(tmp_path)
+    store.put_atomic("cache/unified/legacy.csv", "מידע\nx\n".encode("utf-8"))
+    store.put_atomic("cache/unified/current.csv",
+                     "מידע,lexicon_url,source_url\na,b,c\n".encode("utf-8"))
 
-    assert lex_mod._csv_matches_current_schema(missing) is False
-    assert lex_mod._csv_matches_current_schema(legacy) is False
-    assert lex_mod._csv_matches_current_schema(current) is True
+    assert lex_mod._csv_matches_current_schema(store, "cache/unified/missing.csv") is False
+    assert lex_mod._csv_matches_current_schema(store, "cache/unified/legacy.csv") is False
+    assert lex_mod._csv_matches_current_schema(store, "cache/unified/current.csv") is True
 
 
 def test_matching_schema_csv_with_matching_sentinel_short_circuits(tmp_path):
     """Idempotent path: 3-col CSV + matching sentinel → no re-scrape."""
-    out = tmp_path / "lexicon.csv"
-    sentinel = tmp_path / "lexicon.csv.index.sha256"
-    out.write_text("מידע,lexicon_url,source_url\noriginal,a,b\n", encoding="utf-8")
+    store = LocalFsStore(tmp_path)
+    legacy_body = "מידע,lexicon_url,source_url\noriginal,a,b\n"
+    store.put_atomic(_KEY, legacy_body.encode("utf-8"))
 
     call_count = {"n": 0}
     original_iter = lex_mod._iter_entries
@@ -251,8 +253,8 @@ def test_matching_schema_csv_with_matching_sentinel_short_circuits(tmp_path):
          patch.object(lex_mod, "_iter_entries", counting_iter):
         mock_req.get = _mock_get
         _, current_hash = lex_mod._fetch_index()
-        sentinel.write_text(current_hash, encoding="utf-8")
-        lex_mod.scrape_lexicon(out)
+        store.put_atomic(_KEY + lex_mod.SENTINEL_SUFFIX, current_hash.encode("utf-8"))
+        lex_mod.scrape_lexicon(store=store, key=_KEY)
 
     assert call_count["n"] == 0, "scrape should have short-circuited"
-    assert out.read_text(encoding="utf-8").startswith("מידע,lexicon_url,source_url\noriginal,")
+    assert store.get_bytes(_KEY).decode("utf-8").startswith("מידע,lexicon_url,source_url\noriginal,")

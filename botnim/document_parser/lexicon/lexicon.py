@@ -16,6 +16,7 @@ Lambda picks up such edits on the next index-page change, since most
 edits coincide with link-list churn).
 """
 import hashlib
+import io
 import json
 from pathlib import Path
 
@@ -23,6 +24,9 @@ import requests
 from pyquery import PyQuery as pq
 import csv
 import time
+
+from ...storage.base import ArtifactStore
+from ...storage.csv_writer import write_csv_artifact
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:136.0) Gecko/20100101 Firefox/136.0',
@@ -83,19 +87,17 @@ def _load_section_overrides() -> dict[str, str]:
     return {}
 
 
-def _csv_matches_current_schema(csv_path: Path) -> bool:
-    """Return True iff ``csv_path`` exists with the current header columns.
-
-    Reads only the first line. Treats any read error as "doesn't match"
-    so the caller re-scrapes (the safe default).
-    """
-    try:
-        with open(csv_path, 'r', encoding='utf-8', newline='') as f:
-            reader = csv.reader(f)
-            header = next(reader, None)
-    except OSError:
+def _csv_matches_current_schema(store: ArtifactStore, key: str) -> bool:
+    """True iff an object exists at ``key`` and its header is the current
+    3-column schema. Legacy 1-column CSVs return False so the scraper
+    re-scrapes into the new shape."""
+    if not store.exists(key):
         return False
-    if not header:
+    text = store.get_bytes(key).decode("utf-8")
+    reader = csv.reader(io.StringIO(text))
+    try:
+        header = next(reader)
+    except StopIteration:
         return False
     return tuple(header) == _CURRENT_CSV_FIELDNAMES
 
@@ -157,8 +159,8 @@ def scrape():
     yield from _iter_entries(index_html)
 
 
-def scrape_lexicon(output_path):
-    """Scrape the Knesset lexicon to CSV, with index-hash short-circuit.
+def scrape_lexicon(*, store: ArtifactStore, key: str):
+    """Scrape the Knesset lexicon to a CSV artifact, with index-hash short-circuit.
 
     Output CSV columns:
       - ``מידע``        : the lexicon entry body. No embedded markdown link.
@@ -170,33 +172,27 @@ def scrape_lexicon(output_path):
                               "סעיף N לחוק/לתקנון" explicitly,
                           (3) fall back to the Lexicon URL itself.
 
-    On every run, fetches the index page and computes its sha256. If the
-    hash matches the sentinel stored alongside ``output_path`` AND the CSV
-    already exists, returns immediately without re-scraping. Otherwise
-    runs the full per-entry scrape and writes both CSV + sentinel.
-
-    The sentinel write happens AFTER the CSV write so a crash mid-scrape
-    leaves the old sentinel (and old CSV) untouched, and the next run
-    re-attempts.
+    Writes the CSV at ``key`` and the sentinel at ``key + '.index.sha256'``
+    through the artifact store. Sentinel is written AFTER the CSV so a crash
+    mid-scrape leaves the old sentinel + old CSV untouched.
     """
     from .section_url import derive_section_url
 
-    output_path = Path(output_path)
-    sentinel_path = output_path.parent / (output_path.name + SENTINEL_SUFFIX)
+    sentinel_key = key + SENTINEL_SUFFIX
 
     index_html, new_hash = _fetch_index()
 
-    if sentinel_path.exists() and output_path.exists() and _csv_matches_current_schema(output_path):
+    if store.exists(sentinel_key) and store.exists(key) and _csv_matches_current_schema(store, key):
         try:
-            old_hash = sentinel_path.read_text(encoding='utf-8').strip()
-        except OSError:
+            old_hash = store.get_bytes(sentinel_key).decode("utf-8").strip()
+        except Exception:
             old_hash = ''
         if old_hash == new_hash:
-            print(f"lexicon: index unchanged (sha={new_hash[:12]}); leaving {output_path} as-is")
+            print(f"lexicon: index unchanged (sha={new_hash[:12]}); leaving {key} as-is")
             return
 
-    state = 'changed' if sentinel_path.exists() else 'first run'
-    if sentinel_path.exists() and output_path.exists() and not _csv_matches_current_schema(output_path):
+    state = 'changed' if store.exists(sentinel_key) else 'first run'
+    if store.exists(sentinel_key) and store.exists(key) and not _csv_matches_current_schema(store, key):
         state = 'schema upgrade'
     overrides = _load_section_overrides()
     print(f"lexicon: index {state} (sha={new_hash[:12]}); scraping all entries... ({len(overrides)} curated overrides)")
@@ -222,11 +218,10 @@ def scrape_lexicon(output_path):
             'source_url':  source_url,
         })
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=['מידע', 'lexicon_url', 'source_url'])
-        writer.writeheader()
-        writer.writerows(rows)
+    write_csv_artifact(
+        store, key, rows,
+        fieldnames=['מידע', 'lexicon_url', 'source_url'],
+    )
 
     # Write sentinel only after CSV write succeeds.
-    sentinel_path.write_text(new_hash, encoding='utf-8')
+    store.put_atomic(sentinel_key, new_hash.encode("utf-8"))
