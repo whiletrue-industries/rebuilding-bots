@@ -17,11 +17,17 @@ silently wiping the indexed corpus on a fresh install.
 """
 from __future__ import annotations
 
+from datetime import date
 from typing import Optional
 
 from ...config import get_logger
 from .api import GovIlClient
-from .aurora_writer import existing_page_ids, get_or_create_context, write_decision
+from .aurora_writer import (
+    existing_page_ids,
+    get_or_create_context,
+    newest_publish_date,
+    write_decision,
+)
 from .categorize import categorize
 from .exceptions import EmptyUpstreamIndex
 from .extract import docx_to_text, html_to_text, pdf_to_text
@@ -136,6 +142,7 @@ def process_gov_il_decisions_source(
     max_pages: int = 1000,
     bot_slug: str = "unified",
     context_name: str = "government_decisions",
+    stale_after_days: int = 30,
 ) -> None:
     """Refresh gov.il government decisions into Aurora.
 
@@ -209,3 +216,29 @@ def process_gov_il_decisions_source(
         "gov_il_decisions: upstream_total=%s new_this_run=%d total_in_context=%d",
         seen_total, new_count, len(seen),
     )
+
+    # Freshness alarm. The 2026-05 endpoint migration stalled this context
+    # for a month while every refresh "succeeded" (the broken fetch was
+    # swallowed by fetch_and_process's per-context isolation). Emit a loud,
+    # greppable line when the newest decision we hold is older than the
+    # threshold so a CloudWatch metric-filter alarm on GOV_IL_DECISIONS_STALE
+    # can page instead of the rot going unnoticed.
+    try:
+        newest = newest_publish_date(context_id)
+        if newest is not None:
+            age_days = (date.today() - newest).days
+            if age_days > stale_after_days:
+                logger.error(
+                    "GOV_IL_DECISIONS_STALE: newest decision in (%s, %s) is %s "
+                    "(%d days old > %d-day threshold) — fetcher may be broken "
+                    "(new_this_run=%d, upstream_total=%s)",
+                    bot_slug, context_name, newest.isoformat(), age_days,
+                    stale_after_days, new_count, seen_total,
+                )
+            else:
+                logger.info(
+                    "gov_il_decisions: freshness OK — newest decision %s (%d days old)",
+                    newest.isoformat(), age_days,
+                )
+    except Exception as exc:  # noqa: BLE001 — freshness is advisory, never fatal
+        logger.warning("gov_il_decisions freshness check failed: %s", exc)

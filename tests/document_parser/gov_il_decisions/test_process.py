@@ -56,11 +56,13 @@ def mocked_writers():
     """Patch aurora_writer functions used by process.py."""
     with patch("botnim.document_parser.gov_il_decisions.process.get_or_create_context") as goc, \
          patch("botnim.document_parser.gov_il_decisions.process.existing_page_ids") as ex, \
+         patch("botnim.document_parser.gov_il_decisions.process.newest_publish_date") as npd, \
          patch("botnim.document_parser.gov_il_decisions.process.write_decision") as wd:
         goc.return_value = "00000000-0000-0000-0000-000000000001"
         ex.return_value = set()
+        npd.return_value = None  # freshness check skips when context is empty
         wd.return_value = 1
-        yield {"goc": goc, "existing": ex, "write": wd}
+        yield {"goc": goc, "existing": ex, "write": wd, "newest": npd}
 
 
 @pytest.fixture
@@ -187,3 +189,48 @@ def test_decision_metadata_shape(mocked_writers, mocked_categorize, mocked_clien
     assert md["office"] == "ראש הממשלה"
     assert md["has_attachment"] is False
     assert md["attachment_urls"] == []
+
+
+def test_freshness_alarm_fires_when_stale(mocked_writers, mocked_categorize, mocked_client_class):
+    """A loud, greppable GOV_IL_DECISIONS_STALE error fires when the newest
+    decision we hold is older than the threshold (the silent-rot guard)."""
+    from datetime import date, timedelta
+
+    from botnim.document_parser.gov_il_decisions import process as proc
+
+    mocked_writers["existing"].return_value = {"dec-OLD"}
+    mocked_writers["newest"].return_value = date.today() - timedelta(days=60)
+    mocked_client_class.list_decisions.side_effect = [
+        {"total": 1, "results": [_make_listing_item("dec-OLD")]},
+        {"total": 1, "results": []},
+    ]
+
+    with patch.object(proc, "logger") as log:
+        proc.process_gov_il_decisions_source(
+            environment="staging", page_size=50, max_pages=2, stale_after_days=30,
+        )
+
+    error_msgs = [c.args[0] for c in log.error.call_args_list]
+    assert any("GOV_IL_DECISIONS_STALE" in m for m in error_msgs)
+
+
+def test_freshness_alarm_silent_when_fresh(mocked_writers, mocked_categorize, mocked_client_class):
+    """No STALE alarm when the newest decision is within the threshold."""
+    from datetime import date, timedelta
+
+    from botnim.document_parser.gov_il_decisions import process as proc
+
+    mocked_writers["existing"].return_value = {"dec-OLD"}
+    mocked_writers["newest"].return_value = date.today() - timedelta(days=2)
+    mocked_client_class.list_decisions.side_effect = [
+        {"total": 1, "results": [_make_listing_item("dec-OLD")]},
+        {"total": 1, "results": []},
+    ]
+
+    with patch.object(proc, "logger") as log:
+        proc.process_gov_il_decisions_source(
+            environment="staging", page_size=50, max_pages=2, stale_after_days=30,
+        )
+
+    error_msgs = [c.args[0] for c in log.error.call_args_list]
+    assert not any("GOV_IL_DECISIONS_STALE" in m for m in error_msgs)

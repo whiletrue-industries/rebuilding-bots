@@ -388,3 +388,36 @@ def test_batched_respects_embedding_batch_size(aurora_db, fake_batch_openai):
     assert result["chunks_written"] == 5
     # 3 batches of sizes [2, 2, 1]
     assert [len(c) for c in fake_batch_openai.batch_calls] == [2, 2, 1]
+
+
+def test_newest_publish_date(aurora_db, fake_embedder):
+    """newest_publish_date returns the max parseable publish_date and is
+    robust to malformed values (regex guard) and empty contexts."""
+    from datetime import date
+
+    from botnim.document_parser.gov_il_decisions.aurora_writer import (
+        get_or_create_context,
+        newest_publish_date,
+        write_decision,
+    )
+
+    cid = get_or_create_context("unified", "government_decisions")
+
+    # Empty context -> None.
+    assert newest_publish_date(cid) is None
+
+    write_decision(
+        cid, page_id="dec-a", title="a", text="גוף החלטה א",
+        metadata={"publish_date": "01.04.2026"}, environment="staging",
+    )
+    write_decision(
+        cid, page_id="dec-b", title="b", text="גוף החלטה ב",
+        metadata={"publish_date": "15.05.2026"}, environment="staging",
+    )
+    # Malformed publish_date must be ignored (regex guard), not error.
+    write_decision(
+        cid, page_id="dec-c", title="c", text="גוף החלטה ג",
+        metadata={"publish_date": "not-a-date"}, environment="staging",
+    )
+
+    assert newest_publish_date(cid) == date(2026, 5, 15)
