@@ -111,6 +111,10 @@ data "aws_iam_policy_document" "extraction_artifacts_rw" {
       "s3:PutObject",
       "s3:DeleteObject",
       "s3:GetObjectVersion",
+      # Object-level: needed by a future streaming/multipart upload path
+      # (boto3 upload_fileobj falls back to MPU for large objects). Low
+      # runtime risk today but listed by the spec (§9).
+      "s3:AbortMultipartUpload",
     ]
     # Static ARN derived from bucket name (not resource attr) so the composed
     # task_role_policy_json is plan-time-knowable; otherwise the ecs-service
@@ -124,7 +128,11 @@ data "aws_iam_policy_document" "extraction_artifacts_rw" {
     sid    = "ExtractionArtifactsBucketList"
     effect = "Allow"
     # ArtifactStore.list(prefix) (the wikitext-chunks glob) calls ListBucket.
-    actions   = ["s3:ListBucket"]
+    # GetBucketLocation lets boto3 resolve the bucket's region (spec §9).
+    actions = [
+      "s3:ListBucket",
+      "s3:GetBucketLocation",
+    ]
     resources = ["arn:aws:s3:::botnim-extraction-${var.environment}"]
   }
 }
