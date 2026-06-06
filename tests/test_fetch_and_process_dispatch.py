@@ -134,7 +134,16 @@ def test_indexed_pdf_end_to_end_empty_index(tmp_path: Path):
         },
     }
     from botnim.fetch_and_process import fetch_and_process_source
+    from botnim.storage import get_artifact_store
+    from botnim.storage.csv_writer import key_for_extraction
+
     fetch_and_process_source("local", tmp_path, "ctx", src, "all")
-    # 0-row index + no pre-existing output → the empty-out branch wrote
-    # extraction/x.csv with just the header.
-    assert (tmp_path / "extraction" / "x.csv").exists()
+    # 0-row index + no pre-existing output → the empty-out branch wrote the
+    # header-only output CSV to the ArtifactStore (post-S3-migration), at the
+    # cache/<bot>/<relpath> key derived from source['source']. The default
+    # store is isolated to this test's tmp_path by the _isolate_artifact_store
+    # autouse fixture (conftest.py), so the empty-index overwrite-guard does
+    # not trip on a stale prior-run artifact.
+    store = get_artifact_store()
+    key = key_for_extraction(tmp_path.name, "extraction/x.csv")
+    assert store.exists(key)
