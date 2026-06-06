@@ -1,86 +1,27 @@
-"""Behavioural tests for S3Store.
+"""S3-only mechanics for S3Store.
 
-moto-backed S3 (per tests/backend/api/test_generate_word_doc.py) covers
-round-trip / exists / list / atomic-overwrite. The truncated-read path
-uses a hand-rolled fake client because moto always returns an accurate
-Content-Length, so the short-read guard can only be exercised with a
-stub that lies. No DB needed.
+The shared cross-backend round-trip / exists / list / atomic-overwrite
+suite lives in tests/storage/test_artifact_store_contract.py (it runs the
+moto-backed S3Store too). This file pins behaviour only S3Store can
+exhibit: the truncated-read guard (moto always returns an accurate
+Content-Length, so the short-read path needs a stub client that lies)
+and the empty-bucket constructor guard. No DB needed.
 """
 from __future__ import annotations
 
 import io
 
-import boto3
 import pytest
-from moto import mock_aws
 
 from botnim.storage.s3_store import S3Store
 
 
-_BUCKET = "botnim-artifacts-test"
 _REGION = "il-central-1"
 
 
-@pytest.fixture
-def s3_store(monkeypatch):
-    with mock_aws():
-        monkeypatch.setenv("AWS_DEFAULT_REGION", _REGION)
-        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
-        monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
-        s3 = boto3.client("s3", region_name=_REGION)
-        s3.create_bucket(
-            Bucket=_BUCKET,
-            CreateBucketConfiguration={"LocationConstraint": _REGION},
-        )
-        yield S3Store(_BUCKET, region_name=_REGION)
-
-
-def test_put_then_get_roundtrip(s3_store):
-    s3_store.put_atomic("seed/unified/a.json", b"hello")
-    assert s3_store.get_bytes("seed/unified/a.json") == b"hello"
-
-
-def test_get_bytes_missing_raises_filenotfound(s3_store):
-    with pytest.raises(FileNotFoundError):
-        s3_store.get_bytes("seed/unified/missing.json")
-
-
-def test_open_stream_reads_full_body(s3_store):
-    s3_store.put_atomic("cache/unified/s.json", b"streamed-body")
-    with s3_store.open_stream("cache/unified/s.json") as fh:
-        assert fh.read() == b"streamed-body"
-
-
-def test_open_stream_missing_raises_filenotfound(s3_store):
-    with pytest.raises(FileNotFoundError):
-        s3_store.open_stream("cache/unified/missing.json")
-
-
-def test_put_atomic_overwrite(s3_store):
-    s3_store.put_atomic("seed/unified/v.json", b"v1")
-    s3_store.put_atomic("seed/unified/v.json", b"v2-longer")
-    assert s3_store.get_bytes("seed/unified/v.json") == b"v2-longer"
-
-
-def test_exists(s3_store):
-    assert s3_store.exists("seed/unified/e.json") is False
-    s3_store.put_atomic("seed/unified/e.json", b"e")
-    assert s3_store.exists("seed/unified/e.json") is True
-
-
-def test_list_returns_keys_under_prefix(s3_store):
-    s3_store.put_atomic("cache/wikitext/unified/aaa__v1.json", b"1")
-    s3_store.put_atomic("cache/wikitext/unified/bbb__v1.json", b"2")
-    s3_store.put_atomic("cache/wikitext/other/ccc__v1.json", b"3")
-    got = sorted(s3_store.list("cache/wikitext/unified/"))
-    assert got == [
-        "cache/wikitext/unified/aaa__v1.json",
-        "cache/wikitext/unified/bbb__v1.json",
-    ]
-
-
-def test_list_empty_prefix_returns_empty(s3_store):
-    assert s3_store.list("cache/wikitext/nope/") == []
+def test_init_rejects_empty_bucket():
+    with pytest.raises(ValueError):
+        S3Store("", region_name=_REGION)
 
 
 class _ShortReadBody:

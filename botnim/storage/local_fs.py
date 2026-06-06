@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
-from typing import BinaryIO, List
+from typing import IO, List
 
 
 class LocalFsStore:
@@ -41,7 +41,7 @@ class LocalFsStore:
             )
         return data
 
-    def open_stream(self, key: str) -> BinaryIO:
+    def open_stream(self, key: str) -> IO[bytes]:
         path = self._resolve(key)
         if not path.is_file():
             raise FileNotFoundError(key)

@@ -8,7 +8,7 @@ is injected (used by tests).
 from __future__ import annotations
 
 import io
-from typing import BinaryIO, List, Optional
+from typing import IO, List, Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -45,7 +45,7 @@ class S3Store:
             )
         return data
 
-    def open_stream(self, key: str) -> BinaryIO:
+    def open_stream(self, key: str) -> IO[bytes]:
         # Read side consumes file-likes; we buffer the verified bytes so
         # callers get a seekable stream and so the short-read guard runs.
         return io.BytesIO(self.get_bytes(key))

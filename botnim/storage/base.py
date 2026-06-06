@@ -21,7 +21,7 @@ in one place.
 """
 from __future__ import annotations
 
-from typing import BinaryIO, List, Protocol, runtime_checkable
+from typing import IO, List, Protocol, runtime_checkable
 
 
 def _norm_relpath(relpath: str) -> str:
@@ -39,6 +39,8 @@ def _norm_relpath(relpath: str) -> str:
 def _norm_bot(bot: str) -> str:
     if not bot:
         raise ValueError("bot must be non-empty")
+    if "/" in bot or "\\" in bot:
+        raise ValueError(f"bot must not contain path separators: {bot!r}")
     return bot
 
 
@@ -83,7 +85,7 @@ class ArtifactStore(Protocol):
         """
         ...
 
-    def open_stream(self, key: str) -> BinaryIO:
+    def open_stream(self, key: str) -> IO[bytes]:
         """Return a binary file-like positioned at byte 0 for the read
         side to consume. Raises FileNotFoundError if the key is missing."""
         ...
@@ -101,5 +103,11 @@ class ArtifactStore(Protocol):
         ...
 
     def list(self, prefix: str) -> List[str]:
-        """Return keys under prefix (used only for the wikitext glob)."""
+        """Return keys under prefix (used only for the wikitext glob).
+
+        Prefix should end with '/' to scope to a logical directory
+        boundary consistently across backends: S3 matches the raw prefix
+        as a substring while LocalFs scopes to a directory, so a trailing
+        slash is the only form that behaves the same on both.
+        """
         ...

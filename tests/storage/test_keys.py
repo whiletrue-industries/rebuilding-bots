@@ -62,6 +62,16 @@ def test_cache_key_rejects_empty_bot():
         cache_key("", "x.json")
 
 
+def test_seed_key_rejects_bot_with_forward_slash():
+    with pytest.raises(ValueError):
+        seed_key("uni/fied", "x.json")
+
+
+def test_seed_key_rejects_bot_with_backslash():
+    with pytest.raises(ValueError):
+        seed_key("uni\\fied", "x.json")
+
+
 def test_wikitext_cache_key_rejects_empty_html_sha256():
     with pytest.raises(ValueError):
         wikitext_cache_key("unified", "", "v1-test")
