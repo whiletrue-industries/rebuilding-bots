@@ -11,6 +11,20 @@ def _src(kind, **extra):
     return {"source": "extraction/x/index.csv", "fetcher": {"kind": kind, **extra}}
 
 
+def test_dispatch_knesset_protocols(tmp_path: Path):
+    src = _src("knesset_protocols")
+    with patch(
+        "botnim.document_parser.knesset_protocols.process_protocols.process_knesset_protocols_source"
+    ) as mock_inner:
+        from botnim.fetch_and_process import fetch_and_process_source
+        fetch_and_process_source("local", tmp_path, "ctx", src, "all")
+        mock_inner.assert_called_once()
+        kwargs = mock_inner.call_args.kwargs
+        assert "store" in kwargs
+        assert "key" in kwargs
+        assert kwargs["key"].startswith("cache/")
+
+
 def test_dispatch_knesset_apps_committee(tmp_path: Path):
     src = _src("knesset_apps_committee", committee_id=2211, from_date="2022-11-15", knesset_ids="25")
     with patch(

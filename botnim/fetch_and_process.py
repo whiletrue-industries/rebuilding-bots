@@ -80,24 +80,33 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         # speaker-turn rows. See
         # botnim/document_parser/knesset_protocols/process_protocols.py.
         from .document_parser.knesset_protocols.process_protocols import process_knesset_protocols_source
-        output_csv_path = config_dir / source['source']
-        process_knesset_protocols_source(output_csv_path=output_csv_path, **fetcher)
+        from .storage import get_artifact_store
+        from .storage.csv_writer import key_for_extraction
+        store = get_artifact_store()
+        artifact_key = key_for_extraction(config_dir.name, source['source'])
+        process_knesset_protocols_source(store=store, key=artifact_key, **fetcher)
     elif fetcher_kind == 'knesset_apps_committee':
         from .document_parser.knesset_apps.committee_decisions_json import (
             fetch_committee_decisions_index, CommitteeDecisionsConfig,
         )
-        output_csv_path = config_dir / source['source']
+        from .storage import get_artifact_store
+        from .storage.csv_writer import key_for_extraction
+        store = get_artifact_store()
+        artifact_key = key_for_extraction(config_dir.name, source['source'])
         fetch_committee_decisions_index(
-            CommitteeDecisionsConfig(output_csv_path=output_csv_path, **fetcher)
+            CommitteeDecisionsConfig(store=store, key=artifact_key, **fetcher)
         )
 
     elif fetcher_kind == 'knesset_apps_ethics':
         from .document_parser.knesset_apps.ethics_decisions_html import (
             fetch_ethics_decisions_index, EthicsDecisionsConfig,
         )
-        output_csv_path = config_dir / source['source']
+        from .storage import get_artifact_store
+        from .storage.csv_writer import key_for_extraction
+        store = get_artifact_store()
+        artifact_key = key_for_extraction(config_dir.name, source['source'])
         fetch_ethics_decisions_index(
-            EthicsDecisionsConfig(output_csv_path=output_csv_path, **fetcher)
+            EthicsDecisionsConfig(store=store, key=artifact_key, **fetcher)
         )
 
     elif fetcher_kind == 'knesset_sharepoint_legal_advisor':

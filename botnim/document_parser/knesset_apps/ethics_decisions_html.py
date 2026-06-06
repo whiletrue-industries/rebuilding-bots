@@ -34,6 +34,7 @@ from typing import Iterable, Optional
 import requests
 from pyquery import PyQuery as pq
 
+from ...storage.base import ArtifactStore
 from .common import (
     CSV_FIELDS,
     DocRow,
@@ -55,8 +56,13 @@ DEFAULT_ETHICS_COMMITTEE_ID = 2217
 class EthicsDecisionsConfig:
     """Parameters for one ethics_decisions fetch.
 
+    store:
+        ArtifactStore to write the resulting index CSV to (and to read
+        the seed rows from on subsequent runs).
+    key:
+        Store key for the output CSV (e.g. ``cache/unified/extraction/ethics_decisions.csv``).
     output_csv_path:
-        Where to write the resulting ``index.csv``.
+        Legacy field kept for back-compat; ignored when ``store``/``key`` are set.
     page_name:
         ``EthicsDecisions25`` for current Knesset 25; bump for a new
         Knesset (the SharePoint scheme is one page per Knesset
@@ -69,9 +75,9 @@ class EthicsDecisionsConfig:
         Defaults to 2217. Used only to compose the canonical
         front-end ``Route`` query parameter the API expects.
     Coverage of older Knessets (K15-K23, ≈1999–2021) is achieved by
-    seeding ``output_csv_path`` with a committed CSV in the same
+    seeding ``key`` with a committed CSV in the same
     ``url,filename,date,knesset_num,title`` shape. When the fetcher
-    runs and the output path already exists, those rows are loaded
+    runs and the store object already exists, those rows are loaded
     BEFORE the live fetch and merged into the result. Live rows win
     on URL collision so a freshly-edited K25 entry isn't overwritten
     by a stale archive row. This lets us extend coverage past the
@@ -80,7 +86,9 @@ class EthicsDecisionsConfig:
     CDN's JS challenge.
     """
 
-    output_csv_path: Path
+    store: ArtifactStore
+    key: str
+    output_csv_path: Optional[Path] = None
     page_name: str = "EthicsDecisions25"
     knesset_num: int = 25
     committee_id: int = DEFAULT_ETHICS_COMMITTEE_ID
@@ -162,38 +170,39 @@ def _absolute(href: str) -> str:
     return "https://main.knesset.gov.il/" + href
 
 
-def _load_seed_rows(seed_csv: Path) -> list[DocRow]:
-    """Load existing rows from ``output_csv_path`` as a seed.
+def _load_seed_rows(store: ArtifactStore, key: str) -> list[DocRow]:
+    """Load existing rows from the store as a seed.
 
-    The same file is the fetcher's output AND its archive seed: when
-    we ship a committed ``index.csv`` of older Knessets, the next
-    fetcher run reads it, merges in live K25, and writes the merged
-    result back. Returns an empty list on a missing file — that's
-    the legitimate first-run state, not an error.
+    The same object is the fetcher's output AND its archive seed: when
+    a committed ``index.csv`` of older Knessets is uploaded to the store,
+    the next fetcher run reads it, merges in live K25, and writes the
+    merged result back. Returns an empty list if the key doesn't exist —
+    that's the legitimate first-run state, not an error.
     """
-    if not seed_csv.exists():
+    if not store.exists(key):
         return []
+    import io as _io
+    text = store.get_bytes(key).decode("utf-8")
     rows: list[DocRow] = []
-    with open(seed_csv, encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        missing = set(CSV_FIELDS) - set(reader.fieldnames or [])
-        if missing:
-            raise ValueError(
-                f"seed CSV {seed_csv} is missing columns: "
-                f"{sorted(missing)} (expected {CSV_FIELDS})"
-            )
-        for r in reader:
-            try:
-                knesset_num = int(r.get("knesset_num") or 0)
-            except ValueError:
-                knesset_num = 0
-            rows.append(DocRow(
-                url=(r.get("url") or "").strip(),
-                filename=(r.get("filename") or "").strip(),
-                date=(r.get("date") or "").strip(),
-                knesset_num=knesset_num,
-                title=(r.get("title") or "").strip(),
-            ))
+    reader = csv.DictReader(_io.StringIO(text))
+    missing = set(CSV_FIELDS) - set(reader.fieldnames or [])
+    if missing:
+        raise ValueError(
+            f"seed CSV at {key} is missing columns: "
+            f"{sorted(missing)} (expected {CSV_FIELDS})"
+        )
+    for r in reader:
+        try:
+            knesset_num = int(r.get("knesset_num") or 0)
+        except ValueError:
+            knesset_num = 0
+        rows.append(DocRow(
+            url=(r.get("url") or "").strip(),
+            filename=(r.get("filename") or "").strip(),
+            date=(r.get("date") or "").strip(),
+            knesset_num=knesset_num,
+            title=(r.get("title") or "").strip(),
+        ))
     # Drop rows with no URL — they're not actionable for the Stage 2
     # PDF downloader and only inflate counts.
     rows = [r for r in rows if r.url]
@@ -257,7 +266,7 @@ def fetch_ethics_decisions_index(
     live_rows = list(_extract_pdf_anchors(html, knesset_num=config.knesset_num))
     logger.info("fetch_ethics_decisions: extracted %d live PDF rows", len(live_rows))
 
-    seed_rows = _load_seed_rows(Path(config.output_csv_path))
+    seed_rows = _load_seed_rows(config.store, config.key)
     if seed_rows:
         rows = _merge_rows(live_rows, seed_rows)
         logger.info(
@@ -269,10 +278,10 @@ def fetch_ethics_decisions_index(
     else:
         rows = live_rows
 
-    ensure_at_least_one_row(rows, config.output_csv_path)
-    atomic_write_csv(config.output_csv_path, rows)
+    ensure_at_least_one_row(rows, config.store, config.key)
+    atomic_write_csv(config.store, config.key, rows)
     logger.info(
         "fetch_ethics_decisions: wrote %d rows to %s",
-        len(rows), config.output_csv_path,
+        len(rows), config.key,
     )
     return rows

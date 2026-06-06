@@ -24,6 +24,9 @@ import pytest
 
 from botnim.document_parser.knesset_protocols import process_protocols
 from botnim.document_parser.pdfs.exceptions import EmptyUpstreamIndex
+from botnim.storage.local_fs import LocalFsStore
+
+_KEY = "cache/unified/extraction/knesset_protocols.csv"
 
 
 def _odata_response(rows: list[dict]) -> MagicMock:
@@ -102,13 +105,13 @@ def test_happy_path_writes_csv(mock_requests, tmp_path, fixed_now,
         _odata_response([]),                            # plenum list (empty)
         _doc_response(sample_committee_doc),            # download committee_1
     ]
-    out = tmp_path / "knesset_protocols.csv"
+    store = LocalFsStore(tmp_path)
     process_protocols.process_knesset_protocols_source(
-        output_csv_path=out, base_url="https://example.test/Odata/x.svc",
+        store=store, key=_KEY, base_url="https://example.test/Odata/x.svc",
         days_history=30, max_protocols=10, rate_limit_seconds=0,
         now=fixed_now,
     )
-    rows = list(csv.DictReader(out.open(encoding="utf-8")))
+    rows = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     assert len(rows) == 2  # one chair + one speaker
     assert rows[0]["doc_kind"] == "committee"
     assert rows[0]["doc_group_type"] == "פרוטוקול ועדה"
@@ -126,14 +129,14 @@ def test_empty_upstream_raises(mock_requests, tmp_path, fixed_now):
         _odata_response([]),
         _odata_response([]),
     ]
-    out = tmp_path / "knesset_protocols.csv"
+    store = LocalFsStore(tmp_path)
     with pytest.raises(EmptyUpstreamIndex):
         process_protocols.process_knesset_protocols_source(
-            output_csv_path=out,
+            store=store, key=_KEY,
             base_url="https://example.test/Odata/x.svc",
             now=fixed_now, rate_limit_seconds=0,
         )
-    assert not out.exists()
+    assert not store.exists(_KEY)
 
 
 @patch.object(process_protocols, "requests")
@@ -144,14 +147,14 @@ def test_hash_short_circuit(mock_requests, tmp_path, fixed_now,
         _odata_response([]),
         _doc_response(sample_committee_doc),
     ]
-    out = tmp_path / "knesset_protocols.csv"
+    store = LocalFsStore(tmp_path)
     process_protocols.process_knesset_protocols_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/x.svc",
         days_history=30, max_protocols=10, rate_limit_seconds=0,
         now=fixed_now,
     )
-    first_mtime = out.stat().st_mtime_ns
+    first_bytes = store.get_bytes(_KEY)
 
     mock_requests.get.side_effect = [
         _odata_response([_committee_index(1)]),
@@ -159,12 +162,13 @@ def test_hash_short_circuit(mock_requests, tmp_path, fixed_now,
         _doc_response(sample_committee_doc),
     ]
     process_protocols.process_knesset_protocols_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/x.svc",
         days_history=30, max_protocols=10, rate_limit_seconds=0,
         now=fixed_now,
     )
-    assert out.stat().st_mtime_ns == first_mtime
+    # Store object unchanged (hash short-circuit: no re-write)
+    assert store.get_bytes(_KEY) == first_bytes
 
 
 @patch.object(process_protocols, "requests")
@@ -175,9 +179,9 @@ def test_filter_uses_window_and_group_type(mock_requests, tmp_path, fixed_now,
         _odata_response([]),
         _doc_response(sample_committee_doc),
     ]
-    out = tmp_path / "knesset_protocols.csv"
+    store = LocalFsStore(tmp_path)
     process_protocols.process_knesset_protocols_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/x.svc",
         days_history=10,
         max_protocols=5,
@@ -205,14 +209,14 @@ def test_failed_download_does_not_abort(mock_requests, tmp_path, fixed_now,
         bad_resp,                                         # download 1 fails
         _doc_response(sample_committee_doc),              # download 2 ok
     ]
-    out = tmp_path / "knesset_protocols.csv"
+    store = LocalFsStore(tmp_path)
     process_protocols.process_knesset_protocols_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/x.svc",
         days_history=30, max_protocols=10, rate_limit_seconds=0,
         now=fixed_now,
     )
-    rows = list(csv.DictReader(out.open(encoding="utf-8")))
+    rows = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     # Should have 2 turns from doc 2 only.
     assert len(rows) == 2
     assert rows[0]["document_id"] == "2"
@@ -229,9 +233,9 @@ def test_max_protocols_cap(mock_requests, tmp_path, fixed_now,
         _doc_response(sample_committee_doc),
         # No plenum call expected — cap=3 already reached
     ]
-    out = tmp_path / "knesset_protocols.csv"
+    store = LocalFsStore(tmp_path)
     process_protocols.process_knesset_protocols_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/x.svc",
         days_history=30, max_protocols=3, rate_limit_seconds=0,
         now=fixed_now,
@@ -251,14 +255,14 @@ def test_skips_non_doc_paths(mock_requests, tmp_path, fixed_now,
         _odata_response([]),
         _doc_response(sample_committee_doc),  # only doc 2 downloaded
     ]
-    out = tmp_path / "knesset_protocols.csv"
+    store = LocalFsStore(tmp_path)
     process_protocols.process_knesset_protocols_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/x.svc",
         days_history=30, max_protocols=10, rate_limit_seconds=0,
         now=fixed_now,
     )
-    rows = list(csv.DictReader(out.open(encoding="utf-8")))
+    rows = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     assert all(r["document_id"] == "2" for r in rows)
 
 
@@ -273,7 +277,7 @@ def test_per_doc_delta_reuses_rows_when_last_updated_unchanged(
     """One run downloads + parses. Second run with the SAME LastUpdatedDate
     but a different upstream_hash (e.g. a new doc was added elsewhere) must
     reuse the per-turn rows for doc 1 without re-downloading."""
-    out = tmp_path / "knesset_protocols.csv"
+    store = LocalFsStore(tmp_path)
 
     # Run 1: two committees uploaded, both fresh → 2 OData calls (committees +
     # plenum) + 2 .doc downloads = 4 GETs.
@@ -285,11 +289,11 @@ def test_per_doc_delta_reuses_rows_when_last_updated_unchanged(
         _doc_response(sample_committee_doc),
     ]
     process_protocols.process_knesset_protocols_source(
-        output_csv_path=out, base_url="https://example.test/Odata/x.svc",
+        store=store, key=_KEY, base_url="https://example.test/Odata/x.svc",
         days_history=30, max_protocols=10, rate_limit_seconds=0,
         now=fixed_now,
     )
-    rows_after_run1 = list(csv.DictReader(out.open(encoding="utf-8")))
+    rows_after_run1 = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     assert {r["document_id"] for r in rows_after_run1} == {"1", "2"}
     run1_calls = mock_requests.get.call_count
     assert run1_calls == 4
@@ -306,7 +310,7 @@ def test_per_doc_delta_reuses_rows_when_last_updated_unchanged(
         _doc_response(sample_committee_doc),  # only doc 3 expected
     ]
     process_protocols.process_knesset_protocols_source(
-        output_csv_path=out, base_url="https://example.test/Odata/x.svc",
+        store=store, key=_KEY, base_url="https://example.test/Odata/x.svc",
         days_history=30, max_protocols=10, rate_limit_seconds=0,
         now=fixed_now,
     )
@@ -314,7 +318,7 @@ def test_per_doc_delta_reuses_rows_when_last_updated_unchanged(
     # download more than once (e.g. all three), it would exhaust the list
     # and raise StopIteration. Reaching here means we made exactly one
     # download in run 2.
-    rows_after_run2 = list(csv.DictReader(out.open(encoding="utf-8")))
+    rows_after_run2 = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     assert {r["document_id"] for r in rows_after_run2} == {"1", "2", "3"}
     # The CSV's upstream_hash must reflect the NEW run's hash uniformly —
     # reused rows had their upstream_hash refreshed.
@@ -327,7 +331,7 @@ def test_per_doc_delta_redownloads_when_last_updated_changed(
     mock_requests, tmp_path, fixed_now, sample_committee_doc,
 ):
     """A document whose LastUpdatedDate changed → re-downloaded + re-parsed."""
-    out = tmp_path / "knesset_protocols.csv"
+    store = LocalFsStore(tmp_path)
 
     # Run 1: one committee at older timestamp.
     mock_requests.get.side_effect = [
@@ -336,7 +340,7 @@ def test_per_doc_delta_redownloads_when_last_updated_changed(
         _doc_response(sample_committee_doc),
     ]
     process_protocols.process_knesset_protocols_source(
-        output_csv_path=out, base_url="https://example.test/Odata/x.svc",
+        store=store, key=_KEY, base_url="https://example.test/Odata/x.svc",
         days_history=30, max_protocols=10, rate_limit_seconds=0,
         now=fixed_now,
     )
@@ -355,11 +359,11 @@ def test_per_doc_delta_redownloads_when_last_updated_changed(
         _doc_response(fresh_doc),
     ]
     process_protocols.process_knesset_protocols_source(
-        output_csv_path=out, base_url="https://example.test/Odata/x.svc",
+        store=store, key=_KEY, base_url="https://example.test/Odata/x.svc",
         days_history=30, max_protocols=10, rate_limit_seconds=0,
         now=fixed_now,
     )
-    rows = list(csv.DictReader(out.open(encoding="utf-8")))
+    rows = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     # The new chair name appears in the rewritten rows.
     chair_rows = [r for r in rows if r["speaker_role"] == "chair"]
     assert chair_rows, "expected at least one chair row"
