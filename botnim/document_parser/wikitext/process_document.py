@@ -5,6 +5,8 @@ Main pipeline runner for HTML document processing.
 
 from pathlib import Path
 from ...config import get_logger, get_openai_client
+from ...storage import get_artifact_store
+from ...storage.base import wikitext_cache_key
 from .pipeline_config import WikitextProcessorConfig, PipelineMetadata, PipelineStage
 from .extract_structure import extract_structure_from_html, build_nested_structure
 from .extract_content import extract_content_from_html
@@ -29,21 +31,30 @@ logger = get_logger(__name__)
 WIKITEXT_EXTRACTOR_VERSION = "v1-gpt-4.1-mini"
 
 
-def _read_cached_metadata(content_file: Path) -> dict | None:
-    """Return the metadata dict from an existing content_file, or None.
+def _wikitext_cache_key(bot: str, html_sha256: str) -> str:
+    """Durable, versioned-by-key location of the cached content_file.
 
-    Failures (missing file, malformed JSON, missing metadata key) return None
-    so the caller falls through to a fresh extraction — never raise from
-    the cache-check fast path.
+    Delegates to the canonical key builder in ``storage.base`` (the single
+    source of truth for the key shape) — this thin wrapper only binds the
+    canonical ``WIKITEXT_EXTRACTOR_VERSION`` so callers don't have to.
+    Produces ``cache/wikitext/<bot>/<html_sha256>__<version>.json``.
+    Bumping WIKITEXT_EXTRACTOR_VERSION changes the key, so an old object is
+    never read — no in-place invalidation needed.
     """
-    if not content_file.exists():
-        return None
+    return wikitext_cache_key(bot, html_sha256, WIKITEXT_EXTRACTOR_VERSION)
+
+
+def _metadata_from_bytes(raw: bytes) -> dict | None:
+    """Return the metadata dict from cached content_file bytes, or None.
+
+    Malformed JSON / missing metadata key → None so the caller falls
+    through to a fresh extraction — never raise from the cache-check path.
+    """
     try:
-        with open(content_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        data = json.loads(raw.decode("utf-8"))
     except Exception:
         return None
-    md = data.get('metadata') if isinstance(data, dict) else None
+    md = data.get("metadata") if isinstance(data, dict) else None
     return md if isinstance(md, dict) else None
 
 def validate_markdown_output(output_dir: Path) -> list:
@@ -225,32 +236,48 @@ class WikitextProcessor:
         self.start_time = datetime.now()
         self.metadata.start_time = self.start_time.isoformat()
 
-        # Cache fast-path: if the previous run's content_file is still on
-        # disk and was extracted from this exact same HTML at the current
-        # WIKITEXT_EXTRACTOR_VERSION, skip both Stage 1 (the LLM call) and
-        # Stage 2. Saves ~30K input tokens / source / day in steady state.
-        # Bumping WIKITEXT_EXTRACTOR_VERSION (or any content change at the
-        # upstream Wikisource URL) invalidates the cache and forces a
-        # fresh extraction on the next fap.
-        cached_md = _read_cached_metadata(self.config.content_file)
+        # Cache fast-path (durable, versioned-by-key). Look up the cached
+        # content_file by store key cache/wikitext/<bot>/<html_sha256>__<version>.json.
+        # A HIT requires ONLY the store object — no local/EFS file. This
+        # survives container replacement (the previous on-disk cache did not).
+        # Bumping WIKITEXT_EXTRACTOR_VERSION changes the key, forcing a miss.
+        store = get_artifact_store()
+        cache_key = _wikitext_cache_key(self.config.bot, self.config.input_html_sha256)
+        cached_bytes = None
+        if store.exists(cache_key):
+            try:
+                cached_bytes = store.get_bytes(cache_key)
+            except FileNotFoundError:
+                cached_bytes = None
+        cached_md = _metadata_from_bytes(cached_bytes) if cached_bytes is not None else None
         if (cached_md is not None
                 and cached_md.get('html_sha256') == self.config.input_html_sha256
                 and cached_md.get('wikitext_extractor_version') == WIKITEXT_EXTRACTOR_VERSION):
             logger.info(
-                "WIKITEXT_CACHE_HIT: url=%s html_sha256=%s version=%s "
+                "WIKITEXT_CACHE_HIT: url=%s html_sha256=%s version=%s key=%s "
                 "(skipping LLM structure extraction)",
                 self.config.input_url,
                 self.config.input_html_sha256[:12],
                 WIKITEXT_EXTRACTOR_VERSION,
+                cache_key,
             )
+            # Materialize the cached content_file locally so optional Stage 3
+            # markdown generation can read it. Ephemeral — derived from the store.
+            self.config.content_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.config.content_file, 'wb') as f:
+                f.write(cached_bytes)
+            if generate_markdown:
+                if not self._run_markdown_generation():
+                    return False
             self.metadata.end_time = datetime.now().isoformat()
             return True
 
         logger.info(
-            "WIKITEXT_CACHE_MISS: url=%s html_sha256=%s version=%s",
+            "WIKITEXT_CACHE_MISS: url=%s html_sha256=%s version=%s key=%s",
             self.config.input_url,
             self.config.input_html_sha256[:12],
             WIKITEXT_EXTRACTOR_VERSION,
+            cache_key,
         )
 
         try:
@@ -266,6 +293,18 @@ class WikitextProcessor:
             if generate_markdown:
                 if not self._run_markdown_generation():
                     return False
+
+            # Persist the freshly extracted content_file to durable storage so
+            # the next run (a fresh container with no local state) is a HIT.
+            # Single atomic write to the versioned-by-key location.
+            with open(self.config.content_file, 'rb') as f:
+                content_bytes = f.read()
+            store.put_atomic(cache_key, content_bytes)
+            logger.info(
+                "WIKITEXT_CACHE_STORE: key=%s bytes=%d",
+                cache_key,
+                len(content_bytes),
+            )
 
             # Pipeline completed successfully
             self.metadata.end_time = datetime.now().isoformat()

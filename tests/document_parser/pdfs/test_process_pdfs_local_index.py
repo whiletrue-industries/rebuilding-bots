@@ -10,6 +10,8 @@ import pytest
 from botnim.document_parser.pdfs.process_pdfs import process_pdf_source
 from botnim.document_parser.pdfs.pdf_extraction_config import SourceConfig, FieldConfig
 from botnim.document_parser.knesset_apps.common import EmptyUpstreamIndex
+from botnim.storage.local_fs import LocalFsStore
+from botnim.storage.csv_writer import key_for_extraction
 
 
 def _make_index_csv(path: Path, rows: list[dict]) -> None:
@@ -25,26 +27,45 @@ def _fields():
     return [FieldConfig(name="טקסט_מלא", description="Full text", example="...", hint="...")]
 
 
+def _make_store_and_key(tmp_path: Path):
+    store = LocalFsStore(tmp_path / "store")
+    key = key_for_extraction("unified", "extraction/out.csv")
+    return store, key
+
+
 def test_missing_index_raises_empty(tmp_path: Path):
     cfg = SourceConfig(
         output_csv_path=tmp_path / "out.csv",
         fields=_fields(),
         local_index_csv_path=str(tmp_path / "missing-index.csv"),
     )
+    store, key = _make_store_and_key(tmp_path)
     with pytest.raises(EmptyUpstreamIndex):
-        process_pdf_source(cfg)
+        process_pdf_source(cfg, store=store, key=key)
 
 
 def test_zero_row_index_with_existing_output_raises(tmp_path: Path):
-    out = tmp_path / "out.csv"
-    # Pre-existing populated output; we must refuse to overwrite it.
-    out.write_text("url,revision,טקסט_מלא\nhttps://x,1,old\n", encoding="utf-8")
+    store, key = _make_store_and_key(tmp_path)
+    # Pre-existing populated output in the store; we must refuse to overwrite it.
+    store.put_atomic(key, b"url,revision,\xe2\x80\x8bx\nhttps://x,1,old\n")
     idx = tmp_path / "idx.csv"
     _make_index_csv(idx, [])
-    cfg = SourceConfig(output_csv_path=out, fields=_fields(),
+    cfg = SourceConfig(output_csv_path=tmp_path / "out.csv", fields=_fields(),
                        local_index_csv_path=str(idx))
     with pytest.raises(EmptyUpstreamIndex):
-        process_pdf_source(cfg)
+        process_pdf_source(cfg, store=store, key=key)
+
+
+def test_zero_row_index_without_existing_writes_header(tmp_path: Path):
+    """Empty index + no existing store object → writes empty header row."""
+    store, key = _make_store_and_key(tmp_path)
+    idx = tmp_path / "idx.csv"
+    _make_index_csv(idx, [])
+    cfg = SourceConfig(output_csv_path=tmp_path / "out.csv", fields=_fields(),
+                       local_index_csv_path=str(idx))
+    process_pdf_source(cfg, store=store, key=key)
+    assert store.exists(key)
+    assert store.get_bytes(key) == b"url,revision,upstream_revision\n"
 
 
 def test_single_row_index_invokes_extractor_with_row_url(tmp_path: Path):
@@ -57,8 +78,8 @@ def test_single_row_index_invokes_extractor_with_row_url(tmp_path: Path):
         "knesset_num": "25",
         "title": "החלטה",
     }])
-    out = tmp_path / "out.csv"
-    cfg = SourceConfig(output_csv_path=out, fields=_fields(),
+    store, key = _make_store_and_key(tmp_path)
+    cfg = SourceConfig(output_csv_path=tmp_path / "out.csv", fields=_fields(),
                        local_index_csv_path=str(idx))
 
     with patch("botnim.document_parser.pdfs.process_pdfs.requests.get") as mock_get, \
@@ -66,15 +87,15 @@ def test_single_row_index_invokes_extractor_with_row_url(tmp_path: Path):
          patch("botnim.document_parser.pdfs.process_pdfs.get_openai_client"):
         mock_get.return_value = MagicMock(content=b"%PDF-1.4 fake", raise_for_status=MagicMock())
         mock_process.return_value = [{"טקסט_מלא": "שלום עולם"}]
-        process_pdf_source(cfg)
+        process_pdf_source(cfg, store=store, key=key)
 
     # Verify the URL passed to requests.get is the row URL, NOT a constructed one.
     called_with = mock_get.call_args.args[0]
     assert called_with == "https://main.knesset.gov.il/.../Decision-1.pdf"
 
-    # Output CSV should have one row.
-    with open(out, encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+    # Output should have one row in the store.
+    assert store.exists(key)
+    rows = list(csv.DictReader(store.get_bytes(key).decode("utf-8").splitlines()))
     assert len(rows) == 1
     assert rows[0]["url"] == "https://main.knesset.gov.il/.../Decision-1.pdf"
     assert rows[0]["טקסט_מלא"] == "שלום עולם"
@@ -91,23 +112,23 @@ def test_cache_hit_skips_extractor(tmp_path: Path):
         "knesset_num": "25",
         "title": "Cached",
     }])
-    out = tmp_path / "out.csv"
-    out.write_text(
+    store, key = _make_store_and_key(tmp_path)
+    store.put_atomic(
+        key,
         f"url,revision,upstream_revision,טקסט_מלא\n"
-        f"https://main.knesset.gov.il/x.pdf,{REVISION},,already extracted\n",
-        encoding="utf-8",
+        f"https://main.knesset.gov.il/x.pdf,{REVISION},,already extracted\n"
+        .encode("utf-8"),
     )
-    cfg = SourceConfig(output_csv_path=out, fields=_fields(),
+    cfg = SourceConfig(output_csv_path=tmp_path / "out.csv", fields=_fields(),
                        local_index_csv_path=str(idx))
 
     with patch("botnim.document_parser.pdfs.process_pdfs.requests.get") as mock_get, \
          patch("botnim.document_parser.pdfs.process_pdfs.process_single_pdf") as mock_process, \
          patch("botnim.document_parser.pdfs.process_pdfs.get_openai_client"):
-        process_pdf_source(cfg)
+        process_pdf_source(cfg, store=store, key=key)
 
     mock_get.assert_not_called()
     mock_process.assert_not_called()
-    with open(out, encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+    rows = list(csv.DictReader(store.get_bytes(key).decode("utf-8").splitlines()))
     assert len(rows) == 1
     assert rows[0]["טקסט_מלא"] == "already extracted"

@@ -56,11 +56,15 @@ class WikitextProcessorConfig:
     # Input/Output
     input_url: str
     output_base_dir: Path
-    
+
+    # Bot slug (spec dir name, e.g. "unified"). Namespaces the durable
+    # wikitext cache key: cache/wikitext/<bot>/<html_sha256>__<version>.json
+    bot: str = "unified"
+
     # Processing parameters
     content_type: str = "סעיף"
     environment: Environment = Environment.STAGING
-    
+
     # OpenAI parameters
     model: str = "gpt-4.1-mini"  # 5x cheaper, same 1M context, same json_object support
     max_tokens: Optional[int] = None  # Optional; if None, use model default
@@ -113,6 +117,7 @@ class WikitextProcessorConfig:
         return {
             "input_html_file": str(self.input_html_file),
             "output_base_dir": str(self.output_base_dir),
+            "bot": self.bot,
             "content_type": self.content_type,
             "environment": self.environment.value,
             "model": self.model,

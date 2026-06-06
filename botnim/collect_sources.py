@@ -23,6 +23,8 @@ from .dynamic_extraction import extract_structured_content, extract_structured_c
 from .document_parser.wikitext.generate_markdown_files import generate_markdown_dict
 from .document_parser.wikitext.pipeline_config import sanitize_filename
 from ._concurrency import SyncConcurrency, get_sync_concurrency, run_async
+from .storage import get_artifact_store, seed_key
+from .storage.csv_writer import key_for_extraction
 
 
 logger = get_logger(__name__)
@@ -421,16 +423,40 @@ async def _process_file_stream_async(
     return (fname, io.BytesIO(text.encode('utf-8')), ctype, metadata)
 
 def _collect_raw_streams_files(config_dir: Path, source):
-    """Return [(filename, content, content_type, extra_meta)] without the OpenAI step."""
-    files = list(config_dir.glob(source))
-    return [(f.name, f.open('rb'), 'text/markdown', {}) for f in files]
+    """Return [(filename, content, content_type, extra_meta)] without the OpenAI step.
+
+    Reads through the ArtifactStore instead of globbing config_dir. ``source``
+    is a relative glob pattern (e.g. ``extraction/legal_text/*.md``); the
+    store key for each matched file is ``cache/<bot>/<source>`` where
+    ``bot == config_dir.name``. ``store.list(prefix)`` takes a plain prefix,
+    so we split the pattern at the last ``*`` into a directory prefix +
+    filename suffix and filter the listed keys by that suffix.
+    """
+    store = get_artifact_store()
+    bot = config_dir.name
+    star = source.rfind('*')
+    if star == -1:
+        # No wildcard — `source` is a single concrete key.
+        full_key = key_for_extraction(bot, source)
+        keys = [full_key] if store.exists(full_key) else []
+    else:
+        slash = source.rfind('/', 0, star)
+        prefix_relpath = source[: slash + 1] if slash != -1 else ''
+        suffix = source[star + 1:]            # e.g. '.md' from '*.md'
+        list_prefix = key_for_extraction(bot, prefix_relpath) if prefix_relpath else f'cache/{bot}/'
+        keys = [k for k in store.list(list_prefix) if k.endswith(suffix)]
+    return [
+        (Path(key).name, store.open_stream(key), 'text/markdown', {})
+        for key in keys
+    ]
 
 
 def _collect_raw_streams_split(config_dir: Path, context_name, source, offset=0):
-    filename = config_dir / source
-    if filename.suffix == '.json':
-        with open(filename, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+    store = get_artifact_store()
+    if source.endswith('.json'):
+        full_key = key_for_extraction(config_dir.name, source)
+        raw_bytes = store.get_bytes(full_key)
+        data = json.loads(raw_bytes.decode('utf-8'))
         document_name = data.get('metadata', {}).get('document_name', '')
         if not document_name:
             input_file = data.get('metadata', {}).get('input_file', '')
@@ -440,7 +466,18 @@ def _collect_raw_streams_split(config_dir: Path, context_name, source, offset=0)
         markdown_dict = generate_markdown_dict(structure, document_name)
         return [(fname, content, 'text/markdown', {}) for fname, content in markdown_dict.items()]
     else:
-        content = filename.read_text()
+        # Markdown split sources (e.g. common-knowledge.md) are operator-owned
+        # seed data. Read from seed/<bot>/<source> via the store by default;
+        # fall back to the on-disk image path when the store has no object
+        # (legacy / CI without a populated store). <bot> is the config_dir name.
+        bot = config_dir.name
+        content = None
+        try:
+            content = store.get_bytes(seed_key(bot, source)).decode('utf-8')
+        except FileNotFoundError:
+            content = None
+        if content is None:
+            content = (config_dir / source).read_text(encoding='utf-8')
         parts = content.split('\n---\n')
         return [(f'{context_name}_{i+offset}.md', c, 'text/markdown', {}) for i, c in enumerate(parts)]
 
@@ -475,7 +512,9 @@ def _collect_raw_streams_csv(config_dir, context_name, source, offset=0):
     downstream so the URL becomes ``metadata.source_url`` without
     poisoning the embedding. Empty values yield no entry.
     """
-    with open(config_dir / source, 'r', encoding='utf-8') as f:
+    store = get_artifact_store()
+    full_key = key_for_extraction(config_dir.name, source)
+    with io.TextIOWrapper(store.open_stream(full_key), encoding='utf-8', newline='') as f:
         reader = csv.DictReader(f)
         raw = []
         for idx, row in enumerate(reader):

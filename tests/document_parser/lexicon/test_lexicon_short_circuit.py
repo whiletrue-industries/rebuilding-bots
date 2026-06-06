@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 import csv
+import io
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
 
 from botnim.document_parser.lexicon import lexicon
+from botnim.storage.local_fs import LocalFsStore
+
+
+_KEY = "cache/unified/extraction/lexicon.csv"
+_SENTINEL_KEY = _KEY + lexicon.SENTINEL_SUFFIX
 
 
 _INDEX_HTML_V1 = """
@@ -73,8 +79,7 @@ def _expected_hash(html: str) -> str:
 @patch.object(lexicon, "time")  # silence the 5s sleep
 @patch.object(lexicon, "requests")
 def test_first_run_writes_csv_and_sentinel(mock_requests, _mock_time, tmp_path: Path):
-    out = tmp_path / "lexicon.csv"
-    sentinel = tmp_path / "lexicon.csv.index.sha256"
+    store = LocalFsStore(tmp_path)
 
     # Index page + one entry response per link (2 links, so 3 total GETs).
     mock_requests.get.side_effect = [
@@ -83,17 +88,16 @@ def test_first_run_writes_csv_and_sentinel(mock_requests, _mock_time, tmp_path: 
         _resp(_ENTRY_HTML),
     ]
 
-    lexicon.scrape_lexicon(out)
+    lexicon.scrape_lexicon(store=store, key=_KEY)
 
-    assert out.exists()
-    assert sentinel.exists()
+    assert store.exists(_KEY)
+    assert store.exists(_SENTINEL_KEY)
     # Sentinel matches the dehydrated href-list hash (NOT raw HTML).
-    assert sentinel.read_text().strip() == _expected_hash(_INDEX_HTML_V1)
+    assert store.get_bytes(_SENTINEL_KEY).decode("utf-8").strip() == _expected_hash(_INDEX_HTML_V1)
     # CSV has header + 2 entry rows. 3-column format introduced 2026-05-13:
     # מידע (content), lexicon_url (traceability), source_url (Wikisource
     # anchor when detectable, else falls back to lexicon_url).
-    with open(out, encoding="utf-8") as f:
-        rows = list(csv.reader(f))
+    rows = list(csv.reader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     assert rows[0] == ["מידע", "lexicon_url", "source_url"]
     assert len(rows) == 3  # header + 2
 
@@ -102,23 +106,22 @@ def test_first_run_writes_csv_and_sentinel(mock_requests, _mock_time, tmp_path: 
 @patch.object(lexicon, "requests")
 def test_unchanged_index_short_circuits(mock_requests, _mock_time, tmp_path: Path):
     """Second run with the same index hash + existing CSV must NOT iterate entries."""
-    out = tmp_path / "lexicon.csv"
-    sentinel = tmp_path / "lexicon.csv.index.sha256"
+    store = LocalFsStore(tmp_path)
 
     # Pre-populate sentinel + CSV from a prior run. The CSV must carry
     # the current 3-col header — a legacy 1-col CSV would (correctly)
     # trip the schema-upgrade guard and force a re-scrape.
     legacy_body = "מידע,lexicon_url,source_url\nold row,a,b\n"
-    out.write_text(legacy_body, encoding="utf-8")
-    sentinel.write_text(_expected_hash(_INDEX_HTML_V1), encoding="utf-8")
+    store.put_atomic(_KEY, legacy_body.encode("utf-8"))
+    store.put_atomic(_SENTINEL_KEY, _expected_hash(_INDEX_HTML_V1).encode("utf-8"))
 
     # Only the index GET should fire — no per-entry GETs.
     mock_requests.get.side_effect = [_resp(_INDEX_HTML_V1)]
 
-    lexicon.scrape_lexicon(out)
+    lexicon.scrape_lexicon(store=store, key=_KEY)
 
     # CSV untouched.
-    assert out.read_text(encoding="utf-8") == legacy_body
+    assert store.get_bytes(_KEY).decode("utf-8") == legacy_body
     # Exactly one GET (index only).
     assert mock_requests.get.call_count == 1
 
@@ -127,11 +130,10 @@ def test_unchanged_index_short_circuits(mock_requests, _mock_time, tmp_path: Pat
 @patch.object(lexicon, "requests")
 def test_changed_index_re_scrapes(mock_requests, _mock_time, tmp_path: Path):
     """Different index hash forces a full re-scrape."""
-    out = tmp_path / "lexicon.csv"
-    sentinel = tmp_path / "lexicon.csv.index.sha256"
+    store = LocalFsStore(tmp_path)
 
-    out.write_text("מידע\nold row\n", encoding="utf-8")
-    sentinel.write_text(_expected_hash(_INDEX_HTML_V1), encoding="utf-8")
+    store.put_atomic(_KEY, "מידע\nold row\n".encode("utf-8"))
+    store.put_atomic(_SENTINEL_KEY, _expected_hash(_INDEX_HTML_V1).encode("utf-8"))
 
     # Server now returns V2 — has 3 entries (added Herzog) so the
     # dehydrated href-list hash differs.
@@ -142,26 +144,24 @@ def test_changed_index_re_scrapes(mock_requests, _mock_time, tmp_path: Path):
         _resp(_ENTRY_HTML),
     ]
 
-    lexicon.scrape_lexicon(out)
+    lexicon.scrape_lexicon(store=store, key=_KEY)
 
     # CSV rewritten (no longer the "old row" content). 3-column format.
-    with open(out, encoding="utf-8") as f:
-        rows = list(csv.reader(f))
+    rows = list(csv.reader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     assert rows[0] == ["מידע", "lexicon_url", "source_url"]
     assert len(rows) == 4  # header + 3 fresh entries
     assert all("old row" not in r[0] for r in rows[1:])
     # Sentinel updated to V2's dehydrated hash.
-    assert sentinel.read_text().strip() == _expected_hash(_INDEX_HTML_V2)
+    assert store.get_bytes(_SENTINEL_KEY).decode("utf-8").strip() == _expected_hash(_INDEX_HTML_V2)
 
 
 @patch.object(lexicon, "time")
 @patch.object(lexicon, "requests")
 def test_missing_csv_re_scrapes_even_if_sentinel_present(mock_requests, _mock_time, tmp_path: Path):
     """If user / ops deletes the CSV but the sentinel is left, we must re-scrape."""
-    out = tmp_path / "lexicon.csv"
-    sentinel = tmp_path / "lexicon.csv.index.sha256"
+    store = LocalFsStore(tmp_path)
 
-    sentinel.write_text(_expected_hash(_INDEX_HTML_V1), encoding="utf-8")
+    store.put_atomic(_SENTINEL_KEY, _expected_hash(_INDEX_HTML_V1).encode("utf-8"))
     # No CSV.
 
     mock_requests.get.side_effect = [
@@ -170,8 +170,8 @@ def test_missing_csv_re_scrapes_even_if_sentinel_present(mock_requests, _mock_ti
         _resp(_ENTRY_HTML),
     ]
 
-    lexicon.scrape_lexicon(out)
-    assert out.exists()
+    lexicon.scrape_lexicon(store=store, key=_KEY)
+    assert store.exists(_KEY)
     # Three GETs: index + 2 entries.
     assert mock_requests.get.call_count == 3
 
@@ -183,26 +183,25 @@ def test_viewstate_drift_does_not_force_rescrape(mock_requests, _mock_time, tmp_
     bytes, so two consecutive raw-HTML hashes never match. The dehydrated
     href-list hash MUST be stable across that drift — same hrefs → same hash
     → short-circuit fires."""
-    out = tmp_path / "lexicon.csv"
-    sentinel = tmp_path / "lexicon.csv.index.sha256"
+    store = LocalFsStore(tmp_path)
 
     legacy_body = "מידע,lexicon_url,source_url\nold row,a,b\n"
-    out.write_text(legacy_body, encoding="utf-8")
-    sentinel.write_text(_expected_hash(_INDEX_HTML_V1), encoding="utf-8")
+    store.put_atomic(_KEY, legacy_body.encode("utf-8"))
+    store.put_atomic(_SENTINEL_KEY, _expected_hash(_INDEX_HTML_V1).encode("utf-8"))
 
     # Server returns V1_DRIFT — same hrefs as V1 but different ViewState +
     # whitespace + timestamp. Raw-HTML hash would differ; dehydrated hash
     # must NOT.
     mock_requests.get.side_effect = [_resp(_INDEX_HTML_V1_DRIFT)]
 
-    lexicon.scrape_lexicon(out)
+    lexicon.scrape_lexicon(store=store, key=_KEY)
 
     # CSV untouched (short-circuit fired despite the drift).
-    assert out.read_text(encoding="utf-8") == legacy_body
+    assert store.get_bytes(_KEY).decode("utf-8") == legacy_body
     # Only the index GET — no per-entry GETs.
     assert mock_requests.get.call_count == 1
     # Sentinel unchanged (stayed at V1's hash).
-    assert sentinel.read_text().strip() == _expected_hash(_INDEX_HTML_V1)
+    assert store.get_bytes(_SENTINEL_KEY).decode("utf-8").strip() == _expected_hash(_INDEX_HTML_V1)
     # Sanity: V1's dehydrated hash equals V1_DRIFT's despite raw HTML differing.
     assert _expected_hash(_INDEX_HTML_V1) == _expected_hash(_INDEX_HTML_V1_DRIFT)
     import hashlib
@@ -216,10 +215,10 @@ def test_viewstate_drift_does_not_force_rescrape(mock_requests, _mock_time, tmp_
 @patch.object(lexicon, "requests")
 def test_index_500_propagates(mock_requests, _mock_time, tmp_path: Path):
     """Server failure on the index must surface, not silently leave stale CSV."""
-    out = tmp_path / "lexicon.csv"
-    out.write_text("מידע\nold row\n", encoding="utf-8")
+    store = LocalFsStore(tmp_path)
+    store.put_atomic(_KEY, "מידע\nold row\n".encode("utf-8"))
     mock_requests.get.return_value = _resp("oops", status=500)
     with pytest.raises(Exception, match="500"):
-        lexicon.scrape_lexicon(out)
+        lexicon.scrape_lexicon(store=store, key=_KEY)
     # CSV must be untouched.
-    assert out.read_text(encoding="utf-8") == "מידע\nold row\n"
+    assert store.get_bytes(_KEY).decode("utf-8") == "מידע\nold row\n"

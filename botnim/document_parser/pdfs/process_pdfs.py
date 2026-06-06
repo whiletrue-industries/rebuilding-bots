@@ -8,6 +8,8 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ...config import get_openai_client, get_logger
+from ...storage.base import ArtifactStore
+from ...storage.csv_writer import write_csv_artifact
 
 from .pdf_extraction_config import SourceConfig
 from .config import REVISION
@@ -50,58 +52,62 @@ def _process_one_pdf(row, external_source, config, openai_client, upstream_revis
     return out_rows
 
 
-def _existing_upstream_revision(output_csv: Path) -> str | None:
+def _existing_upstream_revision(store: ArtifactStore, key: str) -> str | None:
     """Read the upstream revision stored alongside the first row, if any.
 
-    Returns None if the file is missing, empty, or doesn't have the column.
+    Returns None if the object is missing, empty, or doesn't have the column.
     """
-    if not output_csv.exists():
+    if not store.exists(key):
         return None
-    with open(output_csv, 'r') as csv_file:
-        reader = csv.DictReader(csv_file)
-        for row in reader:
-            return row.get('upstream_revision') or None
+    text = store.get_bytes(key).decode("utf-8")
+    reader = csv.DictReader(StringIO(text))
+    for row in reader:
+        return row.get('upstream_revision') or None
     return None
 
 
-def process_pdf_source(config: SourceConfig):
+def process_pdf_source(config: SourceConfig, *, store: ArtifactStore, key: str, index_key: str | None = None):
     openai_client = get_openai_client()
-
-    output_csv = Path(config.output_csv_path)
 
     # NEW: local-index branch — index.csv already on disk (Stage 1 wrote it).
     # The two-stage source pattern: a separate fetcher (e.g. knesset_apps,
     # knesset_sharepoint) writes a BK-shape index.csv to disk; here we just
     # consume it. row['url'] is the absolute PDF URL, so we don't need to
     # build it from external_source/filename.
+    #
+    # GAP A fix: Stage 1 now writes the index to the STORE at index_key
+    # (key_for_extraction(bot, raw_idx)).  If the local file is absent (S3
+    # backend in ECS, or a fresh dev checkout) we fall back to the store.
+    # If neither exists we raise EmptyUpstreamIndex as before.
     if config.local_index_csv_path is not None:
         from ..knesset_apps.common import EmptyUpstreamIndex as KnessetEmptyUpstreamIndex
         index_path = Path(config.local_index_csv_path)
-        if not index_path.exists():
-            raise KnessetEmptyUpstreamIndex(
-                f"local index {index_path} does not exist — Stage 1 has not "
-                f"run yet; refusing to overwrite {output_csv}"
+        if index_path.exists():
+            # Local file present — read directly (dev / committed-index path).
+            with open(index_path, "r", encoding="utf-8") as f:
+                input_records = list(csv.DictReader(f))
+        elif index_key is not None and store.exists(index_key):
+            # Store-resident index written by Stage 1 (S3 backend in ECS).
+            logger.info(
+                "local index %s absent; reading from store key %s",
+                index_path, index_key,
             )
-        with open(index_path, "r", encoding="utf-8") as f:
-            input_records = list(csv.DictReader(f))
+            raw = store.get_bytes(index_key).decode("utf-8")
+            input_records = list(csv.DictReader(raw.splitlines()))
+        else:
+            raise KnessetEmptyUpstreamIndex(
+                f"local index {index_path} does not exist and store key "
+                f"{index_key!r} is also absent — Stage 1 has not run yet; "
+                f"refusing to overwrite {key}"
+            )
         if len(input_records) == 0:
-            if output_csv.exists():
+            if store.exists(key):
                 raise KnessetEmptyUpstreamIndex(
                     f"local index {index_path} is empty — refusing to "
-                    f"overwrite {output_csv}"
+                    f"overwrite {key}"
                 )
             # First-run on a fresh setup with empty index — write empty out, exit.
-            output_csv.parent.mkdir(parents=True, exist_ok=True)
-            tmp_output = output_csv.with_suffix(output_csv.suffix + '.tmp')
-            try:
-                tmp_output.write_text("url,revision,upstream_revision\n", encoding="utf-8")
-                os.replace(tmp_output, output_csv)
-            except Exception:
-                try:
-                    tmp_output.unlink()
-                except FileNotFoundError:
-                    pass
-                raise
+            store.put_atomic(key, b"url,revision,upstream_revision\n")
             return
         upstream_revision: str | None = ""
         external_source = None  # NOT used for pdf URL in this branch
@@ -121,7 +127,7 @@ def process_pdf_source(config: SourceConfig):
         except Exception as e:
             logger.warning(f'Could not fetch datapackage.json for {external_source}: {e}')
 
-        stored_revision = _existing_upstream_revision(output_csv)
+        stored_revision = _existing_upstream_revision(store, key)
         if (
             upstream_revision is not None
             and stored_revision is not None
@@ -129,7 +135,7 @@ def process_pdf_source(config: SourceConfig):
         ):
             logger.info(
                 f'{external_source}: upstream revision {upstream_revision} unchanged; '
-                f'leaving {output_csv} as-is'
+                f'leaving {key} as-is'
             )
             return
 
@@ -141,15 +147,14 @@ def process_pdf_source(config: SourceConfig):
         if len(input_records) == 0:
             raise EmptyUpstreamIndex(
                 f"{external_source}: upstream index.csv is empty — refusing to "
-                f"overwrite {output_csv}"
+                f"overwrite {key}"
             )
 
     existing_urls = dict()
-    if output_csv.exists():
-        with open(output_csv, 'r') as csv_file:
-            existing_csv = csv.DictReader(csv_file)
-            for row in existing_csv:
-                existing_urls[(row['url'], row['revision'])] = row
+    if store.exists(key):
+        existing_csv = csv.DictReader(StringIO(store.get_bytes(key).decode("utf-8")))
+        for row in existing_csv:
+            existing_urls[(row['url'], row['revision'])] = row
 
     out = []
     to_process = []
@@ -174,23 +179,12 @@ def process_pdf_source(config: SourceConfig):
             for fut in as_completed(futures):
                 out.extend(fut.result())
 
-    # Write the output CSV atomically: write to a sibling .tmp, then os.replace.
-    tmp_output = output_csv.with_suffix(output_csv.suffix + '.tmp')
-    try:
-        with open(tmp_output, 'w', newline='') as csv_file:
-            fieldnames = ['url', 'revision', 'upstream_revision']
-            for r in out:
-                for k in r.keys():
-                    if k not in fieldnames:
-                        fieldnames.append(k)
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in out:
-                writer.writerow(row)
-        os.replace(tmp_output, output_csv)
-    except Exception:
-        try:
-            tmp_output.unlink()
-        except FileNotFoundError:
-            pass
-        raise
+    # Atomic write through the store: base fieldnames + dynamic union (was
+    # process_pdfs.py:181-185).
+    write_csv_artifact(
+        store,
+        key,
+        out,
+        fieldnames=['url', 'revision', 'upstream_revision'],
+        extend_fieldnames=True,
+    )

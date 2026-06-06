@@ -101,6 +101,16 @@ module "botnim_api" {
       # S3 bucket for /tools/generate_word_doc uploads. Bucket lifecycle
       # auto-purges objects after 7 days; presigned URLs are shorter-lived.
       WORD_DOCS_BUCKET = aws_s3_bucket.word_docs.id
+      # S3 bucket backing the ArtifactStore (extraction seed/ + cache/). When
+      # set, botnim.storage.get_artifact_store() selects S3Store(bucket);
+      # unset it silently falls back to an ephemeral LocalFsStore, so this
+      # var is what actually activates the EFS->S3 migration in this env.
+      BOTNIM_ARTIFACT_BUCKET = aws_s3_bucket.extraction_artifacts.id
+      # S3Store passes region_name straight to boto3 and does NOT default it
+      # (unlike word_doc/storage.py, which hard-defaults il-central-1). Set it
+      # explicitly so the client always uses the il-central-1 regional
+      # endpoint required for SigV4 there, regardless of IMDS region lookup.
+      AWS_REGION = var.region
       # 2026-05-26: disable the per-run extraction LLM-call ceiling
       # (mirrors prod). Default 5000 in
       # botnim/_concurrency.py:DEFAULT_LLM_CALL_CEILING cut the daily
@@ -218,6 +228,8 @@ data "aws_iam_policy_document" "task_role" {
     data.aws_iam_policy_document.es_backups_write.json,
     data.aws_iam_policy_document.word_docs_write.json,
     data.aws_iam_policy_document.phoenix_secret_read.json,
+    data.aws_iam_policy_document.extraction_artifacts_rw.json,
+    data.aws_iam_policy_document.extraction_artifacts_kms.json,
   ]
 }
 

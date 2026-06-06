@@ -3,8 +3,9 @@ from pathlib import Path
 
 import yaml
 
-from .document_parser.lexicon.lexicon import scrape_lexicon
 from .config import SPECS
+from .storage import get_artifact_store
+from .storage.csv_writer import key_for_extraction
 
 
 def fetch_and_process_source(environment, config_dir, context_name, source, kind):
@@ -15,6 +16,16 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
     fetcher_kind = fetcher.pop('kind')
     if kind not in ['all', fetcher_kind]:
         return
+    # Resolve the artifact store singleton once per call.  Every converted
+    # branch uses the shared ``store`` so tests can monkeypatch a single
+    # ``get_artifact_store`` on this module.
+    store = get_artifact_store()
+    # ``key`` is only valid when the source dict carries a ``source`` field
+    # (the relpath under config_dir that the artifact writes to).  All
+    # converted artifact-writing branches have this field.  ``gov_il_decisions``
+    # (which writes directly to Aurora) does NOT — so we guard rather than
+    # unconditionally calling key_for_extraction and raising KeyError.
+    key = key_for_extraction(config_dir.name, source['source']) if 'source' in source else None
     # Lexicon scraping is intentionally excluded from the routine
     # `kind=all` refresh path — its 5s/entry sleep adds ~50min per fap
     # and the upstream rarely changes. Run it on demand via
@@ -31,6 +42,7 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         config = WikitextProcessorConfig(
             input_url=input_url,
             output_base_dir=output_base_dir,
+            bot=config_dir.name,  # spec dir name = bot slug; namespaces the cache key
             content_type='סעיף',
             environment=Environment(environment),  # Convert string to enum
             model='gpt-4.1-mini',
@@ -38,14 +50,26 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         )
         runner = WikitextProcessor(config)
         runner.run(generate_markdown=False)
+        # GAP B fix: after run() the content_file exists locally (both on
+        # cache-hit and cache-miss paths).  Write it to the sync-read key
+        # key_for_extraction(bot, source['source']) so the sync reader can
+        # retrieve it via store.get_bytes(key).  The durable wikitext cache
+        # (cache/wikitext/<bot>/<sha>__<version>.json) is KEPT intact — it
+        # gives the cross-deploy zero-LLM HIT.  This second write is to the
+        # extraction/<name>_structure_content.json slot that collect_sources
+        # reads.  ``key`` was already computed at the top of this function from
+        # source['source']; it is the canonical single-source-of-key value.
+        if key is not None and config.content_file.exists():
+            with open(config.content_file, 'rb') as _cf:
+                store.put_atomic(key, _cf.read())
     elif fetcher_kind == 'pdf':
         from .document_parser.pdfs.process_pdfs import process_pdf_source
         from .document_parser.pdfs.pdf_extraction_config import SourceConfig
-        output_csv_path = config_dir / source['source']
-        config = SourceConfig(**fetcher, output_csv_path=output_csv_path)
-        process_pdf_source(config)
+        config = SourceConfig(**fetcher, output_csv_path=config_dir / source['source'])
+        process_pdf_source(config, store=store, key=key)
     elif fetcher_kind == 'lexicon':
-        scrape_lexicon(output_path=config_dir / source['source'])
+        from .document_parser.lexicon.lexicon import scrape_lexicon
+        scrape_lexicon(store=store, key=key)
     elif fetcher_kind == 'bk_csv':
         # BudgetKey single-CSV datapackage (e.g. government_decisions). Different
         # from `pdf` which downloads PDF binaries listed in an index.csv and runs
@@ -53,16 +77,14 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         # whose rows are already parsed by BudgetKey upstream. See
         # botnim/document_parser/bk_datapackage/process_bk_csv.py for details.
         from .document_parser.bk_datapackage.process_bk_csv import process_bk_csv_source
-        output_csv_path = config_dir / source['source']
-        process_bk_csv_source(output_csv_path=output_csv_path, **fetcher)
+        process_bk_csv_source(store=store, key=key, **fetcher)
     elif fetcher_kind == 'knesset_odata':
         # Knesset ParliamentInfo OData service (live). Fetches plenum-session
         # entities + their agenda items joined into one CSV row per
         # (session, item) pair. See
         # botnim/document_parser/knesset_odata/process_odata.py for details.
         from .document_parser.knesset_odata.process_odata import process_knesset_odata_source
-        output_csv_path = config_dir / source['source']
-        process_knesset_odata_source(output_csv_path=output_csv_path, **fetcher)
+        process_knesset_odata_source(store=store, key=key, **fetcher)
     elif fetcher_kind == 'knesset_protocols':
         # Knesset committee + plenum protocol transcripts. Fetches the
         # OData document index, downloads each .doc (actually OOXML)
@@ -70,53 +92,63 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         # speaker-turn rows. See
         # botnim/document_parser/knesset_protocols/process_protocols.py.
         from .document_parser.knesset_protocols.process_protocols import process_knesset_protocols_source
-        output_csv_path = config_dir / source['source']
-        process_knesset_protocols_source(output_csv_path=output_csv_path, **fetcher)
+        process_knesset_protocols_source(store=store, key=key, **fetcher)
     elif fetcher_kind == 'knesset_apps_committee':
         from .document_parser.knesset_apps.committee_decisions_json import (
             fetch_committee_decisions_index, CommitteeDecisionsConfig,
         )
-        output_csv_path = config_dir / source['source']
         fetch_committee_decisions_index(
-            CommitteeDecisionsConfig(output_csv_path=output_csv_path, **fetcher)
+            CommitteeDecisionsConfig(store=store, key=key, **fetcher)
         )
 
     elif fetcher_kind == 'knesset_apps_ethics':
         from .document_parser.knesset_apps.ethics_decisions_html import (
             fetch_ethics_decisions_index, EthicsDecisionsConfig,
         )
-        output_csv_path = config_dir / source['source']
+        from .storage.base import seed_key as _seed_key
+        # The source relpath is e.g. "extraction/ethics_decisions/index.csv".
+        # Strip the leading "extraction/" to get the relpath under seed/<bot>/.
+        _source_relpath = source['source']  # e.g. "extraction/ethics_decisions/index.csv"
+        _seed_relpath = str(Path(_source_relpath).relative_to('extraction'))  # e.g. "ethics_decisions/index.csv"
         fetch_ethics_decisions_index(
-            EthicsDecisionsConfig(output_csv_path=output_csv_path, **fetcher)
+            EthicsDecisionsConfig(
+                store=store,
+                key=key,
+                seed_key=_seed_key(config_dir.name, _seed_relpath),
+                **fetcher,
+            )
         )
 
     elif fetcher_kind == 'knesset_sharepoint_legal_advisor':
         from .document_parser.knesset_sharepoint.scraper import scrape_legal_advisor_opinions
-        output_csv_path = config_dir / source['source']
-        scrape_legal_advisor_opinions(output_csv_path=output_csv_path, **fetcher)
+        scrape_legal_advisor_opinions(store=store, key=key, **fetcher)
 
     elif fetcher_kind == 'knesset_sharepoint_legal_advisor_letters':
         from .document_parser.knesset_sharepoint.scraper import scrape_legal_advisor_letters
-        output_csv_path = config_dir / source['source']
-        scrape_legal_advisor_letters(output_csv_path=output_csv_path, **fetcher)
+        scrape_legal_advisor_letters(store=store, key=key, **fetcher)
 
     elif fetcher_kind == 'indexed_pdf':
         from .document_parser.pdfs.process_pdfs import process_pdf_source
         from .document_parser.pdfs.pdf_extraction_config import SourceConfig
-        output_csv_path = config_dir / source['source']
         # local_index_csv_path is documented as relative-to-config_dir (see
         # pdf_extraction_config.py). Resolve it here so process_pdf_source
         # (which only sees the absolute SourceConfig) can find the index Stage
         # 1 wrote — the container cwd is /app, not config_dir.
         fetcher_kw = dict(fetcher)
         raw_idx = fetcher_kw.get('local_index_csv_path')
+        # GAP A fix: derive the store key for the index.csv from the ORIGINAL
+        # relative relpath BEFORE we resolve it to an absolute path.  Stage 1
+        # (knesset_apps, knesset_sharepoint) writes the index to the store at
+        # key_for_extraction(bot, raw_idx); process_pdf_source must read from
+        # the same key when the local file is absent (S3 backend in ECS).
+        index_key = key_for_extraction(config_dir.name, raw_idx) if raw_idx else None
         if raw_idx:
             idx = Path(raw_idx)
             if not idx.is_absolute():
                 idx = config_dir / idx
             fetcher_kw['local_index_csv_path'] = str(idx)
-        config = SourceConfig(**fetcher_kw, output_csv_path=output_csv_path)
-        process_pdf_source(config)
+        config = SourceConfig(**fetcher_kw, output_csv_path=config_dir / source['source'])
+        process_pdf_source(config, store=store, key=key, index_key=index_key)
     elif fetcher_kind == 'gov_il_decisions':
         # First-party gov.il scrape that writes DIRECTLY to Aurora,
         # bypassing the extraction/<x>.csv → botnim sync pipeline.

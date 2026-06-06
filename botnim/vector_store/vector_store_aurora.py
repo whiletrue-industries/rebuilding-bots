@@ -374,13 +374,28 @@ class VectorStoreAurora(VectorStoreBase):
                     logger.debug("Skipping non-markdown file: %s", fname)
                     continue
                 files_seen += 1
-                files_processed.add(fname)
+                # ALL-OR-NOTHING-PER-FILE (2026-05-27 data-loss fix):
+                # accumulate THIS file's contribution to the reconcile
+                # scope in locals, and merge into the reconcile-scoped
+                # files_processed / seen_hashes ONLY after the file's whole
+                # chunk stream is consumed without exception. On any
+                # per-chunk (or read) error we drop these locals so the
+                # file is treated as NOT-processed — its existing rows are
+                # then protected by the per-file reconcile scope exactly
+                # like an untouched file. Before this fix, a mid-file
+                # failure left fname in files_processed with a truncated
+                # seen_hashes, so the reconcile DELETE wiped the file's
+                # still-live rows it never re-produced.
+                file_hashes: set[str] = set()
+                file_ok = True
 
                 try:
                     raw_content = content_file.read().decode("utf-8")
                 except Exception as exc:
                     logger.error("Failed to read file %s: %s", fname, exc)
                     skipped += 1
+                    # `continue` skips the merge gate (if file_ok) below,
+                    # keeping this file out of files_processed / seen_hashes.
                     continue
 
                 chunks = _chunk_for_embedding(raw_content, max_tokens=chunk_max, overlap_tokens=chunk_overlap)
@@ -394,7 +409,7 @@ class VectorStoreAurora(VectorStoreBase):
                 for chunk_index, chunk_content in enumerate(chunks):
                     try:
                         chunk_hash = hashlib.sha256(chunk_content.encode("utf-8")).hexdigest()
-                        seen_hashes.add(chunk_hash)
+                        file_hashes.add(chunk_hash)
 
                         # Content-hash skip: if this exact (context_id, content_hash)
                         # is already present, do nothing.
@@ -442,7 +457,18 @@ class VectorStoreAurora(VectorStoreBase):
                             fname, chunk_index + 1, total_chunks, exc,
                         )
                         skipped += 1
-                        continue
+                        file_ok = False
+                        break
+
+                # File fully consumed without exception → it is now safe to
+                # let this file participate in the reconcile. Merging the
+                # filename AND all its hashes together preserves the
+                # all-or-nothing invariant: the reconcile DELETE (scoped to
+                # files_processed) only ever sees files whose complete hash
+                # set is in seen_hashes.
+                if file_ok:
+                    files_processed.add(fname)
+                    seen_hashes |= file_hashes
 
             # Reconcile: delete stale chunks of files the current run
             # actually processed. Per-file scope (metadata.filename IN

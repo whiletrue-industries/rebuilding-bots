@@ -9,7 +9,7 @@ ethics sub-page extractor) without needing Playwright.
 from __future__ import annotations
 
 import csv
-import os
+import io
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -31,6 +31,10 @@ from botnim.document_parser.knesset_sharepoint.scraper import (
     legal_advisor_opinions_config,
     scrape_pdf_index,
 )
+from botnim.storage.local_fs import LocalFsStore
+
+_KEY = "cache/unified/extraction/legal_advisor_opinions.csv"
+_KEY_LETTERS = "cache/unified/extraction/legal_advisor_letters.csv"
 
 
 # ---------- Pure helpers ----------
@@ -50,10 +54,11 @@ def test_absolute_prefixes_relative_paths():
     assert _absolute("/foo/bar.pdf") == "https://main.knesset.gov.il/foo/bar.pdf"
 
 
-# ---------- CSV write atomicity ----------
+# ---------- CSV write via store ----------
 
 def test_atomic_write_csv_round_trips_rows(tmp_path: Path):
-    out = tmp_path / "extraction" / "index.csv"
+    store = LocalFsStore(tmp_path)
+    key = _KEY
     rows = [
         PdfRow(url="https://fs.knesset.gov.il/a.pdf", title="Document A",
                filename=_filename_for("https://fs.knesset.gov.il/a.pdf")),
@@ -61,10 +66,10 @@ def test_atomic_write_csv_round_trips_rows(tmp_path: Path):
                filename=_filename_for("https://fs.knesset.gov.il/b.pdf"),
                date="2024-11-03", knesset_num=25),
     ]
-    _atomic_write_csv(out, rows)
-    assert out.exists()
-    with open(out, encoding="utf-8") as f:
-        loaded = list(csv.DictReader(f))
+    _atomic_write_csv(store, key, rows)
+    assert store.exists(key)
+    text = store.get_bytes(key).decode("utf-8")
+    loaded = list(csv.DictReader(io.StringIO(text)))
     assert len(loaded) == 2
     assert loaded[0]["url"] == "https://fs.knesset.gov.il/a.pdf"
     assert loaded[0]["date"] == ""
@@ -73,34 +78,39 @@ def test_atomic_write_csv_round_trips_rows(tmp_path: Path):
     assert loaded[1]["knesset_num"] == "25"
 
 
-def test_atomic_write_creates_missing_parent(tmp_path: Path):
-    out = tmp_path / "deep" / "nested" / "missing" / "index.csv"
-    _atomic_write_csv(out, [PdfRow(url="https://x", title="t", filename="f.pdf")])
-    assert out.exists()
-
-
-def test_atomic_write_doesnt_leave_tmp_on_clean_run(tmp_path: Path):
-    out = tmp_path / "index.csv"
-    _atomic_write_csv(out, [PdfRow(url="https://x", title="t", filename="f.pdf")])
-    leftover = list(tmp_path.glob(".index-*"))
-    assert leftover == []
+def test_atomic_write_creates_nested_key(tmp_path: Path):
+    store = LocalFsStore(tmp_path)
+    key = "cache/unified/extraction/deep/nested/missing/index.csv"
+    _atomic_write_csv(store, key, [PdfRow(url="https://x", title="t", filename="f.pdf")])
+    assert store.exists(key)
 
 
 # ---------- Empty-result safety guard ----------
 
-def test_empty_rows_with_no_existing_csv_is_allowed(tmp_path: Path):
-    out = tmp_path / "index.csv"
-    _ensure_at_least_one_row([], page_url="https://fake", csv_path=out)
-    # Should not raise; first-run-with-empty-page is acceptable.
+def test_empty_rows_with_no_existing_key_is_allowed(tmp_path: Path):
+    store = LocalFsStore(tmp_path)
+    # No key exists yet — should not raise.
+    _ensure_at_least_one_row([], page_url="https://fake", store=store, key=_KEY)
 
 
-def test_empty_rows_with_populated_existing_csv_raises(tmp_path: Path):
-    out = tmp_path / "index.csv"
-    _atomic_write_csv(out, [PdfRow(url="https://x", title="t", filename="f.pdf")])
+def test_empty_rows_with_populated_existing_key_raises(tmp_path: Path):
+    store = LocalFsStore(tmp_path)
+    # Pre-seed the store with one row.
+    _atomic_write_csv(store, _KEY, [PdfRow(url="https://x.pdf", title="t", filename="f.pdf")])
     with pytest.raises(EmptyUpstreamIndex) as exc:
-        _ensure_at_least_one_row([], page_url="https://fake", csv_path=out)
+        _ensure_at_least_one_row([], page_url="https://fake", store=store, key=_KEY)
     assert "scraped 0 rows" in str(exc.value)
     assert "1 existing rows" in str(exc.value)
+
+
+def test_empty_rows_with_header_only_key_is_allowed(tmp_path: Path):
+    """A key that exists but contains only the header (0 data rows) should not
+    trigger the guard — that is an empty-upstream first-run case."""
+    store = LocalFsStore(tmp_path)
+    header_only = b"url,title,filename,date,knesset_num\r\n"
+    store.put_atomic(_KEY, header_only)
+    # Should not raise because existing data rows == 0.
+    _ensure_at_least_one_row([], page_url="https://fake", store=store, key=_KEY)
 
 
 # ---------- Default row extractor ----------
@@ -200,21 +210,28 @@ def test_ethics_row_extractor_skips_rows_with_multi_anchors():
 
 # ---------- Preset configs ----------
 
-def test_legal_advisor_opinions_config_uses_correct_selector():
-    cfg = legal_advisor_opinions_config(Path("/tmp/x.csv"))
+def test_legal_advisor_opinions_config_uses_correct_selector(tmp_path: Path):
+    store = LocalFsStore(tmp_path)
+    cfg = legal_advisor_opinions_config(store=store, key=_KEY)
     assert cfg.anchor_selector == "a.LDDocLink"
     assert cfg.page_url.endswith("/ldguidelines.aspx")
     assert cfg.sub_index_extractor is None  # single page, no sub-pages
+    assert cfg.store is store
+    assert cfg.key == _KEY
 
 
-def test_legal_advisor_letters_config_uses_correct_selector():
-    cfg = legal_advisor_letters_config(Path("/tmp/x.csv"))
+def test_legal_advisor_letters_config_uses_correct_selector(tmp_path: Path):
+    store = LocalFsStore(tmp_path)
+    cfg = legal_advisor_letters_config(store=store, key=_KEY_LETTERS)
     assert cfg.anchor_selector == "a.LDDocLink"
     assert cfg.page_url.endswith("/ldguidelines2.aspx")
     assert cfg.sub_index_extractor is None
+    assert cfg.store is store
+    assert cfg.key == _KEY_LETTERS
 
 
-def test_ethics_config_wires_sub_index_and_custom_extractor():
+def test_ethics_config_wires_sub_index_and_custom_extractor(tmp_path: Path):
+    store = LocalFsStore(tmp_path)
     cfg = ethics_committee_decisions_config(Path("/tmp/x.csv"))
     assert cfg.sub_index_extractor is _ethics_sub_index_extractor
     assert cfg.row_extractor is _ethics_row_extractor
@@ -273,8 +290,8 @@ def fake_playwright():
 
 
 def test_scrape_pdf_index_writes_rows(tmp_path: Path, fake_playwright):
+    store = LocalFsStore(tmp_path)
     page = fake_playwright["page"]
-    out = tmp_path / "index.csv"
 
     a1 = MagicMock()
     a1.get_attribute.return_value = "/leg/op_001.pdf"
@@ -288,13 +305,14 @@ def test_scrape_pdf_index_writes_rows(tmp_path: Path, fake_playwright):
     cfg = ScrapeConfig(
         page_url="https://main.knesset.gov.il/about/departments/pages/leg/ldguidelines.aspx",
         anchor_selector="a.LDDocLink",
-        output_csv_path=out,
+        store=store,
+        key=_KEY,
     )
     rows = scrape_pdf_index(cfg)
     assert len(rows) == 2
-    assert out.exists()
-    with open(out, encoding="utf-8") as f:
-        loaded = list(csv.DictReader(f))
+    assert store.exists(_KEY)
+    text = store.get_bytes(_KEY).decode("utf-8")
+    loaded = list(csv.DictReader(io.StringIO(text)))
     assert [r["url"] for r in loaded] == [
         "https://main.knesset.gov.il/leg/op_001.pdf",
         "https://main.knesset.gov.il/leg/op_002.pdf",
@@ -303,9 +321,9 @@ def test_scrape_pdf_index_writes_rows(tmp_path: Path, fake_playwright):
 
 def test_scrape_pdf_index_dedupes_across_subpages(tmp_path: Path, fake_playwright):
     """Ethics-style: two sub-pages may both link to the same PDF; only
-    one row should land in index.csv."""
+    one row should land in the store."""
+    store = LocalFsStore(tmp_path)
     page = fake_playwright["page"]
-    out = tmp_path / "index.csv"
 
     a = MagicMock()
     a.get_attribute.return_value = "/eth/x.pdf"
@@ -317,27 +335,33 @@ def test_scrape_pdf_index_dedupes_across_subpages(tmp_path: Path, fake_playwrigh
     cfg = ScrapeConfig(
         page_url="https://main.knesset.gov.il/about",
         anchor_selector="a",
-        output_csv_path=out,
+        store=store,
+        key=_KEY,
         sub_index_extractor=lambda html: sub_pages,
     )
     rows = scrape_pdf_index(cfg)
     assert len(rows) == 1
 
 
-def test_scrape_pdf_index_raises_on_empty_with_existing_populated_csv(
+def test_scrape_pdf_index_raises_on_empty_with_existing_populated_store(
     tmp_path: Path, fake_playwright,
 ):
+    store = LocalFsStore(tmp_path)
     page = fake_playwright["page"]
-    out = tmp_path / "index.csv"
-    _atomic_write_csv(out, [PdfRow(url="https://x.pdf", title="t", filename="f.pdf")])
+    # Pre-seed the store with a populated CSV.
+    _atomic_write_csv(store, _KEY, [PdfRow(url="https://x.pdf", title="t", filename="f.pdf")])
 
     page.query_selector_all.return_value = []  # zero rows scraped
     page.content.return_value = "<html/>"
 
-    cfg = ScrapeConfig(page_url="https://main.knesset.gov.il/x", output_csv_path=out)
+    cfg = ScrapeConfig(
+        page_url="https://main.knesset.gov.il/x",
+        store=store,
+        key=_KEY,
+    )
     with pytest.raises(EmptyUpstreamIndex):
         scrape_pdf_index(cfg)
-    # CSV must be untouched (not overwritten with empty contents).
-    with open(out, encoding="utf-8") as f:
-        loaded = list(csv.DictReader(f))
+    # Store must be untouched (not overwritten with empty contents).
+    text = store.get_bytes(_KEY).decode("utf-8")
+    loaded = list(csv.DictReader(io.StringIO(text)))
     assert len(loaded) == 1

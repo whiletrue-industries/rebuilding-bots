@@ -86,3 +86,36 @@ def database_url(postgresql) -> str:
     info = postgresql.info
     # Use the psycopg v3 dialect; psycopg2 is not installed in this project.
     return f"postgresql+psycopg://{info.user}:{info.password}@{info.host}:{info.port}/{info.dbname}"
+
+
+@pytest.fixture(autouse=True)
+def _isolate_artifact_store(tmp_path, monkeypatch):
+    """Isolate the default LocalFsStore per test (S3 artifact-store migration).
+
+    ``get_artifact_store()`` (used by ``fetch_and_process`` and other
+    end-to-end paths) otherwise resolves to a SHARED ``<repo-root>/tmp/artifacts``
+    dir that persists across runs — so one test's artifacts leak into the next
+    (e.g. a stale ``cache/<bot>/extraction/x.csv`` tripping the empty-index
+    overwrite-guard). Point the default store root at this test's ``tmp_path``
+    and reset the cached singleton around the test, so every test that goes
+    through ``get_artifact_store()`` gets a clean, isolated ``LocalFsStore``.
+
+    Tests that inject their own ``LocalFsStore(tmp_path)`` directly are
+    unaffected (they never call ``get_artifact_store()``).
+    """
+    import sys
+
+    monkeypatch.setenv("BOTNIM_ARTIFACT_LOCAL_ROOT", str(tmp_path / "_artifact_store"))
+    monkeypatch.delenv("BOTNIM_ARTIFACT_BUCKET", raising=False)
+
+    def _reset() -> None:
+        # Only touch the singleton if storage is already imported, so this
+        # fixture never pulls botnim into tests that don't use it (keeps the
+        # test_query_error_handling.py sys.modules isolation intact).
+        mod = sys.modules.get("botnim.storage")
+        if mod is not None:
+            mod._reset_artifact_store_singleton()
+
+    _reset()
+    yield
+    _reset()

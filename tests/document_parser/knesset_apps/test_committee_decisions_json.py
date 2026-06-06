@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -19,6 +20,9 @@ from botnim.document_parser.knesset_apps.common import (
     EmptyUpstreamIndex,
     atomic_write_csv,
 )
+from botnim.storage.local_fs import LocalFsStore
+
+_KEY = "cache/unified/extraction/committee_decisions.csv"
 
 
 def _resp(payload, status=200):
@@ -64,8 +68,8 @@ def test_default_committee_id_is_knesset_committee():
 # ---------- single-page paths ----------
 
 def test_fetch_one_page_writes_index_csv(tmp_path: Path):
-    out = tmp_path / "committee_decisions.csv"
-    cfg = CommitteeDecisionsConfig(output_csv_path=out, from_date="2022-11-15")
+    store = LocalFsStore(tmp_path)
+    cfg = CommitteeDecisionsConfig(store=store, key=_KEY, from_date="2022-11-15")
     http = MagicMock(side_effect=[
         _resp({
             "TotalItems": 2,
@@ -85,8 +89,8 @@ def test_fetch_one_page_writes_index_csv(tmp_path: Path):
     rows = fetch_committee_decisions_index(cfg, http_post=http)
     assert len(rows) == 2
     assert {r.url for r in rows} == {"https://fs/a.pdf", "https://fs/b.pdf"}
-    with open(out, encoding="utf-8") as f:
-        loaded = list(csv.DictReader(f))
+    assert store.exists(_KEY)
+    loaded = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     assert len(loaded) == 2
     assert loaded[0]["title"] == "Decision A"
     assert loaded[0]["filename"] == "1.pdf"
@@ -94,8 +98,8 @@ def test_fetch_one_page_writes_index_csv(tmp_path: Path):
 
 
 def test_fetch_filters_non_pdf_FileFormat(tmp_path: Path):
-    out = tmp_path / "x.csv"
-    cfg = CommitteeDecisionsConfig(output_csv_path=out)
+    store = LocalFsStore(tmp_path)
+    cfg = CommitteeDecisionsConfig(store=store, key=_KEY)
     http = MagicMock(side_effect=[
         _resp({"Items": [
             {"ItemId": 1, "DecisionDate": "2024-01-01T00:00:00",
@@ -114,8 +118,8 @@ def test_fetch_filters_non_pdf_FileFormat(tmp_path: Path):
 
 def test_fetch_normalizes_backslashes_in_url(tmp_path: Path):
     """DocumentPath comes back with Windows-style backslashes."""
-    out = tmp_path / "x.csv"
-    cfg = CommitteeDecisionsConfig(output_csv_path=out)
+    store = LocalFsStore(tmp_path)
+    cfg = CommitteeDecisionsConfig(store=store, key=_KEY)
     http = MagicMock(side_effect=[
         _resp({"Items": [
             {"ItemId": 1, "DecisionDate": "2024-01-01T00:00:00",
@@ -135,8 +139,8 @@ def test_fetch_paginates_via_to_date_cursor(tmp_path: Path):
     """Server returns 10 rows / call regardless of any PageNum/PageSize.
     We must call repeatedly with ToDate = oldest_seen - 1s until no new
     items return."""
-    out = tmp_path / "x.csv"
-    cfg = CommitteeDecisionsConfig(output_csv_path=out)
+    store = LocalFsStore(tmp_path)
+    cfg = CommitteeDecisionsConfig(store=store, key=_KEY)
 
     page1 = [
         {"ItemId": i, "DecisionDate": f"2024-0{i}-15T10:00:00",
@@ -184,8 +188,8 @@ def test_fetch_collects_all_urls_when_meeting_spans_pages(tmp_path: Path):
     from_date=2022-11-15): server has 89 distinct PDF URLs, fetcher
     collected 85 — 4 lost to this bug.
     """
-    out = tmp_path / "x.csv"
-    cfg = CommitteeDecisionsConfig(output_csv_path=out)
+    store = LocalFsStore(tmp_path)
+    cfg = CommitteeDecisionsConfig(store=store, key=_KEY)
 
     # Page 1: meeting M (ItemId=200) has 1 of its 3 decisions on this page,
     # plus 2 newer items at meeting M_NEW (ItemId=100, 2 decisions).
@@ -236,8 +240,8 @@ def test_fetch_collects_all_urls_when_meeting_spans_pages(tmp_path: Path):
 
 
 def test_fetch_stops_when_no_new_items(tmp_path: Path):
-    out = tmp_path / "x.csv"
-    cfg = CommitteeDecisionsConfig(output_csv_path=out)
+    store = LocalFsStore(tmp_path)
+    cfg = CommitteeDecisionsConfig(store=store, key=_KEY)
     http = MagicMock(side_effect=[
         _resp({"Items": [
             {"ItemId": 1, "DecisionDate": "2024-01-01T00:00:00",
@@ -259,8 +263,8 @@ def test_fetch_stops_when_no_new_items(tmp_path: Path):
 
 def test_fetch_respects_max_iterations_safety_cap(tmp_path: Path):
     """If the API misbehaves and never returns new=0, we cap iterations."""
-    out = tmp_path / "x.csv"
-    cfg = CommitteeDecisionsConfig(output_csv_path=out, max_iterations=3)
+    store = LocalFsStore(tmp_path)
+    cfg = CommitteeDecisionsConfig(store=store, key=_KEY, max_iterations=3)
     items = lambda i: [{
         "ItemId": i,
         "DecisionDate": f"2024-0{i}-15T10:00:00",
@@ -282,26 +286,25 @@ def test_fetch_respects_max_iterations_safety_cap(tmp_path: Path):
 # ---------- empty-result safety guard ----------
 
 def test_empty_with_existing_csv_raises(tmp_path: Path):
-    out = tmp_path / "x.csv"
-    atomic_write_csv(out, [DocRow(url="u", filename="f", date="d", knesset_num=1)])
-    cfg = CommitteeDecisionsConfig(output_csv_path=out)
+    store = LocalFsStore(tmp_path)
+    atomic_write_csv(store, _KEY, [DocRow(url="u", filename="f", date="d", knesset_num=1)])
+    cfg = CommitteeDecisionsConfig(store=store, key=_KEY)
     http = MagicMock(return_value=_resp({"TotalItems": 0, "Items": []}))
     with pytest.raises(EmptyUpstreamIndex):
         fetch_committee_decisions_index(cfg, http_post=http)
-    # CSV untouched
-    with open(out, encoding="utf-8") as f:
-        assert sum(1 for _ in csv.DictReader(f)) == 1
+    # Store object untouched
+    loaded = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
+    assert len(loaded) == 1
 
 
 def test_empty_first_run_is_allowed(tmp_path: Path):
-    out = tmp_path / "x.csv"
-    cfg = CommitteeDecisionsConfig(output_csv_path=out)
+    store = LocalFsStore(tmp_path)
+    cfg = CommitteeDecisionsConfig(store=store, key=_KEY)
     http = MagicMock(return_value=_resp({"Items": []}))
     rows = fetch_committee_decisions_index(cfg, http_post=http)
     assert rows == []
-    assert out.exists()
-    with open(out, encoding="utf-8") as f:
-        loaded = list(csv.DictReader(f))
+    assert store.exists(_KEY)
+    loaded = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     assert loaded == []
 
 
@@ -310,9 +313,10 @@ def test_empty_first_run_is_allowed(tmp_path: Path):
 def test_request_body_matches_live_api_contract(tmp_path: Path):
     """Mirror the exact JSON shape we sniffed from the SharePoint page —
     if the API ever rejects our shape, this test should fail next time."""
-    out = tmp_path / "x.csv"
+    store = LocalFsStore(tmp_path)
     cfg = CommitteeDecisionsConfig(
-        output_csv_path=out,
+        store=store,
+        key=_KEY,
         committee_id=2211,
         from_date="2022-11-15",
         knesset_ids="25",

@@ -42,13 +42,6 @@ COPY specs/ ./specs
 # `alembic -c alembic.ini upgrade head` via `aws ecs run-task` so a fresh
 # environment self-bootstraps without a developer-laptop step).
 COPY alembic.ini ./
-# Seed copy for EFS bootstrap: when /srv/specs/unified/extraction is mounted
-# from EFS and that mount is empty (first deploy or after a wipe), the startup
-# script copies this seed into the mount so `botnim sync` has content on cold
-# start. Kept as a parallel tree so the EFS mount at /srv/specs/... doesn't
-# shadow it. After the first successful refresh, this seed is stale; EFS is
-# source of truth.
-COPY specs/unified/extraction /srv/specs-seed/unified/extraction
 COPY setup.py ./
 COPY backend/api/server.py .
 COPY backend/api/refresh_auth.py .

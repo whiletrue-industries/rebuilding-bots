@@ -1,5 +1,8 @@
 .checkpoints/
 .DS_Store
+# Default LocalFsStore root for the ArtifactStore (botnim/storage); dev/CI
+# artifact working set under <repo-root>/tmp/artifacts. Never committed.
+/tmp/
 .env
 # Local-dev launcher overrides — points at local pgvector docker, never
 # meant to be committed (would override prod env vars if pulled in by CI).

@@ -17,6 +17,7 @@ All network calls are mocked via ``unittest.mock.patch`` on
 from __future__ import annotations
 
 import csv
+import io
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -25,6 +26,9 @@ import pytest
 
 from botnim.document_parser.knesset_odata import process_odata
 from botnim.document_parser.pdfs.exceptions import EmptyUpstreamIndex
+from botnim.storage.local_fs import LocalFsStore
+
+_KEY = "cache/unified/extraction/plenary_schedule.csv"
 
 
 def _json_response(payload: dict) -> MagicMock:
@@ -145,18 +149,17 @@ def test_happy_path_writes_joined_csv(mock_requests, tmp_path: Path, fixed_now):
         _json_response(_stenograms_payload(stenograms)),
     ]
 
-    out = tmp_path / "plenary_schedule.csv"
+    store = LocalFsStore(tmp_path)
     process_odata.process_knesset_odata_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/ParliamentInfo.svc",
         days_past=30,
         days_future=90,
         now=fixed_now,
     )
 
-    assert out.exists()
-    with out.open(encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+    assert store.exists(_KEY)
+    rows = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     # 4 item rows + 1 empty-agenda row = 5
     assert len(rows) == 5
     # Session 1001 has two items.
@@ -198,38 +201,37 @@ def test_happy_path_writes_joined_csv(mock_requests, tmp_path: Path, fixed_now):
 def test_empty_upstream_raises(mock_requests, tmp_path: Path, fixed_now):
     """No sessions returned → EmptyUpstreamIndex, output CSV not created."""
     mock_requests.get.side_effect = [_json_response(_sessions_payload([]))]
-    out = tmp_path / "plenary_schedule.csv"
+    store = LocalFsStore(tmp_path)
 
     with pytest.raises(EmptyUpstreamIndex):
         process_odata.process_knesset_odata_source(
-            output_csv_path=out,
+            store=store, key=_KEY,
             base_url="https://example.test/Odata/ParliamentInfo.svc",
             now=fixed_now,
         )
-    assert not out.exists()
+    assert not store.exists(_KEY)
 
 
 @patch.object(process_odata, "requests")
 def test_hash_short_circuit_skips_rewrite(mock_requests, tmp_path: Path, fixed_now):
-    """Same upstream payload on a second run → file mtime unchanged."""
+    """Same upstream payload on a second run → store content unchanged."""
     sessions = [_make_session(1001, name="ישיבת מליאה")]
     items = [_make_item(1, sid=1001, name="חוק א'")]
 
-    out = tmp_path / "plenary_schedule.csv"
+    store = LocalFsStore(tmp_path)
 
-    # First run writes the file.
+    # First run writes the artifact.
     mock_requests.get.side_effect = [
         _json_response(_sessions_payload(sessions)),
         _json_response(_items_payload(items)),
         _json_response(_stenograms_payload([])),
     ]
     process_odata.process_knesset_odata_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/ParliamentInfo.svc",
         now=fixed_now,
     )
-    first_mtime = out.stat().st_mtime_ns
-    first_content = out.read_bytes()
+    first_content = store.get_bytes(_KEY)
 
     # Second run with identical upstream data → short-circuit, no rewrite.
     mock_requests.get.side_effect = [
@@ -238,12 +240,11 @@ def test_hash_short_circuit_skips_rewrite(mock_requests, tmp_path: Path, fixed_n
         _json_response(_stenograms_payload([])),
     ]
     process_odata.process_knesset_odata_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/ParliamentInfo.svc",
         now=fixed_now,
     )
-    assert out.stat().st_mtime_ns == first_mtime
-    assert out.read_bytes() == first_content
+    assert store.get_bytes(_KEY) == first_content
 
 
 @patch.object(process_odata, "requests")
@@ -253,7 +254,7 @@ def test_hash_changes_when_item_updated(mock_requests, tmp_path: Path, fixed_now
     items_v1 = [_make_item(1, sid=1001, name="v1", last_updated="2026-05-01T08:00:00")]
     items_v2 = [_make_item(1, sid=1001, name="v2", last_updated="2026-05-02T09:00:00")]
 
-    out = tmp_path / "plenary_schedule.csv"
+    store = LocalFsStore(tmp_path)
 
     mock_requests.get.side_effect = [
         _json_response(_sessions_payload(sessions)),
@@ -261,11 +262,11 @@ def test_hash_changes_when_item_updated(mock_requests, tmp_path: Path, fixed_now
         _json_response(_stenograms_payload([])),
     ]
     process_odata.process_knesset_odata_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/ParliamentInfo.svc",
         now=fixed_now,
     )
-    first_content = out.read_bytes()
+    first_content = store.get_bytes(_KEY)
 
     mock_requests.get.side_effect = [
         _json_response(_sessions_payload(sessions)),
@@ -273,13 +274,12 @@ def test_hash_changes_when_item_updated(mock_requests, tmp_path: Path, fixed_now
         _json_response(_stenograms_payload([])),
     ]
     process_odata.process_knesset_odata_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/ParliamentInfo.svc",
         now=fixed_now,
     )
-    assert out.read_bytes() != first_content
-    with out.open(encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+    assert store.get_bytes(_KEY) != first_content
+    rows = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     assert rows[0]["item_name"] == "v2"
 
 
@@ -298,9 +298,9 @@ def test_session_filter_uses_window(mock_requests, tmp_path: Path, fixed_now):
         _json_response(_items_payload([])),
         _json_response(_stenograms_payload([])),
     ]
-    out = tmp_path / "plenary_schedule.csv"
+    store = LocalFsStore(tmp_path)
     process_odata.process_knesset_odata_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/ParliamentInfo.svc",
         days_past=7,
         days_future=14,
@@ -325,8 +325,9 @@ def test_stenogram_request_filters_by_group_type_43(mock_requests, tmp_path: Pat
         _json_response(_items_payload([])),
         _json_response(_stenograms_payload([_make_stenogram(sid=1001, doc_id="42")])),
     ]
+    store = LocalFsStore(tmp_path)
     process_odata.process_knesset_odata_source(
-        output_csv_path=tmp_path / "plenary_schedule.csv",
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/ParliamentInfo.svc",
         now=fixed_now,
     )
@@ -388,13 +389,11 @@ def test_write_csv_uses_detail_url_when_no_stenogram(tmp_path):
         # 2256195: not present — future session
     }
 
-    out_path = tmp_path / "plenary.csv"
-    write_csv_rows(out_path, sessions, items_by_session,
+    store = LocalFsStore(tmp_path)
+    write_csv_rows(store, _KEY, sessions, items_by_session,
                    stenogram_url_by_session, upstream_hash="testhash")
 
-    import csv as _csv
-    with open(out_path, encoding="utf-8") as f:
-        rows = list(_csv.DictReader(f))
+    rows = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
 
     by_session = {r["session_id"]: r for r in rows}
     assert by_session["2241628"]["source_url"] == (
@@ -421,12 +420,11 @@ def test_paged_results_followed(mock_requests, tmp_path: Path, fixed_now):
         _json_response(_stenograms_payload([])),
     ]
 
-    out = tmp_path / "plenary_schedule.csv"
+    store = LocalFsStore(tmp_path)
     process_odata.process_knesset_odata_source(
-        output_csv_path=out,
+        store=store, key=_KEY,
         base_url="https://example.test/Odata/ParliamentInfo.svc",
         now=fixed_now,
     )
-    with out.open(encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+    rows = list(csv.DictReader(io.StringIO(store.get_bytes(_KEY).decode("utf-8"))))
     assert {r["session_id"] for r in rows} == {"1001", "1002"}

@@ -27,3 +27,8 @@ output "word_docs_bucket" {
   description = "S3 bucket for short-lived Word doc downloads (/tools/generate_word_doc uploads)"
   value       = aws_s3_bucket.word_docs.id
 }
+
+output "extraction_artifacts_bucket" {
+  description = "S3 bucket backing the ArtifactStore (extraction seed/ + cache/ artifacts)"
+  value       = aws_s3_bucket.extraction_artifacts.id
+}

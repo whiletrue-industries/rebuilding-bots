@@ -15,7 +15,7 @@ Safety rails — same shape as ``process_pdfs.py``:
 
 * ``EmptyUpstreamIndex`` if the upstream CSV is empty (header-only or
   zero rows) — refuses to overwrite the existing on-disk CSV.
-* Atomic write: ``.tmp`` + ``os.replace``.
+* Atomic write via the ArtifactStore (``write_csv_artifact``).
 * Revision short-circuit via the ``datapackage.json`` ``hash`` field
   (BudgetKey's datapackages don't have ``revision`` like the knesset
   ones; use the resource ``hash`` instead).
@@ -31,15 +31,14 @@ from __future__ import annotations
 
 import csv
 import io
-import json
-import os
 import re
-from pathlib import Path
 from typing import Iterable, List, Optional
 
 import requests
 
 from ...config import get_logger
+from ...storage.base import ArtifactStore
+from ...storage.csv_writer import write_csv_artifact
 from ..pdfs.exceptions import EmptyUpstreamIndex
 
 logger = get_logger(__name__)
@@ -88,14 +87,14 @@ def _html_to_text(html: str) -> str:
     return text.strip()
 
 
-def _existing_upstream_hash(output_csv: Path) -> Optional[str]:
+def _existing_upstream_hash(store: ArtifactStore, key: str) -> Optional[str]:
     """Read the upstream hash stored alongside the first row, if any."""
-    if not output_csv.exists():
+    if not store.exists(key):
         return None
-    with open(output_csv, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            return row.get("upstream_hash") or None
+    text = store.get_bytes(key).decode("utf-8")
+    reader = csv.DictReader(io.StringIO(text))
+    for row in reader:
+        return row.get("upstream_hash") or None
     return None
 
 
@@ -130,8 +129,9 @@ def _select_recent(rows: Iterable[dict], date_field: str, max_rows: int) -> List
 
 def process_bk_csv_source(
     *,
+    store: ArtifactStore,
+    key: str,
     external_source_url: str,
-    output_csv_path: Path,
     csv_filename: str = "data/government_decisions.csv",
     max_rows: int = 2000,
     date_field: str = "publish_date",
@@ -145,13 +145,15 @@ def process_bk_csv_source(
 
     Parameters
     ----------
+    store:
+        ArtifactStore to write the CSV artifact to.
+    key:
+        Store key (e.g. ``cache/unified/extraction/government_decisions.csv``).
     external_source_url:
         Datapackage root, e.g.
         ``https://next.obudget.org/datapackages/government_decisions``.
         The fetcher fetches ``{root}/datapackage.json`` for the hash and
         ``{root}/{csv_filename}`` for the rows.
-    output_csv_path:
-        Where to write the normalized CSV. Atomically replaced on success.
     csv_filename:
         Path within the datapackage to the CSV resource. Defaults to the
         government_decisions layout.
@@ -172,9 +174,6 @@ def process_bk_csv_source(
         ``filter_values=['החלטות ממשלה']`` narrows to actual cabinet
         decisions (which is the only type with reliable body text).
     """
-    output_csv = Path(output_csv_path)
-    output_csv.parent.mkdir(parents=True, exist_ok=True)
-
     if keep_columns is None:
         keep_columns = [
             "title",
@@ -202,7 +201,7 @@ def process_bk_csv_source(
     except Exception as e:
         logger.warning(f"Could not fetch datapackage.json from {dp_url}: {e}")
 
-    stored_hash = _existing_upstream_hash(output_csv)
+    stored_hash = _existing_upstream_hash(store, key)
     if (
         upstream_hash is not None
         and stored_hash is not None
@@ -210,7 +209,7 @@ def process_bk_csv_source(
     ):
         logger.info(
             f"{external_source_url}: upstream hash {upstream_hash} unchanged; "
-            f"leaving {output_csv} as-is"
+            f"leaving {key} as-is"
         )
         return
 
@@ -219,7 +218,7 @@ def process_bk_csv_source(
     all_rows = list(_stream_upstream_rows(csv_url))
     if len(all_rows) == 0:
         raise EmptyUpstreamIndex(
-            f"{csv_url}: upstream CSV is empty - refusing to overwrite {output_csv}"
+            f"{csv_url}: upstream CSV is empty - refusing to overwrite {key}"
         )
     if filter_column and filter_values:
         before = len(all_rows)
@@ -231,7 +230,7 @@ def process_bk_csv_source(
         if len(all_rows) == 0:
             raise EmptyUpstreamIndex(
                 f"{csv_url}: filter {filter_column} in {filter_values} matched zero rows "
-                f"- refusing to overwrite {output_csv}"
+                f"- refusing to overwrite {key}"
             )
     logger.info(
         f"Got {len(all_rows)} upstream rows; selecting most-recent {max_rows} by {date_field}"
@@ -249,20 +248,6 @@ def process_bk_csv_source(
             out[col] = _html_to_text(r.get(col, "") or "")
         out_rows.append(out)
 
-    # 4. Atomic write.
-    tmp_output = output_csv.with_suffix(output_csv.suffix + ".tmp")
-    try:
-        with open(tmp_output, "w", encoding="utf-8", newline="") as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in out_rows:
-                writer.writerow(row)
-        os.replace(tmp_output, output_csv)
-    except Exception:
-        try:
-            tmp_output.unlink()
-        except FileNotFoundError:
-            pass
-        raise
-
-    logger.info(f"Wrote {len(out_rows)} rows to {output_csv}")
+    # 4. Write via store (atomic on both LocalFs and S3).
+    write_csv_artifact(store, key, out_rows, fieldnames=fieldnames)
+    logger.info(f"Wrote {len(out_rows)} rows to {key}")

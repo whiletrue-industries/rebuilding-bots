@@ -43,13 +43,15 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import io
 import logging
-import os
 import re
-import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable, Optional
+
+from botnim.storage.base import ArtifactStore
+from botnim.storage.csv_writer import write_csv_artifact
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +101,9 @@ class ScrapeConfig:
         for the legal-advisor pages; ``table a`` for ethics (paired
         with extra date-row logic — see ``ethics_extractor``).
     output_csv_path:
-        Where to write the resulting ``index.csv``.
+        Unused — output goes through the ArtifactStore (``store`` / ``key``).
+        Kept for backwards-compat with callers that supply it; may be removed
+        in a future cleanup once ``ethics_committee_decisions_config`` is retired.
     sub_index_extractor:
         Optional callable that, given the rendered listing HTML, yields
         sub-page URLs to also scrape (used by ethics whose top-level
@@ -118,11 +122,13 @@ class ScrapeConfig:
 
     page_url: str
     anchor_selector: str = "a"
-    output_csv_path: Path = field(default_factory=lambda: Path("/tmp/index.csv"))
+    output_csv_path: Optional[Path] = None  # unused; output goes through store/key
     sub_index_extractor: Optional[Callable[[str], list[str]]] = None
     row_extractor: Optional[Callable[[object], Iterable[PdfRow]]] = None
     extra_browser_args: list[str] = field(default_factory=list)
     timeout_ms: int = 60_000
+    store: Optional[ArtifactStore] = None
+    key: Optional[str] = None
 
 
 def _filename_for(url: str) -> str:
@@ -154,55 +160,48 @@ def _default_row_extractor(anchor_selector: str) -> Callable[[object], Iterable[
     return _extract
 
 
-def _atomic_write_csv(path: Path, rows: list[PdfRow]) -> None:
-    """Write rows to ``path`` via a tempfile + ``os.replace`` so the
-    existing CSV is never partially-overwritten."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fields = ["url", "title", "filename", "date", "knesset_num"]
-    fd, tmp = tempfile.mkstemp(prefix=".index-", suffix=".csv", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=fields)
-            w.writeheader()
-            for r in rows:
-                w.writerow({
-                    "url": r.url,
-                    "title": r.title,
-                    "filename": r.filename,
-                    "date": r.date or "",
-                    "knesset_num": r.knesset_num if r.knesset_num is not None else "",
-                })
-        os.replace(tmp, path)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+def _atomic_write_csv(store: ArtifactStore, key: str, rows: list[PdfRow]) -> None:
+    """Write rows to ``key`` atomically through the artifact store."""
+    write_csv_artifact(
+        store,
+        key,
+        [
+            {
+                "url": r.url,
+                "title": r.title,
+                "filename": r.filename,
+                "date": r.date or "",
+                "knesset_num": r.knesset_num if r.knesset_num is not None else "",
+            }
+            for r in rows
+        ],
+        fieldnames=["url", "title", "filename", "date", "knesset_num"],
+    )
 
 
-def _ensure_at_least_one_row(rows: list[PdfRow], page_url: str, csv_path: Path) -> None:
+def _ensure_at_least_one_row(rows: list[PdfRow], page_url: str,
+                             store: ArtifactStore, key: str) -> None:
     """Refuse to overwrite an existing populated CSV with an empty list.
 
     Mirrors the EmptyUpstreamIndex guard the PDF processor enforces.
-    A first-run (no existing CSV) is allowed to write an empty file —
-    that just means the page is currently empty, not that the scrape
-    silently broke.
+    A first-run (no existing key in the store) is allowed to write an
+    empty file — that just means the page is currently empty, not that
+    the scrape silently broke.
     """
     if rows:
         return
-    if csv_path.exists() and csv_path.stat().st_size > 0:
-        # Best-effort: count existing rows to make the error message
-        # concrete for the operator.
+    if store.exists(key):
+        text = store.get_bytes(key).decode("utf-8")
         existing = -1
         try:
-            with open(csv_path, encoding="utf-8") as f:
-                existing = max(0, sum(1 for _ in csv.DictReader(f)))
+            existing = max(0, sum(1 for _ in csv.DictReader(io.StringIO(text))))
         except Exception:  # noqa: BLE001
             pass
+        if existing <= 0:
+            return
         raise EmptyUpstreamIndex(
             f"{page_url}: scraped 0 rows; refusing to overwrite "
-            f"{csv_path} which has {existing} existing rows. Likely cause: "
+            f"{key} which has {existing} existing rows. Likely cause: "
             "Reblaze JS challenge not bypassed, or the page's anchor "
             "selector changed."
         )
@@ -268,9 +267,9 @@ def scrape_pdf_index(config: ScrapeConfig) -> list[PdfRow]:
         finally:
             browser.close()
 
-    _ensure_at_least_one_row(rows, config.page_url, config.output_csv_path)
-    _atomic_write_csv(config.output_csv_path, rows)
-    logger.info("scrape_pdf_index: wrote %d rows to %s", len(rows), config.output_csv_path)
+    _ensure_at_least_one_row(rows, config.page_url, config.store, config.key)
+    _atomic_write_csv(config.store, config.key, rows)
+    logger.info("scrape_pdf_index: wrote %d rows to %s", len(rows), config.key)
     return rows
 
 
@@ -280,21 +279,31 @@ def scrape_pdf_index(config: ScrapeConfig) -> list[PdfRow]:
 # without restating the page URLs and selectors.
 # ---------------------------------------------------------------------------
 
-def legal_advisor_opinions_config(output_csv_path: Path) -> ScrapeConfig:
+def legal_advisor_opinions_config(
+    store: ArtifactStore,
+    key: str,
+    output_csv_path: Optional[Path] = None,  # accepted but unused; output goes through store/key
+) -> ScrapeConfig:
     """Replaces BK's ``knesset_legal_advisor`` pipeline."""
     return ScrapeConfig(
         page_url=PREFIX + "/about/departments/pages/leg/ldguidelines.aspx",
         anchor_selector="a.LDDocLink",
-        output_csv_path=output_csv_path,
+        store=store,
+        key=key,
     )
 
 
-def legal_advisor_letters_config(output_csv_path: Path) -> ScrapeConfig:
+def legal_advisor_letters_config(
+    store: ArtifactStore,
+    key: str,
+    output_csv_path: Optional[Path] = None,  # accepted but unused; output goes through store/key
+) -> ScrapeConfig:
     """Replaces BK's ``knesset_legal_advisor_letters`` pipeline."""
     return ScrapeConfig(
         page_url=PREFIX + "/about/departments/pages/leg/ldguidelines2.aspx",
         anchor_selector="a.LDDocLink",
-        output_csv_path=output_csv_path,
+        store=store,
+        key=key,
     )
 
 
@@ -352,7 +361,14 @@ def _ethics_row_extractor(page) -> Iterable[PdfRow]:
 
 
 def ethics_committee_decisions_config(output_csv_path: Path) -> ScrapeConfig:
-    """Replaces BK's ``ethics_committee_decisions`` pipeline."""
+    """DEPRECATED — not wired into fetch_and_process; do not call.
+
+    Ethics decisions are now fetched via ``knesset_apps_ethics`` (which reads
+    from the Knesset Apps JSON API and writes through the ArtifactStore).
+    This preset has no ``store`` / ``key``, so calling ``scrape_pdf_index``
+    with it would crash at the ``_atomic_write_csv`` call. Kept here only as
+    a reference for the original SharePoint-scraping approach.
+    """
     return ScrapeConfig(
         page_url=PREFIX + "/Activity/committees/Ethics/Pages/CommitteeDecisionsPast.aspx",
         anchor_selector="table a",
@@ -381,7 +397,7 @@ def _select_passthrough(extra: dict) -> dict:
     return {k: v for k, v in extra.items() if k in _SCRAPE_CONFIG_PASSTHROUGH_FIELDS}
 
 
-def scrape_legal_advisor_opinions(*, output_csv_path, page_url, **_extra):
+def scrape_legal_advisor_opinions(*, store: ArtifactStore, key: str, page_url, **_extra):
     """fap dispatch wrapper for the legal-advisor opinions page.
 
     Builds a ``ScrapeConfig`` with the ``a.LDDocLink`` selector used by
@@ -392,18 +408,20 @@ def scrape_legal_advisor_opinions(*, output_csv_path, page_url, **_extra):
     config = ScrapeConfig(
         page_url=page_url,
         anchor_selector="a.LDDocLink",
-        output_csv_path=Path(output_csv_path),
+        store=store,
+        key=key,
         **_select_passthrough(_extra),
     )
     return scrape_pdf_index(config)
 
 
-def scrape_legal_advisor_letters(*, output_csv_path, page_url, **_extra):
+def scrape_legal_advisor_letters(*, store: ArtifactStore, key: str, page_url, **_extra):
     """fap dispatch wrapper for the legal-advisor letters page."""
     config = ScrapeConfig(
         page_url=page_url,
         anchor_selector="a.LDDocLink",
-        output_csv_path=Path(output_csv_path),
+        store=store,
+        key=key,
         **_select_passthrough(_extra),
     )
     return scrape_pdf_index(config)

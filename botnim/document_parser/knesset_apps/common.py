@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import csv
-import os
-import tempfile
+import io
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -11,6 +10,8 @@ from typing import Optional
 from botnim.document_parser.pdfs.exceptions import (
     EmptyUpstreamIndex as _PdfsEmptyUpstreamIndex,
 )
+from botnim.storage.base import ArtifactStore
+from botnim.storage.csv_writer import write_csv_artifact
 
 
 class EmptyUpstreamIndex(_PdfsEmptyUpstreamIndex):
@@ -41,49 +42,43 @@ class DocRow:
 CSV_FIELDS = ["url", "filename", "date", "knesset_num", "title"]
 
 
-def atomic_write_csv(path: Path, rows: list[DocRow]) -> None:
-    """Write ``rows`` to ``path`` via tempfile + ``os.replace``."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(prefix=".index-", suffix=".csv", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-            w.writeheader()
-            for r in rows:
-                w.writerow({
-                    "url": r.url,
-                    "filename": r.filename,
-                    "date": r.date,
-                    "knesset_num": r.knesset_num,
-                    "title": r.title,
-                })
-        os.replace(tmp, path)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+def atomic_write_csv(store: ArtifactStore, key: str, rows: list[DocRow]) -> None:
+    """Write ``rows`` to ``key`` atomically through the artifact store."""
+    write_csv_artifact(
+        store,
+        key,
+        [
+            {
+                "url": r.url,
+                "filename": r.filename,
+                "date": r.date,
+                "knesset_num": r.knesset_num,
+                "title": r.title,
+            }
+            for r in rows
+        ],
+        fieldnames=CSV_FIELDS,
+    )
 
 
-def ensure_at_least_one_row(rows: list[DocRow], csv_path: Path) -> None:
+def ensure_at_least_one_row(rows: list[DocRow], store: ArtifactStore, key: str) -> None:
     """Refuse to overwrite an existing populated CSV with empty rows.
 
-    Mirrors the safety guard in ``document_parser.pdfs.process_pdfs``.
-    A first-run with no existing CSV is allowed to write zero rows
-    (means the upstream is genuinely empty for this filter).
+    A first-run (no existing object) is allowed to write zero rows.
     """
     if rows:
         return
-    if csv_path.exists() and csv_path.stat().st_size > 0:
+    if store.exists(key):
+        text = store.get_bytes(key).decode("utf-8")
         try:
-            with open(csv_path, encoding="utf-8") as f:
-                existing = max(0, sum(1 for _ in csv.DictReader(f)))
+            existing = max(0, sum(1 for _ in csv.DictReader(io.StringIO(text))))
         except Exception:  # noqa: BLE001
             existing = -1
+        if existing <= 0:
+            return
         raise EmptyUpstreamIndex(
             f"Knesset apps API returned 0 rows; refusing to overwrite "
-            f"{csv_path} which has {existing} existing rows. Likely cause: "
+            f"{key} which has {existing} existing rows. Likely cause: "
             "filter mismatch (committee_id / date range / knesset number) "
             "or upstream API down."
         )

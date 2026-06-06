@@ -34,6 +34,7 @@ from typing import Iterable, Optional
 import requests
 from pyquery import PyQuery as pq
 
+from ...storage.base import ArtifactStore
 from .common import (
     CSV_FIELDS,
     DocRow,
@@ -55,8 +56,23 @@ DEFAULT_ETHICS_COMMITTEE_ID = 2217
 class EthicsDecisionsConfig:
     """Parameters for one ethics_decisions fetch.
 
+    store:
+        ArtifactStore to write the resulting index CSV to (and to read
+        the seed rows from on subsequent runs).
+    key:
+        Store key for the *output* (working) CSV — always a ``cache/`` key
+        (e.g. ``cache/unified/extraction/ethics_decisions/index.csv``).
+    seed_key:
+        Store key for the *immutable archive seed* — always a ``seed/`` key
+        (e.g. ``seed/unified/ethics_decisions/index.csv``).  This is the
+        K15-K23 archive that the one-time ``upload_extraction_seed.py``
+        script uploads; it is NEVER overwritten by the fetcher.  A missing
+        seed object (first-run or pre-upload state) is not an error.
+        When ``None`` (backwards-compat default) the fetcher reads the
+        seed from ``key`` (the old behaviour; kept for existing tests that
+        pre-date the seed/cache split).
     output_csv_path:
-        Where to write the resulting ``index.csv``.
+        Legacy field kept for back-compat; ignored when ``store``/``key`` are set.
     page_name:
         ``EthicsDecisions25`` for current Knesset 25; bump for a new
         Knesset (the SharePoint scheme is one page per Knesset
@@ -69,18 +85,16 @@ class EthicsDecisionsConfig:
         Defaults to 2217. Used only to compose the canonical
         front-end ``Route`` query parameter the API expects.
     Coverage of older Knessets (K15-K23, ≈1999–2021) is achieved by
-    seeding ``output_csv_path`` with a committed CSV in the same
-    ``url,filename,date,knesset_num,title`` shape. When the fetcher
-    runs and the output path already exists, those rows are loaded
-    BEFORE the live fetch and merged into the result. Live rows win
-    on URL collision so a freshly-edited K25 entry isn't overwritten
-    by a stale archive row. This lets us extend coverage past the
-    live API's K25-only horizon without standing up a separate
-    fetcher for archive pages that are gated behind the Knesset
-    CDN's JS challenge.
+    uploading a CSV to the ``seed_key`` address.  On each fetcher run
+    those rows are loaded BEFORE the live fetch and merged into the
+    result.  Live rows win on URL collision so freshly-edited K25
+    content isn't overwritten by stale archive data.
     """
 
-    output_csv_path: Path
+    store: ArtifactStore
+    key: str
+    seed_key: Optional[str] = None
+    output_csv_path: Optional[Path] = None
     page_name: str = "EthicsDecisions25"
     knesset_num: int = 25
     committee_id: int = DEFAULT_ETHICS_COMMITTEE_ID
@@ -162,42 +176,49 @@ def _absolute(href: str) -> str:
     return "https://main.knesset.gov.il/" + href
 
 
-def _load_seed_rows(seed_csv: Path) -> list[DocRow]:
-    """Load existing rows from ``output_csv_path`` as a seed.
+def _load_seed_rows(store: ArtifactStore, key: str) -> list[DocRow]:
+    """Load existing rows from the store at ``key``.
 
-    The same file is the fetcher's output AND its archive seed: when
-    we ship a committed ``index.csv`` of older Knessets, the next
-    fetcher run reads it, merges in live K25, and writes the merged
-    result back. Returns an empty list on a missing file — that's
-    the legitimate first-run state, not an error.
+    Returns an empty list if the key doesn't exist — that's the
+    legitimate first-run state, not an error.
     """
-    if not seed_csv.exists():
+    if not store.exists(key):
         return []
+    import io as _io
+    text = store.get_bytes(key).decode("utf-8")
+    return _parse_seed_csv(text, key)
+
+
+def _parse_seed_csv(text: str, source_label: str) -> list[DocRow]:
+    """Parse CSV text into DocRows, validating required columns.
+
+    Shared by both the store-read path (``_load_seed_rows``) and the
+    raw-bytes path used by the new seed-store tests.
+    """
+    import io as _io
     rows: list[DocRow] = []
-    with open(seed_csv, encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        missing = set(CSV_FIELDS) - set(reader.fieldnames or [])
-        if missing:
-            raise ValueError(
-                f"seed CSV {seed_csv} is missing columns: "
-                f"{sorted(missing)} (expected {CSV_FIELDS})"
-            )
-        for r in reader:
-            try:
-                knesset_num = int(r.get("knesset_num") or 0)
-            except ValueError:
-                knesset_num = 0
-            rows.append(DocRow(
-                url=(r.get("url") or "").strip(),
-                filename=(r.get("filename") or "").strip(),
-                date=(r.get("date") or "").strip(),
-                knesset_num=knesset_num,
-                title=(r.get("title") or "").strip(),
-            ))
+    reader = csv.DictReader(_io.StringIO(text))
+    missing = set(CSV_FIELDS) - set(reader.fieldnames or [])
+    if missing:
+        raise ValueError(
+            f"seed CSV at {source_label} is missing columns: "
+            f"{sorted(missing)} (expected {CSV_FIELDS})"
+        )
+    for r in reader:
+        try:
+            knesset_num = int(r.get("knesset_num") or 0)
+        except ValueError:
+            knesset_num = 0
+        rows.append(DocRow(
+            url=(r.get("url") or "").strip(),
+            filename=(r.get("filename") or "").strip(),
+            date=(r.get("date") or "").strip(),
+            knesset_num=knesset_num,
+            title=(r.get("title") or "").strip(),
+        ))
     # Drop rows with no URL — they're not actionable for the Stage 2
     # PDF downloader and only inflate counts.
-    rows = [r for r in rows if r.url]
-    return rows
+    return [r for r in rows if r.url]
 
 
 def _merge_rows(live: list[DocRow], seed: list[DocRow]) -> list[DocRow]:
@@ -224,11 +245,16 @@ def fetch_ethics_decisions_index(
 ) -> list[DocRow]:
     """Call the JSON-wrapped Pages API and write ``index.csv``.
 
-    If ``output_csv_path`` already exists, its rows are loaded as a
-    seed BEFORE the live fetch and merged into the result. This is
-    how older-Knesset coverage works: ship a committed index.csv
-    containing K15-K23 rows; the next fetcher run reads them, merges
-    in live K25, and writes the merged result back to the same path.
+    Seed handling:
+      * When ``config.seed_key`` is set (post-migration path), the immutable
+        K15-K23 archive seed is read from that ``seed/`` key.  A missing
+        seed object (pre-upload or first-run) is not an error — the fetcher
+        proceeds with live rows only.
+      * When ``config.seed_key`` is ``None`` (backwards-compat default) the
+        fetcher reads the seed from ``config.key`` (the cache key), which is
+        the original behaviour.
+      * The working (merged) index is always written to ``config.key``.
+
     Live wins on URL collision so freshly-edited K25 content isn't
     overwritten by stale seed data.
     """
@@ -257,7 +283,11 @@ def fetch_ethics_decisions_index(
     live_rows = list(_extract_pdf_anchors(html, knesset_num=config.knesset_num))
     logger.info("fetch_ethics_decisions: extracted %d live PDF rows", len(live_rows))
 
-    seed_rows = _load_seed_rows(Path(config.output_csv_path))
+    # Decide which key to read the archive seed from.
+    # seed_key set → the immutable operator seed (seed/ prefix, never overwritten).
+    # seed_key None → legacy: read from the output key itself (cache/ prefix).
+    seed_read_key = config.seed_key if config.seed_key is not None else config.key
+    seed_rows = _load_seed_rows(config.store, seed_read_key)
     if seed_rows:
         rows = _merge_rows(live_rows, seed_rows)
         logger.info(
@@ -269,10 +299,10 @@ def fetch_ethics_decisions_index(
     else:
         rows = live_rows
 
-    ensure_at_least_one_row(rows, config.output_csv_path)
-    atomic_write_csv(config.output_csv_path, rows)
+    ensure_at_least_one_row(rows, config.store, config.key)
+    atomic_write_csv(config.store, config.key, rows)
     logger.info(
         "fetch_ethics_decisions: wrote %d rows to %s",
-        len(rows), config.output_csv_path,
+        len(rows), config.key,
     )
     return rows

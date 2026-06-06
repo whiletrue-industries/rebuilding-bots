@@ -58,7 +58,7 @@ class SourceConfig(BaseModel):
             "Mutually exclusive with external_source_url."
         ),
     )
-    output_csv_path: Path = Field(..., description="Path to the output CSV file")
+    output_csv_path: Optional[Path] = Field(None, description="Path to the output CSV file (unused; artifact goes through the store)")
 
     @model_validator(mode='after')
     def _exactly_one_source(self):

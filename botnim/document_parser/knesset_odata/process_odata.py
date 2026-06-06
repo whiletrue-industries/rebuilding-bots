@@ -21,7 +21,7 @@ Safety rails follow the bk_csv pattern:
 * ``EmptyUpstreamIndex`` if zero sessions come back — refuses to
   overwrite the existing on-disk CSV (e.g. the API is down or returns
   200 with an empty result during a deploy window).
-* Atomic write via ``.tmp`` + ``os.replace``.
+* Atomic write via the ArtifactStore (``write_csv_artifact``).
 * Hash short-circuit: SHA-256 of the sorted ``(PlenumSessionID,
   LastUpdatedDate)`` tuples is stored in column ``upstream_hash``;
   unchanged → leave the file alone. We compute our own hash because
@@ -33,15 +33,15 @@ from __future__ import annotations
 
 import csv
 import hashlib
-import json
-import os
+import io
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Iterable, Optional
 
 import requests
 
 from ...config import get_logger
+from ...storage.base import ArtifactStore
+from ...storage.csv_writer import write_csv_artifact
 from ..pdfs.exceptions import EmptyUpstreamIndex
 
 logger = get_logger(__name__)
@@ -135,14 +135,14 @@ def _compute_hash(
     return h.hexdigest()
 
 
-def _existing_upstream_hash(output_csv: Path) -> Optional[str]:
+def _existing_upstream_hash(store: ArtifactStore, key: str) -> Optional[str]:
     """Read the upstream hash stored alongside the first row, if any."""
-    if not output_csv.exists():
+    if not store.exists(key):
         return None
-    with open(output_csv, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            return row.get("upstream_hash") or None
+    text = store.get_bytes(key).decode("utf-8")
+    reader = csv.DictReader(io.StringIO(text))
+    for row in reader:
+        return row.get("upstream_hash") or None
     return None
 
 
@@ -266,7 +266,8 @@ def fetch_session_stenograms(
 
 def process_knesset_odata_source(
     *,
-    output_csv_path: Path,
+    store: ArtifactStore,
+    key: str,
     base_url: str = _DEFAULT_BASE,
     days_past: int = _DEFAULT_DAYS_PAST,
     days_future: int = _DEFAULT_DAYS_FUTURE,
@@ -277,8 +278,10 @@ def process_knesset_odata_source(
 
     Parameters
     ----------
-    output_csv_path:
-        Where to write the CSV. Atomically replaced on success.
+    store:
+        ArtifactStore to write the CSV artifact to.
+    key:
+        Store key (e.g. ``cache/unified/extraction/plenary_schedule.csv``).
     base_url:
         OData service base URL (without trailing slash). Override for tests.
     days_past:
@@ -290,9 +293,6 @@ def process_knesset_odata_source(
     now:
         Override the reference timestamp for the window. Test seam.
     """
-    output_csv = Path(output_csv_path)
-    output_csv.parent.mkdir(parents=True, exist_ok=True)
-
     if now is None:
         now = datetime.utcnow()
     start_dt = now - timedelta(days=days_past)
@@ -310,7 +310,7 @@ def process_knesset_odata_source(
         raise EmptyUpstreamIndex(
             f"{base_url}/KNS_PlenumSession: no sessions in window "
             f"[{start_dt.date()}, {end_dt.date()}) — refusing to overwrite "
-            f"{output_csv}"
+            f"{key}"
         )
     logger.info("Got %d sessions", len(sessions))
 
@@ -329,11 +329,11 @@ def process_knesset_odata_source(
             stenogram_url_by_session[sid] = fp
 
     upstream_hash = _compute_hash(sessions, items, stenograms)
-    stored_hash = _existing_upstream_hash(output_csv)
+    stored_hash = _existing_upstream_hash(store, key)
     if stored_hash and stored_hash == upstream_hash:
         logger.info(
             "Knesset OData hash %s unchanged; leaving %s as-is",
-            upstream_hash, output_csv,
+            upstream_hash, key,
         )
         return
 
@@ -344,7 +344,8 @@ def process_knesset_odata_source(
         lst.sort(key=lambda r: (r.get("Ordinal") or 0, r.get("ItemID") or 0))
 
     write_csv_rows(
-        output_csv,
+        store,
+        key,
         sessions,
         items_by_session,
         stenogram_url_by_session,
@@ -374,7 +375,8 @@ _CSV_FIELDNAMES = [
 
 
 def write_csv_rows(
-    output_csv: Path,
+    store: ArtifactStore,
+    key: str,
     sessions: list[dict],
     items_by_session: dict[int, list[dict]],
     stenogram_url_by_session: dict[int, str],
@@ -383,12 +385,11 @@ def write_csv_rows(
 ) -> None:
     """Write one CSV row per ``(session, item)`` pair (or one empty-agenda row).
 
-    Atomically replaces ``output_csv`` on success. ``source_url`` is the
+    Atomically writes to ``store`` at ``key``. ``source_url`` is the
     session's stenogram URL when published, otherwise the session-detail
     (agenda) URL — so every row has a real Knesset link, even for
     upcoming sessions.
     """
-    output_csv = Path(output_csv)
     out_rows: list[dict] = []
     for s in sessions:
         s_iso = _normalize_dt(s.get("StartDate"))
@@ -436,22 +437,8 @@ def write_csv_rows(
             })
             out_rows.append(row)
 
-    tmp_output = output_csv.with_suffix(output_csv.suffix + ".tmp")
-    try:
-        with open(tmp_output, "w", encoding="utf-8", newline="") as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=_CSV_FIELDNAMES)
-            writer.writeheader()
-            for row in out_rows:
-                writer.writerow(row)
-        os.replace(tmp_output, output_csv)
-    except Exception:
-        try:
-            tmp_output.unlink()
-        except FileNotFoundError:
-            pass
-        raise
-
+    write_csv_artifact(store, key, out_rows, fieldnames=_CSV_FIELDNAMES)
     logger.info(
         "Wrote %d rows (%d sessions × items) to %s [hash=%s]",
-        len(out_rows), len(sessions), output_csv, upstream_hash,
+        len(out_rows), len(sessions), key, upstream_hash,
     )

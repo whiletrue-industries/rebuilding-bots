@@ -39,15 +39,15 @@ from __future__ import annotations
 
 import csv
 import hashlib
-import os
 import time
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Iterable, Optional
 
 import requests
 
 from ...config import get_logger
+from ...storage.base import ArtifactStore
+from ...storage.csv_writer import write_csv_artifact
 from ..pdfs.exceptions import EmptyUpstreamIndex
 from .parse_protocol import parse_protocol
 
@@ -162,13 +162,14 @@ def _compute_hash(committee_docs: list[dict], plenum_docs: list[dict]) -> str:
     return h.hexdigest()
 
 
-def _existing_upstream_hash(output_csv: Path) -> Optional[str]:
-    if not output_csv.exists():
+def _existing_upstream_hash(store: ArtifactStore, key: str) -> Optional[str]:
+    if not store.exists(key):
         return None
-    with open(output_csv, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            return row.get("upstream_hash") or None
+    import io as _io
+    text = store.get_bytes(key).decode("utf-8")
+    reader = csv.DictReader(_io.StringIO(text))
+    for row in reader:
+        return row.get("upstream_hash") or None
     return None
 
 
@@ -185,7 +186,8 @@ def _download(url: str, *, timeout: int = 60) -> Optional[bytes]:
 
 def process_knesset_protocols_source(
     *,
-    output_csv_path: Path,
+    store: ArtifactStore,
+    key: str,
     base_url: str = _DEFAULT_BASE,
     days_history: int = 365,
     max_protocols: int = 5000,
@@ -198,9 +200,6 @@ def process_knesset_protocols_source(
     _http_timeout: int = 60,
 ):
     """Download + parse Knesset protocols and write a per-turn CSV."""
-    output_csv = Path(output_csv_path)
-    output_csv.parent.mkdir(parents=True, exist_ok=True)
-
     if now is None:
         now = datetime.utcnow()
     since = now - timedelta(days=days_history)
@@ -223,14 +222,14 @@ def process_knesset_protocols_source(
     if total == 0:
         raise EmptyUpstreamIndex(
             f"OData returned 0 protocol documents in window "
-            f"[{since.date()}, {now.date()}) — refusing to overwrite {output_csv}"
+            f"[{since.date()}, {now.date()}) — refusing to overwrite {key}"
         )
 
     upstream_hash = _compute_hash(committee_docs, plenum_docs)
-    stored = _existing_upstream_hash(output_csv)
+    stored = _existing_upstream_hash(store, key)
     if stored and stored == upstream_hash:
         logger.info("Knesset protocols hash %s unchanged; leaving %s as-is",
-                    upstream_hash, output_csv)
+                    upstream_hash, key)
         return
 
     # Per-document delta: even when the overall upstream_hash changed (one new
@@ -244,16 +243,16 @@ def process_knesset_protocols_source(
     # differs (or the doc is new) we fall through to a fresh download+parse.
     existing_rows_by_doc: dict[str, list[dict]] = {}
     existing_last_updated_by_doc: dict[str, str] = {}
-    if output_csv.exists():
-        with open(output_csv, "r", encoding="utf-8") as f:
-            for row in csv.DictReader(f):
-                doc_id = row.get("document_id") or ""
-                if not doc_id:
-                    continue
-                existing_rows_by_doc.setdefault(doc_id, []).append(row)
-                # All rows for the same document share the same file_last_updated;
-                # last writer wins but they should be identical.
-                existing_last_updated_by_doc[doc_id] = row.get("file_last_updated") or ""
+    if store.exists(key):
+        import io as _io
+        for row in csv.DictReader(_io.StringIO(store.get_bytes(key).decode("utf-8"))):
+            doc_id = row.get("document_id") or ""
+            if not doc_id:
+                continue
+            existing_rows_by_doc.setdefault(doc_id, []).append(row)
+            # All rows for the same document share the same file_last_updated;
+            # last writer wins but they should be identical.
+            existing_last_updated_by_doc[doc_id] = row.get("file_last_updated") or ""
 
     reused_doc_count = 0
     downloaded_doc_count = 0
@@ -355,27 +354,14 @@ def process_knesset_protocols_source(
     if not out_rows:
         raise EmptyUpstreamIndex(
             f"All {total} candidate protocols failed to download or parse — "
-            f"refusing to overwrite {output_csv}"
+            f"refusing to overwrite {key}"
         )
 
-    tmp_output = output_csv.with_suffix(output_csv.suffix + ".tmp")
-    try:
-        with open(tmp_output, "w", encoding="utf-8", newline="") as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-            writer.writeheader()
-            for r in out_rows:
-                writer.writerow(r)
-        os.replace(tmp_output, output_csv)
-    except Exception:
-        try:
-            tmp_output.unlink()
-        except FileNotFoundError:
-            pass
-        raise
+    write_csv_artifact(store, key, out_rows, fieldnames=fieldnames)
 
     logger.info(
         "Wrote %d turn rows from %d documents (%d failures) to %s [hash=%s]",
-        len(out_rows), total - failures, failures, output_csv, upstream_hash,
+        len(out_rows), total - failures, failures, key, upstream_hash,
     )
     logger.info(
         "KNESSET_PROTOCOLS_CACHE_SUMMARY: reused=%d downloaded=%d failures=%d "

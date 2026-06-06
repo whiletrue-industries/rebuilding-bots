@@ -52,6 +52,8 @@ from typing import Optional
 
 import requests
 
+from ..pdfs.exceptions import EmptyUpstreamIndex  # noqa: F401 — re-exported for callers
+from ...storage.base import ArtifactStore
 from .common import (
     DocRow,
     atomic_write_csv,
@@ -82,8 +84,12 @@ DEFAULT_KNESSET_IDS = "25"
 class CommitteeDecisionsConfig:
     """Parameters for one committee_decisions fetch.
 
+    store:
+        ArtifactStore to write the resulting index CSV to.
+    key:
+        Store key for the output CSV (e.g. ``cache/unified/extraction/committee_decisions.csv``).
     output_csv_path:
-        Where to write the resulting ``index.csv``.
+        Legacy field kept for back-compat; ignored when ``store``/``key`` are set.
     committee_id:
         The Knesset CommitteeId to fetch (default: 2211 = ועדת הכנסת).
     knesset_ids:
@@ -100,7 +106,9 @@ class CommitteeDecisionsConfig:
         HTTP timeout.
     """
 
-    output_csv_path: Path
+    store: ArtifactStore
+    key: str
+    output_csv_path: Optional[Path] = None
     committee_id: int = DEFAULT_KNESSET_COMMITTEE_ID
     knesset_ids: str = DEFAULT_KNESSET_IDS
     from_date: Optional[str] = None
@@ -239,10 +247,10 @@ def fetch_committee_decisions_index(
         len(rows), last_total,
     )
 
-    ensure_at_least_one_row(rows, config.output_csv_path)
-    atomic_write_csv(config.output_csv_path, rows)
+    ensure_at_least_one_row(rows, config.store, config.key)
+    atomic_write_csv(config.store, config.key, rows)
     logger.info(
         "fetch_committee_decisions: wrote %d rows to %s",
-        len(rows), config.output_csv_path,
+        len(rows), config.key,
     )
     return rows
