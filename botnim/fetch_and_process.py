@@ -111,13 +111,19 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
 
     elif fetcher_kind == 'knesset_sharepoint_legal_advisor':
         from .document_parser.knesset_sharepoint.scraper import scrape_legal_advisor_opinions
-        output_csv_path = config_dir / source['source']
-        scrape_legal_advisor_opinions(output_csv_path=output_csv_path, **fetcher)
+        from .storage import get_artifact_store
+        from .storage.csv_writer import key_for_extraction
+        store = get_artifact_store()
+        artifact_key = key_for_extraction(config_dir.name, source['source'])
+        scrape_legal_advisor_opinions(store=store, key=artifact_key, **fetcher)
 
     elif fetcher_kind == 'knesset_sharepoint_legal_advisor_letters':
         from .document_parser.knesset_sharepoint.scraper import scrape_legal_advisor_letters
-        output_csv_path = config_dir / source['source']
-        scrape_legal_advisor_letters(output_csv_path=output_csv_path, **fetcher)
+        from .storage import get_artifact_store
+        from .storage.csv_writer import key_for_extraction
+        store = get_artifact_store()
+        artifact_key = key_for_extraction(config_dir.name, source['source'])
+        scrape_legal_advisor_letters(store=store, key=artifact_key, **fetcher)
 
     elif fetcher_kind == 'indexed_pdf':
         from .document_parser.pdfs.process_pdfs import process_pdf_source
