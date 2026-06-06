@@ -42,6 +42,7 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         config = WikitextProcessorConfig(
             input_url=input_url,
             output_base_dir=output_base_dir,
+            bot=config_dir.name,  # spec dir name = bot slug; namespaces the cache key
             content_type='סעיף',
             environment=Environment(environment),  # Convert string to enum
             model='gpt-4.1-mini',
