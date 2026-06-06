@@ -453,9 +453,9 @@ def _collect_raw_streams_files(config_dir: Path, source):
 
 def _collect_raw_streams_split(config_dir: Path, context_name, source, offset=0):
     store = get_artifact_store()
-    full_key = key_for_extraction(config_dir.name, source)
-    raw_bytes = store.get_bytes(full_key)
     if source.endswith('.json'):
+        full_key = key_for_extraction(config_dir.name, source)
+        raw_bytes = store.get_bytes(full_key)
         data = json.loads(raw_bytes.decode('utf-8'))
         document_name = data.get('metadata', {}).get('document_name', '')
         if not document_name:
@@ -466,7 +466,18 @@ def _collect_raw_streams_split(config_dir: Path, context_name, source, offset=0)
         markdown_dict = generate_markdown_dict(structure, document_name)
         return [(fname, content, 'text/markdown', {}) for fname, content in markdown_dict.items()]
     else:
-        content = raw_bytes.decode('utf-8')
+        # Markdown split sources (e.g. common-knowledge.md) are operator-owned
+        # seed data. Read from seed/<bot>/<source> via the store by default;
+        # fall back to the on-disk image path when the store has no object
+        # (legacy / CI without a populated store). <bot> is the config_dir name.
+        bot = config_dir.name
+        content = None
+        try:
+            content = store.get_bytes(f'seed/{bot}/{source}').decode('utf-8')
+        except FileNotFoundError:
+            content = None
+        if content is None:
+            content = (config_dir / source).read_text(encoding='utf-8')
         parts = content.split('\n---\n')
         return [(f'{context_name}_{i+offset}.md', c, 'text/markdown', {}) for i, c in enumerate(parts)]
 

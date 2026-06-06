@@ -160,7 +160,7 @@ def test_curated_override_wins_over_regex_derived_and_fallback(tmp_path):
     }
     with patch.object(lex_mod, "requests", create=True) as mock_req, \
          patch.object(lex_mod.time, "sleep", lambda _s: None), \
-         patch.object(lex_mod, "_load_section_overrides", lambda: fake_overrides):
+         patch.object(lex_mod, "_load_section_overrides", lambda **_kw: fake_overrides):
         mock_req.get = _mock_get
         lex_mod.scrape_lexicon(store=store, key=_KEY)
     rows = _read_rows_from_store(store, _KEY)
@@ -179,7 +179,7 @@ def test_curated_override_beats_regex_derived(tmp_path):
     }
     with patch.object(lex_mod, "requests", create=True) as mock_req, \
          patch.object(lex_mod.time, "sleep", lambda _s: None), \
-         patch.object(lex_mod, "_load_section_overrides", lambda: fake_overrides):
+         patch.object(lex_mod, "_load_section_overrides", lambda **_kw: fake_overrides):
         mock_req.get = _mock_get
         lex_mod.scrape_lexicon(store=store, key=_KEY)
     rows = _read_rows_from_store(store, _KEY)

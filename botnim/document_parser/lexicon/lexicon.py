@@ -63,15 +63,37 @@ _CURRENT_CSV_FIELDNAMES = ('מידע', 'lexicon_url', 'source_url')
 _OVERRIDES_FILENAME = 'lexicon_section_overrides.json'
 
 
-def _load_section_overrides() -> dict[str, str]:
+def _load_section_overrides(
+    store=None,
+    bot: str = 'unified',
+    _disk_candidates=None,
+) -> dict[str, str]:
     """Load hand-curated lexicon_url → wikisource_url overrides.
 
-    Searches alongside this module first (for in-repo invocations), then
-    walks up to find ``specs/unified/extraction/lexicon_section_overrides.json``.
+    Resolution order:
+      1. ``seed/<bot>/lexicon_section_overrides.json`` via ``store`` (the
+         operator-owned immutable seed).  A missing object falls through.
+      2. Legacy on-disk candidates: alongside this module (for in-repo
+         invocations), then the ``/srv/specs/unified/extraction`` image dir.
+
     Returns ``{}`` on any read/parse error so the scraper degrades to the
     derive-or-fallback behaviour.
     """
-    candidates = [
+    def _coerce(data) -> dict[str, str] | None:
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if isinstance(v, str) and v}
+        return None
+
+    if store is not None:
+        try:
+            raw = store.get_bytes(f'seed/{bot}/{_OVERRIDES_FILENAME}')
+            coerced = _coerce(json.loads(raw.decode('utf-8')))
+            if coerced is not None:
+                return coerced
+        except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+    candidates = _disk_candidates if _disk_candidates is not None else [
         Path(__file__).resolve().parents[3]
             / 'specs' / 'unified' / 'extraction' / _OVERRIDES_FILENAME,
         Path('/srv/specs/unified/extraction') / _OVERRIDES_FILENAME,
@@ -79,9 +101,9 @@ def _load_section_overrides() -> dict[str, str]:
     for p in candidates:
         try:
             with open(p, encoding='utf-8') as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    return {k: v for k, v in data.items() if isinstance(v, str) and v}
+                coerced = _coerce(json.load(f))
+                if coerced is not None:
+                    return coerced
         except (OSError, json.JSONDecodeError):
             continue
     return {}
@@ -194,7 +216,8 @@ def scrape_lexicon(*, store: ArtifactStore, key: str):
     state = 'changed' if store.exists(sentinel_key) else 'first run'
     if store.exists(sentinel_key) and store.exists(key) and not _csv_matches_current_schema(store, key):
         state = 'schema upgrade'
-    overrides = _load_section_overrides()
+    from ...storage import get_artifact_store
+    overrides = _load_section_overrides(store=get_artifact_store(), bot='unified')
     print(f"lexicon: index {state} (sha={new_hash[:12]}); scraping all entries... ({len(overrides)} curated overrides)")
     rows: list[dict[str, str]] = []
     for entry in _iter_entries(index_html):

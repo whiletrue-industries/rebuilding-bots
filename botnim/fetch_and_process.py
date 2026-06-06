@@ -93,8 +93,18 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         from .document_parser.knesset_apps.ethics_decisions_html import (
             fetch_ethics_decisions_index, EthicsDecisionsConfig,
         )
+        from .storage.base import seed_key as _seed_key
+        # The source relpath is e.g. "extraction/ethics_decisions/index.csv".
+        # Strip the leading "extraction/" to get the relpath under seed/<bot>/.
+        _source_relpath = source['source']  # e.g. "extraction/ethics_decisions/index.csv"
+        _seed_relpath = str(Path(_source_relpath).relative_to('extraction'))  # e.g. "ethics_decisions/index.csv"
         fetch_ethics_decisions_index(
-            EthicsDecisionsConfig(store=store, key=key, **fetcher)
+            EthicsDecisionsConfig(
+                store=store,
+                key=key,
+                seed_key=_seed_key(config_dir.name, _seed_relpath),
+                **fetcher,
+            )
         )
 
     elif fetcher_kind == 'knesset_sharepoint_legal_advisor':

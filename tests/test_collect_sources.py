@@ -352,10 +352,17 @@ def test_files_collector_reads_via_store(tmp_path, monkeypatch):
 
 
 def test_split_collector_reads_dashsep_via_store(tmp_path, monkeypatch):
-    """`split` source of a plain .md splits on '\\n---\\n' and reads via store.get_bytes."""
+    """`split` source of a plain .md splits on '\\n---\\n' and reads via store.get_bytes.
+
+    Post-Part 5: markdown split sources are operator seed data and are read
+    from seed/<bot>/<source> (not the cache key). A missing seed object falls
+    back to the on-disk path; here we populate the seed key directly.
+    """
     source = "extraction/doc.md"
     store = LocalFsStore(str(tmp_path))
-    store.put_atomic(key_for_extraction(_BOT, source), b"PART_ONE\n---\nPART_TWO")
+    # Markdown split sources read from seed/<bot>/<source>, not cache/.
+    seed_key = f"seed/{_BOT}/{source}"
+    store.put_atomic(seed_key, b"PART_ONE\n---\nPART_TWO")
 
     import botnim.collect_sources as cs
     monkeypatch.setattr(cs, "get_artifact_store", lambda: store)
