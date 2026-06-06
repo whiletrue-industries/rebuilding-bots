@@ -9,8 +9,12 @@ sync time:
   * lexicon_section_overrides.json  (hand-curated lexicon→wikisource map)
   * common-knowledge.md             (budget common-knowledge split source)
 
-Idempotent: re-running uploads a new object version (bucket versioning
-keeps history). Run after editing any of these files in specs/:
+Idempotent: re-running simply re-uploads each file. With the S3 backend
+(bucket versioning ON, the production path) each re-upload creates a new
+object version and prior versions are retained as history — so a bad edit
+is recoverable. With the LocalFsStore backend (dev / CI) ``put_atomic``
+overwrites in place with no version history. Run after editing any of
+these files in specs/:
 
   python scripts/upload_extraction_seed.py
   python scripts/upload_extraction_seed.py --bot unified
@@ -46,15 +50,21 @@ def upload_seed(*, specs_root: Path, bot: str, store) -> list[str]:
     Raises FileNotFoundError if any source file is missing — the seed set is
     fixed, so a missing file is an operator error, not a skip-and-continue.
 
-    Idempotency: relies on bucket versioning (seed/ prefix has versioning ON
-    per the ArtifactStore contract). Re-running simply uploads a new version.
+    Idempotency: on the S3 backend (versioning ON) each re-upload creates a
+    new object version with prior versions retained; on LocalFsStore it
+    overwrites in place. Either way re-running is safe.
+
+    Keys are built with the canonical ``seed_key`` helper so they share one
+    source of truth with the readers/fetchers (no hand-formatted prefixes).
     """
+    from botnim.storage.base import seed_key
+
     uploaded: list[str] = []
     for disk_relpath, key_relpath in _SEED_FILES:
         src = specs_root / bot / disk_relpath
         if not src.exists():
             raise FileNotFoundError(f"seed source not found: {src}")
-        key = f"seed/{bot}/{key_relpath}"
+        key = seed_key(bot, key_relpath)
         store.put_atomic(key, src.read_bytes())
         print(f"uploaded {src} -> {key}", flush=True)
         uploaded.append(key)

@@ -25,7 +25,7 @@ from pyquery import PyQuery as pq
 import csv
 import time
 
-from ...storage.base import ArtifactStore
+from ...storage.base import ArtifactStore, seed_key
 from ...storage.csv_writer import write_csv_artifact
 
 headers = {
@@ -86,7 +86,7 @@ def _load_section_overrides(
 
     if store is not None:
         try:
-            raw = store.get_bytes(f'seed/{bot}/{_OVERRIDES_FILENAME}')
+            raw = store.get_bytes(seed_key(bot, _OVERRIDES_FILENAME))
             coerced = _coerce(json.loads(raw.decode('utf-8')))
             if coerced is not None:
                 return coerced
@@ -216,8 +216,7 @@ def scrape_lexicon(*, store: ArtifactStore, key: str):
     state = 'changed' if store.exists(sentinel_key) else 'first run'
     if store.exists(sentinel_key) and store.exists(key) and not _csv_matches_current_schema(store, key):
         state = 'schema upgrade'
-    from ...storage import get_artifact_store
-    overrides = _load_section_overrides(store=get_artifact_store(), bot='unified')
+    overrides = _load_section_overrides(store=store, bot='unified')
     print(f"lexicon: index {state} (sha={new_hash[:12]}); scraping all entries... ({len(overrides)} curated overrides)")
     rows: list[dict[str, str]] = []
     for entry in _iter_entries(index_html):

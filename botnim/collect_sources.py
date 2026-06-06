@@ -23,7 +23,7 @@ from .dynamic_extraction import extract_structured_content, extract_structured_c
 from .document_parser.wikitext.generate_markdown_files import generate_markdown_dict
 from .document_parser.wikitext.pipeline_config import sanitize_filename
 from ._concurrency import SyncConcurrency, get_sync_concurrency, run_async
-from .storage import get_artifact_store
+from .storage import get_artifact_store, seed_key
 from .storage.csv_writer import key_for_extraction
 
 
@@ -473,7 +473,7 @@ def _collect_raw_streams_split(config_dir: Path, context_name, source, offset=0)
         bot = config_dir.name
         content = None
         try:
-            content = store.get_bytes(f'seed/{bot}/{source}').decode('utf-8')
+            content = store.get_bytes(seed_key(bot, source)).decode('utf-8')
         except FileNotFoundError:
             content = None
         if content is None:
