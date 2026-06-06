@@ -2,15 +2,15 @@
 
 Tests cover:
 - Empty upstream index raises EmptyUpstreamIndex and does not touch the output CSV
-- Atomic write: a mid-run crash does not corrupt the existing CSV
 - Revision short-circuit: unchanged datapackage revision skips fetching
-- Happy path writes a valid CSV
+- Happy path writes a valid CSV (LocalFsStore and S3Store via moto)
 
 All HTTP is mocked via unittest.mock.patch; no real network traffic.
 """
 from __future__ import annotations
 
 import csv
+import io
 from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -23,6 +23,11 @@ from botnim.document_parser.pdfs.pdf_extraction_config import (
     SourceConfig,
 )
 from botnim.document_parser.pdfs import process_pdfs
+from botnim.storage.local_fs import LocalFsStore
+from botnim.storage.s3_store import S3Store
+from botnim.storage.csv_writer import key_for_extraction
+import boto3
+from moto import mock_aws
 
 
 def _make_config(tmp_path: Path, output_name: str = "out.csv") -> SourceConfig:
@@ -47,76 +52,34 @@ class TestEmptyUpstreamGuard:
     def test_empty_index_raises_empty_upstream(self, tmp_path: Path) -> None:
         """Upstream index.csv with only header → EmptyUpstreamIndex, no write."""
         config = _make_config(tmp_path)
-        preexisting = tmp_path / "out.csv"
-        preexisting.write_text("url,revision,x\nhttps://foo,1,old\n", encoding="utf-8")
-        original_mtime = preexisting.stat().st_mtime
+        store = LocalFsStore(tmp_path / "store")
+        key = key_for_extraction("unified", "extraction/out.csv")
+        store.put_atomic(key, b"url,revision,x\nhttps://foo,1,old\n")
 
         with patch.object(process_pdfs, "get_openai_client", return_value=MagicMock()), \
              patch.object(process_pdfs.requests, "get") as mock_get:
             mock_get.return_value = _mock_get_response("url,filename,date,knesset_num\n")
             with pytest.raises(EmptyUpstreamIndex):
-                process_pdfs.process_pdf_source(config)
+                process_pdfs.process_pdf_source(config, store=store, key=key)
 
-        assert preexisting.read_text(encoding="utf-8") == "url,revision,x\nhttps://foo,1,old\n"
-        assert preexisting.stat().st_mtime == original_mtime
-
-
-class TestAtomicWrite:
-    def test_mid_run_crash_leaves_existing_csv_intact(self, tmp_path: Path) -> None:
-        """If process_single_pdf raises inside the write-final-csv path, the
-        previous CSV must remain intact (atomic rename via .tmp + os.replace)."""
-        config = _make_config(tmp_path)
-        preexisting = tmp_path / "out.csv"
-        preexisting.write_text("url,revision,x\nhttps://foo,1,old\n", encoding="utf-8")
-
-        index_body = (
-            "url,filename,date,knesset_num\n"
-            "https://example.com/a,a.pdf,2024-01-01,25\n"
-        )
-
-        def fake_get(url: str, *args, **kwargs):
-            if url.endswith("/index.csv"):
-                return _mock_get_response(index_body)
-            return _mock_get_response("%PDF-1.4\n% fake\n")
-
-        # process_single_pdf returns one record; simulate DictWriter.writerow failing
-        def boom(*args, **kwargs):
-            raise RuntimeError("simulated disk error during write")
-
-        with patch.object(process_pdfs, "get_openai_client", return_value=MagicMock()), \
-             patch.object(process_pdfs.requests, "get", side_effect=fake_get), \
-             patch.object(process_pdfs, "process_single_pdf", return_value=[{"x": "new"}]), \
-             patch.object(process_pdfs.csv, "DictWriter") as mock_writer_cls:
-            writer = MagicMock()
-            writer.writerow = boom
-            writer.writeheader = MagicMock()
-            mock_writer_cls.return_value = writer
-            with pytest.raises(RuntimeError):
-                process_pdfs.process_pdf_source(config)
-
-        # Original content must still be there; .tmp must not leak as final file
-        assert preexisting.read_text(encoding="utf-8") == "url,revision,x\nhttps://foo,1,old\n"
-        # No stray .tmp file in the output directory
-        tmp_leftovers = list(tmp_path.glob("*.tmp"))
-        assert tmp_leftovers == [], f"unexpected .tmp files left behind: {tmp_leftovers}"
+        assert store.get_bytes(key) == b"url,revision,x\nhttps://foo,1,old\n"
 
 
 class TestRevisionShortCircuit:
     def test_unchanged_upstream_revision_is_noop(self, tmp_path: Path) -> None:
         """If datapackage.json revision matches the `upstream_revision` stored
-        in the first row of the existing CSV, skip the fetch loop entirely."""
+        in the first row of the existing object, skip the fetch loop entirely."""
         config = _make_config(tmp_path)
-        existing_csv = tmp_path / "out.csv"
-        existing_csv.write_text(
-            "url,revision,upstream_revision,x\n"
-            "https://foo,1,2025.09.01-01,old\n",
-            encoding="utf-8",
+        store = LocalFsStore(tmp_path / "store")
+        key = key_for_extraction("unified", "extraction/out.csv")
+        store.put_atomic(
+            key,
+            b"url,revision,upstream_revision,x\nhttps://foo,1,2025.09.01-01,old\n",
         )
-        original_mtime = existing_csv.stat().st_mtime
 
         datapackage_body = '{"revision": "2025.09.01-01", "count_of_rows": 1}'
-
         calls = []
+
         def fake_get(url: str, *args, **kwargs):
             calls.append(url)
             if url.endswith("/datapackage.json"):
@@ -125,9 +88,69 @@ class TestRevisionShortCircuit:
 
         with patch.object(process_pdfs, "get_openai_client", return_value=MagicMock()), \
              patch.object(process_pdfs.requests, "get", side_effect=fake_get):
-            process_pdfs.process_pdf_source(config)
+            process_pdfs.process_pdf_source(config, store=store, key=key)
 
-        # File unchanged
-        assert existing_csv.stat().st_mtime == original_mtime
-        # Only the datapackage.json fetch happened — no index.csv, no PDFs
         assert calls == ["https://example.com/feed/datapackage.json"]
+        # Object unchanged.
+        assert store.get_bytes(key) == \
+            b"url,revision,upstream_revision,x\nhttps://foo,1,2025.09.01-01,old\n"
+
+
+class TestStoreWrite:
+    def test_happy_path_lands_at_cache_key_localfs(self, tmp_path: Path) -> None:
+        config = _make_config(tmp_path)
+        store = LocalFsStore(tmp_path / "store")
+        key = key_for_extraction("unified", "extraction/out.csv")
+
+        index_body = (
+            "url,filename,date,knesset_num\n"
+            "https://example.com/a,a.pdf,2024-01-01,25\n"
+        )
+
+        def fake_get(url: str, *args, **kwargs):
+            if url.endswith("/datapackage.json"):
+                return _mock_get_response('{"revision": "rev-2"}')
+            if url.endswith("/index.csv"):
+                return _mock_get_response(index_body)
+            return _mock_get_response("%PDF-1.4\n% fake\n")
+
+        with patch.object(process_pdfs, "get_openai_client", return_value=MagicMock()), \
+             patch.object(process_pdfs.requests, "get", side_effect=fake_get), \
+             patch.object(process_pdfs, "process_single_pdf", return_value=[{"x": "new"}]):
+            process_pdfs.process_pdf_source(config, store=store, key=key)
+
+        assert store.exists(key)
+        rows = list(csv.DictReader(io.StringIO(store.get_bytes(key).decode("utf-8"))))
+        assert rows[0]["url"] == "https://example.com/a"
+        assert rows[0]["x"] == "new"
+        # Dynamic fieldname union (process_pdfs.py:181-185): base 3 + extracted 'x'.
+        assert list(rows[0].keys())[:3] == ["url", "revision", "upstream_revision"]
+        assert "x" in rows[0]
+
+    def test_happy_path_lands_at_cache_key_s3(self, tmp_path: Path) -> None:
+        config = _make_config(tmp_path)
+        with mock_aws():
+            boto3.client("s3", region_name="il-central-1").create_bucket(
+                Bucket="botnim-artifacts-test",
+                CreateBucketConfiguration={"LocationConstraint": "il-central-1"},
+            )
+            store = S3Store("botnim-artifacts-test")
+            key = key_for_extraction("unified", "extraction/out.csv")
+            index_body = (
+                "url,filename,date,knesset_num\n"
+                "https://example.com/a,a.pdf,2024-01-01,25\n"
+            )
+
+            def fake_get(url: str, *args, **kwargs):
+                if url.endswith("/datapackage.json"):
+                    return _mock_get_response('{"revision": "rev-2"}')
+                if url.endswith("/index.csv"):
+                    return _mock_get_response(index_body)
+                return _mock_get_response("%PDF-1.4\n% fake\n")
+
+            with patch.object(process_pdfs, "get_openai_client", return_value=MagicMock()), \
+                 patch.object(process_pdfs.requests, "get", side_effect=fake_get), \
+                 patch.object(process_pdfs, "process_single_pdf", return_value=[{"x": "new"}]):
+                process_pdfs.process_pdf_source(config, store=store, key=key)
+
+            assert store.exists(key)

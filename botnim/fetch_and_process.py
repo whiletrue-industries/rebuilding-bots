@@ -103,6 +103,8 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
     elif fetcher_kind == 'indexed_pdf':
         from .document_parser.pdfs.process_pdfs import process_pdf_source
         from .document_parser.pdfs.pdf_extraction_config import SourceConfig
+        from .storage import get_artifact_store
+        from .storage.csv_writer import key_for_extraction
         output_csv_path = config_dir / source['source']
         # local_index_csv_path is documented as relative-to-config_dir (see
         # pdf_extraction_config.py). Resolve it here so process_pdf_source
@@ -116,7 +118,11 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
                 idx = config_dir / idx
             fetcher_kw['local_index_csv_path'] = str(idx)
         config = SourceConfig(**fetcher_kw, output_csv_path=output_csv_path)
-        process_pdf_source(config)
+        # bot = config_dir.name (e.g. "unified"); relpath = source['source']
+        # (e.g. "extraction/foo.csv") → key = "cache/unified/extraction/foo.csv"
+        store = get_artifact_store()
+        artifact_key = key_for_extraction(config_dir.name, source['source'])
+        process_pdf_source(config, store=store, key=artifact_key)
     elif fetcher_kind == 'gov_il_decisions':
         # First-party gov.il scrape that writes DIRECTLY to Aurora,
         # bypassing the extraction/<x>.csv → botnim sync pipeline.
