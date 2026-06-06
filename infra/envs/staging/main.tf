@@ -218,6 +218,8 @@ data "aws_iam_policy_document" "task_role" {
     data.aws_iam_policy_document.es_backups_write.json,
     data.aws_iam_policy_document.word_docs_write.json,
     data.aws_iam_policy_document.phoenix_secret_read.json,
+    data.aws_iam_policy_document.extraction_artifacts_rw.json,
+    data.aws_iam_policy_document.extraction_artifacts_kms.json,
   ]
 }
 
