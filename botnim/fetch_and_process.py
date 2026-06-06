@@ -57,16 +57,22 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         # whose rows are already parsed by BudgetKey upstream. See
         # botnim/document_parser/bk_datapackage/process_bk_csv.py for details.
         from .document_parser.bk_datapackage.process_bk_csv import process_bk_csv_source
-        output_csv_path = config_dir / source['source']
-        process_bk_csv_source(output_csv_path=output_csv_path, **fetcher)
+        from .storage import get_artifact_store
+        from .storage.csv_writer import key_for_extraction
+        store = get_artifact_store()
+        artifact_key = key_for_extraction(config_dir.name, source['source'])
+        process_bk_csv_source(store=store, key=artifact_key, **fetcher)
     elif fetcher_kind == 'knesset_odata':
         # Knesset ParliamentInfo OData service (live). Fetches plenum-session
         # entities + their agenda items joined into one CSV row per
         # (session, item) pair. See
         # botnim/document_parser/knesset_odata/process_odata.py for details.
         from .document_parser.knesset_odata.process_odata import process_knesset_odata_source
-        output_csv_path = config_dir / source['source']
-        process_knesset_odata_source(output_csv_path=output_csv_path, **fetcher)
+        from .storage import get_artifact_store
+        from .storage.csv_writer import key_for_extraction
+        store = get_artifact_store()
+        artifact_key = key_for_extraction(config_dir.name, source['source'])
+        process_knesset_odata_source(store=store, key=artifact_key, **fetcher)
     elif fetcher_kind == 'knesset_protocols':
         # Knesset committee + plenum protocol transcripts. Fetches the
         # OData document index, downloads each .doc (actually OOXML)
