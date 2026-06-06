@@ -6,18 +6,127 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
+import botnim.fetch_and_process as fap
+from botnim.storage.local_fs import LocalFsStore
+from botnim.storage.csv_writer import key_for_extraction
+
 
 def _src(kind, **extra):
     return {"source": "extraction/x/index.csv", "fetcher": {"kind": kind, **extra}}
 
+
+# ---------------------------------------------------------------------------
+# pdf branch
+# ---------------------------------------------------------------------------
+
+def test_pdf_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
+    store = LocalFsStore(tmp_path / "store")
+    monkeypatch.setattr(fap, "get_artifact_store", lambda: store)
+    called = {}
+
+    def _fake_process_pdf_source(config, *, store, key):
+        called["store"] = store
+        called["key"] = key
+
+    monkeypatch.setattr(
+        "botnim.document_parser.pdfs.process_pdfs.process_pdf_source",
+        _fake_process_pdf_source,
+        raising=False,
+    )
+    # SourceConfig requires exactly one of external_source_url or local_index_csv_path
+    src = _src(
+        "pdf",
+        external_source_url="https://example.com/pdfs/",
+        fields=[{"name": "f", "description": "d", "example": "e", "hint": "h"}],
+    )
+    fap.fetch_and_process_source("local", tmp_path / "unified", "ctx", src, "all")
+    assert called["store"] is store
+    assert called["key"] == key_for_extraction("unified", "extraction/x/index.csv")
+
+
+# ---------------------------------------------------------------------------
+# lexicon branch
+# ---------------------------------------------------------------------------
+
+def test_lexicon_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
+    store = LocalFsStore(tmp_path / "store")
+    monkeypatch.setattr(fap, "get_artifact_store", lambda: store)
+    called = {}
+
+    def _fake_scrape_lexicon(*, store, key):
+        called["store"] = store
+        called["key"] = key
+
+    monkeypatch.setattr(
+        "botnim.document_parser.lexicon.lexicon.scrape_lexicon",
+        _fake_scrape_lexicon,
+        raising=False,
+    )
+    src = _src("lexicon")
+    # lexicon is skipped for kind='all'; use kind='lexicon'
+    fap.fetch_and_process_source("local", tmp_path / "unified", "ctx", src, "lexicon")
+    assert called["store"] is store
+    assert called["key"] == key_for_extraction("unified", "extraction/x/index.csv")
+
+
+# ---------------------------------------------------------------------------
+# bk_csv branch
+# ---------------------------------------------------------------------------
+
+def test_bk_csv_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
+    store = LocalFsStore(tmp_path / "store")
+    monkeypatch.setattr(fap, "get_artifact_store", lambda: store)
+    called = {}
+
+    def _fake_process_bk_csv(*, store, key, **kw):
+        called["store"] = store
+        called["key"] = key
+
+    monkeypatch.setattr(
+        "botnim.document_parser.bk_datapackage.process_bk_csv.process_bk_csv_source",
+        _fake_process_bk_csv,
+        raising=False,
+    )
+    src = _src("bk_csv", resource_url="https://example.com/data.csv")
+    fap.fetch_and_process_source("local", tmp_path / "unified", "ctx", src, "all")
+    assert called["store"] is store
+    assert called["key"] == key_for_extraction("unified", "extraction/x/index.csv")
+
+
+# ---------------------------------------------------------------------------
+# knesset_odata branch
+# ---------------------------------------------------------------------------
+
+def test_knesset_odata_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
+    store = LocalFsStore(tmp_path / "store")
+    monkeypatch.setattr(fap, "get_artifact_store", lambda: store)
+    called = {}
+
+    def _fake(*, store, key, **kw):
+        called["store"] = store
+        called["key"] = key
+
+    monkeypatch.setattr(
+        "botnim.document_parser.knesset_odata.process_odata.process_knesset_odata_source",
+        _fake,
+        raising=False,
+    )
+    src = _src("knesset_odata")
+    fap.fetch_and_process_source("local", tmp_path / "unified", "ctx", src, "all")
+    assert called["store"] is store
+    assert called["key"] == key_for_extraction("unified", "extraction/x/index.csv")
+
+
+# ---------------------------------------------------------------------------
+# knesset_protocols branch
+# ---------------------------------------------------------------------------
 
 def test_dispatch_knesset_protocols(tmp_path: Path):
     src = _src("knesset_protocols")
     with patch(
         "botnim.document_parser.knesset_protocols.process_protocols.process_knesset_protocols_source"
     ) as mock_inner:
-        from botnim.fetch_and_process import fetch_and_process_source
-        fetch_and_process_source("local", tmp_path, "ctx", src, "all")
+        fap.fetch_and_process_source("local", tmp_path, "ctx", src, "all")
         mock_inner.assert_called_once()
         kwargs = mock_inner.call_args.kwargs
         assert "store" in kwargs
@@ -25,44 +134,156 @@ def test_dispatch_knesset_protocols(tmp_path: Path):
         assert kwargs["key"].startswith("cache/")
 
 
+def test_knesset_protocols_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
+    store = LocalFsStore(tmp_path / "store")
+    monkeypatch.setattr(fap, "get_artifact_store", lambda: store)
+    called = {}
+
+    def _fake(*, store, key, **kw):
+        called["store"] = store
+        called["key"] = key
+
+    monkeypatch.setattr(
+        "botnim.document_parser.knesset_protocols.process_protocols.process_knesset_protocols_source",
+        _fake,
+        raising=False,
+    )
+    src = _src("knesset_protocols")
+    fap.fetch_and_process_source("local", tmp_path / "unified", "ctx", src, "all")
+    assert called["store"] is store
+    assert called["key"] == key_for_extraction("unified", "extraction/x/index.csv")
+
+
+# ---------------------------------------------------------------------------
+# knesset_apps_committee branch
+# ---------------------------------------------------------------------------
+
 def test_dispatch_knesset_apps_committee(tmp_path: Path):
     src = _src("knesset_apps_committee", committee_id=2211, from_date="2022-11-15", knesset_ids="25")
     with patch(
         "botnim.document_parser.knesset_apps.committee_decisions_json.fetch_committee_decisions_index"
     ) as mock_inner:
-        from botnim.fetch_and_process import fetch_and_process_source
-        fetch_and_process_source("local", tmp_path, "ctx", src, "all")
+        fap.fetch_and_process_source("local", tmp_path, "ctx", src, "all")
         mock_inner.assert_called_once()
 
+
+def test_knesset_apps_committee_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
+    store = LocalFsStore(tmp_path / "store")
+    monkeypatch.setattr(fap, "get_artifact_store", lambda: store)
+    called = {}
+
+    def _fake_fetch(cfg):
+        called["store"] = cfg.store
+        called["key"] = cfg.key
+
+    monkeypatch.setattr(
+        "botnim.document_parser.knesset_apps.committee_decisions_json.fetch_committee_decisions_index",
+        _fake_fetch,
+        raising=False,
+    )
+    src = _src("knesset_apps_committee", committee_id=2211, from_date="2022-11-15", knesset_ids="25")
+    fap.fetch_and_process_source("local", tmp_path / "unified", "ctx", src, "all")
+    assert called["store"] is store
+    assert called["key"] == key_for_extraction("unified", "extraction/x/index.csv")
+
+
+# ---------------------------------------------------------------------------
+# knesset_apps_ethics branch
+# ---------------------------------------------------------------------------
 
 def test_dispatch_knesset_apps_ethics(tmp_path: Path):
     src = _src("knesset_apps_ethics", page_name="EthicsDecisions25")
     with patch(
         "botnim.document_parser.knesset_apps.ethics_decisions_html.fetch_ethics_decisions_index"
     ) as mock_inner:
-        from botnim.fetch_and_process import fetch_and_process_source
-        fetch_and_process_source("local", tmp_path, "ctx", src, "all")
+        fap.fetch_and_process_source("local", tmp_path, "ctx", src, "all")
         mock_inner.assert_called_once()
 
+
+def test_knesset_apps_ethics_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
+    store = LocalFsStore(tmp_path / "store")
+    monkeypatch.setattr(fap, "get_artifact_store", lambda: store)
+    called = {}
+
+    def _fake_fetch(cfg):
+        called["store"] = cfg.store
+        called["key"] = cfg.key
+
+    monkeypatch.setattr(
+        "botnim.document_parser.knesset_apps.ethics_decisions_html.fetch_ethics_decisions_index",
+        _fake_fetch,
+        raising=False,
+    )
+    src = _src("knesset_apps_ethics", page_name="EthicsDecisions25")
+    fap.fetch_and_process_source("local", tmp_path / "unified", "ctx", src, "all")
+    assert called["store"] is store
+    assert called["key"] == key_for_extraction("unified", "extraction/x/index.csv")
+
+
+# ---------------------------------------------------------------------------
+# knesset_sharepoint_legal_advisor branch
+# ---------------------------------------------------------------------------
 
 def test_dispatch_knesset_sharepoint_legal_advisor(tmp_path: Path):
     src = _src("knesset_sharepoint_legal_advisor", page_url="https://main.knesset.gov.il/x")
     with patch(
         "botnim.document_parser.knesset_sharepoint.scraper.scrape_legal_advisor_opinions"
     ) as mock_inner:
-        from botnim.fetch_and_process import fetch_and_process_source
-        fetch_and_process_source("local", tmp_path, "ctx", src, "all")
+        fap.fetch_and_process_source("local", tmp_path, "ctx", src, "all")
         mock_inner.assert_called_once()
 
+
+def test_knesset_sharepoint_legal_advisor_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
+    store = LocalFsStore(tmp_path / "store")
+    monkeypatch.setattr(fap, "get_artifact_store", lambda: store)
+    called = {}
+
+    def _fake(*, store, key, **kw):
+        called["store"] = store
+        called["key"] = key
+
+    monkeypatch.setattr(
+        "botnim.document_parser.knesset_sharepoint.scraper.scrape_legal_advisor_opinions",
+        _fake,
+        raising=False,
+    )
+    src = _src("knesset_sharepoint_legal_advisor", page_url="https://main.knesset.gov.il/x")
+    fap.fetch_and_process_source("local", tmp_path / "unified", "ctx", src, "all")
+    assert called["store"] is store
+    assert called["key"] == key_for_extraction("unified", "extraction/x/index.csv")
+
+
+# ---------------------------------------------------------------------------
+# knesset_sharepoint_legal_advisor_letters branch
+# ---------------------------------------------------------------------------
 
 def test_dispatch_knesset_sharepoint_legal_advisor_letters(tmp_path: Path):
     src = _src("knesset_sharepoint_legal_advisor_letters", page_url="https://main.knesset.gov.il/y")
     with patch(
         "botnim.document_parser.knesset_sharepoint.scraper.scrape_legal_advisor_letters"
     ) as mock_inner:
-        from botnim.fetch_and_process import fetch_and_process_source
-        fetch_and_process_source("local", tmp_path, "ctx", src, "all")
+        fap.fetch_and_process_source("local", tmp_path, "ctx", src, "all")
         mock_inner.assert_called_once()
+
+
+def test_knesset_sharepoint_legal_advisor_letters_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
+    store = LocalFsStore(tmp_path / "store")
+    monkeypatch.setattr(fap, "get_artifact_store", lambda: store)
+    called = {}
+
+    def _fake(*, store, key, **kw):
+        called["store"] = store
+        called["key"] = key
+
+    monkeypatch.setattr(
+        "botnim.document_parser.knesset_sharepoint.scraper.scrape_legal_advisor_letters",
+        _fake,
+        raising=False,
+    )
+    src = _src("knesset_sharepoint_legal_advisor_letters", page_url="https://main.knesset.gov.il/y")
+    fap.fetch_and_process_source("local", tmp_path / "unified", "ctx", src, "all")
+    assert called["store"] is store
+    assert called["key"] == key_for_extraction("unified", "extraction/x/index.csv")
 
 
 def test_dispatch_indexed_pdf(tmp_path: Path):
@@ -161,3 +382,35 @@ def test_indexed_pdf_end_to_end_empty_index(tmp_path: Path):
     store = get_artifact_store()
     key = key_for_extraction(tmp_path.name, "extraction/x.csv")
     assert store.exists(key)
+
+
+# ---------------------------------------------------------------------------
+# indexed_pdf branch — store + key assertions
+# ---------------------------------------------------------------------------
+
+def test_indexed_pdf_branch_passes_store_and_key(tmp_path: Path, monkeypatch):
+    """indexed_pdf must receive store=<singleton> and key=cache/<bot>/<relpath>."""
+    store = LocalFsStore(tmp_path / "store")
+    monkeypatch.setattr(fap, "get_artifact_store", lambda: store)
+    called = {}
+
+    def _fake_process_pdf_source(config, *, store, key):
+        called["store"] = store
+        called["key"] = key
+
+    monkeypatch.setattr(
+        "botnim.document_parser.pdfs.process_pdfs.process_pdf_source",
+        _fake_process_pdf_source,
+        raising=False,
+    )
+    src = {
+        "source": "extraction/x.csv",
+        "fetcher": {
+            "kind": "indexed_pdf",
+            "local_index_csv_path": "extraction/x/index.csv",
+            "fields": [{"name": "טקסט_מלא", "description": "x", "example": "y", "hint": "z"}],
+        },
+    }
+    fap.fetch_and_process_source("local", tmp_path / "unified", "ctx", src, "all")
+    assert called["store"] is store
+    assert called["key"] == key_for_extraction("unified", "extraction/x.csv")
