@@ -347,7 +347,7 @@ async def knesset_sessions_live(
     inline as `items: [...]`. Hebrew dates are added as
     ``StartDateHe``/``FinishDateHe`` for easier LLM rendering.
     """
-    from datetime import datetime
+    from datetime import datetime, timedelta
     from botnim.document_parser.knesset_odata.process_odata import (
         fetch_plenum_sessions,
         fetch_session_items,
@@ -371,8 +371,14 @@ async def knesset_sessions_live(
 
     start_dt = _parse(from_date, "from")
     end_dt = _parse(to_date, "to")
-    if not (start_dt < end_dt):
-        raise HTTPException(status_code=400, detail="'from' must be strictly before 'to'")
+    if end_dt < start_dt:
+        raise HTTPException(status_code=400, detail="'from' must be on or before 'to'")
+    if end_dt == start_dt:
+        # Single-day query (e.g. "what's on the plenary agenda tomorrow?"): the
+        # LLM naturally sets from==to. The window is half-open [from, to), so an
+        # equal pair would be zero-width — expand it to that whole day instead of
+        # rejecting it with a 400, which the model then misreports as a "glitch".
+        end_dt = start_dt + timedelta(days=1)
     if (end_dt - start_dt).days > 400:
         raise HTTPException(status_code=400, detail="window too wide; max 400 days")
 

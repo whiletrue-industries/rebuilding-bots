@@ -395,7 +395,7 @@
           {
             "name": "to",
             "in": "query",
-            "description": "End of date window (exclusive), ISO 8601.",
+            "description": "End of date window (exclusive), ISO 8601. For a single day (e.g. 'what's on the agenda tomorrow?') set `to` equal to `from` — the same day is returned. `to` must be on or after `from`.",
             "required": true,
             "schema": {
               "type": "string"
