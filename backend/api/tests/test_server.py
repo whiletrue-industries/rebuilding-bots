@@ -176,3 +176,52 @@ def test_knesset_sessions_live_populates_source_url_for_all_sessions():
     assert by_session[2256195]["source_url"] == (
         "https://www.knesset.gov.il/plenum/heb/sessionDet.aspx?SessionID=2256195"
     )
+
+
+def test_knesset_sessions_live_accepts_single_day_from_equals_to():
+    """A single-day query (from == to) must NOT 400.
+
+    Regression for the prod bot's "what's on the plenary agenda tomorrow?"
+    call, which sent from==to==<day> and got HTTP 400
+    'from must be strictly before to'. The endpoint now treats from==to as
+    that whole day: it accepts the request and queries the half-open window
+    [day, day+1).
+    """
+    from datetime import datetime
+
+    captured = {}
+
+    def _capture(base, start_dt, end_dt, timeout=60):
+        captured["start"] = start_dt
+        captured["end"] = end_dt
+        return _fake_sessions()
+
+    with patch(
+        "botnim.document_parser.knesset_odata.process_odata.fetch_plenum_sessions",
+        side_effect=_capture,
+    ), patch(
+        "botnim.document_parser.knesset_odata.process_odata.fetch_session_items",
+        return_value=[],
+    ), patch(
+        "botnim.document_parser.knesset_odata.process_odata.fetch_session_stenograms",
+        return_value=_fake_stenograms(),
+    ):
+        resp = client.get(
+            "/botnim/knesset/sessions",
+            params={"from": "2026-06-17", "to": "2026-06-17", "include_items": "false"},
+        )
+
+    assert resp.status_code == 200, resp.text
+    # from==to was expanded to a one-day half-open window [day, day+1).
+    assert captured["start"] == datetime(2026, 6, 17, 0, 0, 0)
+    assert captured["end"] == datetime(2026, 6, 18, 0, 0, 0)
+
+
+def test_knesset_sessions_live_rejects_inverted_window():
+    """to strictly before from is still a 400 (genuinely inverted range)."""
+    resp = client.get(
+        "/botnim/knesset/sessions",
+        params={"from": "2026-06-18", "to": "2026-06-17"},
+    )
+    assert resp.status_code == 400
+    assert "on or before" in resp.json()["detail"]
