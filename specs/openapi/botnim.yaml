@@ -159,6 +159,50 @@
         "deprecated": false
       }
     },
+    "/botnim/retrieve/unified/israeli_laws__dev": {
+      "get": {
+        "description": "Search the full text of Israeli primary and secondary legislation (laws, ordinances, regulations) from the open law book (ספר החוקים הפתוח). Use for ANY question about what an Israeli statute says, who it applies to, its definitions, offences, penalties, and procedures — e.g. חוק האזנת סתר, חוק הגנת הפרטיות, חוק חופש המידע, פקודת מס הכנסה. Each result is one section (סעיף) with its chapter context. Cite the law name + section + the source_url verbatim. Use search_mode=SECTION_NUMBER when the user references a specific סעיף by number. NOTE: this is the consolidated text as maintained on ויקיטקסט — not the official רשומות, and not a substitute for legal advice. This is the general-law corpus; for Knesset internal procedure use the takanon/legal_text tools instead.",
+        "operationId": "search_unified__israeli_laws__dev",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_mode",
+            "in": "query",
+            "description": "Search mode for different types of queries",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "SECTION_NUMBER",
+                "REGULAR",
+                "METADATA_BROWSE"
+              ],
+              "default": "REGULAR"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "description": "Number of results to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "deprecated": false
+      }
+    },
     "/botnim/retrieve/unified/legal_advisor_opinions__dev": {
       "get": {
         "description": "Search formal legal opinions by Knesset legal advisor. THREE modes — choose by intent: (a) 'מה ההנחיות/חוות הדעת האחרונות', 'הכי עדכניות', 'הכי חדשות', 'מה התפרסם לאחרונה' → use search_mode=RECENCY_BROWSE: returns the calendar-newest documents in pure date-desc order (no similarity ranking, immune to query-phrasing bias). (b) 'אילו חוות דעת יש על X', 'תן לי רשימה של…', browse/enumerate intent on a TOPIC → search_mode=METADATA_BROWSE: similarity-ranked summaries (25 docs). (c) substantive content question requiring full text → leave search_mode=REGULAR (default). For (a) and (b), present 3–5 items with title, date, one-line subject, and קישור_למקור; do not re-sort RECENCY_BROWSE results — they are already newest-first.",
