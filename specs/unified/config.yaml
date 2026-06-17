@@ -1,7 +1,8 @@
 slug: unified
 name: בוטנים
-description: עונה על שאלות מתוך תקנון הכנסת וחוקים נלווים וכן על שאלות בנושאי תקציב
-  המדינה, הכנסות המדינה, התקשרויות ותמיכות תקציביות
+description: עונה על שאלות מתוך תקנון הכנסת וחוקים נלווים, מתוך ספר החוקים הפתוח
+  (החקיקה הראשית והמשנית של מדינת ישראל), וכן על שאלות בנושאי תקציב המדינה,
+  הכנסות המדינה, התקשרויות ותמיכות תקציביות
 tools:
 - code-interpreter
 - budgetkey
@@ -88,6 +89,30 @@ context:
     fetcher:
       kind: wikitext
       input_url: https://he.wikisource.org/wiki/%D7%94%D7%97%D7%9C%D7%98%D7%AA_%D7%A9%D7%9B%D7%A8_%D7%97%D7%91%D7%A8%D7%99_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA_(%D7%94%D7%A2%D7%A0%D7%A7%D7%95%D7%AA_%D7%95%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D)
+- slug: israeli_laws
+  name: ספר החוקים הפתוח — חקיקה ראשית ומשנית של מדינת ישראל
+  description: 'Search the full text of Israeli primary and secondary legislation
+    (laws, ordinances, regulations) from the open law book (ספר החוקים הפתוח).
+    Use for: any question about what an Israeli statute says, who it applies to,
+    definitions, offences, penalties, and procedures — e.g. חוק האזנת סתר, חוק
+    הגנת הפרטיות, חוק חופש המידע. Each result is one section (סעיף) with its
+    chapter context. Cite the law name + section + the WikiSource source_url.
+    NOTE: this is the consolidated text as maintained on ויקיטקסט — not the
+    official רשומות, and not a substitute for legal advice.'
+  examples: 'האם חוק האזנת סתר חל על אזרחים, מה העונש על האזנת סתר, הגדרת מידע
+    לפי חוק הגנת הפרטיות, מתי מותר לרשות לסרב לבקשת חופש מידע'
+  # Title-rich Hebrew legal corpus — verbatim law-name queries rank far better
+  # under trigram/BM25 than text-embedding-3-small cosine. Same rationale as
+  # legal_text (see its block above) and the legal_advisor contexts.
+  use_lexical_search: true
+  lexical_strategy: trigram
+  sources:
+  - type: split
+    source: extraction/law_book/*_structure_content.json
+    fetcher:
+      kind: wikisource_law_book
+      include_regulations: true
+      min_expected_laws: 200
 - slug: legal_advisor_opinions
   name: חוות דעת היועצת המשפטית לכנסת
   description: 'Search formal legal opinions by Knesset legal advisor. Use for: legal
