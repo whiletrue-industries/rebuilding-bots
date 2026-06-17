@@ -45,8 +45,9 @@ def test_process_isolates_per_item_failure(tmp_path: Path):
     good = MagicMock(); good.run.return_value = True
     with patch.object(P, "discover_law_pages", return_value=discovered), \
          patch.object(P, "WikitextProcessorConfig", side_effect=cfg_side_effect), \
-         patch.object(P, "WikitextProcessor", return_value=good):
+         patch.object(P, "WikitextProcessor", return_value=good) as MockProc:
         P.process_law_book_source("staging", tmp_path, include_regulations=False,
                                   min_expected_laws=1, rate_limit_seconds=0)
     out = {e.title: e.status for e in read_manifest(tmp_path / "extraction" / "law_book" / "manifest.csv")}
     assert out == {"חוק טוב": "ok", "חוק רע": "failed"}
+    assert MockProc.call_count == 1
