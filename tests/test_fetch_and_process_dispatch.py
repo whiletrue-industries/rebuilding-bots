@@ -138,3 +138,16 @@ def test_indexed_pdf_end_to_end_empty_index(tmp_path: Path):
     # 0-row index + no pre-existing output → the empty-out branch wrote
     # extraction/x.csv with just the header.
     assert (tmp_path / "extraction" / "x.csv").exists()
+
+
+def test_dispatch_wikisource_law_book(tmp_path: Path):
+    src = {"source": "extraction/law_book/*_structure_content.json",
+           "fetcher": {"kind": "wikisource_law_book", "include_regulations": True}}
+    with patch(
+        "botnim.document_parser.wikisource_law_book.process.process_law_book_source"
+    ) as mock_inner:
+        from botnim.fetch_and_process import fetch_and_process_source
+        fetch_and_process_source("local", tmp_path, "ctx", src, "all")
+        mock_inner.assert_called_once()
+        # environment + config_dir positional; include_regulations forwarded
+        assert mock_inner.call_args.kwargs.get("include_regulations") is True
