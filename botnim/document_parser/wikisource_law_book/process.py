@@ -41,7 +41,7 @@ def process_law_book_source(environment: str, config_dir: Path, *,
         try:
             cfg = WikitextProcessorConfig(
                 input_url=entry.url, output_base_dir=out_dir,
-                content_type="סעיף", environment=environment,
+                content_type="סעיף", environment=Environment(environment),
                 model="gpt-4.1-mini", max_tokens=None,
             )
             entry.status = "ok" if WikitextProcessor(cfg).run(generate_markdown=False) else "failed"
