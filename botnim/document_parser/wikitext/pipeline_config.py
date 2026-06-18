@@ -35,6 +35,17 @@ def sanitize_filename(filename):
     filename = re.sub(r'[_\s]+', '_', filename)
     # Remove leading/trailing underscores
     filename = filename.strip('_')
+    # Cap length: a filename is limited to 255 BYTES. With the
+    # "_structure_content.json" suffix and multi-byte Hebrew, long regulation
+    # titles (e.g. צו איסור הלבנת הון (חובות זיהוי, דיווח...)) exceed that and
+    # raise OSError(ENAMETOOLONG). Truncate to a safe byte budget and append a
+    # short stable hash of the full name to preserve uniqueness across titles
+    # that share a long common prefix.
+    MAX_BYTES = 180
+    if len(filename.encode('utf-8')) > MAX_BYTES:
+        digest = hashlib.sha1(filename.encode('utf-8')).hexdigest()[:8]
+        truncated = filename.encode('utf-8')[:MAX_BYTES].decode('utf-8', 'ignore').rstrip('_')
+        filename = f'{truncated}_{digest}'
     return filename
 
 
