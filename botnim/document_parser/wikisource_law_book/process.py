@@ -21,7 +21,6 @@ LAW_BOOK_SUBDIR = "law_book"
 def process_law_book_source(environment: str, config_dir: Path, *,
                             include_regulations: bool = True,
                             min_expected_laws: int = 200,
-                            apply_skip_list: bool = True,
                             rate_limit_seconds: float = 0.3,
                             **_ignored) -> None:
     config_dir = Path(config_dir)
@@ -31,8 +30,7 @@ def process_law_book_source(environment: str, config_dir: Path, *,
     prior = read_manifest(manifest_path)
     entries = discover_law_pages(
         config_dir, include_regulations=include_regulations,
-        min_expected_laws=min_expected_laws, apply_skip_list=apply_skip_list,
-        prior=prior or None,
+        min_expected_laws=min_expected_laws, prior=prior or None,
     )
     # Persist the discovered set (all 'pending') BEFORE extraction so a crash
     # mid-corpus still leaves a reviewable manifest.

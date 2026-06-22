@@ -43,14 +43,9 @@ def fetch_index_titles(api_url: str = API_URL, index_page: str = INDEX_PAGE) -> 
 
 def discover_law_pages(config_dir, *, include_regulations: bool,
                        min_expected_laws: int = 200,
-                       apply_skip_list: bool = True,
                        prior: list[LawBookEntry] | None = None) -> list[LawBookEntry]:
     config_dir = Path(config_dir)
-    # The skip-list is derived from the legal_text context so israeli_laws does
-    # not double-index those laws. During the single-source consolidation we set
-    # apply_skip_list=False so israeli_laws finally ingests the legal_text laws
-    # (incl. תקנון הכנסת) while legal_text still exists for the parity gate.
-    skip = legal_text_skip_titles(config_dir) if apply_skip_list else set()
+    skip = legal_text_skip_titles(config_dir)
     raw_titles = fetch_index_titles()
 
     wanted = {"law", "regulation"} if include_regulations else {"law"}

@@ -113,10 +113,6 @@ context:
       kind: wikisource_law_book
       include_regulations: true
       min_expected_laws: 200
-      # Single-source consolidation: ingest the legal_text laws (incl. תקנון
-      # הכנסת) into israeli_laws too. legal_text still exists during the parity
-      # gate; once it is retired the skip-list is empty anyway.
-      apply_skip_list: false
 - slug: legal_advisor_opinions
   name: חוות דעת היועצת המשפטית לכנסת
   description: 'Search formal legal opinions by Knesset legal advisor. Use for: legal
