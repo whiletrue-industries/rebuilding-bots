@@ -25,70 +25,12 @@ context:
     source: extraction/lexicon.csv
     fetcher:
       kind: lexicon
-  - type: split
-    source: extraction/כללי_אתיקה_לחברי_הכנסת_structure_content.json
-    fetcher:
-      kind: wikitext
-      input_url: https://he.wikisource.org/wiki/%D7%9B%D7%9C%D7%9C%D7%99_%D7%90%D7%AA%D7%99%D7%A7%D7%94_%D7%9C%D7%97%D7%91%D7%A8%D7%99_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
-  - type: split
-    source: extraction/חוק_הפרשנות_structure_content.json
-    fetcher:
-      kind: wikitext
-      input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%A4%D7%A8%D7%A9%D7%A0%D7%95%D7%AA
-- slug: legal_text
-  name: Knesset Bylaws (תקנון הכנסת) and related laws
-  # Hebrew-friendly retrieval. The default `tsquery` BM25 strategy uses PG's
-  # `simple` tsconfig which has no Hebrew analyzer — so construct-state
-  # alternation (ועדת↔ועדה↔ועדות) is invisible and procedural-question
-  # queries miss the relevant sections. Switched to `trigram` (pg_trgm
-  # word_similarity, GIN-indexed via migration 0015) on 2026-05-13.
-  # Local A/B on prod-equivalent query "מה הדרך ליזום ועדת חקירה ממלכתית":
-  #   tsquery: 0/3 prod-cited sections in top-8 (§22 / §129 / §135)
-  #   trigram: 3/3 prod-cited sections in top-8
-  # See vector_store_aurora.py _LEXICAL_STRATEGY_* for full rationale.
-  use_lexical_search: true
-  lexical_strategy: trigram
-  sources:
-  - type: split
-    source: extraction/חוק_הכנסת_structure_content.json
-    fetcher:
-      kind: wikitext
-      input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
-  - type: split
-    source: extraction/חוק_משכן_הכנסת,_רחבתו_ומשמר_הכנסת_structure_content.json
-    fetcher:
-      kind: wikitext
-      input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%9E%D7%A9%D7%9B%D7%9F_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA,_%D7%A8%D7%97%D7%91%D7%AA%D7%95_%D7%95%D7%9E%D7%A9%D7%9E%D7%A8_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
-  - type: split
-    source: extraction/חוק-יסוד_הכנסת_structure_content.json
-    fetcher:
-      kind: wikitext
-      input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7-%D7%99%D7%A1%D7%95%D7%93:_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
-  - type: split
-    source: extraction/חוק_חסינות_חברי_הכנסת,_זכויותיהם_וחובותיהם_structure_content.json
-    fetcher:
-      kind: wikitext
-      input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%97%D7%A1%D7%99%D7%A0%D7%95%D7%AA_%D7%97%D7%91%D7%A8%D7%99_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA,_%D7%96%D7%9B%D7%95%D7%99%D7%95%D7%AA%D7%99%D7%94%D7%9D_%D7%95%D7%97%D7%95%D7%91%D7%95%D7%AA%D7%99%D7%94%D7%9D
-  - type: split
-    source: extraction/חוק_לציון_מידע_בדבר_השפעת_חקיקה_על_זכויות_הילד_structure_content.json
-    fetcher:
-      kind: wikitext
-      input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%9C%D7%A6%D7%99%D7%95%D7%9F_%D7%9E%D7%99%D7%93%D7%A2_%D7%91%D7%93%D7%91%D7%A8_%D7%94%D7%A9%D7%A4%D7%A2%D7%AA_%D7%97%D7%A7%D7%99%D7%A7%D7%94_%D7%A2%D7%9C_%D7%96%D7%9B%D7%95%D7%99%D7%95%D7%AA_%D7%94%D7%99%D7%9C%D7%93
-  - type: split
-    source: extraction/חוק_רציפות_הדיון_בהצעות_חוק_structure_content.json
-    fetcher:
-      kind: wikitext
-      input_url: https://he.wikisource.org/wiki/%D7%97%D7%95%D7%A7_%D7%A8%D7%A6%D7%99%D7%A4%D7%95%D7%AA_%D7%94%D7%93%D7%99%D7%95%D7%9F_%D7%91%D7%94%D7%A6%D7%A2%D7%95%D7%AA_%D7%97%D7%95%D7%A7
-  - type: split
-    source: extraction/תקנון_הכנסת_structure_content.json
-    fetcher:
-      kind: wikitext
-      input_url: https://he.wikisource.org/wiki/%D7%AA%D7%A7%D7%A0%D7%95%D7%9F_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA
-  - type: split
-    source: extraction/החלטת_שכר_חברי_הכנסת_(הענקות_ותשלומים)_structure_content.json
-    fetcher:
-      kind: wikitext
-      input_url: https://he.wikisource.org/wiki/%D7%94%D7%97%D7%9C%D7%98%D7%AA_%D7%A9%D7%9B%D7%A8_%D7%97%D7%91%D7%A8%D7%99_%D7%94%D7%9B%D7%A0%D7%A1%D7%AA_(%D7%94%D7%A2%D7%A0%D7%A7%D7%95%D7%AA_%D7%95%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D)
+  # Law content (כללי אתיקה, חוק הפרשנות) moved to israeli_laws (single source
+  # of statutory law). This context is glossary-only now.
+# legal_text retired 2026-06-22 — israeli_laws (the open law book) is now the
+# single source of statutory law. All 8 of its laws (תקנון הכנסת, חוק הכנסת,
+# חוק־יסוד: הכנסת, חוק חסינות, …, החלטת שכר) live in israeli_laws; the gold-set
+# §86 / ועדת חקירה queries pass at parity-or-better via metadata_filter law_name.
 - slug: israeli_laws
   name: ספר החוקים הפתוח — חקיקה ראשית ומשנית של מדינת ישראל
   description: 'Search the full text of Israeli primary and secondary legislation
