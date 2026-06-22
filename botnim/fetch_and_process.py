@@ -128,6 +128,16 @@ def fetch_and_process_source(environment, config_dir, context_name, source, kind
         # context_snapshots so /admin/sources reflects this context.
         from .document_parser.gov_il_decisions.process import process_gov_il_decisions_source
         process_gov_il_decisions_source(environment=environment, **fetcher)
+    elif fetcher_kind == 'wikisource_law_book':
+        # Index-driven bulk ingestion of ספר החוקים הפתוח. Unlike `wikitext`
+        # (one law per source entry), this discovers ~all laws/regulations
+        # from the WikiSource index and runs each through WikitextProcessor,
+        # writing one *_structure_content.json per item under
+        # extraction/law_book/. The israeli_laws context reads them via a
+        # glob `split` source. `source['source']` (the glob) is unused here —
+        # the driver owns its output paths.
+        from .document_parser.wikisource_law_book.process import process_law_book_source
+        process_law_book_source(environment, config_dir, **fetcher)
 
 def fetch_and_process_context(environment, context, config_dir: Path, kind):
     context_name = context['name']

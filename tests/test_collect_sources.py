@@ -276,3 +276,37 @@ def test_csv_content_hash_stable_across_file_last_updated_change(tmp_path):
     assert content_a == content_b, "content must not vary with file_last_updated"
     h = lambda s: _hashlib.sha256(s.strip().encode("utf-8")).hexdigest()
     assert h(content_a) == h(content_b)
+
+
+# -----------------------------------------------------------------------------
+# Glob support in _collect_raw_streams_split (Task 7 — israeli_laws context)
+# -----------------------------------------------------------------------------
+
+import json as _json  # noqa: E402
+
+from botnim.collect_sources import _collect_raw_streams_split  # noqa: E402
+
+
+def _write_law_json(path: Path, document_name: str, section_name: str, content: str):
+    path.write_text(_json.dumps({
+        "metadata": {"document_name": document_name},
+        "structure": [{"depth": 1, "section_name": section_name,
+                       "section_type": "סעיף", "content": content, "children": []}],
+    }, ensure_ascii=False), encoding="utf-8")
+
+
+def test_split_glob_reads_all_law_jsons(tmp_path: Path):
+    d = tmp_path / "extraction" / "law_book"
+    d.mkdir(parents=True)
+    _write_law_json(d / "חוק_א_structure_content.json", "חוק א", "סעיף 1", "תוכן א")
+    _write_law_json(d / "חוק_ב_structure_content.json", "חוק ב", "סעיף 1", "תוכן ב")
+
+    out = _collect_raw_streams_split(tmp_path, "israeli_laws",
+                                     "extraction/law_book/*_structure_content.json")
+    names = sorted(fname for fname, _c, _t, _m in out)
+    # document_name prefixes every chunk filename → no collision across laws.
+    # sanitize_filename converts spaces to underscores in both document_name
+    # and section_name components, so "חוק א" + "סעיף 1" → "חוק_א_סעיף_1.md".
+    assert names == ["חוק_א_סעיף_1.md", "חוק_ב_סעיף_1.md"]
+    bodies = " ".join(c for _f, c, _t, _m in out)
+    assert "תוכן א" in bodies and "תוכן ב" in bodies

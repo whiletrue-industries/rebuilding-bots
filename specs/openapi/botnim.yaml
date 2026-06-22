@@ -115,10 +115,10 @@
         "deprecated": false
       }
     },
-    "/botnim/retrieve/unified/legal_text__dev": {
+    "/botnim/retrieve/unified/israeli_laws__dev": {
       "get": {
-        "description": "Search laws, bylaws and regulations in the unified legal knowledge base",
-        "operationId": "search_unified__legal_text__dev",
+        "description": "Search the full text of Israeli primary and secondary legislation (laws, ordinances, regulations) from the open law book (ספר החוקים הפתוח). This is the SINGLE source for Israeli statutory law — INCLUDING תקנון הכנסת (Knesset bylaws), the Knesset laws (חוק הכנסת, חוק־יסוד: הכנסת, חוק חסינות חברי הכנסת…), and כללי אתיקה לחברי הכנסת. Use for ANY question about what a law says, who it applies to, its definitions, offences, penalties, and procedures — including Knesset internal procedure (e.g. תקנון הכנסת סעיף 86, הקמת ועדת חקירה פרלמנטרית). Each result is one section (סעיף) with its chapter context. Cite the law name + section + the source_url verbatim. Use search_mode=SECTION_NUMBER when a specific סעיף is referenced. For a question about a SPECIFIC named law, ALSO pass metadata_filter={\"law_name\":\"<exact law name>\"} to scope the search to that law and avoid cross-law section-number collisions (hundreds of laws have a 'סעיף 86'). NOTE: consolidated text as maintained on ויקיטקסט — not the official רשומות, not legal advice.",
+        "operationId": "search_unified__israeli_laws__dev",
         "parameters": [
           {
             "name": "query",
@@ -153,6 +153,15 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 50
+            }
+          },
+          {
+            "name": "metadata_filter",
+            "in": "query",
+            "description": "JSON object for a JSONB exact-match filter on document metadata. Use {\"law_name\":\"<exact base law name>\"} to scope the search to ONE law and eliminate cross-law section-number collisions — STRONGLY recommended for any named-law or תקנון query (e.g. {\"law_name\":\"תקנון הכנסת\"}, {\"law_name\":\"חוק האזנת סתר\"}, {\"law_name\":\"כללי אתיקה לחברי הכנסת\"}). law_name is the base law title only — no chapter/section suffix. Omit for broad 'what does any law say' searches across the whole corpus.",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
