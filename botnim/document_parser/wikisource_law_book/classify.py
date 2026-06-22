@@ -9,6 +9,12 @@ needs no network call.
 _LAW_PREFIXES = ("חוק ", "חוק-יסוד", "חוק יסוד", "פקודת ", "פקודה ")
 # Secondary legislation
 _REGULATION_PREFIXES = ("תקנות ", "צו ", "צווי ", "כללי ", "כללים ", "הוראות ", "תקנון ")
+# Carry-over items from the legal_text context that classify as "other" by
+# leading token (they start with החלט…) but must be ingested into israeli_laws
+# for the single-source consolidation. Kept as an explicit, narrow allow-list —
+# we deliberately do NOT broaden to all החלטות/הנחיות, which would pull in
+# government decisions and other noise.
+_CARRYOVER_REGULATION_PREFIXES = ("החלטת שכר חברי הכנסת",)
 
 
 def classify_title(title: str) -> str:
@@ -17,6 +23,9 @@ def classify_title(title: str) -> str:
         if t.startswith(p):
             return "law"
     for p in _REGULATION_PREFIXES:
+        if t.startswith(p):
+            return "regulation"
+    for p in _CARRYOVER_REGULATION_PREFIXES:
         if t.startswith(p):
             return "regulation"
     return "other"
