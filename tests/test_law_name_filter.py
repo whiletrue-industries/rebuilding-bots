@@ -230,3 +230,36 @@ def test_search_law_filter_hard_scopes_in_lexical_only_mode(aurora_db_filter, da
     hits = res["hits"]["hits"]
     assert hits, "scoped vector should recall the law's docs even in a lexical-only mode"
     assert {h["_source"]["metadata"]["law_name"] for h in hits} == {"חוק א"}  # never cross-law
+
+
+def test_absent_sole_law_name_falls_back_and_tags(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client", lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"}, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "absentlaw"}, "absentlaw", False)
+    emb = [1.0] * 1536
+    _seed_law_doc(database_url, cid, "חוק חובת המכרזים שמירת דינים",
+                  {"law_name": "חוק חובת המכרזים", "DocumentTitle": "חוק חובת המכרזים"}, emb)
+    # Sole law_name that has ZERO docs -> scoped empty -> unfiltered fallback surfaces the formal law, tagged.
+    res = store.search(context_name="absentlaw", query_text="חוק חובת המכרזים",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
+                       metadata_filter={"law_name": "חוק שלא קיים בכלל"})
+    hits = res["hits"]["hits"]
+    assert hits, "absent sole-law_name should fall back unfiltered"
+    assert all(h["_source"]["metadata"].get("_fallback_reason") == "law_name_absent" for h in hits)
+
+
+def test_compound_filter_miss_returns_empty_not_cross_law(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client", lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"}, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "compound"}, "compound", False)
+    emb = [1.0] * 1536
+    _seed_law_doc(database_url, cid, "content", {"law_name": "חוק קיים", "DocumentTitle": "חוק קיים"}, emb)
+    # law_name exists but the compound key matches nothing -> scoped empty -> NO cross-law widening.
+    res = store.search(context_name="compound", query_text="content",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
+                       metadata_filter={"law_name": "חוק קיים", "no_such_key": "no_such_value"})
+    assert res["hits"]["hits"] == [], "compound miss must not widen to cross-law results"

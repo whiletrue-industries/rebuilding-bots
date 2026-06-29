@@ -925,16 +925,22 @@ class VectorStoreAurora(VectorStoreBase):
         # §86 lexical match. For modes where vector was already on, weight is unchanged.
         _vw = _SCOPED_OVERRIDE_VECTOR_WEIGHT if (has_law_name and not use_vector) else 1.0
         result = _rrf_fuse(vector_rows, bm25_rows, num_results, vector_weight=_vw)
-        # Auto-fallback: if a metadata_filter eliminated every candidate, the data may
-        # still be reachable unfiltered (e.g. a colloquial law name, or a law_name our
-        # normalization can't bridge). Re-run once WITHOUT the filter. The
-        # `metadata_filter is not None` guard on this branch means the unfiltered re-run
-        # (metadata_filter=None) cannot recurse — bounded to one level.
-        if metadata_filter is not None and not result["hits"]["hits"]:
-            logger.info("search: metadata_filter %r yielded 0 rows for (%s, %s); retrying unfiltered",
-                        metadata_filter, bot, context_name)
-            return self.search(context_name, query_text, search_mode, embedding,
-                               num_results=num_results, explain=explain, metadata_filter=None)
+        # Spec §D observability + scope-preserving fallback. The fallback fires ONLY when
+        # law_name is the SOLE filter key and the fully-scoped result is empty — i.e. the
+        # named law has zero docs (a genuinely absent colloquial name like "חוק המכרזים").
+        # A compound-filter miss returns empty rather than widening to cross-law. Bounded
+        # to one level (re-run passes metadata_filter=None). bm25_rows / vector_rows are in
+        # function scope here (assigned inside the closed `with get_session()` block).
+        gate_fired = bool(has_law_name and not other_keys and not result["hits"]["hits"])
+        if has_law_name:
+            logger.info("search scoped: law_name=%r scoped_vec=%d scoped_lex=%d gate_fired=%s (%s, %s)",
+                        law_norm, len(vector_rows), len(bm25_rows), gate_fired, bot, context_name)
+        if gate_fired:
+            fb = self.search(context_name, query_text, search_mode, embedding,
+                             num_results=num_results, explain=explain, metadata_filter=None)
+            for hit in fb["hits"]["hits"]:
+                hit.setdefault("_source", {}).setdefault("metadata", {})["_fallback_reason"] = "law_name_absent"
+            return fb
         return result
 
     def government_distribution(self, context_name: str, decision_number: str) -> list[dict]:
