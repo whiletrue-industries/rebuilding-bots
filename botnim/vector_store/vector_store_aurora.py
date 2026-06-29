@@ -121,6 +121,43 @@ def _build_metadata_filter_sql(metadata_filter):
     return "".join(clauses), params
 
 
+_SCOPED_OVERRIDE_VECTOR_WEIGHT = 0.5
+
+
+def _scoped_vector_knn_sql(rest_sql):
+    """SQL for an EXACT vector KNN over a single law's docs.
+
+    `AS MATERIALIZED` is MANDATORY: Postgres 12+ inlines a single-reference CTE
+    by default, which would let the planner merge the law_name filter with the
+    `ORDER BY embedding <=>` and plan a GLOBAL HNSW scan + post-filter — that can
+    return 0 for a selective law even though its docs exist. Materializing the
+    law's docs first makes the outer ORDER BY ... LIMIT an exact KNN over that
+    small set. `rest_sql` carries any non-law_name filter keys so the scoped set
+    matches the FULL filter.
+    """
+    return (
+        "WITH law_docs AS MATERIALIZED ("
+        " SELECT id, content, metadata, embedding FROM documents"
+        # `metadata ? 'law_name'` is REQUIRED for the planner to use the partial
+        # index documents_law_name_norm (migration 0016) -> O(law) filter. It is
+        # semantically redundant with the norm-equality clause but the planner
+        # cannot infer the implication through the replace/regexp chain.
+        f" WHERE context_id = :cid AND metadata ? 'law_name' AND {_LAW_NAME_NORM_SQL} = :law_norm{rest_sql}"
+        ")"
+        " SELECT id, content, metadata, 1 - (embedding <=> CAST(:emb AS vector)) AS score"
+        " FROM law_docs ORDER BY embedding <=> CAST(:emb AS vector) LIMIT :limit"
+    )
+
+
+def _scoped_vector_knn(sess, cid, law_norm, rest_sql, rest_params, embedding, fetch):
+    """Exact vector KNN over one law's docs (see _scoped_vector_knn_sql). `sess` is
+    the caller's transaction; hnsw.ef_search is irrelevant here (no HNSW on the
+    materialized rows)."""
+    return sess.execute(text(_scoped_vector_knn_sql(rest_sql)), {
+        "cid": cid, "law_norm": law_norm, "emb": str(embedding), "limit": fetch, **rest_params,
+    }).fetchall()
+
+
 # Back-compat aliases for callers that import the old names.
 CHUNK_MAX_TOKENS = _CHUNK_MAX_TOKENS_DEFAULT
 CHUNK_OVERLAP_TOKENS = _CHUNK_OVERLAP_TOKENS_DEFAULT

@@ -161,3 +161,48 @@ def test_law_name_norm_index_is_used(aurora_db_filter, database_url):
     # AND that the partial predicate `metadata ? 'law_name'` is in the query — without
     # it PostgreSQL cannot prove the partial-index predicate and won't use the index.
     assert "documents_law_name_norm" in plan, plan
+
+
+def test_scoped_vector_knn_sql_is_materialized_and_full_filter():
+    from botnim.vector_store.vector_store_aurora import _scoped_vector_knn_sql, _LAW_NAME_NORM_SQL
+    sql = _scoped_vector_knn_sql(" AND metadata @> CAST(:mfilter AS jsonb)")
+    assert "AS MATERIALIZED" in sql                                  # mandatory keyword
+    assert "metadata ? 'law_name'" in sql                           # partial-index predicate guard
+    assert _LAW_NAME_NORM_SQL + " = :law_norm" in sql                # scoped by normalized law_name
+    assert "metadata @> CAST(:mfilter AS jsonb)" in sql              # full filter (rest keys)
+    assert "ORDER BY embedding <=> CAST(:emb AS vector)" in sql      # exact KNN
+    assert _scoped_vector_knn_sql("").count("AS MATERIALIZED") == 1  # also present with empty rest
+
+
+def test_scoped_vector_knn_hard_scopes_and_orders_by_distance(aurora_db_filter, database_url):
+    from sqlalchemy import text
+    from botnim.db.session import get_engine
+    from botnim.vector_store.vector_store_aurora import _scoped_vector_knn, _build_metadata_filter_sql, _normalize_law_name
+    eng = get_engine()
+    with eng.begin() as c:
+        cid = c.execute(text(
+            "INSERT INTO contexts (id, bot, name) VALUES (gen_random_uuid(), 'b', 'sctx') "
+            "ON CONFLICT (bot, name) DO UPDATE SET updated_at=now() RETURNING id")).scalar()
+
+        def seed(h, law, emb_val):
+            emb = "[" + ",".join([str(emb_val)] * 1536) + "]"
+            c.execute(text(
+                "INSERT INTO documents (id, context_id, content, content_hash, metadata, embedding) "
+                "VALUES (gen_random_uuid(), :cid, 'c', :h, CAST(:m AS jsonb), CAST(:e AS vector))"),
+                {"cid": str(cid), "h": h,
+                 "m": '{"law_name": "%s", "DocumentTitle": "%s"}' % (law, law), "e": emb})
+        seed("near", "תקנון הכנסת", 1.0)   # nearest to query emb [1.0]*1536 (distance 0)
+        seed("far",  "תקנון הכנסת", -1.0)  # same law, far
+        seed("other", "חוק אחר", 1.0)      # different law, also near — must be EXCLUDED
+    rest_sql, rest_params = _build_metadata_filter_sql({})  # no non-law_name keys -> ("", {})
+    q_emb = [1.0] * 1536
+    with eng.connect() as c:
+        rows = _scoped_vector_knn(c, str(cid), _normalize_law_name("תקנון הכנסת"),
+                                  rest_sql, rest_params, q_emb, 10)
+    import json as _json
+    def _md(r):  # JSONB may come back as dict or str depending on driver registration
+        return r[2] if isinstance(r[2], dict) else _json.loads(r[2])
+    law_names = [_md(r)["law_name"] for r in rows]
+    assert law_names and set(law_names) == {"תקנון הכנסת"}, law_names   # hard-scoped, no cross-law
+    # nearest-first: the [1.0] doc (distance 0) outranks the [-1.0] doc (both same law)
+    assert rows[0][3] > rows[-1][3]
