@@ -130,3 +130,34 @@ def test_filter_miss_falls_back_to_unfiltered(aurora_db_filter, database_url, mo
         metadata_filter={"law_name": "חוק שלא קיים בכלל"},
     )
     assert res["hits"]["hits"], "empty filtered result should have fallen back to unfiltered and returned the law"
+
+
+def test_law_name_norm_index_is_used(aurora_db_filter, database_url):
+    # Proves the migration's indexed expression is byte-identical to
+    # _LAW_NAME_NORM_SQL: with seqscan disabled, the planner can only use the
+    # index if the WHERE expression matches the index expression exactly.
+    from sqlalchemy import create_engine, text
+    from botnim.vector_store.vector_store_aurora import _LAW_NAME_NORM_SQL
+    eng = create_engine(database_url)
+    with eng.begin() as c:
+        cid = c.execute(text(
+            "INSERT INTO contexts (id, bot, name) VALUES (gen_random_uuid(), 'b', 'idxctx') "
+            "ON CONFLICT (bot, name) DO UPDATE SET updated_at=now() RETURNING id")).scalar()
+        emb = "[" + ",".join(["0.1"] * 1536) + "]"
+        for i in range(3):
+            c.execute(text(
+                "INSERT INTO documents (id, context_id, content, content_hash, metadata, embedding) "
+                "VALUES (gen_random_uuid(), :cid, 'x', :h, CAST(:m AS jsonb), CAST(:e AS vector)) "
+                "ON CONFLICT (context_id, content_hash) DO NOTHING"),
+                {"cid": str(cid), "h": "idxh%d" % i,
+                 "m": '{"law_name": "תקנון הכנסת", "DocumentTitle": "תקנון הכנסת"}', "e": emb})
+    with eng.begin() as c:
+        c.execute(text("SET LOCAL enable_seqscan = off"))
+        plan = "\n".join(r[0] for r in c.execute(text(
+            "EXPLAIN SELECT id FROM documents WHERE context_id = :cid "
+            "AND metadata ? 'law_name' AND " + _LAW_NAME_NORM_SQL + " = :v"),
+            {"cid": str(cid), "v": "תקנון הכנסת"}))
+    # Verifies BOTH byte-identity (the WHERE expression matches the index expression)
+    # AND that the partial predicate `metadata ? 'law_name'` is in the query — without
+    # it PostgreSQL cannot prove the partial-index predicate and won't use the index.
+    assert "documents_law_name_norm" in plan, plan
