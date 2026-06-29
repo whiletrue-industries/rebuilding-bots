@@ -262,3 +262,19 @@ def test_compound_filter_miss_returns_empty_not_cross_law(aurora_db_filter, data
                        search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
                        metadata_filter={"law_name": "חוק קיים", "no_such_key": "no_such_value"})
     assert res["hits"]["hits"] == [], "compound miss must not widen to cross-law results"
+
+
+def test_recency_search_normalizes_law_name(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import SEARCH_MODES
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client", lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"}, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "recctx"}, "recctx", False)
+    emb = [1.0] * 1536
+    # stored with maqaf U+05BE + a date; query filter uses ASCII hyphen + colon
+    _seed_law_doc(database_url, cid, "c",
+                  {"law_name": "חוק־יסוד: הכנסת", "DocumentTitle": "חוק־יסוד: הכנסת", "תאריך": "2020-01-01"}, emb)
+    recency = SEARCH_MODES["RECENCY_BROWSE"]
+    res = store.search(context_name="recctx", query_text="x", search_mode=recency, embedding=emb,
+                       num_results=5, metadata_filter={"law_name": "חוק-יסוד: הכנסת"})
+    assert res["hits"]["hits"], "RECENCY_BROWSE must match a normalized (maqaf/colon) law_name"

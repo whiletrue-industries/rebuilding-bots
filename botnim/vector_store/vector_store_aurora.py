@@ -672,11 +672,7 @@ class VectorStoreAurora(VectorStoreBase):
                 return {"hits": {"hits": []}}
             cid = str(row[0])
 
-            md_filter_sql = ""
-            md_params = {}
-            if metadata_filter:
-                md_filter_sql = " AND metadata @> CAST(:mfilter AS jsonb)"
-                md_params["mfilter"] = json.dumps(metadata_filter)
+            md_filter_sql, md_params = _build_metadata_filter_sql(metadata_filter)
 
             rows = sess.execute(text(f"""
                 WITH dated AS (
