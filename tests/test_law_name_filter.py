@@ -1,4 +1,7 @@
-from botnim.vector_store.vector_store_aurora import _normalize_law_name, _build_metadata_filter_sql
+import pytest
+from sqlalchemy import create_engine, text
+
+from botnim.vector_store.vector_store_aurora import _normalize_law_name, _build_metadata_filter_sql, _LAW_NAME_NORM_SQL
 
 
 def test_normalize_collapses_maqaf_colon_and_whitespace():
@@ -26,3 +29,16 @@ def test_build_filter_keeps_containment_for_other_keys():
 def test_build_filter_empty():
     assert _build_metadata_filter_sql(None) == ("", {})
     assert _build_metadata_filter_sql({}) == ("", {})
+
+
+_PARITY_CASES = ["חוק-יסוד: הממשלה", "חוק־יסוד: הכנסת", "חוק   חובת  המכרזים", "תקנון הכנסת"]
+
+
+@pytest.mark.parametrize("raw", _PARITY_CASES)
+def test_python_and_sql_normalize_match(raw, database_url):
+    # Run the SQL normalize expression over a literal value, compare to Python.
+    sql = "SELECT " + _LAW_NAME_NORM_SQL.replace("metadata->>'law_name'", ":v")
+    eng = create_engine(database_url)
+    with eng.connect() as c:
+        got = c.execute(text(sql), {"v": raw}).scalar()
+    assert got == _normalize_law_name(raw)
