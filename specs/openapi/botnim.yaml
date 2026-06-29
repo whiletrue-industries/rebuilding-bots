@@ -158,7 +158,7 @@
           {
             "name": "metadata_filter",
             "in": "query",
-            "description": "JSON object for a JSONB exact-match filter on document metadata. Use {\"law_name\":\"<exact base law name>\"} to scope the search to ONE law and eliminate cross-law section-number collisions — STRONGLY recommended for any named-law or תקנון query (e.g. {\"law_name\":\"תקנון הכנסת\"}, {\"law_name\":\"חוק האזנת סתר\"}, {\"law_name\":\"כללי אתיקה לחברי הכנסת\"}). law_name is the base law title only — no chapter/section suffix. Omit for broad 'what does any law say' searches across the whole corpus.",
+            "description": "JSON object for a JSONB exact-match filter on document metadata. Use {\"law_name\":\"<exact base law name>\"} to scope the search to ONE law and eliminate cross-law section-number collisions — STRONGLY recommended for any named-law or תקנון query (e.g. {\"law_name\":\"תקנון הכנסת\"}, {\"law_name\":\"חוק האזנת סתר\"}, {\"law_name\":\"כללי אתיקה לחברי הכנסת\"}). law_name is the base law title only — no chapter/section suffix. Pass law_name whenever the user names or asks about a SPECIFIC law — even colloquially, partially, or approximately (e.g. {\"law_name\":\"חוק המכרזים\"} for the formal חוק חובת המכרזים); the system resolves an approximate name to the formal law and scopes to it. Omit ONLY for genuinely cross-law topical searches ('what does any law say about X').",
             "required": false,
             "schema": {
               "type": "string"
