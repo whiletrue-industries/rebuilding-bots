@@ -278,3 +278,51 @@ def test_recency_search_normalizes_law_name(aurora_db_filter, database_url, monk
     res = store.search(context_name="recctx", query_text="x", search_mode=recency, embedding=emb,
                        num_results=5, metadata_filter={"law_name": "חוק-יסוד: הכנסת"})
     assert res["hits"]["hits"], "RECENCY_BROWSE must match a normalized (maqaf/colon) law_name"
+
+
+def test_law_name_trgm_index_is_used(aurora_db_filter, database_url):
+    """Proves migration 0017 creates a usable GIN trigram index on law_name.
+
+    Primary assertion: pg_indexes confirms the index exists with gin_trgm_ops.
+    EXPLAIN assertion: with seqscan off and the competing B-tree norm index
+    temporarily dropped (it's a per-test DB, so safe), the GIN index is the
+    only path left for the trigram condition and must appear in the plan.
+    """
+    from sqlalchemy import create_engine, text
+    eng = create_engine(database_url)
+
+    # --- part 1: index DDL exists (primary proof) ---
+    with eng.begin() as c:
+        row = c.execute(text(
+            "SELECT indexdef FROM pg_indexes "
+            "WHERE tablename='documents' AND indexname='documents_law_name_trgm'"
+        )).fetchone()
+    assert row is not None, "migration 0017 did not create documents_law_name_trgm"
+    assert "gin_trgm_ops" in row[0], row[0]
+
+    # --- part 2: seed data ---
+    with eng.begin() as c:
+        cid = c.execute(text(
+            "INSERT INTO contexts (id, bot, name) VALUES (gen_random_uuid(), 'b', 'trgmctx') "
+            "ON CONFLICT (bot, name) DO UPDATE SET updated_at=now() RETURNING id")).scalar()
+        emb = "[" + ",".join(["0.1"] * 1536) + "]"
+        for i, ln in enumerate(["חוק חובת המכרזים", "חוק האזנת סתר", "תקנון הכנסת"]):
+            c.execute(text(
+                "INSERT INTO documents (id, context_id, content, content_hash, metadata, embedding) "
+                "VALUES (gen_random_uuid(), :cid, 'x', :h, CAST(:m AS jsonb), CAST(:e AS vector))"),
+                {"cid": str(cid), "h": "trgmh%d" % i, "m": '{"law_name": "%s"}' % ln, "e": emb})
+
+    # --- part 3: EXPLAIN after dropping competing B-tree index (safe: per-test DB) ---
+    # Drop documents_law_name_norm so it can't substitute for the trigram scan.
+    # Without seqscan and without a B-tree that covers metadata ? 'law_name',
+    # the planner's only index for the trigram condition is documents_law_name_trgm.
+    with eng.begin() as c:
+        c.execute(text("DROP INDEX IF EXISTS documents_law_name_norm"))
+    with eng.begin() as c:
+        c.execute(text("SET LOCAL enable_seqscan = off"))
+        c.execute(text("SET LOCAL pg_trgm.similarity_threshold = 0.3"))
+        plan = "\n".join(r[0] for r in c.execute(text(
+            "EXPLAIN SELECT metadata->>'law_name' FROM documents "
+            "WHERE metadata ? 'law_name' AND (metadata->>'law_name') % :m"),
+            {"m": "חוק המכרזים"}))
+    assert "documents_law_name_trgm" in plan, plan
