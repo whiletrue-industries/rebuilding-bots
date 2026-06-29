@@ -326,3 +326,23 @@ def test_law_name_trgm_index_is_used(aurora_db_filter, database_url):
             "WHERE metadata ? 'law_name' AND (metadata->>'law_name') % :m"),
             {"m": "חוק המכרזים"}))
     assert "documents_law_name_trgm" in plan, plan
+
+
+def test_resolve_law_name_bridges_colloquial(aurora_db_filter, database_url):
+    from sqlalchemy import create_engine, text
+    from botnim.vector_store.vector_store_aurora import _resolve_law_name, _LAW_NAME_RESOLVE_THRESHOLD
+    eng = create_engine(database_url)
+    with eng.begin() as c:
+        cid = c.execute(text(
+            "INSERT INTO contexts (id, bot, name) VALUES (gen_random_uuid(), 'b', 'resctx') "
+            "ON CONFLICT (bot, name) DO UPDATE SET updated_at=now() RETURNING id")).scalar()
+        emb = "[" + ",".join(["0.1"] * 1536) + "]"
+        for i, ln in enumerate(["חוק חובת המכרזים", "חוק האזנת סתר", "תקנון הכנסת"]):
+            c.execute(text(
+                "INSERT INTO documents (id, context_id, content, content_hash, metadata, embedding) "
+                "VALUES (gen_random_uuid(), :cid, 'x', :h, CAST(:m AS jsonb), CAST(:e AS vector))"),
+                {"cid": str(cid), "h": "resh%d" % i, "m": '{"law_name": "%s"}' % ln, "e": emb})
+    with eng.begin() as c:
+        assert _resolve_law_name(c, str(cid), "חוק המכרזים", _LAW_NAME_RESOLVE_THRESHOLD) == "חוק חובת המכרזים"
+        assert _resolve_law_name(c, str(cid), "תקנון הכנסת") == "תקנון הכנסת"
+        assert _resolve_law_name(c, str(cid), "כביש חוצה ישראל זזזזז בטטה") is None

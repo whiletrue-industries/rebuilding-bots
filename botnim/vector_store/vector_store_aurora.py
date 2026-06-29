@@ -121,6 +121,32 @@ def _build_metadata_filter_sql(metadata_filter):
     return "".join(clauses), params
 
 
+_LAW_NAME_RESOLVE_THRESHOLD = 0.45
+
+
+def _resolve_law_name(sess, cid, mention, threshold=_LAW_NAME_RESOLVE_THRESHOLD):
+    """Resolve a colloquial/partial/variant law mention to the formal `law_name`
+    in this context (pg_trgm similarity), or None if nothing is similar enough.
+
+    Used only on a scoped-filter exact-miss to rescue the scope (e.g. the model's
+    "חוק המכרזים" -> "חוק חובת המכרזים"). The `%` operator is gated by
+    pg_trgm.similarity_threshold; we set it to `threshold` so `%` and the Python
+    check agree. The `documents_law_name_trgm` index serves the `%` lookup.
+    """
+    if not mention:
+        return None
+    sess.execute(text("SET LOCAL pg_trgm.similarity_threshold = %s" % float(threshold)))
+    row = sess.execute(text(
+        "SELECT metadata->>'law_name' AS ln, similarity(metadata->>'law_name', :m) AS s "
+        "FROM documents "
+        "WHERE context_id = :cid AND metadata ? 'law_name' AND (metadata->>'law_name') % :m "
+        "ORDER BY s DESC LIMIT 1"
+    ), {"cid": cid, "m": mention}).fetchone()
+    if row and row[1] is not None and float(row[1]) >= threshold:
+        return row[0]
+    return None
+
+
 _SCOPED_OVERRIDE_VECTOR_WEIGHT = 0.5
 
 
