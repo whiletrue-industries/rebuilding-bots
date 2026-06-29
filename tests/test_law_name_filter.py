@@ -181,9 +181,8 @@ def test_scoped_vector_knn_sql_is_materialized_and_full_filter():
 
 def test_scoped_vector_knn_hard_scopes_and_orders_by_distance(aurora_db_filter, database_url):
     from sqlalchemy import text
-    from botnim.db.session import get_engine
     from botnim.vector_store.vector_store_aurora import _scoped_vector_knn, _build_metadata_filter_sql, _normalize_law_name
-    eng = get_engine()
+    eng = create_engine(database_url)
     with eng.begin() as c:
         cid = c.execute(text(
             "INSERT INTO contexts (id, bot, name) VALUES (gen_random_uuid(), 'b', 'sctx') "
