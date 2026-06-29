@@ -99,6 +99,28 @@ _LAW_NAME_NORM_SQL = (
     " '\\s+', ' ', 'g'))"
 )
 
+def _build_metadata_filter_sql(metadata_filter):
+    """Build the WHERE fragment + params for a metadata_filter.
+
+    `law_name` is matched by NORMALIZED equality (punctuation-insensitive) so the
+    model's "חוק-יסוד: הממשלה" hits the stored "חוק-יסוד הממשלה". Any other keys keep
+    the original JSONB containment (`@>`).
+    """
+    if not metadata_filter:
+        return "", {}
+    clauses = []
+    params = {}
+    rest = dict(metadata_filter)
+    law = rest.pop("law_name", None)
+    if law is not None:
+        clauses.append(f" AND {_LAW_NAME_NORM_SQL} = :law_norm")
+        params["law_norm"] = _normalize_law_name(str(law))
+    if rest:
+        clauses.append(" AND metadata @> CAST(:mfilter AS jsonb)")
+        params["mfilter"] = json.dumps(rest)
+    return "".join(clauses), params
+
+
 # Back-compat aliases for callers that import the old names.
 CHUNK_MAX_TOKENS = _CHUNK_MAX_TOKENS_DEFAULT
 CHUNK_OVERLAP_TOKENS = _CHUNK_OVERLAP_TOKENS_DEFAULT
@@ -764,11 +786,7 @@ class VectorStoreAurora(VectorStoreBase):
                 return {"hits": {"hits": []}}
             cid = str(row[0])
 
-            md_filter_sql = ""
-            md_params = {}
-            if metadata_filter:
-                md_filter_sql = " AND metadata @> CAST(:mfilter AS jsonb)"
-                md_params["mfilter"] = json.dumps(metadata_filter)
+            md_filter_sql, md_params = _build_metadata_filter_sql(metadata_filter)
 
             if use_vector:
                 vector_rows = sess.execute(text(
