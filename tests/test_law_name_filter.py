@@ -1,3 +1,9 @@
+import hashlib
+import json
+import os
+import subprocess
+from pathlib import Path
+
 import pytest
 from sqlalchemy import create_engine, text
 
@@ -42,3 +48,78 @@ def test_python_and_sql_normalize_match(raw, database_url):
     with eng.connect() as c:
         got = c.execute(text(sql), {"v": raw}).scalar()
     assert got == _normalize_law_name(raw)
+
+
+# ---------------------------------------------------------------------------
+# Integration test: auto-fallback when metadata_filter yields 0 rows
+# ---------------------------------------------------------------------------
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _alembic_upgrade_filter(database_url: str) -> None:
+    alembic_bin = str(_REPO_ROOT / ".venv" / "bin" / "alembic")
+    env = os.environ.copy()
+    env["DATABASE_URL"] = database_url
+    subprocess.run(
+        [alembic_bin, "--config", "alembic.ini", "upgrade", "head"],
+        cwd=_REPO_ROOT, env=env, check=True, capture_output=True,
+    )
+
+
+@pytest.fixture
+def aurora_db_filter(database_url, monkeypatch):
+    """Aurora backend pointed at a fresh per-test DB with schema applied."""
+    _alembic_upgrade_filter(database_url)
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.setenv("OPENAI_API_KEY_STAGING", "sk-test")
+    from botnim.db import session as s
+    s._engine = None
+    return database_url
+
+
+def _seed_law_doc(database_url, context_id, content, metadata, embedding):
+    eng = create_engine(database_url)
+    with eng.connect() as conn:
+        content_hash = hashlib.sha256(content.encode()).hexdigest()
+        conn.execute(text(
+            "INSERT INTO documents (context_id, content, content_hash, metadata, embedding) "
+            "VALUES (:cid, :c, :h, CAST(:m AS jsonb), CAST(:e AS vector))"
+        ), {"cid": context_id, "c": content, "h": content_hash,
+            "m": json.dumps(metadata), "e": str(embedding)})
+        conn.commit()
+
+
+def test_filter_miss_falls_back_to_unfiltered(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+
+    class _FakeEmbed:
+        def embed(self, text):
+            return [1.0] * 1536
+    monkeypatch.setattr(
+        "botnim.vector_store.vector_store_aurora._get_embedding_client",
+        lambda env: _FakeEmbed(),
+    )
+
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"},
+                              config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "testlaws"}, "testlaws", False)
+
+    emb = [1.0] * 1536  # non-zero — zero vectors break pgvector cosine
+    _seed_law_doc(database_url, cid,
+                  "חוק חובת המכרזים שמירת דינים",
+                  {"law_name": "חוק חובת המכרזים", "DocumentTitle": "חוק חובת המכרזים"},
+                  emb)
+
+    # A filter that matches NOTHING → must fall back to unfiltered and still
+    # surface the law lexically (tsv carries DocumentTitle at weight A).
+    res = store.search(
+        context_name="testlaws",
+        query_text="חוק חובת המכרזים",
+        search_mode=DEFAULT_SEARCH_MODE,
+        embedding=emb,
+        num_results=5,
+        metadata_filter={"law_name": "חוק שלא קיים בכלל"},
+    )
+    assert res["hits"]["hits"], "empty filtered result should have fallen back to unfiltered and returned the law"

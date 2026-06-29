@@ -859,7 +859,18 @@ class VectorStoreAurora(VectorStoreBase):
                     lexical_rows = []
             bm25_rows = lexical_rows  # kept name for back-compat with _rrf_fuse call below
 
-        return _rrf_fuse(vector_rows, bm25_rows, num_results)
+        result = _rrf_fuse(vector_rows, bm25_rows, num_results)
+        # Auto-fallback: if a metadata_filter eliminated every candidate, the data may
+        # still be reachable unfiltered (e.g. a colloquial law name, or a law_name our
+        # normalization can't bridge). Re-run once WITHOUT the filter. The
+        # `metadata_filter is not None` guard on this branch means the unfiltered re-run
+        # (metadata_filter=None) cannot recurse — bounded to one level.
+        if metadata_filter is not None and not result["hits"]["hits"]:
+            logger.info("search: metadata_filter %r yielded 0 rows for (%s, %s); retrying unfiltered",
+                        metadata_filter, bot, context_name)
+            return self.search(context_name, query_text, search_mode, embedding,
+                               num_results=num_results, explain=explain, metadata_filter=None)
+        return result
 
     def government_distribution(self, context_name: str, decision_number: str) -> list[dict]:
         """One entry per distinct government_number with the given decision_number.
