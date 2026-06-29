@@ -76,6 +76,29 @@ _LEXICAL_STRATEGIES = frozenset({_LEXICAL_STRATEGY_TSQUERY, _LEXICAL_STRATEGY_TR
 # Set via SET LOCAL inside the search txn — never leaks.
 _TRIGRAM_WORD_SIMILARITY_THRESHOLD = 0.1
 
+# Punctuation-only law_name normalization. Applied identically to the query-side
+# filter value (Python) and the stored value (SQL, _LAW_NAME_NORM_SQL) so a model
+# that emits "חוק-יסוד: הממשלה" matches a stored "חוק-יסוד הממשלה" / "חוק־יסוד: ...".
+_LAW_NAME_NORM_TRANSFORMS = [("־", "-"), (":", " "), ("״", '"'), ("׳", "'")]
+
+
+def _normalize_law_name(value):
+    if value is None:
+        return None
+    s = str(value)
+    for src, dst in _LAW_NAME_NORM_TRANSFORMS:
+        s = s.replace(src, dst)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+# Same transform as _normalize_law_name, in SQL, over metadata->>'law_name'.
+# '׳'→'''' is the SQL escaped apostrophe; '\\s+' is the Python-escaped regex \s+.
+_LAW_NAME_NORM_SQL = (
+    "trim(regexp_replace("
+    "replace(replace(replace(replace(metadata->>'law_name', '־', '-'), ':', ' '), '״', '\"'), '׳', ''''),"
+    " '\\s+', ' ', 'g'))"
+)
+
 # Back-compat aliases for callers that import the old names.
 CHUNK_MAX_TOKENS = _CHUNK_MAX_TOKENS_DEFAULT
 CHUNK_OVERLAP_TOKENS = _CHUNK_OVERLAP_TOKENS_DEFAULT
