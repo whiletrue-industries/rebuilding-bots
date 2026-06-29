@@ -2,7 +2,7 @@
   {
     "source_excel_row": 0,
     "question": "מה הנחיות היועצת המשפטית לכנסת בעניין הסתייגויות בוועדה",
-    "context": "legal_text",
+    "context": "israeli_laws",
     "description": "Knesset legal advisor guidelines on reservations (הסתייגויות) in committee. The topic surfaces multiple memos: budget-reservation memo (8.1.2024), new-topic-via-reservation memo (4.5.2023), and concurrent-meetings memo (28.6.2022). Tests the bot's full-text-search legal retrieval on a topic that is split across many short legal-advisor letters rather than concentrated in a single takanon section.",
     "expected_substrings": [
       "הסתייגות"
@@ -42,7 +42,7 @@
   {
     "source_excel_row": 2,
     "question": "לפי ההחלטות של ועדת האתיקה, ורק לפיהם, האם מותר להוציא חבר כנסת מישיבה בשלוש קריאות רצופות?",
-    "context": "legal_text",
+    "context": "israeli_laws",
     "description": "Ethics-committee constraint on three consecutive calls-to-order, with the user explicitly scoping the search to ועדת האתיקה decisions only. The 31.10.2006 Limor Livnat vs. David Tal ruling explicitly says calls cannot be back-to-back. Tests the bot's ability to honour an explicit narrow scope.",
     "expected_substrings": [
       "ועדת האתיקה"
@@ -62,7 +62,7 @@
   {
     "source_excel_row": 3,
     "question": "האם מותר להוציא חבר כנסת בשלוש קריאות רצוף?",
-    "context": "legal_text",
+    "context": "israeli_laws",
     "description": "Same call-to-order question as row 2 but with no scope restriction. Bot historically went to תקנון הכנסת §42(ב)(2) and ועדת הכנסת decisions, missing the directly-on-point ועדת האתיקה ruling. Tests whether the bot recognises that operational rules of the Knesset are partly set by ethics-committee decisions and legal-advisor letters, not only by the takanon.",
     "expected_substrings": [
       "קריאה"
@@ -102,7 +102,7 @@
   {
     "source_excel_row": 5,
     "question": "אחרי שהתחיל הדיון בהצעת חוק בוועדה מסויימת, איך אפשר להעביר את הדיון לוועדה אחרת?",
-    "context": "legal_text",
+    "context": "israeli_laws",
     "description": "Transferring a bill between committees mid-deliberation. Answer lives in תקנון הכנסת §78(ג). The bot's existing answer was deemed adequate by the goldset author, so this entry mostly guards against regression rather than driving improvement.",
     "expected_substrings": [
       "ועדת הכנסת"
@@ -122,7 +122,7 @@
   {
     "source_excel_row": 6,
     "question": "הגשתי שאילתה אבל עבר המועד הקבוע והשר לא השיב. מה הכלים שיש לי עכשיו?",
-    "context": "legal_text",
+    "context": "israeli_laws",
     "description": "Tools available to an MK when a minister fails to answer a query (שאילתה) on time — the MK can ask the Speaker to upgrade it to שאילתה דחופה. Existing bot answer was deemed adequate; entry guards against regression.",
     "expected_substrings": [
       "שאילתה"
@@ -142,7 +142,7 @@
   {
     "source_excel_row": 7,
     "question": "מה הדרך ליזום ועדת חקירה ממלכתית דרך הכנסת?",
-    "context": "legal_text",
+    "context": "israeli_laws",
     "description": "How to initiate a STATE commission of inquiry (ועדת חקירה ממלכתית) via the Knesset. KNOWN FAILURE: the bot conflates this with ועדת חקירה פרלמנטרית, confidently answers the wrong question, and on follow-up admits it cannot reach חוק ועדות חקירה / חוק מבקר המדינה — both supposedly available in ספר החוקים הפתוח. Tests (a) terminology discipline (state vs. parliamentary) and (b) whether the legal-text corpus actually covers these two laws.",
     "expected_substrings": [
       "ועדת חקירה"
@@ -162,7 +162,7 @@
   {
     "source_excel_row": 8,
     "question": "מה צריך כדי להכריז על חבר כנסת כפורש מסיעה?",
-    "context": "legal_text",
+    "context": "israeli_laws",
     "description": "Requirements to declare an MK as having defected from their faction (פורש מסיעה). Substantive test under חוק-יסוד: הכנסת + procedural hearing in ועדת הכנסת. Bot historically failed to engage and asked the user to clarify whether they wanted legal or budget info — a deflection. The goldset author also embedded a known-good GPT-4 answer in the additional_notes column for reference.",
     "expected_substrings": [
       "סיעה"
@@ -184,7 +184,7 @@
   {
     "source_excel_row": 9,
     "question": "מי מוסמך להכריז על ראש ממשלה שנבצר ממילוי תפקידו",
-    "context": "legal_text",
+    "context": "israeli_laws",
     "description": "Authority to declare the PM incapacitated. Lives in חוק-יסוד: הממשלה (incapacity provisions). New goldset entry — no prior bot answer documented; included so we can track whether the legal corpus carries חוק-יסוד: הממשלה well enough to cite the right body and procedure.",
     "expected_substrings": [
       "נבצר"
@@ -204,7 +204,7 @@
   {
     "source_excel_row": 10,
     "question": "מהו חוק המכרזים?",
-    "context": "legal_text",
+    "context": "israeli_laws",
     "description": "What is the Tenders Law (חוק חובת המכרזים)? KNOWN FAILURE: even the previous Bonim system could not retrieve this law. Goldset entry left in so we notice if/when retrieval starts working — a green pass here probably means the legal corpus has been broadened.",
     "expected_substrings": [
       "מכרזים"
@@ -258,6 +258,26 @@
       "baseline_answer": "מצאתי בלוח המליאה שתי ישיבות מתוכננות בשבועיים הקרובים לפי התוצאות שהוחזרו:\n\nתאריך\tשעה\tמס’ ישיבה\tסוג\tסעיפים עיקריים בסדר היום\n27/04/2026\t15:00\t386\tישיבת מליאה רגילה\tבין היתר: הצעת חוק שיקום נזקי מלחמה בדרך של התחדשות עירונית, הצעות לסדר בנושא \"הכישלון המדיני\", \"הפקרות בצפון\", הצעה לדיון מהיר בנושא קיצוץ בתקציב לסטודנטים במילואים, והצעות חוק נוספות\n04/05/2026\t11:00\t387\tישיבת מליאה רגילה\tבין היתר: הצעת חוק העמדה לדין בשל אירועי טבח 7 באוקטובר 2023 (טבח שמיני עצרת), התשפ\"ו–2026\n\nמקורות:\n\nישיבת מליאה 27/04/2026 15:00 — תוצאות החיפוש בלוח המליאה\nישיבת מליאה 04/05/2026 11:00 — תוצאות החיפוש בלוח המליאה\n\nהערה: בתוצאות שהוחזרו היו כמה רשומות חוזרות לאותה ישיבה, ולכן ריכזתי אותן לפי תאריך ולקחתי את הסעיפים שנמצאו בפועל. לא הוחזרו תאריכים נוספים מעבר לשתי הישיבות האלה בתוך חלון החיפוש.\n\nאם תרצה, אפשר להמשיך באחת משתי דרכים:\n\nלפרט את כל סעיפי סדר היום לכל אחת מהישיבות.\nלבדוק אם יש ישיבת מליאה נוספת מעבר לשבועיים הקרובים.",
       "followup_answer": null,
       "notes": "Added 2026-05-10 as part of plenary live-tool verification. Backfilled from first sanity-dod run at PR-time. Backfilled 2026-05-10 from prod sanity-dod run /tmp/sanity-dod-vs-2026-05-10-1820.json (HTML at docs/sanity-runs/2026-05-10-1820-prod.html).",
+      "additional_notes": null
+    }
+  },
+  {
+    "source_excel_row": -1,
+    "question": "האם חוק האזנת סתר חל על אזרחים?",
+    "context": "israeli_laws",
+    "description": "Tests the new ספר החוקים הפתוח corpus added by the israeli_laws feature. Verifies that חוק האזנת סתר is retrievable and that the bot can answer who the law applies to: the prohibition on unlawful wiretapping in סעיף 2 applies broadly to anyone (including civilians), while the *authority* to conduct lawful wiretapping is restricted to designated state bodies (security/police, with court order). Synthetic gold-set entry — not drawn from the source Excel; authored to validate the new corpus context.",
+    "expected_substrings": [
+      "האזנת סתר"
+    ],
+    "must_not_contain": [],
+    "expected_behavior": "PASS = the bot answers from חוק האזנת סתר that the prohibition on wiretapping applies broadly — to civilians and anyone (not only state actors) — ideally distinguishing the universal prohibition (סעיף 2, which binds everyone) from the restricted authority to lawfully wiretap (granted only to state security bodies / police / with court approval). FAIL = refusing to answer, claiming no relevant information is available, or asking the user to disambiguate rather than retrieving the law.",
+    "followup_prompt": "תרחיב — צטט את הסעיף הרלוונטי מתוך חוק האזנת סתר",
+    "expected_after_followup": "After the expansion prompt, the bot must cite the relevant section text of חוק האזנת סתר — at minimum a paraphrase or direct quote of the prohibition clause (סעיף 2) that makes clear the law applies to any person who conducts unlawful wiretapping.",
+    "observed": {
+      "routing": null,
+      "baseline_answer": null,
+      "followup_answer": null,
+      "notes": null,
       "additional_notes": null
     }
   },

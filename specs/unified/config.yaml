@@ -43,11 +43,19 @@ context:
     official רשומות, and not a substitute for legal advice.'
   examples: 'האם חוק האזנת סתר חל על אזרחים, מה העונש על האזנת סתר, הגדרת מידע
     לפי חוק הגנת הפרטיות, מתי מותר לרשות לסרב לבקשת חופש מידע'
-  # Title-rich Hebrew legal corpus — verbatim law-name queries rank far better
-  # under trigram/BM25 than text-embedding-3-small cosine. Same rationale as
-  # legal_text (see its block above) and the legal_advisor contexts.
+  # Title-rich Hebrew legal corpus — verbatim law-name queries need a lexical
+  # signal alongside vector cosine. lexical_strategy was `trigram`, but
+  # pg_trgm's word-similarity operator (`%>`) is NOT index-able: on the 185K-doc
+  # open law book it forces a full parallel seq scan computing word_similarity()
+  # per row (~20s, EXPLAIN-verified 2026-06-29), blowing the 12s retrieve
+  # deadline → 504s. Switched to `tsquery`, which uses the documents_tsv_gin GIN
+  # index (@@, ~0.8s) and ranks on DocumentTitle (tsv weight A, migration 0004)
+  # — now populated across all 185K docs by the 2026-06-28 re-extraction, so the
+  # original "simple tsv has no title signal" reason for trigram no longer holds.
+  # Vector recall for Hebrew construct-state variants is covered by the
+  # per-context partial HNSW index (documents_embedding_hnsw_il).
   use_lexical_search: true
-  lexical_strategy: trigram
+  lexical_strategy: tsquery
   sources:
   - type: split
     source: extraction/law_book/*_structure_content.json
