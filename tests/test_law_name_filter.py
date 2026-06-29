@@ -10,6 +10,11 @@ from sqlalchemy import create_engine, text
 from botnim.vector_store.vector_store_aurora import _normalize_law_name, _build_metadata_filter_sql, _LAW_NAME_NORM_SQL
 
 
+class _FakeEmbed:
+    def embed(self, text):
+        return [1.0] * 1536
+
+
 def test_normalize_collapses_maqaf_colon_and_whitespace():
     # model emits hyphen+colon; stored basic laws use maqaf+colon — both must normalize equal
     assert _normalize_law_name("חוק-יסוד: הממשלה") == "חוק-יסוד הממשלה"
@@ -206,3 +211,22 @@ def test_scoped_vector_knn_hard_scopes_and_orders_by_distance(aurora_db_filter, 
     assert law_names and set(law_names) == {"תקנון הכנסת"}, law_names   # hard-scoped, no cross-law
     # nearest-first: the [1.0] doc (distance 0) outranks the [-1.0] doc (both same law)
     assert rows[0][3] > rows[-1][3]
+
+
+def test_search_law_filter_hard_scopes_in_lexical_only_mode(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import SECTION_NUMBER_CONFIG  # use_vector_search=False
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client", lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"}, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "lawscope"}, "lawscope", False)
+    emb = [1.0] * 1536
+    _seed_law_doc(database_url, cid, "alpha section content", {"law_name": "חוק א", "DocumentTitle": "חוק א"}, emb)
+    _seed_law_doc(database_url, cid, "beta section content",  {"law_name": "חוק ב", "DocumentTitle": "חוק ב"}, emb)
+    # SECTION_NUMBER => use_vector=False. With the scoped fork, a law_name filter still
+    # recalls within the law (scoped vector), hard-scoped to חוק א only.
+    res = store.search(context_name="lawscope", query_text="zzz no lexical match zzz",
+                       search_mode=SECTION_NUMBER_CONFIG, embedding=emb, num_results=5,
+                       metadata_filter={"law_name": "חוק א"})
+    hits = res["hits"]["hits"]
+    assert hits, "scoped vector should recall the law's docs even in a lexical-only mode"
+    assert {h["_source"]["metadata"]["law_name"] for h in hits} == {"חוק א"}  # never cross-law

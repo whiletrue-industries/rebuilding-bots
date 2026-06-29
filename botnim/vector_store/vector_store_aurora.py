@@ -823,9 +823,33 @@ class VectorStoreAurora(VectorStoreBase):
                 return {"hits": {"hits": []}}
             cid = str(row[0])
 
+            # A law_name filter is a scoping directive ("answer from THIS law").
+            # An empty-string law_name (LLM bug) normalizes to "" — treat as no filter.
+            law_value = (metadata_filter or {}).get("law_name")
+            law_norm = _normalize_law_name(str(law_value)) if law_value is not None else None
+            if law_value is not None and not law_norm:
+                logger.warning("search: empty law_name filter for (%s, %s); ignoring it", bot, context_name)
+                metadata_filter = {k: v for k, v in metadata_filter.items() if k != "law_name"} or None
+                law_norm = None
+            has_law_name = law_norm is not None
+            other_keys = bool({k for k in (metadata_filter or {}) if k != "law_name"})
+
             md_filter_sql, md_params = _build_metadata_filter_sql(metadata_filter)
 
-            if use_vector:
+            if has_law_name:
+                # Scope-preserving recall: exact vector KNN over the law's docs, regardless
+                # of the mode's use_vector flag, via a MATERIALIZED CTE (no global HNSW
+                # post-filter). Wider fetch than default — the right section may sit deeper
+                # than num_results*5 within a multi-hundred-doc law, and a lexical-only mode
+                # has no lexical safety net.
+                rest_sql, rest_params = _build_metadata_filter_sql(
+                    {k: v for k, v in metadata_filter.items() if k != "law_name"})
+                scoped_fetch = max(fetch, num_results * 15)
+                vector_rows = _scoped_vector_knn(sess, cid, law_norm, rest_sql, rest_params,
+                                                 embedding, scoped_fetch)
+                # (Observability log is emitted in Task 4, after the lexical branch and the
+                # fallback decision, where scoped_lex and gate_fired are also known.)
+            elif use_vector:
                 vector_rows = sess.execute(text(
                     f"""
                     SELECT id, content, metadata, 1 - (embedding <=> CAST(:emb AS vector)) AS score
@@ -896,7 +920,11 @@ class VectorStoreAurora(VectorStoreBase):
                     lexical_rows = []
             bm25_rows = lexical_rows  # kept name for back-compat with _rrf_fuse call below
 
-        result = _rrf_fuse(vector_rows, bm25_rows, num_results)
+        # Reduce the scoped vector's weight only when we OVERRODE a lexical-only mode
+        # (e.g. SECTION_NUMBER), so an injected scoped-vector hit can't displace an exact
+        # §86 lexical match. For modes where vector was already on, weight is unchanged.
+        _vw = _SCOPED_OVERRIDE_VECTOR_WEIGHT if (has_law_name and not use_vector) else 1.0
+        result = _rrf_fuse(vector_rows, bm25_rows, num_results, vector_weight=_vw)
         # Auto-fallback: if a metadata_filter eliminated every candidate, the data may
         # still be reachable unfiltered (e.g. a colloquial law name, or a law_name our
         # normalization can't bridge). Re-run once WITHOUT the filter. The
