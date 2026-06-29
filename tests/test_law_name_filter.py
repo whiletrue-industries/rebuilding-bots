@@ -19,6 +19,12 @@ def test_normalize_collapses_maqaf_colon_and_whitespace():
     assert _normalize_law_name(None) is None
 
 
+def test_normalize_gershayim_and_geresh():
+    # gershayim ״ (U+05F4) → ASCII double-quote; geresh ׳ (U+05F3) → ASCII single-quote
+    assert _normalize_law_name('חוק הגנת הצרכן״') == 'חוק הגנת הצרכן"'
+    assert _normalize_law_name("חוק ס׳ 5") == "חוק ס' 5"
+
+
 def test_build_filter_normalizes_law_name():
     sql, params = _build_metadata_filter_sql({"law_name": "חוק-יסוד: הממשלה"})
     assert "metadata->>'law_name'" in sql and ":law_norm" in sql
@@ -37,7 +43,7 @@ def test_build_filter_empty():
     assert _build_metadata_filter_sql({}) == ("", {})
 
 
-_PARITY_CASES = ["חוק-יסוד: הממשלה", "חוק־יסוד: הכנסת", "חוק   חובת  המכרזים", "תקנון הכנסת"]
+_PARITY_CASES = ["חוק-יסוד: הממשלה", "חוק־יסוד: הכנסת", "חוק   חובת  המכרזים", "תקנון הכנסת", "חוק ס׳ 5 התש״ך"]
 
 
 @pytest.mark.parametrize("raw", _PARITY_CASES)
@@ -75,7 +81,8 @@ def aurora_db_filter(database_url, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY_STAGING", "sk-test")
     from botnim.db import session as s
     s._engine = None
-    return database_url
+    yield database_url
+    s._engine = None
 
 
 def _seed_law_doc(database_url, context_id, content, metadata, embedding):
