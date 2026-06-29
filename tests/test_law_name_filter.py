@@ -346,3 +346,42 @@ def test_resolve_law_name_bridges_colloquial(aurora_db_filter, database_url):
         assert _resolve_law_name(c, str(cid), "חוק המכרזים", _LAW_NAME_RESOLVE_THRESHOLD) == "חוק חובת המכרזים"
         assert _resolve_law_name(c, str(cid), "תקנון הכנסת") == "תקנון הכנסת"
         assert _resolve_law_name(c, str(cid), "כביש חוצה ישראל זזזזז בטטה") is None
+
+
+def test_absent_law_name_resolves_and_rescopes(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client", lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"}, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "reslaw"}, "reslaw", False)
+    emb = [1.0] * 1536
+    _seed_law_doc(database_url, cid, "חוק חובת המכרזים חובת מכרז",
+                  {"law_name": "חוק חובת המכרזים", "DocumentTitle": "חוק חובת המכרזים"}, emb)
+    _seed_law_doc(database_url, cid, "unrelated law content",
+                  {"law_name": "חוק אחר לגמרי", "DocumentTitle": "חוק אחר לגמרי"}, emb)
+    # colloquial sole law_name -> exact-miss -> resolve -> re-scope to חוק חובת המכרזים, tagged
+    res = store.search(context_name="reslaw", query_text="מהו חוק המכרזים",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
+                       metadata_filter={"law_name": "חוק המכרזים"})
+    hits = res["hits"]["hits"]
+    assert hits, "should resolve + re-scope to the formal law"
+    assert {h["_source"]["metadata"]["law_name"] for h in hits} == {"חוק חובת המכרזים"}
+    assert all(h["_source"]["metadata"].get("_resolved_from") for h in hits)
+
+
+def test_unresolvable_law_name_falls_back_unfiltered(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client", lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"}, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "noreslaw"}, "noreslaw", False)
+    emb = [1.0] * 1536
+    _seed_law_doc(database_url, cid, "some law content", {"law_name": "חוק חובת המכרזים", "DocumentTitle": "חוק חובת המכרזים"}, emb)
+    # a mention similar to NOTHING -> resolver returns None -> existing unfiltered fallback
+    res = store.search(context_name="noreslaw", query_text="some law content",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
+                       metadata_filter={"law_name": "זזזז קקקק ססס בטטה לחלוטין"})
+    hits = res["hits"]["hits"]
+    assert hits, "no resolution -> unfiltered fallback returns the seeded doc"
+    assert all(h["_source"]["metadata"].get("_fallback_reason") == "law_name_absent" for h in hits)
+    assert not any(h["_source"]["metadata"].get("_resolved_from") for h in hits)

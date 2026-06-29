@@ -958,6 +958,17 @@ class VectorStoreAurora(VectorStoreBase):
             logger.info("search scoped: law_name=%r scoped_vec=%d scoped_lex=%d gate_fired=%s (%s, %s)",
                         law_norm, len(vector_rows), len(bm25_rows), gate_fired, bot, context_name)
         if gate_fired:
+            with get_session() as rs:
+                resolved = _resolve_law_name(rs, cid, law_norm, _LAW_NAME_RESOLVE_THRESHOLD)
+            if resolved and resolved != law_norm:
+                logger.info("search: law_name=%r resolved to %r in (%s, %s); re-scoping",
+                            law_norm, resolved, bot, context_name)
+                rf = self.search(context_name, query_text, search_mode, embedding,
+                                 num_results=num_results, explain=explain,
+                                 metadata_filter={"law_name": resolved})
+                for hit in rf["hits"]["hits"]:
+                    hit.setdefault("_source", {}).setdefault("metadata", {})["_resolved_from"] = law_norm
+                return rf
             fb = self.search(context_name, query_text, search_mode, embedding,
                              num_results=num_results, explain=explain, metadata_filter=None)
             for hit in fb["hits"]["hits"]:
