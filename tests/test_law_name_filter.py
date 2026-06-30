@@ -102,6 +102,13 @@ def _seed_law_doc(database_url, context_id, content, metadata, embedding):
         conn.commit()
 
 
+def _refresh_law_catalog(database_url):
+    from sqlalchemy import create_engine, text
+    eng = create_engine(database_url)
+    with eng.begin() as c:
+        c.execute(text("REFRESH MATERIALIZED VIEW law_name_catalog"))
+
+
 def test_filter_miss_falls_back_to_unfiltered(aurora_db_filter, database_url, monkeypatch):
     from botnim.vector_store.vector_store_aurora import VectorStoreAurora
     from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
@@ -342,10 +349,32 @@ def test_resolve_law_name_bridges_colloquial(aurora_db_filter, database_url):
                 "INSERT INTO documents (id, context_id, content, content_hash, metadata, embedding) "
                 "VALUES (gen_random_uuid(), :cid, 'x', :h, CAST(:m AS jsonb), CAST(:e AS vector))"),
                 {"cid": str(cid), "h": "resh%d" % i, "m": '{"law_name": "%s"}' % ln, "e": emb})
+    _refresh_law_catalog(database_url)
     with eng.begin() as c:
         assert _resolve_law_name(c, str(cid), "חוק המכרזים", _LAW_NAME_RESOLVE_THRESHOLD) == "חוק חובת המכרזים"
         assert _resolve_law_name(c, str(cid), "תקנון הכנסת") == "תקנון הכנסת"
         assert _resolve_law_name(c, str(cid), "כביש חוצה ישראל זזזזז בטטה") is None
+
+
+def test_best_law_match_returns_name_and_score(aurora_db_filter, database_url):
+    from sqlalchemy import create_engine, text
+    from botnim.vector_store.vector_store_aurora import _best_law_match, _LAW_NAME_RESOLVE_THRESHOLD
+    eng = create_engine(database_url)
+    with eng.begin() as c:
+        cid = c.execute(text(
+            "INSERT INTO contexts (id, bot, name) VALUES (gen_random_uuid(), 'b', 'bestctx') "
+            "ON CONFLICT (bot, name) DO UPDATE SET updated_at=now() RETURNING id")).scalar()
+        emb = "[" + ",".join(["0.1"] * 1536) + "]"
+        for i, ln in enumerate(["חוק חובת המכרזים", "חוק האזנת סתר"]):
+            c.execute(text(
+                "INSERT INTO documents (id, context_id, content, content_hash, metadata, embedding) "
+                "VALUES (gen_random_uuid(), :cid, 'x', :h, CAST(:m AS jsonb), CAST(:e AS vector))"),
+                {"cid": str(cid), "h": "bh%d" % i, "m": '{"law_name": "%s"}' % ln, "e": emb})
+    _refresh_law_catalog(database_url)
+    with eng.begin() as c:
+        m = _best_law_match(c, str(cid), "חוק המכרזים", _LAW_NAME_RESOLVE_THRESHOLD)
+        assert m is not None and m[0] == "חוק חובת המכרזים" and 0.0 < m[1] <= 1.0
+        assert _best_law_match(c, str(cid), "כביש חוצה ישראל זזזז בטטה") is None
 
 
 def test_absent_law_name_resolves_and_rescopes(aurora_db_filter, database_url, monkeypatch):
@@ -359,6 +388,7 @@ def test_absent_law_name_resolves_and_rescopes(aurora_db_filter, database_url, m
                   {"law_name": "חוק חובת המכרזים", "DocumentTitle": "חוק חובת המכרזים"}, emb)
     _seed_law_doc(database_url, cid, "unrelated law content",
                   {"law_name": "חוק אחר לגמרי", "DocumentTitle": "חוק אחר לגמרי"}, emb)
+    _refresh_law_catalog(database_url)
     # colloquial sole law_name -> exact-miss -> resolve -> re-scope to חוק חובת המכרזים, tagged
     res = store.search(context_name="reslaw", query_text="מהו חוק המכרזים",
                        search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
@@ -377,6 +407,7 @@ def test_unresolvable_law_name_falls_back_unfiltered(aurora_db_filter, database_
     cid = store.get_or_create_vector_store({"slug": "noreslaw"}, "noreslaw", False)
     emb = [1.0] * 1536
     _seed_law_doc(database_url, cid, "some law content", {"law_name": "חוק חובת המכרזים", "DocumentTitle": "חוק חובת המכרזים"}, emb)
+    _refresh_law_catalog(database_url)
     # a mention similar to NOTHING -> resolver returns None -> existing unfiltered fallback
     res = store.search(context_name="noreslaw", query_text="some law content",
                        search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,

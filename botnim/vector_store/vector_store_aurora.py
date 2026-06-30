@@ -124,26 +124,35 @@ def _build_metadata_filter_sql(metadata_filter):
 _LAW_NAME_RESOLVE_THRESHOLD = 0.45
 
 
-def _resolve_law_name(sess, cid, mention, threshold=_LAW_NAME_RESOLVE_THRESHOLD):
-    """Resolve a colloquial/partial/variant law mention to the formal `law_name`
-    in this context (pg_trgm similarity), or None if nothing is similar enough.
-
-    Used only on a scoped-filter exact-miss to rescue the scope (e.g. the model's
-    "חוק המכרזים" -> "חוק חובת המכרזים"). The `%` operator is gated by
-    pg_trgm.similarity_threshold; we set it to `threshold` so `%` and the Python
-    check agree. The `documents_law_name_trgm` index serves the `%` lookup.
+def _best_law_match(sess, cid, mention, threshold=_LAW_NAME_RESOLVE_THRESHOLD):
+    """Best-matching formal law_name + its trigram similarity over the distinct
+    law_name set (the `law_name_catalog` matview, ~14k rows vs ~185k docs → ~200ms),
+    or None. The `%` operator is gated by pg_trgm.similarity_threshold; we set it to
+    `threshold`. `law_name_catalog_trgm` serves the `%` lookup. Returns (law_name, score).
     """
     if not mention:
         return None
     sess.execute(text("SET LOCAL pg_trgm.similarity_threshold = %s" % float(threshold)))
     row = sess.execute(text(
-        "SELECT metadata->>'law_name' AS ln, similarity(metadata->>'law_name', :m) AS s "
-        "FROM documents "
-        "WHERE context_id = :cid AND metadata ? 'law_name' AND (metadata->>'law_name') % :m "
+        "SELECT law_name, similarity(law_name, :m) AS s "
+        "FROM law_name_catalog "
+        "WHERE context_id = :cid AND law_name % :m "
         "ORDER BY s DESC LIMIT 1"
     ), {"cid": cid, "m": mention}).fetchone()
-    if row and row[1] is not None and float(row[1]) >= threshold:
-        return row[0]
+    if row and row[1] is not None:
+        return (row[0], float(row[1]))
+    return None
+
+
+def _resolve_law_name(sess, cid, mention, threshold=_LAW_NAME_RESOLVE_THRESHOLD):
+    """Resolve a colloquial/partial/variant law mention to the formal `law_name`
+    in this context (pg_trgm similarity over law_name_catalog), or None if nothing
+    is similar enough. Used on a scoped-filter exact-miss to rescue the scope
+    (e.g. the model's "חוק המכרזים" -> "חוק חובת המכרזים").
+    """
+    m = _best_law_match(sess, cid, mention, threshold)
+    if m is not None and m[1] >= threshold:
+        return m[0]
     return None
 
 
