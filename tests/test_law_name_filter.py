@@ -385,3 +385,38 @@ def test_unresolvable_law_name_falls_back_unfiltered(aurora_db_filter, database_
     assert hits, "no resolution -> unfiltered fallback returns the seeded doc"
     assert all(h["_source"]["metadata"].get("_fallback_reason") == "law_name_absent" for h in hits)
     assert not any(h["_source"]["metadata"].get("_resolved_from") for h in hits)
+
+
+def test_law_name_catalog_matview(aurora_db_filter, database_url):
+    from sqlalchemy import create_engine, text
+    eng = create_engine(database_url)
+    with eng.begin() as c:
+        assert c.execute(text(
+            "SELECT 1 FROM pg_matviews WHERE matviewname='law_name_catalog'")).fetchone(), \
+            "law_name_catalog matview must exist after alembic upgrade head"
+        idx = {r[0] for r in c.execute(text(
+            "SELECT indexname FROM pg_indexes WHERE tablename='law_name_catalog'")).fetchall()}
+        assert {"law_name_catalog_uq", "law_name_catalog_trgm"} <= idx, idx
+        cid = c.execute(text(
+            "INSERT INTO contexts (id, bot, name) VALUES (gen_random_uuid(), 'b', 'mvctx') "
+            "ON CONFLICT (bot, name) DO UPDATE SET updated_at=now() RETURNING id")).scalar()
+        emb = "[" + ",".join(["0.1"] * 1536) + "]"
+        for i, ln in enumerate(["חוק חובת המכרזים", "חוק האזנת סתר"]):
+            c.execute(text(
+                "INSERT INTO documents (id, context_id, content, content_hash, metadata, embedding) "
+                "VALUES (gen_random_uuid(), :cid, 'x', :h, CAST(:m AS jsonb), CAST(:e AS vector))"),
+                {"cid": str(cid), "h": "mvh%d" % i, "m": '{"law_name": "%s"}' % ln, "e": emb})
+    # matview is empty until refreshed (created empty at migration time, before seeding)
+    with eng.begin() as c:
+        c.execute(text("REFRESH MATERIALIZED VIEW law_name_catalog"))
+    with eng.begin() as c:
+        assert c.execute(text("SELECT count(*) FROM law_name_catalog WHERE context_id=:cid"),
+                         {"cid": str(cid)}).scalar() == 2
+        # prove the trigram index serves `%` (drop the competing unique index to isolate it)
+        c.execute(text("DROP INDEX law_name_catalog_uq"))
+        c.execute(text("SET LOCAL pg_trgm.similarity_threshold = 0.45"))
+        c.execute(text("SET LOCAL enable_seqscan = off"))
+        plan = "\n".join(r[0] for r in c.execute(text(
+            "EXPLAIN SELECT law_name FROM law_name_catalog WHERE law_name % :m"),
+            {"m": "חוק המכרזים"}).fetchall())
+        assert "law_name_catalog_trgm" in plan, plan
