@@ -156,6 +156,61 @@ def _resolve_law_name(sess, cid, mention, threshold=_LAW_NAME_RESOLVE_THRESHOLD)
     return None
 
 
+_QUERY_DETECT_THRESHOLD = 0.55
+
+# Legal-title prefix tokens (an optional single leading letter — ה article, ל/ב/כ prepositions — is stripped before matching).
+_LEGAL_PREFIXES = frozenset({
+    "חוק", "חוק-יסוד", "תקנון", "תקנות", "פקודת", "פקודה", "כללי", "צו", "הוראות",
+})
+# Tokens that end a law-name span (question words, conjunctions).
+_SPAN_BOUNDARY = frozenset({
+    "מה", "מהו", "מהי", "האם", "מתי", "איך", "כמה", "מי", "למה", "איזה", "ו", "או", "אבל",
+})
+_DETECT_PUNCT = "?,.!׳״()\"':;"
+
+
+def _detect_law_in_query(sess, cid, query_text, threshold=_QUERY_DETECT_THRESHOLD):
+    """If an unfiltered israeli_laws query names a specific law, return the formal
+    law_name (resolved via _best_law_match over law_name_catalog), else None.
+
+    Gate: the query must contain EXACTLY ONE legal-prefix token (חוק/תקנון/...);
+    zero or more-than-one (ambiguous) -> None. From that prefix, try spans of
+    prefix + 1..3 following content tokens (stopping at a boundary word / punctuation),
+    requiring >=1 content token; resolve each and keep the single best match >= threshold.
+    """
+    if not query_text:
+        return None
+    raw = query_text.split()
+    toks = [t.strip(_DETECT_PUNCT) for t in raw]
+    had_punct = [t != t.strip(_DETECT_PUNCT) for t in raw]  # token carried a trailing/leading boundary mark
+
+    def _is_prefix(tok):
+        # strip a single leading letter (ה=article; ל/ב/כ=prepositions) if the remainder is a legal prefix
+        t = tok[1:] if len(tok) > 1 and tok[1:] in _LEGAL_PREFIXES else tok
+        return t in _LEGAL_PREFIXES
+
+    prefix_idxs = [i for i, t in enumerate(toks) if t and _is_prefix(t)]
+    if len(prefix_idxs) != 1:
+        return None
+    i = prefix_idxs[0]
+
+    best = None  # (law_name, score)
+    for k in (1, 2, 3):
+        end = i + k
+        if end >= len(toks):
+            break
+        nxt = toks[end]
+        if not nxt or nxt in _SPAN_BOUNDARY:
+            break
+        span = " ".join(toks[i:end + 1])
+        m = _best_law_match(sess, cid, span, threshold)
+        if m is not None and m[1] >= threshold and (best is None or m[1] > best[1]):
+            best = m
+        if had_punct[end]:  # this token ended a sentence clause — stop extending
+            break
+    return best[0] if best is not None else None
+
+
 _SCOPED_OVERRIDE_VECTOR_WEIGHT = 0.5
 
 

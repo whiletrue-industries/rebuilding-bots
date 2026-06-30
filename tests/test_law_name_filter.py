@@ -451,3 +451,36 @@ def test_law_name_catalog_matview(aurora_db_filter, database_url):
             "EXPLAIN SELECT law_name FROM law_name_catalog WHERE law_name % :m"),
             {"m": "חוק המכרזים"}).fetchall())
         assert "law_name_catalog_trgm" in plan, plan
+
+
+def _seed_two_laws_and_refresh(database_url):
+    from sqlalchemy import create_engine, text
+    eng = create_engine(database_url)
+    with eng.begin() as c:
+        cid = c.execute(text(
+            "INSERT INTO contexts (id, bot, name) VALUES (gen_random_uuid(), 'b', 'detctx') "
+            "ON CONFLICT (bot, name) DO UPDATE SET updated_at=now() RETURNING id")).scalar()
+        emb = "[" + ",".join(["0.1"] * 1536) + "]"
+        for i, ln in enumerate(["חוק חובת המכרזים", "חוק האזנת סתר"]):
+            c.execute(text(
+                "INSERT INTO documents (id, context_id, content, content_hash, metadata, embedding) "
+                "VALUES (gen_random_uuid(), :cid, 'x', :h, CAST(:m AS jsonb), CAST(:e AS vector))"),
+                {"cid": str(cid), "h": "dh%d" % i, "m": '{"law_name": "%s"}' % ln, "e": emb})
+    _refresh_law_catalog(database_url)
+    return str(cid)
+
+
+def test_detect_law_in_query(aurora_db_filter, database_url):
+    from sqlalchemy import create_engine, text
+    from botnim.vector_store.vector_store_aurora import _detect_law_in_query, _QUERY_DETECT_THRESHOLD
+    cid = _seed_two_laws_and_refresh(database_url)
+    eng = create_engine(database_url)
+    with eng.begin() as c:
+        # names a law -> detects + resolves to the formal name
+        assert _detect_law_in_query(c, cid, "מהו חוק המכרזים?", _QUERY_DETECT_THRESHOLD) == "חוק חובת המכרזים"
+        # topical, no legal prefix -> None
+        assert _detect_law_in_query(c, cid, "מה אומרים על מכרזים בכנסת?", _QUERY_DETECT_THRESHOLD) is None
+        # two distinct legal prefixes -> ambiguous -> None
+        assert _detect_law_in_query(c, cid, "ההבדל בין חוק המכרזים לחוק האזנת סתר", _QUERY_DETECT_THRESHOLD) is None
+        # bare prefix, no name -> None
+        assert _detect_law_in_query(c, cid, "מה אומר החוק?", _QUERY_DETECT_THRESHOLD) is None
