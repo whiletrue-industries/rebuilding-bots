@@ -133,3 +133,22 @@ def test_search_no_expand_for_plain_context(aurora_db_filter, database_url, monk
     res = store.search(context_name="plain", query_text="rule",
                        search_mode=DEFAULT_SEARCH_MODE, embedding=[1.0] * 1536, num_results=5)
     assert not any(h["_source"]["metadata"].get("_expanded_chunks") for h in res["hits"]["hits"])
+
+
+def test_expand_respects_total_budget(aurora_db_filter, database_url):
+    from botnim.vector_store.vector_store_aurora import _expand_to_documents
+    cid = _ctx(database_url)
+    # three decisions, 3 chunks each; a small total budget should expand the first
+    # (in RRF order) and pass the rest through un-expanded
+    for d in ("דא", "דב", "דג"):
+        for i in range(3):
+            _seed_chunk(database_url, cid, "%s-c%d" % (d, i), d, i)
+    hits = [_hit("דא", "דא-c0", 0.9), _hit("דב", "דב-c0", 0.8), _hit("דג", "דג-c0", 0.7)]
+    eng = create_engine(database_url)
+    with eng.connect() as c:
+        out = _expand_to_documents(c, cid, hits, max_chunks=12, total_budget=3)
+    # first decision expanded (3 chunks == budget), later ones passed through un-expanded
+    assert out[0]["_source"]["metadata"].get("_expanded_chunks") == 3
+    assert not out[1]["_source"]["metadata"].get("_expanded_chunks")
+    assert not out[2]["_source"]["metadata"].get("_expanded_chunks")
+    assert len(out) == 3                                  # budget-spent hits are passed through, not dropped

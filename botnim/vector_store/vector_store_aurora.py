@@ -1365,15 +1365,22 @@ def _rrf_fuse(
 
 
 _EXPAND_MAX_CHUNKS_DEFAULT = 12
+_EXPAND_TOTAL_CHUNKS_BUDGET = 40  # aggregate cap across all hits in one result (bounds tool-response size)
 
 
-def _expand_to_documents(sess, cid, hits, max_chunks=_EXPAND_MAX_CHUNKS_DEFAULT):
+def _expand_to_documents(sess, cid, hits, max_chunks=_EXPAND_MAX_CHUNKS_DEFAULT, total_budget=_EXPAND_TOTAL_CHUNKS_BUDGET):
     """Replace each hit's content with the FULL decision/opinion it belongs to
     (all chunks sharing its metadata.DocumentTitle, chunk_index-ordered, capped at
     max_chunks), so the LLM reasons over the complete finding instead of a fragment.
     Hits sharing a DocumentTitle collapse to the first (highest-ranked) one; hits
     without a DocumentTitle pass through unchanged. Best-effort: on any error, return
     the original hits.
+
+    total_budget caps the AGGREGATE kept-chunk count across ALL expanded hits in one
+    call. Once used >= total_budget, remaining titled hits pass through un-expanded
+    (in their original RRF position) instead of ballooning the tool response.
+    Hits that pass through (no title, already-seen dedup, or budget-spent) do NOT
+    count against the budget.
     """
     try:
         titles = []
@@ -1394,6 +1401,7 @@ def _expand_to_documents(sess, cid, hits, max_chunks=_EXPAND_MAX_CHUNKS_DEFAULT)
         for row in sess.execute(stmt, {"cid": cid, "titles": titles}).fetchall():
             by_title.setdefault(row[0], []).append(row[1])
         out, seen = [], set()
+        used = 0
         for h in hits:
             t = (h.get("_source", {}).get("metadata", {}) or {}).get("DocumentTitle")
             if not t or t not in by_title:
@@ -1402,8 +1410,12 @@ def _expand_to_documents(sess, cid, hits, max_chunks=_EXPAND_MAX_CHUNKS_DEFAULT)
             if t in seen:
                 continue
             seen.add(t)
+            if used >= total_budget:
+                out.append(h)
+                continue
             chunks = by_title[t]
             kept = chunks[:max_chunks]
+            used += len(kept)
             new_h = {**h, "_source": {**h["_source"],
                      "content": "\n\n".join(c for c in kept if c),
                      "metadata": {**h["_source"].get("metadata", {}),
