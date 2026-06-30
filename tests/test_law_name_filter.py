@@ -548,3 +548,30 @@ def test_refresh_law_name_catalog_picks_up_new_law(aurora_db_filter, database_ur
         n = c.execute(text("SELECT count(*) FROM law_name_catalog WHERE law_name=:ln"),
                       {"ln": "חוק חדש לגמרי"}).scalar()
         assert n == 1, "refresh should add the new law to the catalog"
+
+
+def test_stale_matview_punctuated_name_does_not_recurse(aurora_db_filter, database_url, monkeypatch):
+    # Reverse staleness: the matview lists a Basic Law (maqaf) whose docs were deleted.
+    # gate_fired fires, the resolver returns the raw matview name, and the raw-vs-normalized
+    # guard must NOT loop forever — it must fall back unfiltered and terminate.
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client", lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"}, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "israeli_laws"}, "israeli_laws", False)
+    emb = [1.0] * 1536
+    _seed_law_doc(database_url, cid, "סעיף 1", {"law_name": "חוק־יסוד הממשלה", "DocumentTitle": "x"}, emb)
+    _seed_law_doc(database_url, cid, "תוכן אחר", {"law_name": "חוק אחר לגמרי", "DocumentTitle": "y"}, emb)
+    _refresh_law_catalog(database_url)
+    # delete the Basic Law's docs AFTER the matview captured the name → matview now lists a name with no docs
+    eng = create_engine(database_url)
+    with eng.begin() as c:
+        c.execute(text("DELETE FROM documents WHERE metadata->>'law_name' = :ln"), {"ln": "חוק־יסוד הממשלה"})
+    # filter by the hyphen form; law_norm == 'חוק-יסוד הממשלה'; matview still has the maqaf form (raw)
+    res = store.search(context_name="israeli_laws", query_text="חוק יסוד הממשלה",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
+                       metadata_filter={"law_name": "חוק-יסוד הממשלה"})
+    # must terminate (no RecursionError) and return the unfiltered fallback
+    hits = res["hits"]["hits"]
+    assert all(h["_source"]["metadata"].get("_fallback_reason") == "law_name_absent" for h in hits)
+    assert not any(h["_source"]["metadata"].get("_resolved_from") for h in hits)

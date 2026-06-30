@@ -822,6 +822,7 @@ class VectorStoreAurora(VectorStoreBase):
         num_results: int = 7,
         explain: bool = False,
         metadata_filter: dict | None = None,
+        _qd_skip: bool = False,
     ) -> dict:
         """Hybrid retrieval: pgvector cosine + tsvector BM25, fused via
         reciprocal-rank-fusion. Mirrors VectorStoreES.search's return shape
@@ -888,7 +889,7 @@ class VectorStoreAurora(VectorStoreBase):
         # call carries law_name, so has_law_name is True there and this block is skipped.
         _q_law = (metadata_filter or {}).get("law_name")
         _q_no_law = _q_law is None or not _normalize_law_name(str(_q_law))
-        if _q_no_law and context_name == "israeli_laws" and use_vector:
+        if _q_no_law and context_name == "israeli_laws" and use_vector and not _qd_skip:
             with get_session() as ds:
                 _drow = ds.execute(text(
                     "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
@@ -1047,7 +1048,7 @@ class VectorStoreAurora(VectorStoreBase):
         if gate_fired:
             with get_session() as rs:
                 resolved = _resolve_law_name(rs, cid, law_norm, _LAW_NAME_RESOLVE_THRESHOLD)
-            if resolved and resolved != law_norm:
+            if resolved and _normalize_law_name(resolved) != law_norm:
                 logger.info("search: law_name=%r resolved to %r in (%s, %s); re-scoping",
                             law_norm, resolved, bot, context_name)
                 rf = self.search(context_name, query_text, search_mode, embedding,
@@ -1057,7 +1058,8 @@ class VectorStoreAurora(VectorStoreBase):
                     hit.setdefault("_source", {}).setdefault("metadata", {})["_resolved_from"] = law_norm
                 return rf
             fb = self.search(context_name, query_text, search_mode, embedding,
-                             num_results=num_results, explain=explain, metadata_filter=None)
+                             num_results=num_results, explain=explain, metadata_filter=None,
+                             _qd_skip=True)
             for hit in fb["hits"]["hits"]:
                 hit.setdefault("_source", {}).setdefault("metadata", {})["_fallback_reason"] = "law_name_absent"
             return fb
