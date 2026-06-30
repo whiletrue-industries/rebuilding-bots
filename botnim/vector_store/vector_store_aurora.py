@@ -15,7 +15,7 @@ from typing import Any
 
 import tiktoken
 from openai import OpenAI
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from ..config import is_production, get_logger, DEFAULT_EMBEDDING_SIZE, DEFAULT_EMBEDDING_MODEL
 from ..db.session import get_engine, get_session
@@ -1353,3 +1353,55 @@ def _rrf_fuse(
         try: span.set_attribute("rrf.returned", len(result["hits"]["hits"]))
         except Exception: pass
         return result
+
+
+_EXPAND_MAX_CHUNKS_DEFAULT = 12
+
+
+def _expand_to_documents(sess, cid, hits, max_chunks=_EXPAND_MAX_CHUNKS_DEFAULT):
+    """Replace each hit's content with the FULL decision/opinion it belongs to
+    (all chunks sharing its metadata.DocumentTitle, chunk_index-ordered, capped at
+    max_chunks), so the LLM reasons over the complete finding instead of a fragment.
+    Hits sharing a DocumentTitle collapse to the first (highest-ranked) one; hits
+    without a DocumentTitle pass through unchanged. Best-effort: on any error, return
+    the original hits.
+    """
+    try:
+        titles = []
+        for h in hits:
+            t = (h.get("_source", {}).get("metadata", {}) or {}).get("DocumentTitle")
+            if t and t not in titles:
+                titles.append(t)
+        if not titles:
+            return hits
+        stmt = text(
+            "SELECT metadata->>'DocumentTitle' AS t, content, "
+            "COALESCE((metadata->>'chunk_index')::int, 0) AS ci "
+            "FROM documents "
+            "WHERE context_id = :cid AND metadata->>'DocumentTitle' IN :titles "
+            "ORDER BY t, ci, id"
+        ).bindparams(bindparam("titles", expanding=True))
+        by_title = {}
+        for row in sess.execute(stmt, {"cid": cid, "titles": titles}).fetchall():
+            by_title.setdefault(row[0], []).append(row[1])
+        out, seen = [], set()
+        for h in hits:
+            t = (h.get("_source", {}).get("metadata", {}) or {}).get("DocumentTitle")
+            if not t or t not in by_title:
+                out.append(h)
+                continue
+            if t in seen:
+                continue
+            seen.add(t)
+            chunks = by_title[t]
+            kept = chunks[:max_chunks]
+            new_h = {**h, "_source": {**h["_source"],
+                     "content": "\n\n".join(c for c in kept if c),
+                     "metadata": {**h["_source"].get("metadata", {}),
+                                  "_expanded_chunks": len(kept),
+                                  "_expanded_truncated": len(chunks) > max_chunks}}}
+            out.append(new_h)
+        return out
+    except Exception as e:  # noqa: BLE001 — expansion must never fail the search
+        logger.warning("decision-complete expansion skipped: %s", e)
+        return hits
