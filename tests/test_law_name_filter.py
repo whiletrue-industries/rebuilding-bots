@@ -678,3 +678,78 @@ def test_filter_honored_when_matches_query_law(aurora_db_filter, database_url, m
     assert hits
     assert {h["_source"]["metadata"]["law_name"] for h in hits} == {"חוק האזנת סתר"}
     assert all("_query_detected_law" not in h["_source"]["metadata"] for h in hits)
+
+
+def test_filter_prefixless_resolves_and_overrides(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client",
+                        lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"},
+                              config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "israeli_laws"}, "israeli_laws", False)
+    emb = [1.0] * 1536
+    _seed_law_doc(database_url, cid, "מינוי מזכיר הכנסת על ידי יושב ראש הכנסת",
+                  {"law_name": "חוק מינוי מזכיר הכנסת", "DocumentTitle": "חוק מינוי מזכיר הכנסת"}, emb)
+    _seed_law_doc(database_url, cid, "סדרי הדיון בוועדה",
+                  {"law_name": "תקנון הכנסת", "DocumentTitle": "תקנון הכנסת"}, emb)
+    _refresh_law_catalog(database_url)
+    # Variant 3: query has NO legal-prefix token but IS the law name minus 'חוק'; model filtered to
+    # a different law -> whole-query resolution overrides to the query-named law.
+    res = store.search(context_name="israeli_laws", query_text="מינוי מזכיר הכנסת",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
+                       metadata_filter={"law_name": "תקנון הכנסת"})
+    hits = res["hits"]["hits"]
+    assert hits, "prefix-less resolution should re-scope to the query-named law and return it"
+    assert {h["_source"]["metadata"]["law_name"] for h in hits} == {"חוק מינוי מזכיר הכנסת"}
+    assert hits[0]["_source"]["metadata"].get("_query_detected_law") == "חוק מינוי מזכיר הכנסת"
+
+
+def test_filter_prefixless_honored_when_topical(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client",
+                        lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"},
+                              config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "israeli_laws"}, "israeli_laws", False)
+    emb = [1.0] * 1536
+    _seed_law_doc(database_url, cid, "סעיף כלשהו בתקנון",
+                  {"law_name": "תקנון הכנסת", "DocumentTitle": "תקנון הכנסת"}, emb)
+    _seed_law_doc(database_url, cid, "מינוי מזכיר הכנסת",
+                  {"law_name": "חוק מינוי מזכיר הכנסת", "DocumentTitle": "חוק מינוי מזכיר הכנסת"}, emb)
+    _refresh_law_catalog(database_url)
+    # A genuinely topical query that shares no trigrams with either seeded law name -> _best_law_match
+    # returns nothing >= 0.5 -> the model's filter is honored, no override.
+    res = store.search(context_name="israeli_laws", query_text="כמה עולה דלק היום",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
+                       metadata_filter={"law_name": "תקנון הכנסת"})
+    hits = res["hits"]["hits"]
+    assert hits, "honored filter should still return the scoped law's docs"
+    assert {h["_source"]["metadata"]["law_name"] for h in hits} == {"תקנון הכנסת"}
+    assert all("_query_detected_law" not in h["_source"]["metadata"] for h in hits)
+
+
+def test_filter_prefixless_honored_when_matches(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client",
+                        lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"},
+                              config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "israeli_laws"}, "israeli_laws", False)
+    emb = [1.0] * 1536
+    _seed_law_doc(database_url, cid, "מינוי מזכיר הכנסת",
+                  {"law_name": "חוק מינוי מזכיר הכנסת", "DocumentTitle": "חוק מינוי מזכיר הכנסת"}, emb)
+    _seed_law_doc(database_url, cid, "סעיף בתקנון",
+                  {"law_name": "תקנון הכנסת", "DocumentTitle": "תקנון הכנסת"}, emb)
+    _refresh_law_catalog(database_url)
+    # Prefix-less query resolves to X, and the model's filter IS that same law (X == Y) -> honored,
+    # no override and no _query_detected_law tag.
+    res = store.search(context_name="israeli_laws", query_text="מינוי מזכיר הכנסת",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
+                       metadata_filter={"law_name": "חוק מינוי מזכיר הכנסת"})
+    hits = res["hits"]["hits"]
+    assert hits
+    assert {h["_source"]["metadata"]["law_name"] for h in hits} == {"חוק מינוי מזכיר הכנסת"}
+    assert all("_query_detected_law" not in h["_source"]["metadata"] for h in hits)
