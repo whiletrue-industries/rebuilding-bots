@@ -426,19 +426,33 @@ def _collect_raw_streams_files(config_dir: Path, source):
     return [(f.name, f.open('rb'), 'text/markdown', {}) for f in files]
 
 
+def _split_json_file(filename: Path):
+    with open(filename, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    document_name = data.get('metadata', {}).get('document_name', '')
+    if not document_name:
+        input_file = data.get('metadata', {}).get('input_file', '')
+        document_name = Path(input_file).stem
+    document_name = sanitize_filename(document_name)
+    structure = data.get('structure', [])
+    markdown_dict = generate_markdown_dict(structure, document_name)
+    return [(fname, content, 'text/markdown', {}) for fname, content in markdown_dict.items()]
+
+
 def _collect_raw_streams_split(config_dir: Path, context_name, source, offset=0):
+    # Glob support: a source containing '*' expands to every matching file —
+    # the israeli_laws (law-book) context points at
+    # extraction/law_book/*_structure_content.json instead of listing ~2000
+    # laws in config.yaml. generate_markdown_dict prefixes every chunk filename
+    # with the per-law document_name, so chunks never collide across laws.
+    if '*' in str(source):
+        results = []
+        for path in sorted(config_dir.glob(str(source))):
+            results.extend(_split_json_file(path))
+        return results
     filename = config_dir / source
     if filename.suffix == '.json':
-        with open(filename, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        document_name = data.get('metadata', {}).get('document_name', '')
-        if not document_name:
-            input_file = data.get('metadata', {}).get('input_file', '')
-            document_name = Path(input_file).stem
-        document_name = sanitize_filename(document_name)
-        structure = data.get('structure', [])
-        markdown_dict = generate_markdown_dict(structure, document_name)
-        return [(fname, content, 'text/markdown', {}) for fname, content in markdown_dict.items()]
+        return _split_json_file(filename)
     else:
         content = filename.read_text()
         parts = content.split('\n---\n')

@@ -15,7 +15,7 @@ from typing import Any
 
 import tiktoken
 from openai import OpenAI
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from ..config import is_production, get_logger, DEFAULT_EMBEDDING_SIZE, DEFAULT_EMBEDDING_MODEL
 from ..db.session import get_engine, get_session
@@ -75,6 +75,178 @@ _LEXICAL_STRATEGIES = frozenset({_LEXICAL_STRATEGY_TSQUERY, _LEXICAL_STRATEGY_TR
 # that still beats unrelated docs by a healthy margin under RRF.
 # Set via SET LOCAL inside the search txn — never leaks.
 _TRIGRAM_WORD_SIMILARITY_THRESHOLD = 0.1
+
+# Punctuation-only law_name normalization. Applied identically to the query-side
+# filter value (Python) and the stored value (SQL, _LAW_NAME_NORM_SQL) so a model
+# that emits "חוק-יסוד: הממשלה" matches a stored "חוק-יסוד הממשלה" / "חוק־יסוד: ...".
+_LAW_NAME_NORM_TRANSFORMS = [("־", "-"), (":", " "), ("״", '"'), ("׳", "'")]
+
+
+def _normalize_law_name(value):
+    if value is None:
+        return None
+    s = str(value)
+    for src, dst in _LAW_NAME_NORM_TRANSFORMS:
+        s = s.replace(src, dst)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+# Same transform as _normalize_law_name, in SQL, over metadata->>'law_name'.
+# '׳'→'''' is the SQL escaped apostrophe; '\\s+' is the Python-escaped regex \s+.
+_LAW_NAME_NORM_SQL = (
+    "trim(regexp_replace("
+    "replace(replace(replace(replace(metadata->>'law_name', '־', '-'), ':', ' '), '״', '\"'), '׳', ''''),"
+    " '\\s+', ' ', 'g'))"
+)
+
+def _build_metadata_filter_sql(metadata_filter):
+    """Build the WHERE fragment + params for a metadata_filter.
+
+    `law_name` is matched by NORMALIZED equality (punctuation-insensitive) so the
+    model's "חוק-יסוד: הממשלה" hits the stored "חוק-יסוד הממשלה". Any other keys keep
+    the original JSONB containment (`@>`).
+    """
+    if not metadata_filter:
+        return "", {}
+    clauses = []
+    params = {}
+    rest = dict(metadata_filter)
+    law = rest.pop("law_name", None)
+    if law is not None:
+        clauses.append(f" AND {_LAW_NAME_NORM_SQL} = :law_norm")
+        params["law_norm"] = _normalize_law_name(str(law))
+    if rest:
+        clauses.append(" AND metadata @> CAST(:mfilter AS jsonb)")
+        params["mfilter"] = json.dumps(rest)
+    return "".join(clauses), params
+
+
+_LAW_NAME_RESOLVE_THRESHOLD = 0.45
+
+
+def _best_law_match(sess, cid, mention, threshold=_LAW_NAME_RESOLVE_THRESHOLD):
+    """Best-matching formal law_name + its trigram similarity over the distinct
+    law_name set (the `law_name_catalog` matview, ~14k rows vs ~185k docs → ~200ms),
+    or None. The `%` operator is gated by pg_trgm.similarity_threshold; we set it to
+    `threshold`. `law_name_catalog_trgm` serves the `%` lookup. Returns (law_name, score).
+    """
+    if not mention:
+        return None
+    sess.execute(text("SET LOCAL pg_trgm.similarity_threshold = %s" % float(threshold)))
+    row = sess.execute(text(
+        "SELECT law_name, similarity(law_name, :m) AS s "
+        "FROM law_name_catalog "
+        "WHERE context_id = :cid AND law_name % :m "
+        "ORDER BY s DESC LIMIT 1"
+    ), {"cid": cid, "m": mention}).fetchone()
+    if row and row[1] is not None:
+        return (row[0], float(row[1]))
+    return None
+
+
+def _resolve_law_name(sess, cid, mention, threshold=_LAW_NAME_RESOLVE_THRESHOLD):
+    """Resolve a colloquial/partial/variant law mention to the formal `law_name`
+    in this context (pg_trgm similarity over law_name_catalog), or None if nothing
+    is similar enough. Used on a scoped-filter exact-miss to rescue the scope
+    (e.g. the model's "חוק המכרזים" -> "חוק חובת המכרזים").
+    """
+    m = _best_law_match(sess, cid, mention, threshold)
+    if m is not None and m[1] >= threshold:
+        return m[0]
+    return None
+
+
+_QUERY_DETECT_THRESHOLD = 0.55
+
+# Legal-title prefix tokens (an optional single leading letter — ה article, ל/ב/כ prepositions — is stripped before matching).
+_LEGAL_PREFIXES = frozenset({
+    "חוק", "חוק-יסוד", "תקנון", "תקנות", "פקודת", "פקודה", "כללי", "צו", "הוראות",
+})
+# Tokens that end a law-name span (question words, conjunctions).
+_SPAN_BOUNDARY = frozenset({
+    "מה", "מהו", "מהי", "האם", "מתי", "איך", "כמה", "מי", "למה", "איזה", "ו", "או", "אבל",
+})
+_DETECT_PUNCT = "?,.!׳״()\"':;"
+
+
+def _detect_law_in_query(sess, cid, query_text, threshold=_QUERY_DETECT_THRESHOLD):
+    """If an unfiltered israeli_laws query names a specific law, return the formal
+    law_name (resolved via _best_law_match over law_name_catalog), else None.
+
+    Gate: the query must contain EXACTLY ONE legal-prefix token (חוק/תקנון/...);
+    zero or more-than-one (ambiguous) -> None. From that prefix, try spans of
+    prefix + 1..3 following content tokens (stopping at a boundary word / punctuation),
+    requiring >=1 content token; resolve each and keep the single best match >= threshold.
+    """
+    if not query_text:
+        return None
+    raw = query_text.split()
+    toks = [t.strip(_DETECT_PUNCT) for t in raw]
+    had_punct = [t != t.strip(_DETECT_PUNCT) for t in raw]  # token carried a trailing/leading boundary mark
+
+    def _is_prefix(tok):
+        # strip a single leading letter (ה=article; ל/ב/כ=prepositions) if the remainder is a legal prefix
+        t = tok[1:] if len(tok) > 1 and tok[1:] in _LEGAL_PREFIXES else tok
+        return t in _LEGAL_PREFIXES
+
+    prefix_idxs = [i for i, t in enumerate(toks) if t and _is_prefix(t)]
+    if len(prefix_idxs) != 1:
+        return None
+    i = prefix_idxs[0]
+
+    best = None  # (law_name, score)
+    for k in (1, 2, 3):
+        end = i + k
+        if end >= len(toks):
+            break
+        nxt = toks[end]
+        if not nxt or nxt in _SPAN_BOUNDARY:
+            break
+        span = " ".join(toks[i:end + 1])
+        m = _best_law_match(sess, cid, span, threshold)
+        if m is not None and m[1] >= threshold and (best is None or m[1] > best[1]):
+            best = m
+        if had_punct[end]:  # this token ended a sentence clause — stop extending
+            break
+    return best[0] if best is not None else None
+
+
+_SCOPED_OVERRIDE_VECTOR_WEIGHT = 0.5
+
+
+def _scoped_vector_knn_sql(rest_sql):
+    """SQL for an EXACT vector KNN over a single law's docs.
+
+    `AS MATERIALIZED` is MANDATORY: Postgres 12+ inlines a single-reference CTE
+    by default, which would let the planner merge the law_name filter with the
+    `ORDER BY embedding <=>` and plan a GLOBAL HNSW scan + post-filter — that can
+    return 0 for a selective law even though its docs exist. Materializing the
+    law's docs first makes the outer ORDER BY ... LIMIT an exact KNN over that
+    small set. `rest_sql` carries any non-law_name filter keys so the scoped set
+    matches the FULL filter.
+    """
+    return (
+        "WITH law_docs AS MATERIALIZED ("
+        " SELECT id, content, metadata, embedding FROM documents"
+        # `metadata ? 'law_name'` is REQUIRED for the planner to use the partial
+        # index documents_law_name_norm (migration 0016) -> O(law) filter. It is
+        # semantically redundant with the norm-equality clause but the planner
+        # cannot infer the implication through the replace/regexp chain.
+        f" WHERE context_id = :cid AND metadata ? 'law_name' AND {_LAW_NAME_NORM_SQL} = :law_norm{rest_sql}"
+        ")"
+        " SELECT id, content, metadata, 1 - (embedding <=> CAST(:emb AS vector)) AS score"
+        " FROM law_docs ORDER BY embedding <=> CAST(:emb AS vector) LIMIT :limit"
+    )
+
+
+def _scoped_vector_knn(sess, cid, law_norm, rest_sql, rest_params, embedding, fetch):
+    """Exact vector KNN over one law's docs (see _scoped_vector_knn_sql). `sess` is
+    the caller's transaction; hnsw.ef_search is irrelevant here (no HNSW on the
+    materialized rows)."""
+    return sess.execute(text(_scoped_vector_knn_sql(rest_sql)), {
+        "cid": cid, "law_norm": law_norm, "emb": str(embedding), "limit": fetch, **rest_params,
+    }).fetchall()
+
 
 # Back-compat aliases for callers that import the old names.
 CHUNK_MAX_TOKENS = _CHUNK_MAX_TOKENS_DEFAULT
@@ -590,11 +762,7 @@ class VectorStoreAurora(VectorStoreBase):
                 return {"hits": {"hits": []}}
             cid = str(row[0])
 
-            md_filter_sql = ""
-            md_params = {}
-            if metadata_filter:
-                md_filter_sql = " AND metadata @> CAST(:mfilter AS jsonb)"
-                md_params["mfilter"] = json.dumps(metadata_filter)
+            md_filter_sql, md_params = _build_metadata_filter_sql(metadata_filter)
 
             rows = sess.execute(text(f"""
                 WITH dated AS (
@@ -654,6 +822,7 @@ class VectorStoreAurora(VectorStoreBase):
         num_results: int = 7,
         explain: bool = False,
         metadata_filter: dict | None = None,
+        _qd_skip: bool = False,
     ) -> dict:
         """Hybrid retrieval: pgvector cosine + tsvector BM25, fused via
         reciprocal-rank-fusion. Mirrors VectorStoreES.search's return shape
@@ -714,6 +883,29 @@ class VectorStoreAurora(VectorStoreBase):
             )
             ctx_strategy = _LEXICAL_STRATEGY_TSQUERY
 
+        # Query-side law detection: when the model leaves israeli_laws unfiltered but
+        # the query names a specific law, detect+resolve it and re-scope (independent of
+        # the model's tool-selection). israeli_laws-only; one level deep — the re-entrant
+        # call carries law_name, so has_law_name is True there and this block is skipped.
+        _q_law = (metadata_filter or {}).get("law_name")
+        _q_no_law = _q_law is None or not _normalize_law_name(str(_q_law))
+        if _q_no_law and context_name == "israeli_laws" and use_vector and not _qd_skip:
+            with get_session() as ds:
+                _drow = ds.execute(text(
+                    "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
+                ), {"bot": bot, "name": context_name}).fetchone()
+                detected = (_detect_law_in_query(ds, str(_drow[0]), query_text,
+                                                 _QUERY_DETECT_THRESHOLD) if _drow else None)
+            if detected:
+                logger.info("search query-detected: query=%r resolved=%r (%s, %s)",
+                            query_text, detected, bot, context_name)
+                df = self.search(context_name, query_text, search_mode, embedding,
+                                 num_results=num_results, explain=explain,
+                                 metadata_filter={"law_name": detected})
+                for hit in df["hits"]["hits"]:
+                    hit.setdefault("_source", {}).setdefault("metadata", {})["_query_detected_law"] = detected
+                return df
+
         # Resolve context_id from (bot, name) — small extra round-trip but
         # keeps the search call self-contained and resilient to context
         # rows being added/removed mid-process.
@@ -741,13 +933,33 @@ class VectorStoreAurora(VectorStoreBase):
                 return {"hits": {"hits": []}}
             cid = str(row[0])
 
-            md_filter_sql = ""
-            md_params = {}
-            if metadata_filter:
-                md_filter_sql = " AND metadata @> CAST(:mfilter AS jsonb)"
-                md_params["mfilter"] = json.dumps(metadata_filter)
+            # A law_name filter is a scoping directive ("answer from THIS law").
+            # An empty-string law_name (LLM bug) normalizes to "" — treat as no filter.
+            law_value = (metadata_filter or {}).get("law_name")
+            law_norm = _normalize_law_name(str(law_value)) if law_value is not None else None
+            if law_value is not None and not law_norm:
+                logger.warning("search: empty law_name filter for (%s, %s); ignoring it", bot, context_name)
+                metadata_filter = {k: v for k, v in metadata_filter.items() if k != "law_name"} or None
+                law_norm = None
+            has_law_name = law_norm is not None
+            other_keys = bool({k for k in (metadata_filter or {}) if k != "law_name"})
 
-            if use_vector:
+            md_filter_sql, md_params = _build_metadata_filter_sql(metadata_filter)
+
+            if has_law_name:
+                # Scope-preserving recall: exact vector KNN over the law's docs, regardless
+                # of the mode's use_vector flag, via a MATERIALIZED CTE (no global HNSW
+                # post-filter). Wider fetch than default — the right section may sit deeper
+                # than num_results*5 within a multi-hundred-doc law, and a lexical-only mode
+                # has no lexical safety net.
+                rest_sql, rest_params = _build_metadata_filter_sql(
+                    {k: v for k, v in metadata_filter.items() if k != "law_name"})
+                scoped_fetch = max(fetch, num_results * 15)
+                vector_rows = _scoped_vector_knn(sess, cid, law_norm, rest_sql, rest_params,
+                                                 embedding, scoped_fetch)
+                # (Observability log is emitted in Task 4, after the lexical branch and the
+                # fallback decision, where scoped_lex and gate_fired are also known.)
+            elif use_vector:
                 vector_rows = sess.execute(text(
                     f"""
                     SELECT id, content, metadata, 1 - (embedding <=> CAST(:emb AS vector)) AS score
@@ -818,7 +1030,49 @@ class VectorStoreAurora(VectorStoreBase):
                     lexical_rows = []
             bm25_rows = lexical_rows  # kept name for back-compat with _rrf_fuse call below
 
-        return _rrf_fuse(vector_rows, bm25_rows, num_results)
+        # Reduce the scoped vector's weight only when we OVERRODE a lexical-only mode
+        # (e.g. SECTION_NUMBER), so an injected scoped-vector hit can't displace an exact
+        # §86 lexical match. For modes where vector was already on, weight is unchanged.
+        _vw = _SCOPED_OVERRIDE_VECTOR_WEIGHT if (has_law_name and not use_vector) else 1.0
+        result = _rrf_fuse(vector_rows, bm25_rows, num_results, vector_weight=_vw)
+        # Spec §D observability + scope-preserving fallback. The fallback fires ONLY when
+        # law_name is the SOLE filter key and the fully-scoped result is empty — i.e. the
+        # named law has zero docs (a genuinely absent colloquial name like "חוק המכרזים").
+        # A compound-filter miss returns empty rather than widening to cross-law. Bounded
+        # to one level (re-run passes metadata_filter=None). bm25_rows / vector_rows are in
+        # function scope here (assigned inside the closed `with get_session()` block).
+        gate_fired = bool(has_law_name and not other_keys and not result["hits"]["hits"])
+        if has_law_name:
+            logger.info("search scoped: law_name=%r scoped_vec=%d scoped_lex=%d gate_fired=%s (%s, %s)",
+                        law_norm, len(vector_rows), len(bm25_rows), gate_fired, bot, context_name)
+        if gate_fired:
+            with get_session() as rs:
+                resolved = _resolve_law_name(rs, cid, law_norm, _LAW_NAME_RESOLVE_THRESHOLD)
+            if resolved and _normalize_law_name(resolved) != law_norm:
+                logger.info("search: law_name=%r resolved to %r in (%s, %s); re-scoping",
+                            law_norm, resolved, bot, context_name)
+                rf = self.search(context_name, query_text, search_mode, embedding,
+                                 num_results=num_results, explain=explain,
+                                 metadata_filter={"law_name": resolved})
+                for hit in rf["hits"]["hits"]:
+                    hit.setdefault("_source", {}).setdefault("metadata", {})["_resolved_from"] = law_norm
+                return rf
+            fb = self.search(context_name, query_text, search_mode, embedding,
+                             num_results=num_results, explain=explain, metadata_filter=None,
+                             _qd_skip=True)
+            for hit in fb["hits"]["hits"]:
+                hit.setdefault("_source", {}).setdefault("metadata", {})["_fallback_reason"] = "law_name_absent"
+            return fb
+        # Decision-complete retrieval: for the interpretive/decision corpora, hand the
+        # LLM the whole decision/opinion a chunk belongs to (same DocumentTitle) instead
+        # of a fragment. Opt-in per context; runs on the final fused result; own session
+        # (the search session is already closed here). Best-effort inside the helper.
+        if ctx_cfg and ctx_cfg.get("expand_to_document") and result["hits"]["hits"]:
+            _ecap = _resolve_int_setting(ctx_cfg, "expand_max_chunks", _EXPAND_MAX_CHUNKS_DEFAULT,
+                                         minimum=1, maximum=200)
+            with get_session() as es:
+                result["hits"]["hits"] = _expand_to_documents(es, cid, result["hits"]["hits"], _ecap)
+        return result
 
     def government_distribution(self, context_name: str, decision_number: str) -> list[dict]:
         """One entry per distinct government_number with the given decision_number.
@@ -1108,3 +1362,67 @@ def _rrf_fuse(
         try: span.set_attribute("rrf.returned", len(result["hits"]["hits"]))
         except Exception: pass
         return result
+
+
+_EXPAND_MAX_CHUNKS_DEFAULT = 12
+_EXPAND_TOTAL_CHUNKS_BUDGET = 40  # aggregate cap across all hits in one result (bounds tool-response size)
+
+
+def _expand_to_documents(sess, cid, hits, max_chunks=_EXPAND_MAX_CHUNKS_DEFAULT, total_budget=_EXPAND_TOTAL_CHUNKS_BUDGET):
+    """Replace each hit's content with the FULL decision/opinion it belongs to
+    (all chunks sharing its metadata.DocumentTitle, chunk_index-ordered, capped at
+    max_chunks), so the LLM reasons over the complete finding instead of a fragment.
+    Hits sharing a DocumentTitle collapse to the first (highest-ranked) one; hits
+    without a DocumentTitle pass through unchanged. Best-effort: on any error, return
+    the original hits.
+
+    total_budget caps the AGGREGATE kept-chunk count across ALL expanded hits in one
+    call. Once used >= total_budget, remaining titled hits pass through un-expanded
+    (in their original RRF position) instead of ballooning the tool response.
+    Hits that pass through (no title, already-seen dedup, or budget-spent) do NOT
+    count against the budget.
+    """
+    try:
+        titles = []
+        for h in hits:
+            t = (h.get("_source", {}).get("metadata", {}) or {}).get("DocumentTitle")
+            if t and t not in titles:
+                titles.append(t)
+        if not titles:
+            return hits
+        stmt = text(
+            "SELECT metadata->>'DocumentTitle' AS t, content, "
+            "COALESCE((metadata->>'chunk_index')::int, 0) AS ci "
+            "FROM documents "
+            "WHERE context_id = :cid AND metadata->>'DocumentTitle' IN :titles "
+            "ORDER BY t, ci, id"
+        ).bindparams(bindparam("titles", expanding=True))
+        by_title = {}
+        for row in sess.execute(stmt, {"cid": cid, "titles": titles}).fetchall():
+            by_title.setdefault(row[0], []).append(row[1])
+        out, seen = [], set()
+        used = 0
+        for h in hits:
+            t = (h.get("_source", {}).get("metadata", {}) or {}).get("DocumentTitle")
+            if not t or t not in by_title:
+                out.append(h)
+                continue
+            if t in seen:
+                continue
+            seen.add(t)
+            if used >= total_budget:
+                out.append(h)
+                continue
+            chunks = by_title[t]
+            kept = chunks[:max_chunks]
+            used += len(kept)
+            new_h = {**h, "_source": {**h["_source"],
+                     "content": "\n\n".join(c for c in kept if c),
+                     "metadata": {**h["_source"].get("metadata", {}),
+                                  "_expanded_chunks": len(kept),
+                                  "_expanded_truncated": len(chunks) > max_chunks}}}
+            out.append(new_h)
+        return out
+    except Exception as e:  # noqa: BLE001 — expansion must never fail the search
+        logger.warning("decision-complete expansion skipped: %s", e)
+        return hits
