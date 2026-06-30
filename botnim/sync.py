@@ -28,6 +28,7 @@ import yaml
 
 from .bot_config import BotConfig, load_bot_config, publish_bot_config
 from .config import SPECS, get_logger, get_openai_client, is_production
+from .db.session import get_engine as _db_get_engine
 from .vector_store import VectorStoreES, VectorStoreOpenAI, VectorStoreAurora
 
 logger = get_logger(__name__)
@@ -54,6 +55,26 @@ def _source_id_for(fetcher: dict | None, source_path: str | None) -> str:
     if source_path:
         return Path(source_path).stem
     return "unknown"
+
+
+def _refresh_law_name_catalog() -> None:
+    """Refresh the distinct-law-name matview used by query-side detection and the
+    law-name resolver. Best-effort: a refresh failure must not fail an otherwise
+    successful sync (the matview just lags until the next run). CONCURRENTLY needs
+    the unique index + a populated matview (both guaranteed by migration 0018).
+
+    Uses the module-level ``_db_get_engine`` binding (captured at import time)
+    rather than a lazy ``from botnim.db.session import get_engine`` import so that
+    the test-suite sys.modules mock in test_query_error_handling.py cannot
+    shadow the real engine with a MagicMock."""
+    from sqlalchemy import text
+    try:
+        with _db_get_engine().connect() as conn:
+            conn.execution_options(isolation_level="AUTOCOMMIT").execute(
+                text("REFRESH MATERIALIZED VIEW CONCURRENTLY law_name_catalog"))
+        logger.info("refreshed law_name_catalog matview")
+    except Exception as e:  # noqa: BLE001 — best-effort, never fail the sync on this
+        logger.warning("law_name_catalog refresh skipped: %s", e)
 
 
 def _write_snapshots(bot_slug: str) -> None:
@@ -204,3 +225,8 @@ def sync_agents(environment: str, bots: str, backend: str = 'aurora',
         # Inside the bot loop so a multi-bot future writes one snapshot per bot;
         # any exception above this line skips the snapshot, which is the point.
         _write_snapshots(bot_id)
+
+    # Keep the distinct-law-name catalog (used by resolution + query-side detection)
+    # current with the documents just synced. Best-effort; aurora only.
+    if backend == "aurora":
+        _refresh_law_name_catalog()

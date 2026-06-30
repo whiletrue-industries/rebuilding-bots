@@ -9,6 +9,13 @@ from sqlalchemy import create_engine, text
 
 from botnim.vector_store.vector_store_aurora import _normalize_law_name, _build_metadata_filter_sql, _LAW_NAME_NORM_SQL
 
+# Import botnim.sync at module level so test_query_error_handling.py's
+# module-level sys.modules mock (which runs at collection time and replaces
+# 'botnim.sync' with a MagicMock) cannot break tests that call sync helpers.
+# Alphabetically this file is collected before test_query_error_handling.py,
+# so the import here captures the real module object.
+import botnim.sync as _botnim_sync
+
 
 class _FakeEmbed:
     def embed(self, text):
@@ -522,3 +529,22 @@ def test_search_topical_query_not_rescoped(aurora_db_filter, database_url, monke
                        search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
                        metadata_filter=None)
     assert not any(h["_source"]["metadata"].get("_query_detected_law") for h in res["hits"]["hits"])
+
+
+def test_refresh_law_name_catalog_picks_up_new_law(aurora_db_filter, database_url):
+    from sqlalchemy import create_engine, text
+    eng = create_engine(database_url)
+    with eng.begin() as c:
+        cid = c.execute(text(
+            "INSERT INTO contexts (id, bot, name) VALUES (gen_random_uuid(), 'b', 'refctx') "
+            "ON CONFLICT (bot, name) DO UPDATE SET updated_at=now() RETURNING id")).scalar()
+        emb = "[" + ",".join(["0.1"] * 1536) + "]"
+        c.execute(text(
+            "INSERT INTO documents (id, context_id, content, content_hash, metadata, embedding) "
+            "VALUES (gen_random_uuid(), :cid, 'x', 'refh', CAST(:m AS jsonb), CAST(:e AS vector))"),
+            {"cid": str(cid), "m": '{"law_name": "חוק חדש לגמרי"}', "e": emb})
+    _botnim_sync._refresh_law_name_catalog()
+    with eng.begin() as c:
+        n = c.execute(text("SELECT count(*) FROM law_name_catalog WHERE law_name=:ln"),
+                      {"ln": "חוק חדש לגמרי"}).scalar()
+        assert n == 1, "refresh should add the new law to the catalog"
