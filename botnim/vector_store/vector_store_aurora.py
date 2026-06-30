@@ -882,6 +882,29 @@ class VectorStoreAurora(VectorStoreBase):
             )
             ctx_strategy = _LEXICAL_STRATEGY_TSQUERY
 
+        # Query-side law detection: when the model leaves israeli_laws unfiltered but
+        # the query names a specific law, detect+resolve it and re-scope (independent of
+        # the model's tool-selection). israeli_laws-only; one level deep — the re-entrant
+        # call carries law_name, so has_law_name is True there and this block is skipped.
+        _q_law = (metadata_filter or {}).get("law_name")
+        _q_no_law = _q_law is None or not _normalize_law_name(str(_q_law))
+        if _q_no_law and context_name == "israeli_laws" and use_vector:
+            with get_session() as ds:
+                _drow = ds.execute(text(
+                    "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
+                ), {"bot": bot, "name": context_name}).fetchone()
+                detected = (_detect_law_in_query(ds, str(_drow[0]), query_text,
+                                                 _QUERY_DETECT_THRESHOLD) if _drow else None)
+            if detected:
+                logger.info("search query-detected: query=%r resolved=%r (%s, %s)",
+                            query_text, detected, bot, context_name)
+                df = self.search(context_name, query_text, search_mode, embedding,
+                                 num_results=num_results, explain=explain,
+                                 metadata_filter={"law_name": detected})
+                for hit in df["hits"]["hits"]:
+                    hit.setdefault("_source", {}).setdefault("metadata", {})["_query_detected_law"] = detected
+                return df
+
         # Resolve context_id from (bot, name) — small extra round-trip but
         # keeps the search call self-contained and resilient to context
         # rows being added/removed mid-process.

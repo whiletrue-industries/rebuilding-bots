@@ -484,3 +484,41 @@ def test_detect_law_in_query(aurora_db_filter, database_url):
         assert _detect_law_in_query(c, cid, "ההבדל בין חוק המכרזים לחוק האזנת סתר", _QUERY_DETECT_THRESHOLD) is None
         # bare prefix, no name -> None
         assert _detect_law_in_query(c, cid, "מה אומר החוק?", _QUERY_DETECT_THRESHOLD) is None
+
+
+def test_search_query_detection_rescopes(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client", lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"}, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "israeli_laws"}, "israeli_laws", False)
+    emb = [1.0] * 1536
+    _seed_law_doc(database_url, cid, "חובת מכרז גוף ציבורי",
+                  {"law_name": "חוק חובת המכרזים", "DocumentTitle": "חוק חובת המכרזים"}, emb)
+    _seed_law_doc(database_url, cid, "תוכן לא קשור",
+                  {"law_name": "חוק אחר לגמרי", "DocumentTitle": "חוק אחר לגמרי"}, emb)
+    _refresh_law_catalog(database_url)
+    # unfiltered query that NAMES a law -> detect -> re-scope to חוק חובת המכרזים, tagged
+    res = store.search(context_name="israeli_laws", query_text="מהו חוק המכרזים?",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
+                       metadata_filter=None)
+    hits = res["hits"]["hits"]
+    assert hits, "should detect + re-scope"
+    assert {h["_source"]["metadata"]["law_name"] for h in hits} == {"חוק חובת המכרזים"}
+    assert all(h["_source"]["metadata"].get("_query_detected_law") == "חוק חובת המכרזים" for h in hits)
+
+
+def test_search_topical_query_not_rescoped(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client", lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "Unified"}, config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "israeli_laws"}, "israeli_laws", False)
+    emb = [1.0] * 1536
+    _seed_law_doc(database_url, cid, "חובת מכרז", {"law_name": "חוק חובת המכרזים", "DocumentTitle": "x"}, emb)
+    _refresh_law_catalog(database_url)
+    # topical query with NO legal prefix -> no detection -> no _query_detected_law tag
+    res = store.search(context_name="israeli_laws", query_text="מה אומרים על מכרזים?",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5,
+                       metadata_filter=None)
+    assert not any(h["_source"]["metadata"].get("_query_detected_law") for h in res["hits"]["hits"])
