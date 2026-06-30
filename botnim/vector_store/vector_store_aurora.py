@@ -1063,6 +1063,15 @@ class VectorStoreAurora(VectorStoreBase):
             for hit in fb["hits"]["hits"]:
                 hit.setdefault("_source", {}).setdefault("metadata", {})["_fallback_reason"] = "law_name_absent"
             return fb
+        # Decision-complete retrieval: for the interpretive/decision corpora, hand the
+        # LLM the whole decision/opinion a chunk belongs to (same DocumentTitle) instead
+        # of a fragment. Opt-in per context; runs on the final fused result; own session
+        # (the search session is already closed here). Best-effort inside the helper.
+        if ctx_cfg and ctx_cfg.get("expand_to_document") and result["hits"]["hits"]:
+            _ecap = _resolve_int_setting(ctx_cfg, "expand_max_chunks", _EXPAND_MAX_CHUNKS_DEFAULT,
+                                         minimum=1, maximum=200)
+            with get_session() as es:
+                result["hits"]["hits"] = _expand_to_documents(es, cid, result["hits"]["hits"], _ecap)
         return result
 
     def government_distribution(self, context_name: str, decision_number: str) -> list[dict]:

@@ -95,3 +95,41 @@ def test_expand_caps_chunks(aurora_db_filter, database_url):
         out = _expand_to_documents(c, cid, [_hit("החלטה ג", "c0")], max_chunks=3)
     assert out[0]["_source"]["metadata"]["_expanded_chunks"] == 3
     assert out[0]["_source"]["metadata"]["_expanded_truncated"] is True
+
+
+class _FakeEmbed:
+    def embed(self, text):
+        return [1.0] * 1536
+
+
+def test_search_expands_for_optin_context(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client", lambda env: _FakeEmbed())
+    # config marks 'dctx' as expand_to_document; 'plain' is not opted in
+    store = VectorStoreAurora(config={"slug": "unified", "name": "U", "context": [
+        {"slug": "dctx", "expand_to_document": True}, {"slug": "plain"}]},
+        config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "dctx"}, "dctx", False)
+    _seed_chunk(database_url, cid, "הכלל: רשאי להוציא לאחר שלוש קריאות", "החלטה ד", 0)
+    _seed_chunk(database_url, cid, "אולם לא באופן רצוף — שהות לתקן", "החלטה ד", 2)
+    emb = [1.0] * 1536
+    res = store.search(context_name="dctx", query_text="שלוש קריאות לסדר",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=emb, num_results=5)
+    blob = " ".join(h["_source"]["content"] for h in res["hits"]["hits"])
+    assert "לא באופן רצוף" in blob                                   # the qualifier chunk is now present
+    assert any(h["_source"]["metadata"].get("_expanded_chunks") for h in res["hits"]["hits"])
+
+
+def test_search_no_expand_for_plain_context(aurora_db_filter, database_url, monkeypatch):
+    from botnim.vector_store.vector_store_aurora import VectorStoreAurora
+    from botnim.vector_store.search_modes import DEFAULT_SEARCH_MODE
+    monkeypatch.setattr("botnim.vector_store.vector_store_aurora._get_embedding_client", lambda env: _FakeEmbed())
+    store = VectorStoreAurora(config={"slug": "unified", "name": "U", "context": [{"slug": "plain"}]},
+                              config_dir=".", environment="staging")
+    cid = store.get_or_create_vector_store({"slug": "plain"}, "plain", False)
+    _seed_chunk(database_url, cid, "rule chunk", "כותרת", 0)
+    _seed_chunk(database_url, cid, "qualifier chunk", "כותרת", 2)
+    res = store.search(context_name="plain", query_text="rule",
+                       search_mode=DEFAULT_SEARCH_MODE, embedding=[1.0] * 1536, num_results=5)
+    assert not any(h["_source"]["metadata"].get("_expanded_chunks") for h in res["hits"]["hits"])
