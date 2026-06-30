@@ -575,3 +575,34 @@ def test_stale_matview_punctuated_name_does_not_recurse(aurora_db_filter, databa
     hits = res["hits"]["hits"]
     assert all(h["_source"]["metadata"].get("_fallback_reason") == "law_name_absent" for h in hits)
     assert not any(h["_source"]["metadata"].get("_resolved_from") for h in hits)
+
+
+def _seed_three_laws_and_refresh(database_url):
+    from sqlalchemy import create_engine, text
+    eng = create_engine(database_url)
+    with eng.begin() as c:
+        cid = c.execute(text(
+            "INSERT INTO contexts (id, bot, name) VALUES (gen_random_uuid(), 'b', 'domctx') "
+            "ON CONFLICT (bot, name) DO UPDATE SET updated_at=now() RETURNING id")).scalar()
+        emb = "[" + ",".join(["0.1"] * 1536) + "]"
+        for i, ln in enumerate(["חוק חובת המכרזים", "תקנון הכנסת", "חוק האזנת סתר"]):
+            c.execute(text(
+                "INSERT INTO documents (id, context_id, content, content_hash, metadata, embedding) "
+                "VALUES (gen_random_uuid(), :cid, 'x', :h, CAST(:m AS jsonb), CAST(:e AS vector))"),
+                {"cid": str(cid), "h": "domh%d" % i, "m": '{"law_name": "%s"}' % ln, "e": emb})
+    _refresh_law_catalog(database_url)
+    return str(cid)
+
+
+def test_detect_dominance_gate(aurora_db_filter, database_url):
+    from sqlalchemy import create_engine, text
+    from botnim.vector_store.vector_store_aurora import _detect_law_in_query, _QUERY_DETECT_THRESHOLD
+    cid = _seed_three_laws_and_refresh(database_url)
+    eng = create_engine(database_url)
+    with eng.connect() as c:
+        # dominant: span is the whole substantive query -> scope
+        assert _detect_law_in_query(c, cid, "מהו חוק המכרזים?", _QUERY_DETECT_THRESHOLD) == "חוק חובת המכרזים"
+        # INCIDENTAL trailing 'תקנון הכנסת' (the production failure) -> dominance 2/6 -> abstain
+        assert _detect_law_in_query(c, cid, "מזכיר הכנסת בחירה מינוי תקנון הכנסת", _QUERY_DETECT_THRESHOLD) is None
+        # law is the subject (dominance 3/6 = 0.5 >= 0.5) -> scope
+        assert _detect_law_in_query(c, cid, "האם חוק האזנת סתר חל על אזרחים?", _QUERY_DETECT_THRESHOLD) == "חוק האזנת סתר"

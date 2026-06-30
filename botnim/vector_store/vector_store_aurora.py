@@ -157,6 +157,8 @@ def _resolve_law_name(sess, cid, mention, threshold=_LAW_NAME_RESOLVE_THRESHOLD)
 
 
 _QUERY_DETECT_THRESHOLD = 0.55
+_QUERY_DETECT_DOMINANCE = 0.5  # the resolved law-name span must cover at least this fraction of the
+                                # query's content tokens; below it the prefix is incidental -> abstain
 
 # Legal-title prefix tokens (an optional single leading letter — ה article, ל/ב/כ prepositions — is stripped before matching).
 _LEGAL_PREFIXES = frozenset({
@@ -194,7 +196,7 @@ def _detect_law_in_query(sess, cid, query_text, threshold=_QUERY_DETECT_THRESHOL
         return None
     i = prefix_idxs[0]
 
-    best = None  # (law_name, score)
+    best = None  # (law_name, score, span_len)
     for k in (1, 2, 3):
         end = i + k
         if end >= len(toks):
@@ -205,10 +207,18 @@ def _detect_law_in_query(sess, cid, query_text, threshold=_QUERY_DETECT_THRESHOL
         span = " ".join(toks[i:end + 1])
         m = _best_law_match(sess, cid, span, threshold)
         if m is not None and m[1] >= threshold and (best is None or m[1] > best[1]):
-            best = m
+            best = (m[0], m[1], end - i + 1)
         if had_punct[end]:  # this token ended a sentence clause — stop extending
             break
-    return best[0] if best is not None else None
+    if best is None:
+        return None
+    # Dominance gate: an incidental legal-prefix span (e.g. a trailing "תקנון הכנסת" while the
+    # query's subject is elsewhere) must NOT hijack the scope. Require the span to cover a
+    # dominant share of the query's content tokens; else abstain -> the unfiltered topical search.
+    content_len = sum(1 for t in toks if t and t not in _SPAN_BOUNDARY)
+    if content_len and best[2] / content_len < _QUERY_DETECT_DOMINANCE:
+        return None
+    return best[0]
 
 
 _SCOPED_OVERRIDE_VECTOR_WEIGHT = 0.5
