@@ -157,6 +157,12 @@ def _resolve_law_name(sess, cid, mention, threshold=_LAW_NAME_RESOLVE_THRESHOLD)
 
 
 _QUERY_DETECT_THRESHOLD = 0.55
+_QUERY_DETECT_DOMINANCE = 0.5  # the resolved law-name span must cover at least this fraction of the
+                                # query's content tokens; below it the prefix is incidental -> abstain
+_QUERY_RESOLVE_THRESHOLD = 0.5  # prefix-less fallback: when the query names no law with a legal
+                                # prefix but the model supplied a law_name filter, resolve the WHOLE
+                                # query against the catalog; override the filter only if the best law
+                                # match clears this (gold-set-tunable; topical queries score <=0.3).
 
 # Legal-title prefix tokens (an optional single leading letter — ה article, ל/ב/כ prepositions — is stripped before matching).
 _LEGAL_PREFIXES = frozenset({
@@ -194,7 +200,7 @@ def _detect_law_in_query(sess, cid, query_text, threshold=_QUERY_DETECT_THRESHOL
         return None
     i = prefix_idxs[0]
 
-    best = None  # (law_name, score)
+    best = None  # (law_name, score, span_len)
     for k in (1, 2, 3):
         end = i + k
         if end >= len(toks):
@@ -205,10 +211,18 @@ def _detect_law_in_query(sess, cid, query_text, threshold=_QUERY_DETECT_THRESHOL
         span = " ".join(toks[i:end + 1])
         m = _best_law_match(sess, cid, span, threshold)
         if m is not None and m[1] >= threshold and (best is None or m[1] > best[1]):
-            best = m
+            best = (m[0], m[1], end - i + 1)
         if had_punct[end]:  # this token ended a sentence clause — stop extending
             break
-    return best[0] if best is not None else None
+    if best is None:
+        return None
+    # Dominance gate: an incidental legal-prefix span (e.g. a trailing "תקנון הכנסת" while the
+    # query's subject is elsewhere) must NOT hijack the scope. Require the span to cover a
+    # dominant share of the query's content tokens; else abstain -> the unfiltered topical search.
+    content_len = sum(1 for t in toks if t and t not in _SPAN_BOUNDARY)
+    if content_len and best[2] / content_len < _QUERY_DETECT_DOMINANCE:
+        return None
+    return best[0]
 
 
 _SCOPED_OVERRIDE_VECTOR_WEIGHT = 0.5
@@ -883,27 +897,64 @@ class VectorStoreAurora(VectorStoreBase):
             )
             ctx_strategy = _LEXICAL_STRATEGY_TSQUERY
 
-        # Query-side law detection: when the model leaves israeli_laws unfiltered but
-        # the query names a specific law, detect+resolve it and re-scope (independent of
-        # the model's tool-selection). israeli_laws-only; one level deep — the re-entrant
-        # call carries law_name, so has_law_name is True there and this block is skipped.
+        # Query-side law detection + filter-mismatch guard (with prefix-less resolution). Runs on
+        # EVERY israeli_laws vector search. Two ways to find the law the QUERY is about:
+        #   (1) prefix-anchored — _detect_law_in_query (dominance-gated): the law named with a legal
+        #       prefix (חוק/תקנון/…). Authoritative; used with or without a model filter.
+        #   (2) prefix-less — ONLY when (1) finds nothing AND the model supplied a law_name filter:
+        #       resolve the WHOLE query against the catalog (_best_law_match). Catches a topical
+        #       query that is really the law name minus its prefix (e.g. "מינוי מזכיר הכנסת").
+        # Re-scope to that law (the override) when the model left it unfiltered, or when its filter Y
+        # CONTRADICTS the found law (norm != norm); honor Y when it agrees or when no law is found.
+        # `_qd_skip` on the re-entrant call prevents re-detection. The dominance gate and the 0.5
+        # resolve threshold keep an incidental span or a weak match from overriding a correct filter.
         _q_law = (metadata_filter or {}).get("law_name")
-        _q_no_law = _q_law is None or not _normalize_law_name(str(_q_law))
-        if _q_no_law and context_name == "israeli_laws" and use_vector and not _qd_skip:
+        _q_law_norm = _normalize_law_name(str(_q_law)) if _q_law is not None else None
+        if context_name == "israeli_laws" and use_vector and not _qd_skip:
+            detected = None
+            resolved = None  # prefix-less whole-query match; only computed when detected is None & filter present
             with get_session() as ds:
                 _drow = ds.execute(text(
                     "SELECT id FROM contexts WHERE bot=:bot AND name=:name"
                 ), {"bot": bot, "name": context_name}).fetchone()
-                detected = (_detect_law_in_query(ds, str(_drow[0]), query_text,
-                                                 _QUERY_DETECT_THRESHOLD) if _drow else None)
+                if _drow:
+                    _cid = str(_drow[0])
+                    detected = _detect_law_in_query(ds, _cid, query_text, _QUERY_DETECT_THRESHOLD)
+                    if detected is None and _q_law_norm:
+                        m = _best_law_match(ds, _cid, query_text, _QUERY_RESOLVE_THRESHOLD)
+                        if m is not None and m[1] >= _QUERY_RESOLVE_THRESHOLD:
+                            resolved = m[0]
+            override = None
             if detected:
-                logger.info("search query-detected: query=%r resolved=%r (%s, %s)",
-                            query_text, detected, bot, context_name)
+                det_norm = _normalize_law_name(detected)
+                if not _q_law_norm:
+                    # No (usable) model filter — query-side detection scopes to the named law.
+                    logger.info("search query-detected: query=%r resolved=%r (%s, %s)",
+                                query_text, detected, bot, context_name)
+                    override = detected
+                elif det_norm != _q_law_norm:
+                    # MISMATCH GUARD: the model's law_name filter contradicts the law the query names.
+                    logger.warning("search filter-mismatch guard: query=%r names %r but model "
+                                   "filter law_name=%r — overriding to query-named law (%s, %s)",
+                                   query_text, detected, _q_law, bot, context_name)
+                    override = detected
+                # else: filter agrees with the detected law — honor it (override stays None)
+            elif resolved is not None and _normalize_law_name(resolved) != _q_law_norm:
+                # PREFIX-LESS GUARD: the query has no legal prefix but resolves to a law that the
+                # model's filter contradicts (Variant 3 — topical query + filter-to-a-guessed-law).
+                logger.warning("search filter-mismatch guard (query-resolved): query=%r resolves to "
+                               "%r but model filter law_name=%r — overriding (%s, %s)",
+                               query_text, resolved, _q_law, bot, context_name)
+                override = resolved
+            if override is not None:
+                _new_filter = {k: v for k, v in (metadata_filter or {}).items()
+                               if k != "law_name"}
+                _new_filter["law_name"] = override
                 df = self.search(context_name, query_text, search_mode, embedding,
                                  num_results=num_results, explain=explain,
-                                 metadata_filter={"law_name": detected})
+                                 metadata_filter=_new_filter, _qd_skip=True)
                 for hit in df["hits"]["hits"]:
-                    hit.setdefault("_source", {}).setdefault("metadata", {})["_query_detected_law"] = detected
+                    hit.setdefault("_source", {}).setdefault("metadata", {})["_query_detected_law"] = override
                 return df
 
         # Resolve context_id from (bot, name) — small extra round-trip but
